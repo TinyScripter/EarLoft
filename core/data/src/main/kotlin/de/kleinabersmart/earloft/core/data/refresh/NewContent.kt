@@ -7,8 +7,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Neue Folgen eines Podcasts ([episodeIds] sind `books`-Ids); [notify] sagt, ob der Nutzer dafür benachrichtigt werden will,
- * [autoDownload], ob die Automatik sie ohnehin lädt.
+ * New episodes of a podcast ([episodeIds] are `books` IDs); [notify] says whether the user wants to be notified about them,
+ * [autoDownload] whether the automation downloads them anyway.
  */
 data class NewEpisodes(
     val feedId: String,
@@ -20,16 +20,16 @@ data class NewEpisodes(
     val count: Int get() = episodeIds.size
 }
 
-/** Ein Album mit [songs] neuen Titeln. */
+/** An album with [songs] new tracks. */
 data class NewAlbum(val albumId: Long, val title: String, val artist: String, val songs: Int)
 
-/** Eine abonnierte Sendung aus ARD Sounds. */
+/** A subscribed show from ARD Sounds. */
 data class NewShow(val id: String, val title: String)
 
-/** Ein neues Buch; [ardShow], wenn es zu einer abonnierten Sendung aus ARD Sounds gehört. */
+/** A new book; [ardShow] if it belongs to a subscribed show from ARD Sounds. */
 data class NewBook(val bookId: Long, val title: String, val author: String, val ardShow: NewShow? = null)
 
-/** Was ein Abgleich im Hintergrund in einem Bereich Neues gebracht hat; jeder Bereich hat seine eigene Benachrichtigung. */
+/** What a background sync brought new in a section; each section has its own notification. */
 sealed interface NewContent {
     val isEmpty: Boolean
 
@@ -37,7 +37,7 @@ sealed interface NewContent {
         override val isEmpty: Boolean get() = albums.isEmpty()
     }
 
-    /** [moved]: Titel der Abos, die an eine neue Adresse umgezogen sind (Konzept 12.10 „Feed-Umzug“). */
+    /** [moved]: titles of the subscriptions that moved to a new address (concept 12.10 "Feed move"). */
     data class Podcasts(val episodes: List<NewEpisodes>, val moved: List<String> = emptyList()) : NewContent {
         override val isEmpty: Boolean get() = episodes.isEmpty() && moved.isEmpty()
     }
@@ -47,20 +47,20 @@ sealed interface NewContent {
     }
 }
 
-/** Zeigt [NewContent] als Benachrichtigung; die App liefert die Umsetzung (Texte, Kanal, Cover, Ziel des Tipps). */
+/** Shows [NewContent] as a notification; the app provides the implementation (texts, channel, cover, tap target). */
 interface NewContentNotifier {
     suspend fun show(content: NewContent)
 }
 
 enum class RefreshKind { MUSIC, PODCASTS, BOOKS }
 
-/** Rückmeldung zu einem Abgleich, den die Oberfläche als Hinweis zeigt, solange die App sichtbar ist. */
+/** Feedback on a sync, shown by the UI as a hint while the app is visible. */
 sealed interface RefreshEvent {
     val kind: RefreshKind
 
     data class Started(override val kind: RefreshKind) : RefreshEvent
 
-    /** [newCount] neue Folgen bzw. Bücher; [failed], wenn mindestens eine Quelle nicht erreichbar war. */
+    /** [newCount] new episodes or books; [failed] if at least one source was unreachable. */
     data class Finished(override val kind: RefreshKind, val newCount: Int, val failed: Boolean) : RefreshEvent
 }
 

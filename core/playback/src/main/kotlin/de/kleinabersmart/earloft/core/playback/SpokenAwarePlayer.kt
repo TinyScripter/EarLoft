@@ -11,21 +11,21 @@ import androidx.media3.common.util.UnstableApi
 import de.kleinabersmart.earloft.core.data.spoken.SeekSteps
 
 /**
- * Bei Hörbüchern und Folgen gelten andere Sprungweiten als bei Musik, einstellbar je Bereich (Konzept 12.4). Media3
- * kennt pro Player nur ein Paar; deshalb beantwortet dieser Wrapper [getSeekBackIncrement], [getSeekForwardIncrement],
- * [seekBack] und [seekForward] je nach aktuellem Item. Benachrichtigung, Android Auto, Widget und App sprechen alle mit
- * der Session und damit mit diesem Player.
+ * Audiobooks and episodes use different skip distances than music, configurable per area (concept 12.4). Media3
+ * only knows one pair per player; that's why this wrapper answers [getSeekBackIncrement], [getSeekForwardIncrement],
+ * [seekBack] and [seekForward] depending on the current item. Notification, Android Auto, widget and app all talk to
+ * the session and thus to this player.
  *
- * Ändern sich die Sprungweiten (anderes Item, neue Einstellung), meldet er das seinen Listenern: Die Session gibt es an die
- * Controller weiter, die sonst mit der alten Weite rechneten (die App zeigte nach dem Spulen kurz eine falsche Position).
+ * If the skip distances change (different item, new setting), it reports this to its listeners: the session passes it on to the
+ * controllers, which would otherwise calculate with the old distance (the app briefly showed a wrong position after seeking).
  *
- * Das laufende Kapitel ([chapterTitle]) steht in den Metadaten des Players vor dem Autor („Kapitel 12 · Autor“), also in
- * Benachrichtigung, Sperrbildschirm und Android Auto. Die App liest die Metadaten der Items und sieht davon nichts.
+ * The current chapter ([chapterTitle]) is put in the player's metadata before the author ("Chapter 12 · Author"), i.e. in
+ * notification, lock screen and Android Auto. The app reads the items' metadata and sees none of this.
  */
 @OptIn(UnstableApi::class)
 internal class SpokenAwarePlayer(player: Player) : ForwardingPlayer(player) {
 
-    /** Aus den Einstellungen; nur auf dem Main-Thread setzen. */
+    /** From the settings; only set on the main thread. */
     var bookSteps: SeekSteps = SeekSteps.DEFAULT
         set(value) {
             field = value
@@ -37,7 +37,7 @@ internal class SpokenAwarePlayer(player: Player) : ForwardingPlayer(player) {
             reportIncrements()
         }
 
-    /** Kapitel des laufenden Buchs bzw. der Folge; nur auf dem Main-Thread setzen. */
+    /** Chapter of the current book or episode; only set on the main thread. */
     var chapterTitle: String? = null
         set(value) {
             if (field == value) return
@@ -46,8 +46,8 @@ internal class SpokenAwarePlayer(player: Player) : ForwardingPlayer(player) {
         }
 
     /**
-     * Metadaten vom eigentlichen Player (neues Item, Tags aus der Datei) kommen ohne Kapitel bei den Listenern an. Dieser
-     * Listener steht dort immer als letzter (siehe [addListener]) und meldet sie danach mit Kapitel.
+     * Metadata from the underlying player (new item, tags from the file) reaches the listeners without the chapter. This
+     * listener is always registered last there (see [addListener]) and reports it afterwards with the chapter.
      */
     private val chapterRedispatch = object : Player.Listener {
         override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
@@ -55,7 +55,7 @@ internal class SpokenAwarePlayer(player: Player) : ForwardingPlayer(player) {
         }
     }
 
-    /** Die Listener, die hier angemeldet sind (an den eigentlichen Player gehen sie weiter); Main-Thread. */
+    /** The listeners registered here (they are forwarded to the underlying player); main thread. */
     private val listeners = LinkedHashSet<Player.Listener>()
     private var reportedBack = seekBackIncrement
     private var reportedForward = seekForwardIncrement
@@ -66,7 +66,7 @@ internal class SpokenAwarePlayer(player: Player) : ForwardingPlayer(player) {
         })
     }
 
-    /** Sprungweiten des aktuellen Items; `null` bei Musik. */
+    /** Skip distances of the current item; `null` for music. */
     val currentSteps: SeekSteps?
         get() {
             val item = currentMediaItem?.takeIf { it.isSpoken } ?: return null
@@ -131,7 +131,7 @@ internal class SpokenAwarePlayer(player: Player) : ForwardingPlayer(player) {
         if (flags.size() > 0) listeners.toList().forEach { it.onEvents(this, Player.Events(flags)) }
     }
 
-    /** Springt auch über Dateigrenzen hinweg (Hörbuch aus mehreren MP3-Dateien). */
+    /** Also seeks across file boundaries (audiobook made of several MP3 files). */
     private fun seekByMs(deltaMs: Long) {
         val target = currentPosition + deltaMs
         val duration = duration

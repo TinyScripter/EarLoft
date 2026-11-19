@@ -21,8 +21,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Die Uhr startet bewusst keinen `LibraryRefresher`, keine Sync-Queue und keine `AutoDownloads`
- * (Wear-Konzept 7.3): Was auf die Uhr kommt, bestimmt allein das Handy.
+ * The watch deliberately starts no `LibraryRefresher`, no sync queue and no `AutoDownloads`
+ * (Wear concept 7.3): what goes onto the watch is determined by the phone alone.
  */
 @HiltAndroidApp
 class WearApplication : Application() {
@@ -38,20 +38,20 @@ class WearApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // Vor dem Start des Wiedergabe-Service: nur Downloads, nicht über den Lautsprecher (Wear-Konzept 7.3, 9).
+        // Before the playback service starts: only downloads, not through the speaker (Wear concept 7.3, 9).
         playbackPolicy.allowStreaming = false
         playbackPolicy.requireSuitableOutput = !debugAllowsSpeaker()
-        // Bücher: Stand und Hörzeit gehen über das Handy an Audiobookshelf (Wear-Konzept 16.2).
+        // Books: progress and listening time go to Audiobookshelf via the phone (Wear concept 16.2).
         playbackPolicy.syncsWithBookServers = false
         playbackPolicy.shakeToExtendSleepTimer = false
-        // ReplayGain wie am Handy (W2): Die Einstellungen kommen mit /earloft/settings.
+        // ReplayGain as on the phone (W2): the settings come with /earloft/settings.
         applicationScope.launch {
             watchState.settings.map { it.replayGainMode to it.preAmpDb }.distinctUntilChanged().collect { (mode, preAmp) ->
                 replayGainSettings.setMode(mode)
                 replayGainSettings.setPreAmpDb(preAmp)
             }
         }
-        // Sprungweiten wie am Handy; Wiedergabe-Service und Player lesen sie aus SpokenSettings.
+        // Skip intervals as on the phone; playback service and player read them from SpokenSettings.
         applicationScope.launch {
             watchState.settings.map {
                 SeekSteps(it.bookSeekBackSeconds, it.bookSeekForwardSeconds) to
@@ -61,7 +61,7 @@ class WearApplication : Application() {
                 spokenSettings.setPodcastSeek(podcast)
             }
         }
-        // Vorgaben für Tempo und Effekte wie am Handy (Konzept 12.4); Abos und Folgen bringen ihre eigenen mit.
+        // Defaults for speed and effects as on the phone (concept 12.4); subscriptions and episodes bring their own.
         applicationScope.launch {
             watchState.settings.map {
                 SpokenEffects(it.bookSpeed, it.bookSkipSilence, it.bookVolumeBoostDb) to
@@ -73,15 +73,15 @@ class WearApplication : Application() {
         }
         applicationScope.launch { watchInfoPublisher.publish() }
         watchStatusPublisher.start(applicationScope)
-        // Auf der Uhr gehörte Folgen ans Handy (Wear-Konzept 16.1).
+        // Episodes listened to on the watch go to the phone (Wear concept 16.1).
         episodeReporter.start(applicationScope)
-        // Holt nach, was ankam, während die App nicht lief bzw. der Listener nichts gemeldet hat.
+        // Catches up on whatever arrived while the app was not running or the listener did not report anything.
         PhoneSyncWorker.enqueue(this)
     }
 
     /**
-     * Nur für Tests im Emulator, der keine Bluetooth-Ausgabe hat: In debuggable Builds erlaubt der Schalter
-     * `debug_allow_speaker` in `watch_state` den Lautsprecher (siehe `stand.md`, Testhinweise Wear).
+     * Only for tests in the emulator, which has no Bluetooth output: in debuggable builds the switch
+     * `debug_allow_speaker` in `watch_state` allows the speaker (see `stand.md`, Wear test notes).
      */
     private fun debugAllowsSpeaker(): Boolean {
         val debuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0

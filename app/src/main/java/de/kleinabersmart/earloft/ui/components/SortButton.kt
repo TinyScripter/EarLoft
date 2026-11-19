@@ -17,7 +17,7 @@ import androidx.compose.ui.res.stringResource
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Sortier-Symbol (für den Kopf der App); ein Tipp öffnet die Auswahl, die gewählte Reihenfolge trägt einen Haken. */
+/** Sort icon (for the app header); a tap opens the selection, the chosen order has a check mark. */
 @Composable
 fun <T> SortButton(
     selected: T,

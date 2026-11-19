@@ -4,29 +4,29 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Was ein Gerät beim Abspielen darf. Das Handy streamt und spielt über jede Ausgabe; die Uhr
- * (Wear-Konzept 7.3, 9) nur fertige Downloads und nicht über den eigenen Lautsprecher. Die Uhr
- * setzt die Werte beim Start der Anwendung, bevor der Wiedergabe-Service läuft.
+ * What a device may do during playback. The phone streams and plays over any output; the watch
+ * (Wear concept 7.3, 9) only finished downloads and not over its own speaker. The watch
+ * sets the values when the application starts, before the playback service runs.
  */
 @Singleton
 class PlaybackPolicy @Inject constructor() {
 
-    /** `false`: [PlaybackSourceResolver] liefert nur lokale Dateien und fertige Downloads. */
+    /** `false`: [PlaybackSourceResolver] only returns local files and finished downloads. */
     @Volatile
     var allowStreaming: Boolean = true
 
-    /** `true`: Ohne passende Ausgabe (z. B. Kopfhörer) wird die Wiedergabe angehalten statt über den Lautsprecher zu laufen. */
+    /** `true`: without a suitable output (e.g. headphones), playback is paused instead of playing over the speaker. */
     @Volatile
     var requireSuitableOutput: Boolean = false
 
     /**
-     * `false`: Fortschritt und Hörsitzungen von Büchern gehen nicht selbst an Audiobookshelf. Die Uhr meldet sie dem Handy,
-     * das sie weitergibt (Wear-Konzept 16.2); den Stand des Servers bringt das Handy mit.
+     * `false`: progress and listening sessions of books are not sent to Audiobookshelf directly. The watch reports them to the phone,
+     * which forwards them (Wear concept 16.2); the phone brings along the server's state.
      */
     @Volatile
     var syncsWithBookServers: Boolean = true
 
-    /** `false`: Schütteln verlängert den Sleep-Timer nicht (Uhr: das Handgelenk bewegt sich im Schlaf zu leicht). */
+    /** `false`: shaking doesn't extend the sleep timer (watch: the wrist moves too easily during sleep). */
     @Volatile
     var shakeToExtendSleepTimer: Boolean = true
 }

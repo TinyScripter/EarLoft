@@ -16,7 +16,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 
-/** Feed-Umzug (Konzept 12.10): dauerhafte Weiterleitungen und `itunes:new-feed-url`. */
+/** Feed move (concept 12.10): permanent redirects and `itunes:new-feed-url`. */
 class PodcastFeedMoveTest {
 
     private lateinit var server: MockWebServer

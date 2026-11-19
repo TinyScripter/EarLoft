@@ -36,7 +36,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Ein Navidrome- bzw. Subsonic-Server (Konzept 6.3). */
+/** A Navidrome or Subsonic server (concept 6.3). */
 class SubsonicDataSource internal constructor(
     val server: SubsonicServer,
     override val displayName: String,
@@ -49,9 +49,9 @@ class SubsonicDataSource internal constructor(
     override val type: SourceType = SourceType.SUBSONIC
 
     /**
-     * Album-Metadaten (MBID, Sampler-Kennzeichen, Cover) kommen aus `getAlbumList2`, die Songs aus
-     * `search3` mit leerer Suche. Server, die darauf keine Songs liefern, werden Album für Album
-     * abgefragt. Fehler brechen den Scan ab, damit der Abgleich nichts löscht.
+     * Album metadata (MBID, compilation flag, cover) comes from `getAlbumList2`, the songs from
+     * `search3` with an empty query. Servers that return no songs for that are queried album by
+     * album. Errors abort the scan so the sync deletes nothing.
      */
     override fun fullScan(): Flow<SourceBatch> = flow {
         val albums = loadAllAlbums()
@@ -77,13 +77,13 @@ class SubsonicDataSource internal constructor(
         }
     }
 
-    /** `getAlbumList2?type=newest` ist nach Anlage-Zeitpunkt absteigend sortiert: Bei einem älteren Album ist Schluss. */
+    /** `getAlbumList2?type=newest` is sorted by creation time descending: it stops at an older album. */
     override suspend fun tracksAddedSince(since: Long): List<RawTrack> {
         val tracks = mutableListOf<RawTrack>()
         var offset = 0
         while (offset < MAX_NEW_ALBUMS) {
             val page = api.albumList(server, "newest", offset, NEWEST_PAGE_SIZE)
-            // Ohne Zeitstempel lieber laden (der Merge erkennt Unverändertes).
+            // Without a timestamp, better to load (the merge detects unchanged items).
             val fresh = page.takeWhile { album -> album.created?.toEpochMillis()?.let { it > since } ?: true }
             fresh.forEach { summary ->
                 val album = api.album(server, summary.id)
@@ -144,7 +144,7 @@ class SubsonicDataSource internal constructor(
 
     override suspend fun scrobble(remoteId: String, playedAt: Long) = api.scrobble(server, remoteId, playedAt)
 
-    /** Fremde (öffentliche) und Smart-Playlists lassen sich nicht ändern und werden ausgelassen. */
+    /** Foreign (public) and smart playlists can't be changed and are skipped. */
     override suspend fun playlists(): List<RemotePlaylistInfo> {
         val username = (server.credentials as? SubsonicCredentials.Password)?.username
         return api.playlists(server)
@@ -166,7 +166,7 @@ class SubsonicDataSource internal constructor(
 
     override suspend fun replacePlaylist(current: RemotePlaylist, name: String, songRemoteIds: List<String>): RemotePlaylistInfo {
         val remoteId = current.info.remoteId
-        // Absteigend entfernen: Bei mehreren Aufrufen bleiben die restlichen Indizes gültig.
+        // Remove in descending order: with several calls the remaining indices stay valid.
         val removals = current.songRemoteIds.indices.reversed().chunked(chunkSize)
         val additions = songRemoteIds.chunked(chunkSize)
         val calls = removals.map { it to emptyList<String>() } + additions.map { emptyList<Int>() to it }
@@ -182,7 +182,7 @@ class SubsonicDataSource internal constructor(
 
     override suspend fun deletePlaylist(remoteId: String) = api.deletePlaylist(server, remoteId)
 
-    /** OpenSubsonic zuerst, dann der klassische `getLyrics`-Aufruf (nur Text). */
+    /** OpenSubsonic first, then the classic `getLyrics` call (text only). */
     override suspend fun lyrics(remoteId: String, artist: String, title: String): Lyrics {
         SubsonicTrackMapper.lyrics(api.lyricsBySongId(server, remoteId)).let { if (it != Lyrics.None) return it }
         val text = try {
@@ -194,7 +194,7 @@ class SubsonicDataSource internal constructor(
         return if (text == null) Lyrics.None else Lyrics.Plain(text)
     }
 
-    /** Ohne `formPost` stehen die Song-IDs in der URL – dann in Blöcken senden. */
+    /** Without `formPost` the song IDs are in the URL – then send them in blocks. */
     private val chunkSize: Int get() = if (server.supportsFormPost) Int.MAX_VALUE else GET_CHUNK_SIZE
 
     private suspend fun loadAllAlbums(): Map<String, AlbumDto> {

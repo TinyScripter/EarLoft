@@ -3,27 +3,27 @@ package de.kleinabersmart.earloft.core.data.spoken
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.model.parseSeries
 
-/** Die ersten so vielen aus „Weiterhören“ lädt „Angefangene Bücher automatisch laden“. */
+/** "Download started books automatically" downloads this many of the first entries from "Continue listening". */
 const val AUTO_STARTED_BOOKS = 2
 
-/** Ab diesem Anteil eines Bands lädt „Nächsten Band laden“ den folgenden. */
+/** From this share of a volume on, "Download next volume" downloads the following one. */
 const val NEXT_IN_SERIES_AT = 0.8
 
-/** So viele Tage vor dem Ablauf bei ARD Sounds lädt „Bald ablaufende Bücher laden“ ein Buch. */
+/** "Download books expiring soon" downloads a book this many days before it expires on ARD Sounds. */
 const val ARD_EXPIRY_LOAD_DAYS = 7
 
 private const val DAY_MS = 24 * 60 * 60 * 1000L
 
-/** Ein beendeter Band zählt noch so lange für „Nächsten Band laden“ (danach hat man sich wohl dagegen entschieden). */
+/** A finished volume still counts this long for "Download next volume" (after that, one has presumably decided against it). */
 private const val NEXT_IN_SERIES_FINISHED_DAYS = 14
 
 /**
- * Welche Bücher die Automatik laden soll (Konzept 12.8, `books_improvements.md` M5): mit [started] die ersten
- * [AUTO_STARTED_BOOKS] aus [continueListening], mit [nextInSeries] je Serie den nächsten Band nach einem, der zu
- * [NEXT_IN_SERIES_AT] gehört ist (oder vor höchstens [NEXT_IN_SERIES_FINISHED_DAYS] Tagen beendet wurde) – der nächste ist
- * der mit der kleinsten höheren Bandnummer, der noch nicht beendet ist. Bücher vom Gerät brauchen keinen Download. Mit [expiring]
- * die Bücher aus ARD Sounds, die noch nicht beendet sind und in höchstens [ARD_EXPIRY_LOAD_DAYS] Tagen ablaufen, die zuerst
- * ablaufenden zuerst; schon abgelaufene gibt es dort nicht mehr.
+ * Which books the automation should download (concept 12.8, `books_improvements.md` M5): with [started] the first
+ * [AUTO_STARTED_BOOKS] from [continueListening], with [nextInSeries] for each series the next volume after one that has been
+ * listened to up to [NEXT_IN_SERIES_AT] (or was finished at most [NEXT_IN_SERIES_FINISHED_DAYS] days ago) – the next one is
+ * the one with the smallest higher volume number that is not finished yet. Books from the device need no download. With [expiring]
+ * the books from ARD Sounds that are not finished yet and expire within at most [ARD_EXPIRY_LOAD_DAYS] days, the ones
+ * expiring first come first; books that have already expired no longer exist there.
  */
 fun automaticBookDownloads(
     continueListening: List<BookWithProgress>,

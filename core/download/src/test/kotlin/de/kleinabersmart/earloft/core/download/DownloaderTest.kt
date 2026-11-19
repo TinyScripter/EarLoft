@@ -77,7 +77,7 @@ class DownloaderTest {
 
     @Test
     fun `opus profile asks the server to transcode and names the file after the response`() = runTest {
-        // Ohne Content-Length (Navidrome kennt die Größe der transkodierten Datei vorher nicht).
+        // Without Content-Length (Navidrome doesn't know the size of the transcoded file in advance).
         val audio = ByteArray(50_000) { (it * 7).toByte() }
         mockServer.enqueue(
             MockResponse.Builder()

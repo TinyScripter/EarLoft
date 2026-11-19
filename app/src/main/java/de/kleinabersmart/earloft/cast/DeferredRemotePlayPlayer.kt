@@ -13,24 +13,24 @@ import androidx.media3.common.PlayerTransferState
 import androidx.media3.common.util.UnstableApi
 
 /**
- * Der Cast-Empfänger lädt eine neue Warteschlange mit `autoplay = playWhenReady`. Die App ruft aber erst
- * `setMediaItems`, dann `play()` – war vorher pausiert, geht das LOAD ohne Autoplay hinaus und das `play()`
- * trifft den Empfänger mitten im Laden und verpufft (am Gerät gesehen: neue Warteschlange da, aber pausiert).
- * Deshalb wird „Abspielen“ zurückgehalten, bis der Empfänger nach dem Laden bereit ist. Lokal ändert sich nichts.
+ * The cast receiver loads a new queue with `autoplay = playWhenReady`. The app, however, first calls
+ * `setMediaItems` and then `play()` – if it was paused before, the LOAD goes out without autoplay and the `play()`
+ * hits the receiver mid-load and fizzles out (seen on the device: new queue there, but paused).
+ * That's why "play" is held back until the receiver is ready after loading. Locally nothing changes.
  *
- * Ebenso beim Verbinden: Die Übergabe lädt die Warteschlange des Handys am Empfänger, ohne über diesen Player zu gehen.
- * Ein „Abspielen“ während dieses Ladens lehnte der Empfänger ab („Invalid Request“, noch keine Mediensitzung), meldete
- * danach keine Warteschlange mehr, und nach 20 s (Ladeüberwachung der Factory) kam alles aufs Handy zurück (am
- * Gerät gesehen, 2026-11-13). Bücher von Audiobookshelf brauchen dort 10–12 s, daher die lange Frist [LOAD_TIMEOUT_MS].
+ * Same when connecting: the handover loads the phone's queue on the receiver without going through this player.
+ * A "play" during that load was rejected by the receiver ("Invalid Request", no media session yet), it then reported
+ * no queue anymore, and after 20 s (the factory's load watch) everything came back to the phone (seen on the
+ * device, 2026-11-13). Books from Audiobookshelf take 10–12 s there, hence the long deadline [LOAD_TIMEOUT_MS].
  *
- * Jede neue Warteschlange, die beim Casten hinausgeht, meldet [onRemoteQueue] (als Stand fürs Handy, falls der
- * Empfänger sie nicht laden kann). Entfernt jemand beim Casten alles bis zum Ende (Mix „als Nächstes“), meldet das
- * [onClearedToEnd]: Was noch in der Reserve der Factory liegt, gilt dann ebenfalls als entfernt.
+ * Every new queue that goes out while casting is reported via [onRemoteQueue] (as the state for the phone in case the
+ * receiver can't load it). If someone removes everything up to the end while casting (mix "play next"), that is reported via
+ * [onClearedToEnd]: whatever is still in the factory's reserve then counts as removed too.
  *
- * Sprünge lassen sich kurz zurückhalten ([holdSeeks]), solange die Factory gespielte Titel vor dem laufenden aus dem
- * Empfänger nimmt: `RemoteCastPlayer` rechnet bis zur Bestätigung eines Sprungs mit dessen Index, und meldet der Empfänger
- * in dieser Zeit die kürzere Warteschlange, greift Media3 (1.11.1) daneben und die App stürzt ab (am Gerät gesehen,
- * 2026-11-18). Wann zuletzt gesprungen wurde, steht in [lastSeekAtMs].
+ * Seeks can be held back briefly ([holdSeeks]) while the factory removes played titles before the current one from the
+ * receiver: `RemoteCastPlayer` works with a seek's index until it is confirmed, and if the receiver reports
+ * the shorter queue during that time, Media3 (1.11.1) gets it wrong and the app crashes (seen on the device,
+ * 2026-11-18). When the last seek happened is stored in [lastSeekAtMs].
  */
 @OptIn(UnstableApi::class)
 internal class DeferredRemotePlayPlayer(
@@ -44,7 +44,7 @@ internal class DeferredRemotePlayPlayer(
     private var loading = false
     private var playAfterLoad = false
 
-    /** `SystemClock.elapsedRealtime()` des letzten Sprungs. */
+    /** `SystemClock.elapsedRealtime()` of the last seek. */
     var lastSeekAtMs = 0L
         private set
     private var seeksHeld = false
@@ -64,7 +64,7 @@ internal class DeferredRemotePlayPlayer(
             override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
                 playAfterLoad = false
                 finishLoad()
-                // Beim Verbinden: Läuft der Empfänger schon (Wiederanhängen), ist er bereit, sonst lädt die Übergabe.
+                // When connecting: if the receiver is already running (rejoin), it's ready; otherwise the handover is loading.
                 if (playbackState != Player.STATE_READY) startLoad()
             }
         })
@@ -103,7 +103,7 @@ internal class DeferredRemotePlayPlayer(
         super.removeMediaItems(fromIndex, toIndex)
     }
 
-    /** Leere Listen (alles ging in die Reserve) wären eine leere Cast-Nachricht. */
+    /** Empty lists (everything went into the reserve) would be an empty cast message. */
     override fun addMediaItems(mediaItems: List<MediaItem>) {
         if (mediaItems.isNotEmpty()) super.addMediaItems(mediaItems)
     }
@@ -112,12 +112,12 @@ internal class DeferredRemotePlayPlayer(
         if (mediaItems.isNotEmpty()) super.addMediaItems(index, mediaItems)
     }
 
-    /** Main-Thread. Sprünge ab jetzt sammeln, bis [releaseSeeks]. */
+    /** Main thread. Collect seeks from now on until [releaseSeeks]. */
     fun holdSeeks() {
         seeksHeld = true
     }
 
-    /** Main-Thread. Führt die gesammelten Sprünge in ihrer Reihenfolge aus. */
+    /** Main thread. Executes the collected seeks in order. */
     fun releaseSeeks() {
         if (!seeksHeld) return
         seeksHeld = false
@@ -132,8 +132,8 @@ internal class DeferredRemotePlayPlayer(
     }
 
     /**
-     * Ein Sprung zu einem Index: Wartet er, bis Titel davor entfernt sind, gilt danach der Titel, der beim Aufruf dort stand.
-     * `null`, wenn es ihn nicht mehr gibt.
+     * A seek to an index: if it waits until titles before it are removed, it then targets the title that was there at the time of the call.
+     * `null` if it no longer exists.
      */
     private fun indexAfterHold(mediaItemIndex: Int, mediaId: String?): Int? {
         if (mediaId == null || mediaItemIndex in 0 until mediaItemCount && getMediaItemAt(mediaItemIndex).mediaId == mediaId) {
@@ -184,7 +184,7 @@ internal class DeferredRemotePlayPlayer(
         super.setPlayWhenReady(playWhenReady)
     }
 
-    /** Nur nötig, wenn ohne Autoplay geladen wird: entfernt und pausiert. */
+    /** Only needed when loading without autoplay: removed and paused. */
     private fun startLoad() {
         if (deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE || playWhenReady) return
         loading = true

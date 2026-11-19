@@ -28,13 +28,13 @@ import javax.inject.Singleton
 internal val Context.episodeQueueDataStore: DataStore<Preferences> by preferencesDataStore(name = "episode_queue")
 
 /**
- * Die Warteschlange der Podcasts ist die Zeile „Weiterhören“ (Konzept 12.4). Hier steht ihre Reihenfolge, soweit sie
- * festgelegt wurde (Folgen und Bücher teilen die Liste, jede Zeile liest nur ihre eigenen): [order] ganz vorn, dahinter
- * die Folgen, die von selbst dort stehen (angefangene und neue). Wer die Zeile ändert, nutzt `ContinueListening`.
+ * The podcast queue is the "Continue listening" row (concept 12.4). This holds its order, as far as it
+ * has been set (episodes and books share the list, each row reads only its own): [order] at the very front, behind it
+ * the episodes that appear there on their own (started and new ones). Anyone changing the row uses `ContinueListening`.
  *
- * Gespeichert wird je Eintrag `(serverId, remoteId)` des Buchs statt der `bookId`, die ein neues Gerät neu vergibt: Die
- * Datei kommt mit dem Backup mit (Review K9), und ihre Einträge gelten wieder, sobald Abgleich oder Scan die Folgen
- * angelegt haben. Nach außen bleibt es bei `bookId`s.
+ * Each entry is stored as `(serverId, remoteId)` of the book instead of the `bookId`, which a new device assigns anew: the
+ * file comes along with the backup (review K9), and its entries apply again as soon as a sync or scan has created the
+ * episodes. Externally it stays with `bookId`s.
  */
 @Singleton
 class EpisodeQueue @Inject constructor(
@@ -54,34 +54,34 @@ class EpisodeQueue @Inject constructor(
     private val idsByKey: Flow<Map<String, Long>> =
         bookDao.observeBookRefs().map { refs -> refs.associate { key(it.serverId, it.remoteId) to it.bookId } }
 
-    /** Festgelegte Reihenfolge, die vorderste Folge zuerst. */
+    /** Fixed order, the frontmost episode first. */
     val order: Flow<List<Long>> =
         combine(prefs, idsByKey) { prefs, ids -> prefs.read(KEY_ORDER).mapNotNull { ids[it] } }.distinctUntilChanged()
 
-    /** Von Hand aus der Zeile genommene Folgen; sie erscheinen nicht mehr, bis sie gespielt oder wieder eingefügt werden. */
+    /** Episodes removed from the row by hand; they no longer appear until they are played or inserted again. */
     val hidden: Flow<Set<Long>> =
         combine(prefs, idsByKey) { prefs, ids -> prefs.read(KEY_HIDDEN).mapNotNullTo(HashSet()) { ids[it] } }.distinctUntilChanged()
 
     /**
-     * Die Kennungen (guid) der Folgen von [feedId] in der festgelegten Reihenfolge: Der Abgleich entfernt sie nicht, auch wenn der
-     * Feed sie nicht mehr führt (Review D23).
+     * The IDs (guid) of the episodes of [feedId] in the fixed order: the sync doesn't remove them, even if the
+     * feed no longer lists them (review D23).
      */
     suspend fun queuedRemoteIds(feedId: String): List<String> {
         val prefix = key(feedId, "")
         return prefs.first().read(KEY_ORDER).filter { it.startsWith(prefix) }.map { it.removePrefix(prefix) }
     }
 
-    /** Stellt die Folge an die erste Stelle. */
+    /** Puts the episode in first position. */
     suspend fun moveToFront(bookId: Long) = edit(bookId) { key, order -> listOf(key) + (order - key) }
 
-    /** Stellt die Folge an die zweite Stelle, hinter die gerade gespielte; steht sie schon in der festgelegten Reihenfolge, bleibt sie dort. */
+    /** Puts the episode in second position, behind the one currently playing; if it is already in the fixed order, it stays there. */
     suspend fun insertSecond(bookId: Long) = edit(bookId) { key, order ->
         if (key in order) order else order.take(1) + key + order.drop(1)
     }
 
     /**
-     * Stellt die Folge direkt hinter [anchorId] („Als Nächstes spielen“), auch wenn sie schon anderswo steht; [anchorId] kommt
-     * dazu nach vorn, falls er noch nicht festgelegt war. Ohne [anchorId] an die erste Stelle.
+     * Puts the episode right behind [anchorId] ("Play next"), even if it is already elsewhere; [anchorId] is also
+     * moved to the front if it wasn't fixed yet. Without [anchorId], in first position.
      */
     suspend fun insertAfter(bookId: Long, anchorId: Long?) {
         val keys = keysOf(listOfNotNull(bookId, anchorId))
@@ -97,10 +97,10 @@ class EpisodeQueue @Inject constructor(
         }
     }
 
-    /** Hängt die Folge ans Ende (steht sie schon in der festgelegten Reihenfolge, bleibt sie an ihrer Stelle). */
+    /** Appends the episode at the end (if it is already in the fixed order, it stays in its place). */
     suspend fun append(bookId: Long) = edit(bookId) { key, order -> if (key in order) order else order + key }
 
-    /** Legt die ganze Reihenfolge fest (Bearbeiten der Warteschlange); die Folgen darin sind nicht mehr ausgeblendet. */
+    /** Sets the entire order (editing the queue); the episodes in it are no longer hidden. */
     suspend fun setOrder(bookIds: List<Long>) {
         val keys = keysOf(bookIds)
         val ordered = bookIds.distinct().mapNotNull { keys[it] }
@@ -108,10 +108,10 @@ class EpisodeQueue @Inject constructor(
     }
 
     /**
-     * Die Zeile wurde umsortiert: [bookIds] ist ihre neue Reihenfolge, [movedId] die bewegte Folge. Festgelegt wird nur, was
-     * deren neuen Platz hält: sie und alles vor ihr, denn von selbst stehende Folgen kommen immer hinter die festgelegten.
-     * Dahinter bleiben festgelegte Folgen festgelegt und alle anderen stehen weiter von selbst dort („In Weiterhören“ und
-     * „Folgen behalten“ gelten für sie weiter).
+     * The row was reordered: [bookIds] is its new order, [movedId] the moved episode. Only what holds its
+     * new place is fixed: it and everything before it, because episodes appearing on their own always come after the fixed ones.
+     * Behind it, fixed episodes stay fixed and all others keep appearing there on their own ("In Continue listening" and
+     * "Keep episodes" still apply to them).
      */
     suspend fun move(bookIds: List<Long>, movedId: Long) {
         val keys = keysOf(bookIds)
@@ -125,7 +125,7 @@ class EpisodeQueue @Inject constructor(
         }
     }
 
-    /** Nimmt die Folge aus der Zeile, egal ob sie festgelegt oder von selbst dort steht. */
+    /** Removes the episode from the row, whether it is fixed or appears there on its own. */
     suspend fun remove(bookId: Long) {
         val key = keysOf(listOf(bookId))[bookId] ?: return
         migrateLegacyIds()
@@ -136,7 +136,7 @@ class EpisodeQueue @Inject constructor(
         }
     }
 
-    /** Nimmt die Folgen aus der Zeile, wie [remove] für jede, in einem Schritt. */
+    /** Removes the episodes from the row, like [remove] for each, in one step. */
     suspend fun removeAll(bookIds: List<Long>) {
         val keys = keysOf(bookIds).values.toSet()
         if (keys.isEmpty()) return
@@ -161,12 +161,12 @@ class EpisodeQueue @Inject constructor(
         update { order -> change(key, order) }
     }
 
-    /** Ändert die Reihenfolge; die Folgen darin sind danach nicht mehr ausgeblendet. */
+    /** Changes the order; the episodes in it are no longer hidden afterwards. */
     private suspend fun update(change: (List<String>) -> List<String>) {
         migrateLegacyIds()
         context.episodeQueueDataStore.edit { prefs ->
             prefs.write(KEY_ORDER, change(prefs.read(KEY_ORDER)))
-            // Die geänderte Folge steht jetzt wieder in der Zeile; alle anderen behalten ihren Zustand.
+            // The changed episode is now back in the row; all others keep their state.
             val keys = prefs.read(KEY_ORDER).toSet()
             prefs.write(KEY_HIDDEN, prefs.read(KEY_HIDDEN).filter { it !in keys })
         }
@@ -176,8 +176,8 @@ class EpisodeQueue @Inject constructor(
         bookIds.distinct().chunked(MAX_ARGS).flatMap { bookDao.bookRefsOf(it) }.associate { it.bookId to key(it.serverId, it.remoteId) }
 
     /**
-     * Frühere Versionen speicherten `bookId`s; sie werden einmal in Schlüssel umgeschrieben. Hat diese Installation die
-     * Datenbank selbst angelegt, kam die Datei mit einem Backup und ihre Ids gehören zu einem anderen Gerät: verwerfen.
+     * Earlier versions stored `bookId`s; they are rewritten to keys once. If this installation created the
+     * database itself, the file came with a backup and its IDs belong to another device: discard.
      */
     private suspend fun migrateLegacyIds() {
         if (migrated) return
@@ -187,7 +187,7 @@ class EpisodeQueue @Inject constructor(
             if (LEGACY_ORDER in stored || LEGACY_HIDDEN in stored) {
                 val order = stored.readLegacy(LEGACY_ORDER)
                 val hidden = stored.readLegacy(LEGACY_HIDDEN)
-                // Die Abfrage öffnet die Datenbank; erst danach steht fest, ob sie gerade neu angelegt wurde.
+                // The query opens the database; only then is it known whether it was just created.
                 val keys = keysOf(order + hidden).takeUnless { EarLoftDatabase.createdOnThisInstall(context) }.orEmpty()
                 context.episodeQueueDataStore.edit { prefs ->
                     prefs.write(KEY_ORDER, order.mapNotNull { keys[it] })
@@ -216,15 +216,15 @@ class EpisodeQueue @Inject constructor(
         private val LEGACY_ORDER = stringPreferencesKey("order")
         private val LEGACY_HIDDEN = stringPreferencesKey("hidden")
 
-        /** Steuerzeichen, das weder in einer guid (XML) noch in einem Pfad oder einer Server-Kennung vorkommt. */
+        /** Control character that occurs neither in a guid (XML) nor in a path or a server ID. */
         private const val ENTRY_SEPARATOR = "\u001E"
         private const val MAX_ARGS = 500
 
         private fun key(serverId: String, remoteId: String) = BookKeys.encode(serverId, remoteId)
 
         /**
-         * Beim Einspielen einer Sicherung: hiesige Reihenfolge und Ausgeblendete zuerst, dahinter die gesicherten, die fehlen, mit
-         * den hiesigen Kennungen ihrer Server und Abos.
+         * When restoring a backup: local order and hidden entries first, then the missing backed-up ones, with
+         * the local IDs of their servers and subscriptions.
          */
         internal val BACKUP_MERGES: Map<String, SettingsMerge> = listOf(KEY_ORDER, KEY_HIDDEN).associate { preference ->
             preference.name to SettingsMerge { current, saved, ids ->

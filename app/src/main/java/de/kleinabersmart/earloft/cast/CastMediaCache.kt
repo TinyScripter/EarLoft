@@ -18,11 +18,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Cast-Adressen der Songs in der Warteschlange. Der [CastMediaItemConverter] von Media3 muss synchron
- * liefern; deshalb wird vorher aufgelöst ([prepare]) – beim Start einer Cast-Sitzung für die ganze
- * Warteschlange, beim Einreihen für die neuen Songs. Nur im Speicher, weil die Adressen Zugangsdaten enthalten.
- * Ebenso die Schlüssel der Audiobookshelf-Server für Bücher und Folgen ([prepareServerKeys]).
- * Erreicht der Empfänger einen Musikserver nicht, bleibt der bis zum Ende der Sitzung außen vor ([exclude]).
+ * Cast addresses of the songs in the queue. Media3's [CastMediaItemConverter] has to return
+ * synchronously; that's why they are resolved in advance ([prepare]) – for the whole queue when a cast session
+ * starts, for the new songs when enqueuing. Kept in memory only, because the addresses contain credentials.
+ * Likewise the keys of the Audiobookshelf servers for books and episodes ([prepareServerKeys]).
+ * If the receiver can't reach a music server, that server stays excluded until the session ends ([exclude]).
  */
 @Singleton
 class CastMediaCache @Inject constructor(
@@ -30,21 +30,21 @@ class CastMediaCache @Inject constructor(
     private val audiobookshelf: AudiobookshelfServers,
     private val phone: PhoneCastServer,
 ) {
-    /** `media == null`: Song lässt sich nicht casten (nur auf dem Handy). */
+    /** `media == null`: the song can't be cast (only on the phone). */
     private class Entry(val media: CastMedia?)
 
     private val entries = ConcurrentHashMap<Long, Entry>()
 
-    /** Server, die der Empfänger in dieser Sitzung nicht erreicht hat. */
+    /** Servers the receiver couldn't reach in this session. */
     private val excluded: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
-    /** Schlüssel je Audiobookshelf-Server; `null`, solange nicht geladen. */
+    /** Key per Audiobookshelf server; `null` until loaded. */
     @Volatile
     private var serverKeys: Map<String, String>? = null
 
     /**
-     * Bei Anmeldung per OpenID gilt der Access-Token höchstens eine Stunde und der Empfänger kann ihn nicht erneuern: Er bekommt
-     * einen, der noch mindestens eine halbe Stunde gilt (Konzept 12.11, bekanntes Risiko bei langen Titeln).
+     * With OpenID sign-in the access token is valid for at most an hour and the receiver can't refresh it: it gets
+     * one that is valid for at least another half hour (concept 12.11, known risk with long titles).
      */
     suspend fun prepareServerKeys() {
         serverKeys = audiobookshelf.allIncludingDisabled().associate { it.serverId to (audiobookshelf.freshToken(it.serverId) ?: it.token) }
@@ -58,8 +58,8 @@ class CastMediaCache @Inject constructor(
     }
 
     /**
-     * Der Empfänger erreicht [sourceId] nicht: Songs von dort löst [prepare] neu auf, mit dem nächsten Server.
-     * @return `false`, wenn der Server schon ausgeschlossen war.
+     * The receiver can't reach [sourceId]: [prepare] re-resolves songs from there using the next server.
+     * @return `false` if the server was already excluded.
      */
     fun exclude(sourceId: String): Boolean {
         if (!excluded.add(sourceId)) return false
@@ -67,7 +67,7 @@ class CastMediaCache @Inject constructor(
         return true
     }
 
-    /** Synchron für Media3; was nicht vorbereitet wurde, wird blockierend nachgeladen (sollte selten sein). */
+    /** Synchronous for Media3; anything not prepared is loaded blocking (should be rare). */
     fun prepareBlocking(songIds: Collection<Long>) {
         if (songIds.all(entries::containsKey)) return
         Log.w(TAG, "Cast-Adressen nicht vorbereitet, lade ${songIds.size} Songs blockierend")
@@ -81,15 +81,15 @@ class CastMediaCache @Inject constructor(
 
     fun isCastable(songId: Long): Boolean = get(songId) != null
 
-    /** Song oder Buch/Folge; `null`, wenn der Empfänger es nicht laden kann (z. B. nur auf dem Handy). */
+    /** Song or book/episode; `null` if the receiver can't load it (e.g. only on the phone). */
     fun get(item: MediaItem): CastMedia? =
         item.songId?.let(::get) ?: item.spokenCastSource?.let(::spoken)
 
     fun isCastable(item: MediaItem): Boolean = get(item) != null
 
     /**
-     * Bücher und Folgen brauchen keine Vorbereitung außer dem Schlüssel des Audiobookshelf-Servers: Der Empfänger kann
-     * keine Header senden, deshalb hängt er als `token` an der Adresse (nur im Speicher, nie gespeichert oder geloggt).
+     * Books and episodes need no preparation other than the Audiobookshelf server's key: the receiver can't
+     * send headers, so it is appended to the address as `token` (in memory only, never stored or logged).
      */
     private fun spoken(source: SpokenCastSource): CastMedia? {
         val url = Uri.parse(source.url)
@@ -101,28 +101,28 @@ class CastMediaCache @Inject constructor(
         return CastMedia(
             streamUrl = withKey(source.url),
             mimeType = CastFormats.playableMimeType(source.mimeType) ?: guessMimeType(url.lastPathSegment),
-            // Cover liefert Audiobookshelf ohne Anmeldung (geprüft 2026-11-08: Cover 200, Buchdaten 401). Ohne Schlüssel,
-            // denn Cover-Adressen der Cast-Metadaten laden auch andere Geräte (Google Home, Mediensteuerung anderer Handys).
+            // Audiobookshelf serves covers without authentication (checked 2026-11-08: cover 200, book data 401). No key,
+            // because cover addresses in the cast metadata are also loaded by other devices (Google Home, media controls of other phones).
             coverUrl = source.coverUrl,
         )
     }
 
     /**
-     * Wie [prepareBlocking]: Normalerweise sind die Schlüssel beim Start der Sitzung schon geladen. Sonst die gespeicherten,
-     * ohne zu erneuern: Das ginge übers Netz (bei OpenID bis zum Verbindungs-Timeout je Server) und blockierte den Main-Thread
-     * (Review D10). Ein knapp gültiger Token wird ersetzt, sobald [prepareServerKeys] fertig ist.
+     * Like [prepareBlocking]: normally the keys are already loaded when the session starts. Otherwise the stored ones,
+     * without refreshing: that would go over the network (with OpenID up to the connection timeout per server) and block the main thread
+     * (review D10). A token that is barely valid is replaced as soon as [prepareServerKeys] has finished.
      */
     private fun serverKeys(): Map<String, String> = serverKeys ?: run {
         Log.w(TAG, "Server-Schlüssel nicht vorbereitet, nehme die gespeicherten")
         val stored = runBlocking(Dispatchers.IO) { audiobookshelf.allIncludingDisabled().associate { it.serverId to it.token } }
-        // Nur, wenn [prepareServerKeys] nicht inzwischen fertig ist.
+        // Only if [prepareServerKeys] hasn't finished in the meantime.
         serverKeys ?: stored.also { serverKeys = it }
     }
 
     /**
-     * Buch bzw. Folge vom Gerät: Das Handy liefert Datei und Cover selbst aus (Chromecast Etappe 2). Nur Formate, die der
-     * Empfänger kennt (umwandeln kann hier niemand); ohne Adresse im WLAN gar nicht. Wie ein Server lässt sich das Handy
-     * ausschließen, wenn der Empfänger es nicht erreicht.
+     * Book or episode from the device: the phone serves the file and cover itself (Chromecast stage 2). Only formats the
+     * receiver knows (nobody can transcode here); not at all without an address on the Wi-Fi. Like a server, the phone can
+     * be excluded if the receiver can't reach it.
      */
     private fun fromPhone(uri: Uri, source: SpokenCastSource): CastMedia? {
         if (PhoneCastServer.SOURCE_ID in excluded) return null
@@ -131,7 +131,7 @@ class CastMediaCache @Inject constructor(
         return CastMedia(url, mimeType, source.coverUrl ?: source.bookId?.let(phone::bookCoverUrl), PhoneCastServer.SOURCE_ID)
     }
 
-    /** Feeds nennen den Typ oft nicht oder falsch (`audio/x-m4b`); dann entscheidet die Endung. */
+    /** Feeds often omit the type or get it wrong (`audio/x-m4b`); then the file extension decides. */
     private fun guessMimeType(fileName: String?): String = when (fileName?.substringAfterLast('.', "")?.lowercase()) {
         "m4a", "m4b", "mp4", "aac" -> "audio/mp4"
         "ogg", "oga", "opus" -> "audio/ogg"
@@ -140,7 +140,7 @@ class CastMediaCache @Inject constructor(
         else -> "audio/mpeg"
     }
 
-    /** Zu Beginn jeder Sitzung: Server oder Passwort können sich seit der letzten geändert haben. */
+    /** At the start of every session: servers or passwords may have changed since the last one. */
     fun clear() {
         entries.clear()
         excluded.clear()

@@ -18,7 +18,7 @@ import de.kleinabersmart.earloft.ui.components.QueueTitle
 import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.ui.valueOrNull
 
-/** Die Warteschlange der Bücher („Weiterhören“) bearbeiten: wie bei Musik und Podcasts mit Ziehgriff, ✕ und ⋮. */
+/** Edit the books queue ("Continue listening"): as with music and podcasts, with drag handle, ✕ and ⋮. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookQueueScreen(
@@ -42,7 +42,7 @@ fun BookQueueScreen(
             actions = {
                 QueueMoreMenu(
                     clearMessage = stringResource(R.string.book_queue_clear_message),
-                    // Das geladene Buch bleibt; zu leeren gibt es nur etwas, wenn noch ein anderes dasteht.
+                    // The loaded book stays; there is only something to clear if another one is still there.
                     canClear = books.valueOrNull.orEmpty().any { it.book.id != currentId },
                     onClear = viewModel::clear,
                 )

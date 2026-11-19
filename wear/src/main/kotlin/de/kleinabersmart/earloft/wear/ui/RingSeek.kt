@@ -13,20 +13,20 @@ import androidx.compose.ui.unit.Dp
 import kotlin.math.abs
 import kotlin.math.atan2
 
-/** Der Fortschrittsring beginnt bei 295° (Compose: 0° = drei Uhr, im Uhrzeigersinn) und lässt oben eine Lücke. */
+/** The progress ring starts at 295° (Compose: 0° = three o'clock, clockwise) and leaves a gap at the top. */
 internal const val RING_START_ANGLE = 295f
 internal const val RING_SWEEP = 310f
 
 /**
- * Stelle auf dem Ring (0..1) für einen Berührungspunkt mit dem Winkel [angleDegrees] (wie bei `drawArc`).
- * Die Lücke oben gehört je nach [previous] zum Anfang oder zum Ende: Wer gerade bei 90 % zieht und in die Lücke
- * gerät, bleibt am Ende, statt zum Anfang zu springen (und umgekehrt).
+ * Position on the ring (0..1) for a touch point with the angle [angleDegrees] (as with `drawArc`).
+ * Depending on [previous], the gap at the top belongs to the start or to the end: whoever is dragging at 90 % and gets into the gap
+ * stays at the end instead of jumping to the start (and vice versa).
  */
 internal fun ringProgress(angleDegrees: Float, previous: Float? = null): Float {
     val raw = (((angleDegrees - RING_START_ANGLE) % 360f) + 360f) % 360f / RING_SWEEP
     val gapEnd = 360f / RING_SWEEP
     if (previous != null) {
-        // Ein Sprung über die halbe Ringlänge ist das Überqueren der Lücke, keine echte Bewegung.
+        // A jump over half the ring length is crossing the gap, not a real movement.
         if (raw > 1f || abs(raw - previous) > 0.5f) return if (previous >= 0.5f) 1f else 0f
         return raw
     }
@@ -37,7 +37,7 @@ internal fun ringProgress(angleDegrees: Float, previous: Float? = null): Float {
     }
 }
 
-/** „1:05“ bzw. „1:02:05“. */
+/** "1:05" or "1:02:05". */
 internal fun formatPosition(ms: Long): String {
     val totalSeconds = (ms / 1000).coerceAtLeast(0)
     val hours = totalSeconds / 3600
@@ -47,11 +47,11 @@ internal fun formatPosition(ms: Long): String {
 }
 
 /**
- * Spulen am Rand der Wiedergabe: Antippen des Rings springt an die Stelle ([onSeek]), Ziehen entlang des Rings meldet
- * die Stelle laufend über [onPreview] (`null` am Ende) und spult beim Loslassen ([onSeek]).
+ * Seeking at the edge of the now playing view: tapping the ring seeks to the position ([onSeek]), dragging along the ring reports
+ * the position continuously via [onPreview] (`null` at the end) and seeks on release ([onSeek]).
  *
- * Berührungen im Inneren (Knöpfe) ignoriert die Geste. Ebenso Bewegungen quer zum Ring: Am linken Rand ist das die
- * Wischgeste „zurück“, die dabei nicht blockiert werden soll. Nur eine Bewegung entlang des Rings gehört der Geste.
+ * The gesture ignores touches in the inner area (buttons). Likewise movements across the ring: at the left edge that is the
+ * "back" swipe gesture, which should not be blocked by it. Only a movement along the ring belongs to the gesture.
  */
 @Composable
 internal fun Modifier.ringSeek(

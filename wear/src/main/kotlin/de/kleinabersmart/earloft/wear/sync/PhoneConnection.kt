@@ -28,14 +28,14 @@ import kotlinx.coroutines.guava.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Verbindung zum Handy aus Sicht der Uhr. */
+/** Connection to the phone from the watch's point of view. */
 sealed interface PhoneStatus {
     data object Checking : PhoneStatus
 
-    /** Kein Handy verbunden (außer Reichweite, Bluetooth aus, nicht gekoppelt). */
+    /** No phone connected (out of range, Bluetooth off, not paired). */
     data object NotConnected : PhoneStatus
 
-    /** Ein Handy ist verbunden, aber dort ist EarLoft nicht installiert. */
+    /** A phone is connected, but EarLoft is not installed there. */
     data class AppMissing(val nodeId: String) : PhoneStatus
 
     data class Connected(val nodeId: String) : PhoneStatus
@@ -51,9 +51,9 @@ class PhoneConnection @Inject constructor(
     private val refreshRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     /**
-     * Aktueller Zustand, neu ermittelt bei Änderungen (Capability, [WearPaths.PHONE_INFO]) und bei
-     * [refresh]. Ob überhaupt ein Handy verbunden ist, meldet die API nicht als Ereignis – daher
-     * [refresh] z. B. bei `ON_RESUME`.
+     * Current state, re-evaluated on changes (capability, [WearPaths.PHONE_INFO]) and on
+     * [refresh]. Whether a phone is connected at all is not reported by the API as an event – hence
+     * [refresh] e.g. on `ON_RESUME`.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val status: Flow<PhoneStatus> =
@@ -70,9 +70,9 @@ class PhoneConnection @Inject constructor(
     }
 
     /**
-     * Die Handy-App gilt als vorhanden, wenn ein verbundenes Gerät die Capability hat oder ein
-     * [WearPaths.PHONE_INFO] geschrieben hat. Der zweite Weg greift, wenn Capabilities nicht
-     * ankommen (beobachtet zwischen Emulator-Images mit unterschiedlich signierten Play-Diensten).
+     * The phone app counts as present if a connected device has the capability or has written a
+     * [WearPaths.PHONE_INFO]. The second path applies when capabilities do not
+     * arrive (observed between emulator images with differently signed Play services).
      */
     private suspend fun resolve(): PhoneStatus {
         val connected = nodeClient.connectedNodesOrEmpty().filter { it.id != CLOUD_NODE_ID }
@@ -82,10 +82,10 @@ class PhoneConnection @Inject constructor(
         return phoneStatusOf(connected, withApp = byCapability.toSet() + byPhoneInfo)
     }
 
-    /** Das verbundene Handy mit der App, sonst `null` (für Datei-Übertragungen, Wear-Konzept 8.4). */
+    /** The connected phone with the app, otherwise `null` (for file transfers, Wear concept 8.4). */
     suspend fun connectedPhoneNodeId(): String? = (resolve() as? PhoneStatus.Connected)?.nodeId
 
-    /** Öffnet die Play-Store-Seite der App auf dem Handy. @return `false`, wenn das nicht geklappt hat. */
+    /** Opens the app's Play Store page on the phone. @return `false` if that did not work. */
     suspend fun openStoreOnPhone(nodeId: String): Boolean {
         val intent = Intent(Intent.ACTION_VIEW)
             .addCategory(Intent.CATEGORY_BROWSABLE)
@@ -108,9 +108,9 @@ class PhoneConnection @Inject constructor(
 }
 
 /**
- * Zustand aus den verbundenen Geräten und den Geräte-IDs, auf denen die Handy-App erkannt wurde.
- * Nur verbundene Geräte zählen (ein DataItem kann von einem längst getrennten Handy stammen); bei
- * mehreren wird ein direkt verbundenes (`isNearby`) bevorzugt.
+ * State from the connected devices and the device IDs on which the phone app was detected.
+ * Only connected devices count (a DataItem may come from a phone disconnected long ago); with
+ * several, a directly connected one (`isNearby`) is preferred.
  */
 internal fun phoneStatusOf(connected: List<Node>, withApp: Set<String>): PhoneStatus {
     val preferred = compareBy<Node> { if (it.isNearby) 0 else 1 }

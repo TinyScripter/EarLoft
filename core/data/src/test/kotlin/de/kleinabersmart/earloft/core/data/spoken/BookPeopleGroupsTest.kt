@@ -9,7 +9,7 @@ import de.kleinabersmart.earloft.core.model.parsePeople
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Mehrere Autoren bzw. Sprecher eines Buchs (`books_improvements.md` F3). */
+/** Several authors or narrators of a book (`books_improvements.md` F3). */
 class BookPeopleGroupsTest {
 
     private fun book(id: Long, title: String, author: String, narrator: String = "") = BookWithProgress(
@@ -49,7 +49,7 @@ class BookPeopleGroupsTest {
     fun `search hits are single names that match the query`() {
         val rows = books.map { it.book.id to it.book.author }
         assertEquals(listOf(AuthorHit("Jussi Adler-Olsen", 1, 2)), peopleHits(rows, "adler", 10, ::bookAuthors))
-        // Der Eintrag passt, der Übersetzer zählt aber nicht als Autor.
+        // The entry matches, but the translator doesn't count as an author.
         assertEquals(emptyList<AuthorHit>(), peopleHits(rows, "frauenlob", 10, ::bookAuthors))
         assertEquals(listOf(AuthorHit("Line Holm", 1, 1)), peopleHits(rows, "holm", 10, ::bookAuthors))
         val narrators = books.map { it.book.id to it.book.narrator }

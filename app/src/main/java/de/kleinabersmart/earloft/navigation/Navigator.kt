@@ -2,28 +2,28 @@ package de.kleinabersmart.earloft.navigation
 
 import androidx.navigation3.runtime.NavKey
 
-/** Verarbeitet Navigationsereignisse, indem es den [NavigationState] anpasst. */
+/** Handles navigation events by adjusting the [NavigationState]. */
 class Navigator(private val state: NavigationState) {
 
-    /** Das oberste Ziel des aktuellen Tabs. */
+    /** The top destination of the current tab. */
     val currentRoute: NavKey get() = currentStack().last()
 
-    /** Der Einrichtungsassistent liegt im aktuellen Tab (auch unter einem daraus geöffneten Formular). */
+    /** The setup wizard is in the current tab (also beneath a form opened from it). */
     val inSetup: Boolean get() = currentStack().any { it is SetupRoute }
 
-    /** Die erste Seite des Assistenten ist oben; „Zurück“ beendet dort den Assistenten statt eine Seite zurückzugehen. */
+    /** The wizard's first page is on top; "Back" there ends the wizard instead of going back a page. */
     val onFirstSetupPage: Boolean
         get() {
             val stack = currentStack()
             return stack.last() is SetupRoute && stack.getOrNull(stack.size - 2) !is SetupRoute
         }
 
-    /** Öffnet den Assistenten auf seiner ersten Seite im aktuellen Tab, außer er liegt dort schon. */
+    /** Opens the wizard on its first page in the current tab, unless it is already there. */
     fun showSetup() {
         if (!inSetup) currentStack().add(SetupRoute(SetupPage.entries.first()))
     }
 
-    /** Schließt den Assistenten samt allem, was darüber geöffnet wurde; zurück bleibt die Seite darunter. */
+    /** Closes the wizard along with everything opened on top of it; the page beneath remains. */
     fun closeSetup() {
         val stack = currentStack()
         val index = stack.indexOfFirst { it is SetupRoute }
@@ -33,7 +33,7 @@ class Navigator(private val state: NavigationState) {
 
     fun navigate(route: NavKey) {
         if (route in state.backStacks.keys) {
-            // Ein Tipp auf einen Tab zeigt immer dessen Startseite, auch wenn dort zuvor tiefer navigiert wurde.
+            // Tapping a tab always shows its start page, even if the user navigated deeper there before.
             val stack = state.backStacks.getValue(route)
             while (stack.size > 1) stack.removeLastOrNull()
             state.topLevelRoute = route
@@ -43,9 +43,9 @@ class Navigator(private val state: NavigationState) {
     }
 
     /**
-     * Zeigt die Wiedergabe-Ansicht, egal wo die App gerade steht (z. B. nach dem Tipp auf die Benachrichtigung).
-     * Liegt sie schon im Stack des aktuellen Tabs, kommt sie nach vorn (die Warteschlange darüber wird geschlossen),
-     * statt ein zweites Mal daraufzulegen.
+     * Shows the playback screen no matter where the app currently is (e.g. after tapping the notification).
+     * If it's already in the current tab's stack, it is brought to the front (the queue on top of it is closed)
+     * instead of being placed on top a second time.
      */
     fun showNowPlaying() {
         val stack = currentStack()
@@ -57,14 +57,14 @@ class Navigator(private val state: NavigationState) {
         }
     }
 
-    /** Ersetzt die oberste Seite des aktuellen Tabs (z. B. die Vorschau durch das gerade abonnierte Abo). */
+    /** Replaces the top page of the current tab (e.g. the preview with the subscription just created). */
     fun replaceTop(route: NavKey) {
         val stack = currentStack()
         if (stack.last() != state.topLevelRoute) stack.removeLastOrNull()
         stack.add(route)
     }
 
-    /** Öffnet die Seite des Podcasts [feedId]; liegt sie direkt unter der aktuellen Seite, geht es dorthin zurück. */
+    /** Opens the page of podcast [feedId]; if it is directly beneath the current page, goes back to it. */
     fun showFeed(feedId: String) {
         val stack = currentStack()
         val below = stack.getOrNull(stack.size - 2)
@@ -74,7 +74,7 @@ class Navigator(private val state: NavigationState) {
     fun goBack() {
         val stack = currentStack()
         if (stack.last() == state.topLevelRoute) {
-            // Wurzel eines Tabs erreicht → zurück zum Start-Tab.
+            // Reached the root of a tab → back to the Home tab.
             state.topLevelRoute = state.startRoute
         } else {
             stack.removeLastOrNull()
@@ -82,8 +82,8 @@ class Navigator(private val state: NavigationState) {
     }
 
     /**
-     * Ein Abo wurde beendet: Seine Seiten (Abo, Info, Einstellungen, Suche) verschwinden aus allen Stacks, egal ob die
-     * Einstellungen über die Abo-Seite oder direkt aus dem Langklick-Menü geöffnet wurden.
+     * A subscription was ended: its pages (subscription, info, settings, search) disappear from all stacks, regardless of whether the
+     * settings were opened via the subscription page or directly from the long-press menu.
      */
     fun closeFeed(feedId: String) {
         state.backStacks.values.forEach { stack -> stack.removeAll { it.belongsToFeed(feedId) } }

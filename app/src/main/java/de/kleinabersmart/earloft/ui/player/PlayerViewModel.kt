@@ -28,7 +28,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Dünne Hülle um [PlaybackConnection], damit die Player-UI per Hilt an sie kommt. */
+/** Thin wrapper around [PlaybackConnection] so the player UI can get it via Hilt. */
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val playbackConnection: PlaybackConnection,
@@ -40,27 +40,27 @@ class PlayerViewModel @Inject constructor(
 
     val state: StateFlow<PlayerState> = playbackConnection.state
 
-    /** Der Nutzer hat den Mini-Player weggewischt; gilt bis zur nächsten Wiedergabe. */
+    /** The user has swiped the mini player away; applies until the next playback. */
     val miniPlayerHidden: StateFlow<Boolean> = miniPlayerVisibility.hidden
 
     fun hideMiniPlayer() = miniPlayerVisibility.hide()
     fun showMiniPlayer() = miniPlayerVisibility.show()
 
     init {
-        // Sobald wieder etwas spielt (aus einer Liste, der Benachrichtigung, per Bluetooth), ist der Mini-Player wieder da.
+        // As soon as something plays again (from a list, the notification, via Bluetooth), the mini player is back.
         viewModelScope.launch {
             state.map { it.isPlaying }.distinctUntilChanged().collect { playing -> if (playing) miniPlayerVisibility.show() }
         }
     }
 
-    /** Die gespeicherte Musik-Warteschlange, solange ein Buch bzw. eine Folge geladen ist (Musik-Start). */
+    /** The saved music queue while a book or episode is loaded (music start). */
     val savedMusicQueue: StateFlow<SavedMusicQueue?> = playbackConnection.savedMusicQueue
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Setzt die Musik bei Titel [index] der [savedMusicQueue] fort und löst das Gesprochene ab. */
+    /** Resumes the music at title [index] of the [savedMusicQueue], replacing the spoken content. */
     fun resumeMusic(index: Int) = playbackConnection.resumeMusic(index)
 
-    /** Grundfarbe des Albums des aktuellen Titels für das Farbschema; `null` ohne Album oder Cover. */
+    /** Primary color of the current title's album for the color scheme; `null` without album or cover. */
     @OptIn(ExperimentalCoroutinesApi::class)
     val seedColor: StateFlow<Int?> = state
         .map { it.current?.albumId }
@@ -79,7 +79,7 @@ class PlayerViewModel @Inject constructor(
     val lyricsVisible: StateFlow<Boolean> = _lyricsVisible.asStateFlow()
     private val lyricsRetry = MutableStateFlow(0)
 
-    /** Songtext des aktuellen Titels samt Herkunft; `null` während des Ladens. Geladen wird erst, wenn er angezeigt wird. */
+    /** Lyrics of the current title including their origin; `null` while loading. Only loaded once they are shown. */
     @OptIn(ExperimentalCoroutinesApi::class)
     val lyrics: StateFlow<SongLyrics?> = combine(_lyricsVisible, state.map { it.current?.songId }.distinctUntilChanged(), lyricsRetry) { visible, songId, _ ->
         songId.takeIf { visible }
@@ -100,7 +100,7 @@ class PlayerViewModel @Inject constructor(
         lyricsRetry.value++
     }
 
-    /** Restzeit des Einschlaf-Timers; `null`, solange keiner läuft. */
+    /** Remaining time of the sleep timer; `null` while none is running. */
     val sleepTimerRemainingMs: StateFlow<Long?> = playbackConnection.sleepTimerRemainingMs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -109,7 +109,7 @@ class PlayerViewModel @Inject constructor(
 
     val currentPositionMs: Long get() = playbackConnection.currentPositionMs
 
-    /** Sprünge der Position, damit die Anzeige auch pausiert nachzieht. */
+    /** Position jumps so the display catches up even while paused. */
     val positionJumps: Flow<Unit> = playbackConnection.positionJumps
 
     fun togglePlayPause() = playbackConnection.togglePlayPause()

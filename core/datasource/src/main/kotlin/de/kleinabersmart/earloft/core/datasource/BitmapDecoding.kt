@@ -3,7 +3,7 @@ package de.kleinabersmart.earloft.core.datasource
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 
-/** Dekodiert ein Bild so, dass es mindestens [sizePx] groß bleibt, aber nicht unnötig groß wird. */
+/** Decodes an image so that it stays at least [sizePx] in size, but doesn't get unnecessarily large. */
 internal fun decodeSampled(bytes: ByteArray, sizePx: Int): Bitmap? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)

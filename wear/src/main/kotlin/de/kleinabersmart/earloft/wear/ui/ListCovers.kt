@@ -37,25 +37,25 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Woher das Vorschaubild eines Listeneintrags kommt. */
+/** Where the thumbnail of a list entry comes from. */
 sealed interface CoverRef {
     data class Album(val albumId: Long) : CoverRef
 
-    /** Buch oder Folge; ohne eigenes Bild das des Abos. */
+    /** Book or episode; without its own image, the subscription's. */
     data class Book(val bookId: Long) : CoverRef
 
-    /** Album, Abo, Buch oder Folge des Handys, Bereich „Telefon“ (Wear-Konzept 17). */
+    /** Album, subscription, book or episode of the phone, "Phone" section (Wear concept 17). */
     data class Phone(val thumbnail: WearThumbnailFile.Ref) : CoverRef
 }
 
 /**
- * Vorschaubilder für die Listen der Uhr: klein aus den Dateien, die mit den Downloads kommen (Album-Cover, Bilder der Bücher
- * und Folgen), ohne Server. Die zuletzt gezeigten bleiben im Speicher, damit Scrollen nicht jedes Mal neu dekodiert.
+ * Thumbnails for the watch's lists: small, from the files that come with the downloads (album covers, images of books
+ * and episodes), without a server. The most recently shown ones stay in memory so that scrolling does not decode again every time.
  *
- * Bilder vom Handy (Alben, Abos, Bücher, Folgen) holt die Uhr erst, wenn der Eintrag sichtbar wird, klein über den
- * Datei-Kanal ([PhoneFileFetcher.fetchThumbnail]) und legt sie im Cache-Verzeichnis ab; höchstens [PHONE_PARALLEL] gleichzeitig,
- * damit schnelles Scrollen die Verbindung nicht verstopft. Was das Handy nicht liefert (keine Datei oder Abbruch der
- * Übertragung), fragt sie erst nach [PHONE_RETRY_MS] wieder.
+ * The watch only fetches images from the phone (albums, subscriptions, books, episodes) once the entry becomes visible, small via the
+ * file channel ([PhoneFileFetcher.fetchThumbnail]), and stores them in the cache directory; at most [PHONE_PARALLEL] at a time,
+ * so that fast scrolling does not clog the connection. Whatever the phone does not deliver (no file or transfer
+ * cancelled), it only asks for again after [PHONE_RETRY_MS].
  */
 @Singleton
 class ListCovers @Inject constructor(
@@ -67,10 +67,10 @@ class ListCovers @Inject constructor(
 ) {
     private val cache = LruCache<CoverRef, ImageBitmap>(CACHE_ENTRIES)
     private val phoneRequests = Semaphore(PHONE_PARALLEL)
-    /** Bilder, die das Handy nicht geliefert hat, mit dem Zeitpunkt (`elapsedRealtime`). */
+    /** Images the phone did not deliver, with the timestamp (`elapsedRealtime`). */
     private val phoneMissing = ConcurrentHashMap<WearThumbnailFile.Ref, Long>()
 
-    /** Liegt das Bild schon im Speicher? Dann zeigt die Liste es ohne Platzhalter. */
+    /** Is the image already in memory? Then the list shows it without a placeholder. */
     fun cached(ref: CoverRef): ImageBitmap? = cache.get(ref)
 
     suspend fun load(ref: CoverRef): ImageBitmap? {
@@ -88,7 +88,7 @@ class ListCovers @Inject constructor(
         if (!file.isFile) {
             val missedAt = phoneMissing[thumbnail]
             if (missedAt != null && SystemClock.elapsedRealtime() - missedAt < PHONE_RETRY_MS) return null
-            // Ohne Handy nichts als „fehlt“ merken: Nach dem Verbinden soll das Bild kommen.
+            // Without a phone, do not remember anything as "missing": the image should come after connecting.
             phone.connectedPhoneNodeId() ?: return null
             val bytes = phoneRequests.withPermit { phoneFiles.fetchThumbnail(thumbnail) }
             if (bytes == null) {
@@ -104,14 +104,14 @@ class ListCovers @Inject constructor(
         return withContext(Dispatchers.IO) { BitmapFactory.decodeFile(file.path) }
     }
 
-    /** Kennungen von Folgen können lange Adressen sein: als Dateiname ihr Hash. */
+    /** Identifiers of episodes can be long addresses: use their hash as the file name. */
     private fun fileName(thumbnail: WearThumbnailFile.Ref): String =
         MessageDigest.getInstance("SHA-256").digest(WearThumbnailFile.uid(thumbnail).toByteArray()).joinToString("") { "%02x".format(it) }
 
     private companion object {
-        /** Gut doppelt so groß wie das Bild in der Liste (40 dp), bei rund 2 px je dp. */
+        /** A good twice the size of the image in the list (40 dp), at around 2 px per dp. */
         const val THUMBNAIL_PX = 96
-        /** Je Bild rund 37 KB (vom Handy 120 px: rund 58 KB): zusammen unter 5 MB. */
+        /** Around 37 KB per image (from the phone 120 px: around 58 KB): together under 5 MB. */
         const val CACHE_ENTRIES = 80
         const val PHONE_PARALLEL = 2
         const val PHONE_RETRY_MS = 10 * 60_000L
@@ -119,14 +119,14 @@ class ListCovers @Inject constructor(
     }
 }
 
-/** In der App von der Activity gesetzt; in Vorschauen fehlt sie, dann bleibt es beim Platzhalter. */
+/** Set by the activity in the app; missing in previews, then it stays with the placeholder. */
 val LocalListCovers = staticCompositionLocalOf<ListCovers?> { null }
 
 private val THUMBNAIL_SIZE = 40.dp
 private val THUMBNAIL_SHAPE = RoundedCornerShape(8.dp)
 private const val PLACEHOLDER_ALPHA = 0.15f
 
-/** Vorschaubild eines Listeneintrags; bis es geladen ist und wenn es keins gibt, eine leere Fläche. */
+/** Thumbnail of a list entry; an empty area until it is loaded and if there is none. */
 @Composable
 fun CoverThumbnail(ref: CoverRef, modifier: Modifier = Modifier) {
     val covers = LocalListCovers.current
@@ -138,7 +138,7 @@ fun CoverThumbnail(ref: CoverRef, modifier: Modifier = Modifier) {
     if (loaded != null) {
         Image(loaded, contentDescription = null, modifier = shaped, contentScale = ContentScale.Crop)
     } else {
-        // Leicht abgesetzt von der Farbe des Knopfs, egal welche das ist.
+        // Slightly set off from the button's color, whatever it is.
         Box(shaped.background(LocalContentColor.current.copy(alpha = PLACEHOLDER_ALPHA)))
     }
 }

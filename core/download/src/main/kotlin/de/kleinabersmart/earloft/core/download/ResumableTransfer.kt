@@ -15,27 +15,27 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
 
-/** Ergebnis von [ResumableTransfer.run]. */
+/** Result of [ResumableTransfer.run]. */
 internal sealed interface TransferResult {
-    /** Die Datei liegt vollständig als `.part` vor. [mimeType] nur, wenn der Server einen Audio-Typ nannte. */
+    /** The file is complete as `.part`. [mimeType] only if the server reported an audio type. */
     data class Completed(val mimeType: String?) : TransferResult
 
-    /** Dauerhaft fehlgeschlagen; die Teildatei ist verworfen. [forbidden]: Der Server verweigert den Zugriff (403). */
+    /** Failed permanently; the partial file has been discarded. [forbidden]: the server denies access (403). */
     data class Failed(val reason: String, val forbidden: Boolean = false) : TransferResult
 
-    /** Unterwegs nicht mehr gewünscht (Download entfernt); die Teildatei verwirft der Aufrufer. */
+    /** No longer wanted along the way (download removed); the caller discards the partial file. */
     data object Cancelled : TransferResult
 }
 
 /**
- * Lädt eine Datei in ihre `.part`-Datei und macht dort weiter, wo ein früherer Versuch aufhörte.
+ * Downloads a file into its `.part` file and continues where an earlier attempt stopped.
  *
- * Fortsetzen geht nur mit einem **Merkmal** der Serverdatei (starker ETag, sonst Last-Modified) und ihrer Gesamtgröße,
- * die beim ersten Versuch neben die Teildatei geschrieben werden. Die Anfrage trägt `Range` und `If-Range`: Hat sich die
- * Datei auf dem Server geändert, antwortet er mit 200 und der ganzen Datei, und die alte Teildatei wird überschrieben.
- * Eine Antwort mit 206, deren Bereich nicht zur Teildatei passt, würde sie beschädigen und wird verworfen.
+ * Resuming only works with a **fingerprint** of the server file (strong ETag, otherwise Last-Modified) and its total size,
+ * which are written next to the partial file on the first attempt. The request carries `Range` and `If-Range`: if the
+ * file has changed on the server, it answers with 200 and the whole file, and the old partial file is overwritten.
+ * A 206 response whose range doesn't match the partial file would corrupt it and is discarded.
  *
- * Netzfehler werden als [IOException] weitergereicht; die Teildatei bleibt dann liegen.
+ * Network errors are passed on as [IOException]; the partial file is then kept.
  */
 internal class ResumableTransfer(
     private val client: OkHttpClient,
@@ -46,11 +46,11 @@ internal class ResumableTransfer(
         bookId: Long,
         trackIndex: Int,
         onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit,
-        /** Im Takt des Fortschritts gefragt; `false` bricht ab (Download unterwegs entfernt). */
+        /** Asked at the pace of the progress; `false` aborts (download removed along the way). */
         stillWanted: suspend () -> Boolean = { true },
     ): TransferResult = run(Request.Builder().url(url).build(), bookId, trackIndex, onProgress, stillWanted)
 
-    /** Wie oben; [base] trägt eigene Kopfzeilen (Podcast-Feeds: User-Agent). */
+    /** As above; [base] carries its own headers (podcast feeds: User-Agent). */
     suspend fun run(
         base: Request,
         bookId: Long,
@@ -58,7 +58,7 @@ internal class ResumableTransfer(
         onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit,
         stillWanted: suspend () -> Boolean = { true },
     ): TransferResult {
-        // Vor dem Merkmal: Beim allerersten Buch auf dem Gerät (z. B. auf der Uhr) gibt es den Ordner noch nicht.
+        // Before the fingerprint: for the very first book on the device (e.g. on the watch) the folder doesn't exist yet.
         storage.ensureDirectory()
         val part = storage.partFileFor(bookId, trackIndex)
         val meta = storage.metaFileFor(bookId, trackIndex)
@@ -78,12 +78,12 @@ internal class ResumableTransfer(
                 call.execute().use { response ->
                     when {
                         response.code == 416 -> {
-                            // Die Teildatei passt nicht mehr zur Serverdatei: von vorn beginnen.
+                            // The partial file no longer matches the server file: start from scratch.
                             storage.deletePart(bookId, trackIndex)
                             throw IOException("Bereich nicht erfüllbar, beginne von vorn")
                         }
                         response.code in 500..599 -> throw IOException("HTTP ${response.code}")
-                        // 401 ist ein Netzfehler im Sinne des Aufrufers: Auf der Uhr kann ein neuer Schlüssel vom Handy kommen.
+                        // 401 is a network error from the caller's point of view: on the watch a new key may come from the phone.
                         response.code == 401 -> throw HttpStatusException(response.code)
                         response.code == 403 -> return@withContext TransferResult.Failed("Nicht angemeldet", forbidden = true)
                         !response.isSuccessful -> return@withContext TransferResult.Failed("HTTP ${response.code}")
@@ -107,7 +107,7 @@ internal class ResumableTransfer(
                         total = range.total ?: length?.let { offset + it }
                         Log.i(TAG, "Eintrag $bookId Datei $trackIndex: setze bei $offset von ${total ?: "?"} Bytes fort")
                     } else {
-                        // 200: ganze Datei, entweder frischer Start oder der Server hat die Datei geändert.
+                        // 200: whole file, either a fresh start or the server has changed the file.
                         offset = 0
                         total = length
                         rememberValidator(response.header("ETag"), response.header("Last-Modified"), total, meta)
@@ -130,18 +130,18 @@ internal class ResumableTransfer(
         }
     }
 
-    /** Offset und Merkmal einer brauchbaren Teildatei; `null`, wenn nichts da ist oder es nicht fortgesetzt werden kann. */
+    /** Offset and fingerprint of a usable partial file; `null` if there is none or it can't be resumed. */
     private fun readResume(part: File, meta: File): Resume? {
         if (!part.isFile || !meta.isFile) return null
         val lines = runCatching { meta.readLines() }.getOrNull() ?: return null
         val validator = lines.getOrNull(0)?.takeIf { it.isNotBlank() } ?: return null
         val total = lines.getOrNull(1)?.toLongOrNull() ?: return null
         val offset = part.length()
-        // Leer oder schon so lang wie die Datei: nichts, woran man anknüpfen könnte.
+        // Empty or already as long as the file: nothing to resume from.
         return if (offset in 1 until total) Resume(offset, validator) else null
     }
 
-    /** Merkt sich Merkmal und Größe; ohne beides lässt sich der Versuch später nicht sicher fortsetzen. */
+    /** Remembers fingerprint and size; without both the attempt can't be safely resumed later. */
     private fun rememberValidator(etag: String?, lastModified: String?, total: Long?, meta: File) {
         val validator = etag?.takeIf { !it.startsWith("W/") } ?: lastModified
         if (validator == null || total == null) {
@@ -195,7 +195,7 @@ internal class ResumableTransfer(
 
         private val CONTENT_RANGE = Regex("""bytes (\d+)-\d+/(\d+|\*)""")
 
-        /** `bytes 100-999/1000` → Anfang 100, Gesamtgröße 1000 (`*` = unbekannt). */
+        /** `bytes 100-999/1000` → start 100, total size 1000 (`*` = unknown). */
         internal fun parseContentRange(header: String?): ContentRange? {
             val match = header?.let { CONTENT_RANGE.matchEntire(it.trim()) } ?: return null
             return ContentRange(match.groupValues[1].toLong(), match.groupValues[2].toLongOrNull())

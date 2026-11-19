@@ -22,14 +22,14 @@ import okhttp3.Request
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Die Subsonic-REST-Aufrufe, die die App braucht. Auth übernimmt [SubsonicAuthInterceptor]. */
+/** The Subsonic REST calls the app needs. Auth is handled by [SubsonicAuthInterceptor]. */
 @Singleton
 class SubsonicApi @Inject constructor(
     private val client: OkHttpClient,
 ) {
     suspend fun ping(server: SubsonicServer): SubsonicResponse = get(server, "ping")
 
-    /** Leere Liste bei Servern ohne OpenSubsonic-Unterstützung. */
+    /** Empty list for servers without OpenSubsonic support. */
     suspend fun openSubsonicExtensions(server: SubsonicServer): List<OpenSubsonicExtensionDto> =
         try {
             get(server, "getOpenSubsonicExtensions").openSubsonicExtensions.orEmpty()
@@ -38,7 +38,7 @@ class SubsonicApi @Inject constructor(
             emptyList()
         }
 
-    /** Navidrome liefert bei leerer Suche die gesamte Bibliothek (Konzept 6.3). */
+    /** Navidrome returns the whole library for an empty search (concept 6.3). */
     suspend fun searchAllSongs(server: SubsonicServer, offset: Int, count: Int): List<SongDto> =
         get(server, "search3") {
             addQueryParameter("query", "")
@@ -59,14 +59,14 @@ class SubsonicApi @Inject constructor(
         get(server, "getAlbum") { addQueryParameter("id", albumId) }.album
             ?: throw NotSubsonicException("getAlbum ohne album")
 
-    /** Alle favorisierten Songs des Kontos. */
-    /** Favorisierte Songs, Alben und Künstler. */
+    /** All favorited songs of the account. */
+    /** Favorited songs, albums and artists. */
     suspend fun starred(server: SubsonicServer): Starred2Dto =
         get(server, "getStarred2").starred2 ?: Starred2Dto()
 
     /**
-     * Bis zu [count] Songs, die zu Song, Album oder Künstler [id] passen (`getSimilarSongs`). Navidrome braucht dafür einen
-     * externen Agenten (Last.fm); ohne ihn und bei Servern, die den Aufruf nicht kennen, leer.
+     * Up to [count] songs that match the song, album or artist [id] (`getSimilarSongs`). Navidrome needs an
+     * external agent for this (Last.fm); without it, and for servers that don't know the call, empty.
      */
     suspend fun similarSongs(server: SubsonicServer, id: String, count: Int): List<SongDto> =
         try {
@@ -94,7 +94,7 @@ class SubsonicApi @Inject constructor(
             FavoriteKind.ARTIST -> "artistId"
         }
 
-    /** Meldet eine Wiedergabe; [playedAt] ist der Beginn des Hörens (ms seit Epoche). */
+    /** Reports a play; [playedAt] is when listening started (ms since epoch). */
     suspend fun scrobble(server: SubsonicServer, songId: String, playedAt: Long) {
         get(server, "scrobble") {
             addQueryParameter("id", songId)
@@ -103,7 +103,7 @@ class SubsonicApi @Inject constructor(
         }
     }
 
-    /** Playlists des Kontos ohne Songs (eigene und öffentliche anderer Nutzer). */
+    /** Playlists of the account without songs (own ones and public ones of other users). */
     suspend fun playlists(server: SubsonicServer): List<PlaylistDto> =
         get(server, "getPlaylists").playlists?.playlist.orEmpty()
 
@@ -111,12 +111,12 @@ class SubsonicApi @Inject constructor(
         get(server, "getPlaylist") { addQueryParameter("id", playlistId) }.playlist
             ?: throw NotSubsonicException("getPlaylist ohne playlist")
 
-    /** @return die ID der neuen Playlist (Subsonic ≥ 1.14 liefert die Playlist zurück). */
+    /** @return the ID of the new playlist (Subsonic ≥ 1.14 returns the playlist). */
     suspend fun createPlaylist(server: SubsonicServer, name: String, songIds: List<String>): String =
         send(server, "createPlaylist", listOf("name" to name) + songIds.map { "songId" to it }).playlist?.id
             ?: throw NotSubsonicException("createPlaylist ohne playlist")
 
-    /** Entfernt erst die Einträge an [removeIndices] (bezogen auf den Stand vorher), hängt dann [addSongIds] an. */
+    /** First removes the entries at [removeIndices] (relative to the previous state), then appends [addSongIds]. */
     suspend fun updatePlaylist(
         server: SubsonicServer,
         playlistId: String,
@@ -140,7 +140,7 @@ class SubsonicApi @Inject constructor(
         get(server, "deletePlaylist") { addQueryParameter("id", playlistId) }
     }
 
-    /** OpenSubsonic `getLyricsBySongId`; leer, wenn der Server den Aufruf nicht kennt. */
+    /** OpenSubsonic `getLyricsBySongId`; empty if the server doesn't know the call. */
     suspend fun lyricsBySongId(server: SubsonicServer, songId: String): List<StructuredLyricsDto> =
         try {
             get(server, "getLyricsBySongId") { addQueryParameter("id", songId) }.lyricsList?.structuredLyrics.orEmpty()
@@ -149,21 +149,21 @@ class SubsonicApi @Inject constructor(
             emptyList()
         }
 
-    /** Klassisches `getLyrics` (reiner Text), `null` wenn nichts gefunden wurde. */
+    /** Classic `getLyrics` (plain text), `null` if nothing was found. */
     suspend fun lyrics(server: SubsonicServer, artist: String, title: String): String? =
         get(server, "getLyrics") {
             addQueryParameter("artist", artist)
             addQueryParameter("title", title)
         }.lyrics?.value?.takeIf { it.isNotBlank() }
 
-    /** Original-Datei ohne Transcoding (Gapless, Klangtreue). */
+    /** Original file without transcoding (gapless, fidelity). */
     fun streamUrl(server: SubsonicServer, songId: String): HttpUrl =
         server.endpoint("stream")
             .addQueryParameter("id", songId)
             .addQueryParameter("format", "raw")
             .build()
 
-    /** Vom Server umgewandelt, z. B. für Empfänger, die das Originalformat nicht kennen. */
+    /** Transcoded by the server, e.g. for receivers that don't know the original format. */
     fun transcodedStreamUrl(server: SubsonicServer, songId: String, format: String, maxBitRateKbps: Int): HttpUrl =
         server.endpoint("stream")
             .addQueryParameter("id", songId)
@@ -177,7 +177,7 @@ class SubsonicApi @Inject constructor(
             .addQueryParameter("size", sizePx.toString())
             .build()
 
-    /** `null`, wenn der Server kein Cover hat. */
+    /** `null` if the server has no cover. */
     suspend fun coverArt(server: SubsonicServer, coverArtId: String, sizePx: Int): ByteArray? =
         withContext(Dispatchers.IO) {
             client.newCall(request(server, coverArtUrl(server, coverArtId, sizePx))).await().use { response ->
@@ -197,8 +197,8 @@ class SubsonicApi @Inject constructor(
     ): SubsonicResponse = execute(endpoint, request(server, server.endpoint(endpoint).apply(params).build()))
 
     /**
-     * Für Aufrufe mit vielen Parametern: als Formular-POST, wenn der Server `formPost` kann, sonst als GET.
-     * Aufrufer müssen lange Listen ohne `formPost` selbst aufteilen.
+     * For calls with many parameters: as a form POST if the server supports `formPost`, otherwise as GET.
+     * Callers must split long lists themselves without `formPost`.
      */
     private suspend fun send(server: SubsonicServer, endpoint: String, params: List<Pair<String, String>>): SubsonicResponse {
         if (!server.supportsFormPost) {

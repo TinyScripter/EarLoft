@@ -7,8 +7,8 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Wartet in echter Zeit auf [block]. In `runTest` liefe `withTimeout` in virtueller Zeit ab und schlüge sofort an, während
- * Room noch auf seinem eigenen Thread arbeitet.
+ * Waits for [block] in real time. In `runTest`, `withTimeout` would run in virtual time and fire immediately while
+ * Room is still working on its own thread.
  */
 suspend fun <T> awaitReal(timeout: Duration = 5.seconds, block: suspend () -> T): T =
     withContext(Dispatchers.Default) { withTimeout(timeout) { block() } }

@@ -19,10 +19,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Startet den [WearDownloadWorker]. Anders als am Handy gibt es keine Netz-Bedingung: Der Worker fordert
- * WLAN selbst an, weil der Bluetooth-Proxy des Handys für WorkManager ebenfalls als Netz gilt (Wear-Konzept 8.2).
- * Nie bei niedrigem Akku; nach Einstellung oder nach mehreren Versuchen ohne WLAN ([enqueueOnCharger]) nur am Ladegerät.
- * Wiederholungen plant der Worker selbst ([enqueueRetry]) statt über den Backoff von WorkManager (Review W1).
+ * Starts the [WearDownloadWorker]. Unlike on the phone there is no network constraint: the worker requests
+ * Wi-Fi itself, because the phone's Bluetooth proxy also counts as a network for WorkManager (Wear concept 8.2).
+ * Never on low battery; depending on the setting or after several attempts without Wi-Fi ([enqueueOnCharger]) only on the charger.
+ * The worker schedules retries itself ([enqueueRetry]) instead of using WorkManager's backoff (Review W1).
  */
 @Singleton
 class WearDownloadScheduler @Inject constructor(
@@ -31,7 +31,7 @@ class WearDownloadScheduler @Inject constructor(
 ) : DownloadScheduler {
 
     override suspend fun enqueue(replace: Boolean) {
-        // Ein ersetzter Auftrag beginnt von vorn, auch mit den Versuchen ohne WLAN (wie früher ein frischer runAttemptCount).
+        // A replaced job starts from scratch, including the attempts without Wi-Fi (like a fresh runAttemptCount used to).
         if (replace) state.clearRetries()
         enqueue(
             requireCharging = state.settings.value.requireCharging,
@@ -40,17 +40,17 @@ class WearDownloadScheduler @Inject constructor(
     }
 
     /**
-     * Bei jedem Prozessstart und Abgleich: Ein wartender Auftrag bleibt – auch einer, der nur noch am Ladegerät läuft oder auf
-     * seine Wiederholung wartet. Angehängt begänne sonst jedes Mal ein neuer mit fünf frischen WLAN-Versuchen.
+     * On every process start and sync: a waiting job stays – including one that only runs on the charger or is waiting for
+     * its retry. Otherwise each append would start a new one with five fresh Wi-Fi attempts.
      */
     override suspend fun resume() {
         enqueue(requireCharging = state.settings.value.requireCharging, policy = ExistingWorkPolicy.KEEP)
     }
 
     /**
-     * Aus dem laufenden Worker, wenn es wiederholt kein WLAN gab bzw. das Handy fehlte: erst am Ladegerät weiter (dort ist die
-     * Uhr meist im WLAN), statt alle paar Minuten das WLAN einzuschalten. Wird angehängt, läuft also nach dem jetzigen Auftrag;
-     * eine neue Auswahl ersetzt ihn wieder durch einen normalen.
+     * From the running worker when there was repeatedly no Wi-Fi or the phone was missing: continue only on the charger (the
+     * watch is usually on Wi-Fi there) instead of turning on Wi-Fi every few minutes. It is appended, so it runs after the
+     * current job; a new selection replaces it with a normal one again.
      */
     fun enqueueOnCharger() {
         state.clearRetries()
@@ -58,9 +58,9 @@ class WearDownloadScheduler @Inject constructor(
     }
 
     /**
-     * Aus dem laufenden Worker: derselbe Auftrag noch einmal nach [delayMs], angehängt an den jetzigen (der danach erfolgreich
-     * endet). Ein neuer Auftrag statt `Result.retry()`: Stoppt das System ihn (etwa beim kurzen Trennen des adaptiven Ladens),
-     * plant WorkManager ihn ohne wachsenden Backoff neu (Review W1). [onCharger] behält die Lade-Bedingung des jetzigen.
+     * From the running worker: the same job again after [delayMs], appended to the current one (which then ends
+     * successfully). A new job instead of `Result.retry()`: if the system stops it (e.g. during the brief disconnect of adaptive
+     * charging), WorkManager reschedules it without a growing backoff (Review W1). [onCharger] keeps the current one's charging constraint.
      */
     fun enqueueRetry(delayMs: Long, onCharger: Boolean) {
         enqueue(

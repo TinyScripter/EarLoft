@@ -17,7 +17,7 @@ class RemoteHandOverTest {
         val shown = handOver.update(episode, emptyRemote, queueEmpty = true, positionMs = 0, nowMs = 3_000)
 
         assertEquals(episode.copy(isRemote = true), shown)
-        // Läuft vom letzten bekannten Stand weiter, statt auf 0 zu springen.
+        // Continues from the last known state instead of jumping to 0.
         assertEquals(63_000L, handOver.positionMs(nowMs = 4_000))
     }
 

@@ -9,29 +9,29 @@ import androidx.media3.extractor.metadata.id3.TextInformationFrame
 import androidx.media3.extractor.metadata.vorbis.VorbisComment
 
 /**
- * Was eine Folge oder ein Buch über sich selbst sagt und MediaStore nicht liefert (Konzept 12.1): Erscheinungsdatum,
- * Beschreibung, Untertitel und Kapitel (ID3 `CHAP`). Leere Werte sind `null`; die Kapitel sind nach Beginn geordnet.
+ * What an episode or book says about itself that MediaStore doesn't provide (concept 12.1): publication date,
+ * description, subtitle and chapters (ID3 `CHAP`). Empty values are `null`; the chapters are ordered by start.
  */
 internal data class SpokenTags(
     val date: String? = null,
     val description: String? = null,
     val subtitle: String? = null,
     val chapters: List<LocalBookChapter> = emptyList(),
-    /** Serie und Band wie Audiobookshelf sie liest (`SERIES`/`SERIES-PART`, ID3 `MVNM`/`MVIN`). */
+    /** Series and volume as Audiobookshelf reads them (`SERIES`/`SERIES-PART`, ID3 `MVNM`/`MVIN`). */
     val series: String? = null,
     val seriesPart: String? = null,
 ) {
-    /** Das Jahr am Anfang von [date] („2024“, „2024-05-01“). */
+    /** The year at the start of [date] ("2024", "2024-05-01"). */
     val year: Int? get() = date?.let { YEAR.find(it.trim())?.value?.toIntOrNull() }
 
     companion object {
-        /** Kürzer als das ist kein Kapitel, sondern eine Schnittmarke (die Jingle-Marken mancher Sender). */
+        /** Shorter than this is not a chapter but a cut mark (the jingle marks of some broadcasters). */
         private const val MIN_CHAPTER_MS = 1_000L
 
         private val DATE_FRAMES = listOf("TDRC", "TDRL")
         private val DAY_MONTH = Regex("""(\d{2})(\d{2})""")
 
-        /** ID3v2.3 trennt Jahr (`TYER`) und Tag/Monat (`TDAT`, „DDMM“); ohne `TDAT` bleibt das Jahr. */
+        /** ID3v2.3 separates year (`TYER`) and day/month (`TDAT`, "DDMM"); without `TDAT` the year stays. */
         private fun v23Date(frames: Map<String, String>): String? {
             val year = frames["TYER"] ?: return null
             val (day, month) = frames["TDAT"]?.let { DAY_MONTH.matchEntire(it.trim())?.destructured } ?: return year
@@ -58,7 +58,7 @@ internal data class SpokenTags(
                             }
                         }
                         is VorbisComment -> descriptions.putIfAbsent(entry.key.uppercase(), entry.value)
-                        // Freie iTunes-Felder einer MP4-Datei (`----:com.apple.iTunes:SUBTITLE`).
+                        // Free-form iTunes fields of an MP4 file (`----:com.apple.iTunes:SUBTITLE`).
                         is InternalFrame -> if (entry.text.isNotBlank()) descriptions.putIfAbsent(entry.description.uppercase(), entry.text.trim())
                         is ChapterFrame -> chapters += chapterOf(entry)
                     }
@@ -69,21 +69,21 @@ internal data class SpokenTags(
                 description = (DESCRIPTION_FRAMES.firstNotNullOfOrNull { frames[it] } ?: descriptions["DESCRIPTION"])?.takeIf { it.isNotBlank() },
                 subtitle = (frames["TIT3"] ?: descriptions["SUBTITLE"])?.trim()?.takeIf { it.isNotEmpty() },
                 series = (descriptions["SERIES"] ?: frames["MVNM"])?.trim()?.takeIf { it.isNotEmpty() },
-                // „2/7“ bei MVIN: nur der Band.
+                // "2/7" for MVIN: only the volume.
                 seriesPart = (descriptions["SERIES-PART"] ?: frames["MVIN"])?.substringBefore('/')?.trim()?.takeIf { it.isNotEmpty() },
                 chapters = chapters.filter { it.endMs - it.startMs >= MIN_CHAPTER_MS }.sortedBy { it.startMs }.plausible(),
             )
         }
 
-        /** Titel ohne Inhalt: die Kennung des Kapitels („ch3“, „c4“) oder nur eine Zahl. */
+        /** Title without content: the chapter's ID ("ch3", "c4") or just a number. */
         private val GENERIC_TITLE = Regex("""(?i)(?:c|ch|chp|chap|chapter|kapitel)?[ _-]?(\d+)""")
         private const val OVERLAP_TOLERANCE_MS = 1_000L
 
         /**
-         * Manche Sender (am Emulator: ARD) lassen Schnittmarken ihres Produktionssystems als ID3-Kapitel in der Datei:
-         * verschachtelt („ch1“ … „ch9“ innerhalb einer Minute) oder fast ohne Namen. Solche Listen sind keine Kapitel und
-         * fallen ganz weg, statt die Kapitelknöpfe auf Schnittmarken springen zu lassen. Durchnummerierte Kapitel ab dem
-         * Anfang der Datei („Chapter 1“ …, „Kapitel 1“ …, „001“ …, wie Werkzeuge sie in Hörbücher schreiben) bleiben.
+         * Some broadcasters (on the emulator: ARD) leave cut marks of their production system in the file as ID3 chapters:
+         * nested ("ch1" … "ch9" within one minute) or almost without names. Such lists are not chapters and
+         * are dropped entirely, instead of letting the chapter buttons jump to cut marks. Consecutively numbered chapters from the
+         * start of the file ("Chapter 1" …, "Kapitel 1" …, "001" …, as tools write them into audiobooks) stay.
          */
         private fun List<LocalBookChapter>.plausible(): List<LocalBookChapter> {
             val overlapping = zipWithNext().any { (a, b) -> b.startMs < a.endMs - OVERLAP_TOLERANCE_MS }

@@ -43,11 +43,11 @@ class AbsSessionReporterTest {
     @Before
     fun setUp() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        // Robolectric startet WorkManager mit der ersten Prüfung selbst; nur wenn nicht, hier nachholen.
+        // Robolectric starts WorkManager itself with the first test; only if not, do it here.
         try {
             WorkManager.initialize(context, Configuration.Builder().build())
         } catch (e: IllegalStateException) {
-            // schon initialisiert
+            // already initialized
         }
         db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         val client = OkHttpClient.Builder()
@@ -123,7 +123,7 @@ class AbsSessionReporterTest {
         reporter.record(bookId, 15_000, 115_000, 36_000_000, force = false, now = System.currentTimeMillis())
 
         assertEquals(1, sessions().size)
-        // Der zweite Stand ist gespeichert und wartet auf die nächste Meldung.
+        // The second state is stored and waits for the next report.
         assertEquals(30_000, db.absSessionDao().dirty().single().timeListeningMs)
     }
 

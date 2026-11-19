@@ -10,8 +10,8 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.designsystem.theme.LocalDarkTheme
 
 /**
- * Breites Logo mit Schriftzug, passend zur App-Darstellung. Gewählt über [LocalDarkTheme] statt über `drawable-night`:
- * Die Einstellung in der App kann vom System abweichen.
+ * Wide logo with wordmark, matching the app's theme. Chosen via [LocalDarkTheme] instead of `drawable-night`:
+ * the in-app setting may differ from the system.
  */
 @Composable
 fun AppLogo(modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Fit) {

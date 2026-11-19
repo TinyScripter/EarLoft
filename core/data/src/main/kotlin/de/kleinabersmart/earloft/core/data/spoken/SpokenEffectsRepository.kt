@@ -23,9 +23,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Tempo und Wiedergabe-Effekte von Büchern und Folgen (Konzept 12.4): Rangfolge Folge bzw. Buch > Abo (nur Podcasts) >
- * Vorgabe des Bereichs. Eigene Werte eines Buchs bzw. einer Folge stehen nur, solange sie von dem abweichen, was sie
- * erben; wer zurück auf den geerbten Wert stellt, folgt damit wieder Abo und Bereich.
+ * Speed and playback effects of books and episodes (concept 12.4): precedence episode or book > subscription (podcasts only) >
+ * section default. A book's or episode's own values only persist as long as they differ from what they
+ * inherit; setting back to the inherited value follows subscription and section again.
  */
 @Singleton
 class SpokenEffectsRepository @Inject constructor(
@@ -35,7 +35,7 @@ class SpokenEffectsRepository @Inject constructor(
 ) {
     private val mutex = Mutex()
 
-    /** Die Ebenen des Buchs bzw. der Folge, neu bei jeder Änderung an einer davon. */
+    /** The levels of the book or episode, emitted anew on every change to any of them. */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun layers(bookId: Long): Flow<EffectLayers> = flow { emit(books.book(bookId)) }
         .flatMapLatest { book ->
@@ -48,12 +48,12 @@ class SpokenEffectsRepository @Inject constructor(
         }
         .distinctUntilChanged()
 
-    /** Was beim Abspielen gilt. */
+    /** What applies during playback. */
     fun effects(bookId: Long): Flow<SpokenEffects> = layers(bookId).map { it.effects }.distinctUntilChanged()
 
     suspend fun effectsNow(bookId: Long): SpokenEffects = layers(bookId).first().effects
 
-    /** Eigenes Tempo; gleich dem geerbten heißt: wieder dem Abo bzw. Bereich folgen. */
+    /** Own speed; equal to the inherited one means: follow the subscription or section again. */
     suspend fun setSpeed(bookId: Long, speed: Float) = updateOwn(bookId) { it.copy(speed = speed) }
 
     suspend fun setSkipSilence(bookId: Long, enabled: Boolean) = updateOwn(bookId) { it.copy(skipSilence = enabled) }
@@ -61,8 +61,8 @@ class SpokenEffectsRepository @Inject constructor(
     suspend fun setVolumeBoost(bookId: Long, db: Int) = updateOwn(bookId) { it.copy(volumeBoostDb = db) }
 
     /**
-     * „Als Standard“ bzw. „Für diesen Podcast“: Was jetzt für [bookId] gilt, wird zur Vorgabe des Abos (Folgen mit Abo)
-     * bzw. des Bereichs; die eigenen Werte entfallen damit. Andere Folgen und Bücher mit eigenen Werten behalten sie.
+     * "As default" or "For this podcast": what currently applies to [bookId] becomes the default of the subscription (episodes
+     * with a subscription) or of the section; the own values are thereby dropped. Other episodes and books with own values keep them.
      */
     suspend fun rememberAsDefault(bookId: Long) = mutex.withLock {
         val book = books.book(bookId) ?: return@withLock
@@ -70,7 +70,7 @@ class SpokenEffectsRepository @Inject constructor(
         val feed = book.takeIf { it.kind == BookKind.EPISODE }?.let { podcasts.feed(it.serverId) }
         when {
             feed != null -> {
-                // Was der Bereich ohnehin vorgibt, bleibt am Abo offen und folgt ihm weiter.
+                // What the section specifies anyway stays open on the subscription and keeps following it.
                 val area = settings.podcastEffects.first()
                 val own = EffectOverrides(effects.speed, effects.skipSilence, effects.volumeBoostDb).minus(area)
                 podcasts.setEffects(feed.feedId, own.speed, own.skipSilence, own.volumeBoostDb)
@@ -81,7 +81,7 @@ class SpokenEffectsRepository @Inject constructor(
         if (books.progress(bookId) != null) books.setEffects(bookId, null, null, null)
     }
 
-    /** Vorgabe des Abos ändern; [change] bekommt die bisherigen Werte des Abos (`null` = Vorgabe des Bereichs). */
+    /** Change the subscription's default; [change] receives the subscription's previous values (`null` = section default). */
     suspend fun setFeedEffects(feedId: String, change: (EffectOverrides) -> EffectOverrides) = mutex.withLock {
         val feed = podcasts.feed(feedId) ?: return@withLock
         val next = change(EffectOverrides(feed.speed, feed.skipSilence, feed.volumeBoostDb))
@@ -97,7 +97,7 @@ class SpokenEffectsRepository @Inject constructor(
         if (books.progress(bookId) != null) {
             books.setEffects(bookId, own.speed, own.skipSilence, own.volumeBoostDb)
         } else {
-            // Noch kein Stand (der Server gewinnt dann beim nächsten Abgleich sofort, updatedAt = 0).
+            // No state yet (the server then wins immediately on the next sync, updatedAt = 0).
             val duration = books.book(bookId)?.durationMs ?: return@withLock
             books.upsertProgress(
                 BookProgressEntity(

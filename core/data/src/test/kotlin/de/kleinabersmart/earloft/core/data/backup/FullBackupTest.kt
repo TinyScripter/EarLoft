@@ -79,7 +79,7 @@ class FullBackupTest {
         opened.forEach { it.close() }
     }
 
-    /** Ein Gerät mit eigener Haupt- und Nutzerdatenbank und eigenen Einstellungen. */
+    /** A device with its own main and user database and its own settings. */
     private inner class Device(scope: CoroutineScope) {
         val main = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build().also(opened::add)
         val user = Room.inMemoryDatabaseBuilder(context, UserDatabase::class.java).allowMainThreadQueries().build().also(opened::add)
@@ -152,7 +152,7 @@ class FullBackupTest {
         BookEntity(serverId = feedId, kind = BookKind.EPISODE, remoteId = guid, title = guid, normTitle = guid, author = "", durationMs = 1_000_000),
     )
 
-    /** Eine Folge mit ihrer Datei, wie der Abgleich sie anlegt. */
+    /** An episode with its file, as the sync creates it. */
     private suspend fun EarLoftDatabase.addEpisodeWithTrack(feedId: String, guid: String, addedAt: Long, state: TrackDownload = TrackDownload.NONE): Long {
         val id = bookDao().upsertBook(
             BookEntity(
@@ -209,11 +209,11 @@ class FullBackupTest {
         assertEquals(listOf("abs"), new.main.bookDao().servers().map { it.serverId })
         assertFalse(new.main.podcastDao().feed("feed-1")!!.notifyNew)
         assertEquals(60_000L, new.main.statsDao().all().single().listenedMs)
-        // Ohne Passwort: Die Einstellungen zeigen „Passwort neu eingeben“.
+        // Without password: the settings show "Re-enter password".
         assertEquals(listOf("nav"), new.registry.withoutPassword())
-        // Die Folge gibt es erst nach dem Abgleich; bis dahin wartet ihr Fortschritt in `user.db`.
+        // The episode only exists after the sync; until then its progress waits in `user.db`.
         assertEquals(4_000L, new.user.userDataDao().progress().single().positionMs)
-        // Einstellungen ersetzt: Was die Sicherung nicht kennt, fällt weg.
+        // Settings replaced: whatever the backup doesn't know is dropped.
         val theme = new.theme.data.first()
         assertEquals("DARK", theme[MODE])
         assertNull(theme[booleanPreferencesKey("always_show_navigation_bar")])
@@ -244,7 +244,7 @@ class FullBackupTest {
         assertEquals(listOf("nav-here"), new.main.sourceDao().getServers().map { it.sourceId })
         assertEquals(listOf("abs-here"), new.main.bookDao().servers().map { it.serverId })
         assertEquals(listOf("feed-here"), new.main.podcastDao().feeds().map { it.feedId })
-        // Der Fortschritt hängt an der hiesigen Kennung des Abos.
+        // The progress is tied to the local identifier of the subscription.
         assertEquals(4_000L, new.main.bookDao().progressOf(listOf(episode)).single().positionMs)
     }
 
@@ -262,7 +262,7 @@ class FullBackupTest {
         new.downloads.edit { it[AUTO_SERVERS] = setOf("nav-here") }
         new.backup.import(ByteArrayInputStream(file))
 
-        // Die hiesige Reihenfolge bleibt vorn; aus der Sicherung kommt nur dazu, was fehlt, unter der hiesigen Kennung des Abos.
+        // The local order stays in front; from the backup only what's missing is added, under the local identifier of the subscription.
         assertEquals(
             listOf("feed-here\u001Fguid-2", "feed-here\u001Fguid-9", "feed-here\u001Fguid-1"),
             new.queue.data.first()[ORDER]!!.split("\u001E"),
@@ -277,11 +277,11 @@ class FullBackupTest {
         val book = old.main.bookDao().upsertBook(
             BookEntity(serverId = "abs", kind = BookKind.BOOK, remoteId = "li_1", title = "Krimi", normTitle = "krimi", author = "", durationMs = 1_000_000),
         )
-        // Noch nicht gemeldet: Nur solchen Fortschritt sichert die App (den übrigen hat der Server).
+        // Not yet reported: the app only backs up such progress (the server has the rest).
         old.main.bookDao().upsertProgress(BookProgressEntity(book, positionMs = 7_000, durationMs = 1_000_000, updatedAt = 10, dirty = true))
         val file = ByteArrayOutputStream().also { old.backup.export(it) }.toByteArray()
 
-        // Hier ist eine andere Bibliothek die erste gezeigte (abgewählt oder in Audiobookshelf umsortiert).
+        // Here a different library is the first one shown (deselected or reordered in Audiobookshelf).
         val new = Device(backgroundScope)
         new.main.addAbs("abs-here", libraryId = "lib-plays")
         val here = new.main.bookDao().upsertBook(
@@ -308,7 +308,7 @@ class FullBackupTest {
 
         val new = Device(backgroundScope)
         new.backup.import(ByteArrayInputStream(file))
-        // Der erste Abgleich legt die Folgen in einem Zug an; die Automatik fragt vorher die Sicherung
+        // The first sync creates the episodes in one go; the automation consults the backup beforehand
         // (`EpisodeDownloads.queueAutomatic`).
         val ids = new.main.withTransaction {
             listOf("heard" to 1L, "removed" to 4L, "loaded" to 3L, "never" to 2L)
@@ -323,7 +323,7 @@ class FullBackupTest {
         assertEquals("loaded on the old device", TrackDownload.QUEUED, state("loaded"))
         for (guid in listOf("heard", "removed", "never")) assertEquals(guid, TrackDownload.REMOVED, state(guid))
 
-        // Eine danach erschienene Folge lädt die Automatik wieder.
+        // An episode published afterwards is downloaded by the automation again.
         val newer = new.main.withTransaction { new.main.addEpisodeWithTrack("feed-1", "newer", addedAt = 5) }
         new.userData.applyWaiting()
         assertEquals(1, dao.queueLatestUnheard("feed-1", 3))
@@ -334,7 +334,7 @@ class FullBackupTest {
     fun `removed downloads are only kept as far as the automatic could still load them`() = runTest {
         val device = Device(backgroundScope)
         device.main.addFeed()
-        // Wie nach einer Wiederherstellung: alle Folgen entfernt; eine geladene, die neueste gehörte bei addedAt 5.
+        // As after a restore: all episodes removed; one downloaded, the newest one played at addedAt 5.
         for (addedAt in 1L..30L) {
             val state = if (addedAt == 2L) TrackDownload.DONE else TrackDownload.REMOVED
             val id = device.main.addEpisodeWithTrack("feed-1", "e$addedAt", addedAt, state)
@@ -377,7 +377,7 @@ class FullBackupTest {
         val old = Device(backgroundScope)
         old.main.addNavidrome()
         val file = ByteArrayOutputStream().also { old.backup.export(it) }.toByteArray()
-        // Gleiches Schema, aber eine Art von Server, die erst eine neuere Version kennt.
+        // Same schema, but a server type that only a newer version knows.
         val changed = ByteArrayOutputStream()
         ZipOutputStream(changed).use { out ->
             ZipInputStream(ByteArrayInputStream(file)).use { zip ->

@@ -8,8 +8,8 @@ import androidx.wear.compose.material3.MaterialTheme
 import com.materialkolor.dynamicColorScheme
 
 /**
- * Wear-Farbschema mit der Akzentfarbe des Albums ([seedColor], einmal aus dem Cover berechnet und in `albums.seedColor`
- * gespeichert, siehe `AlbumColorRepository`). Ohne Farbe bleibt das umgebende Schema.
+ * Wear color scheme with the album's accent color ([seedColor], computed once from the cover and stored in `albums.seedColor`,
+ * see `AlbumColorRepository`). Without a color the surrounding scheme stays.
  */
 @Composable
 fun AlbumColorTheme(seedColor: Int?, content: @Composable () -> Unit) {
@@ -18,7 +18,7 @@ fun AlbumColorTheme(seedColor: Int?, content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = scheme, content = content)
 }
 
-/** Übernimmt Akzent- und Flächenfarben aus dem dunklen Schema der Grundfarbe; Fehler- und Textfarben bleiben wie in [base]. */
+/** Takes accent and surface colors from the dark scheme of the seed color; error and text colors stay as in [base]. */
 internal fun albumColorScheme(base: ColorScheme, seedColor: Int): ColorScheme {
     val seed = dynamicColorScheme(Color(seedColor), isDark = true, isAmoled = true)
     return base.copy(

@@ -22,8 +22,8 @@ import de.kleinabersmart.earloft.core.data.spoken.UploadTarget
 import de.kleinabersmart.earloft.ui.formatBytes
 
 /**
- * Dialoge zum Hochladen eines Buchs aus ARD Sounds zu Audiobookshelf (`books_improvements.md` M9): Ziel wählen bzw. bestätigen,
- * Laden und Hochladen mit Fortschritt (abbrechbar), Hinweise am Ende.
+ * Dialogs for uploading a book from ARD Sounds to Audiobookshelf (`books_improvements.md` M9): choose or confirm the target,
+ * download and upload with progress (cancellable), messages at the end.
  */
 @Composable
 fun ArdUploadDialogs(state: UploadState, title: String, onConfirm: (UploadTarget) -> Unit, onDismiss: () -> Unit) {

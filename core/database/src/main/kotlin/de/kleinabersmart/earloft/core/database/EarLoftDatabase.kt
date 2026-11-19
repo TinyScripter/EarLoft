@@ -164,7 +164,7 @@ abstract class EarLoftDatabase : RoomDatabase() {
     abstract fun absSessionDao(): AbsSessionDao
     abstract fun backupDao(): BackupDao
 
-    /** v1 → v2: FTS-Tabellen kommen hinzu und werden aus den vorhandenen Daten befüllt. */
+    /** v1 → v2: FTS tables are added and populated from the existing data. */
     class AddSearchIndex : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
             db.execSQL("INSERT INTO songs_fts(songs_fts) VALUES('rebuild')")
@@ -173,13 +173,13 @@ abstract class EarLoftDatabase : RoomDatabase() {
         }
     }
 
-    /** v18 → v19: Die eigene Cast-Adresse je Server entfällt. */
+    /** v18 → v19: the custom cast address per server is dropped. */
     @DeleteColumn(tableName = "sources", columnName = "castBaseUrl")
     class DropCastBaseUrl : AutoMigrationSpec
 
     /**
-     * v19 → v20: Webseiten von Podcasts und Folgen (Konzept 13). Ohne Validatoren lädt der nächste Abgleich jeden Feed
-     * einmal ganz, statt mit 304 die Webseiten bis zur nächsten Änderung des Feeds auszulassen.
+     * v19 → v20: websites of podcasts and episodes (concept 13). Without validators the next sync loads every feed
+     * fully once, instead of skipping the websites with 304 until the feed's next change.
      */
     class AddWebLinks : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
@@ -188,8 +188,8 @@ abstract class EarLoftDatabase : RoomDatabase() {
     }
 
     /**
-     * v24 → v25: Tempo und Effekte je Abo und Bereich (Konzept 12.4). Das Tempo eines Buchs ist nur noch gesetzt, wenn es
-     * ein eigenes ist; 1,0 war bisher der Standard für alle und folgt jetzt der Vorgabe.
+     * v24 → v25: speed and effects per subscription and section (concept 12.4). A book's speed is now only set if it is
+     * its own; 1.0 was previously the default for all and now follows the default setting.
      */
     class InheritSpeed : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
@@ -198,9 +198,9 @@ abstract class EarLoftDatabase : RoomDatabase() {
     }
 
     /**
-     * v29 → v30: Kapitel bekommen Bild und Webseite. Gespeicherte Kapitellisten (JSON) hatten beides verworfen; ohne
-     * vermerkte Quelle lädt `ensureChapters` sie beim nächsten Abspielen neu. Podlove-Kapitel kommen mit dem nächsten
-     * vollständigen Abgleich, deshalb ohne Validatoren.
+     * v29 → v30: chapters get an image and a website. Stored chapter lists (JSON) had discarded both; without
+     * a recorded source, `ensureChapters` reloads them on next playback. Podlove chapters come with the next
+     * full sync, hence without validators.
      */
     class ReloadChapterLists : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
@@ -210,8 +210,8 @@ abstract class EarLoftDatabase : RoomDatabase() {
     }
 
     /**
-     * v34 → v35 (ohne Schemaänderung): Titel und Autoren aus Feeds werden jetzt von doppelt kodierten HTML-Entities befreit
-     * („&amp;“ im Titel). Ohne Validatoren liest der nächste Abgleich jeden Feed einmal ganz und schreibt sie neu.
+     * v34 → v35 (no schema change): titles and authors from feeds are now freed of double-encoded HTML entities
+     * ("&amp;" in the title). Without validators the next sync reads every feed fully once and rewrites them.
      */
     class DecodeTitles : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
@@ -220,8 +220,8 @@ abstract class EarLoftDatabase : RoomDatabase() {
     }
 
     /**
-     * v35 → v36: Staffel, Nummer, Art, Transkript und Mitwirkende der Folgen, Kennung und Unterstützen-Seite der Abos
-     * (Podcasting 2.0, Konzept 12.5). Ohne Validatoren liest der nächste Abgleich jeden Feed einmal ganz.
+     * v35 → v36: season, number, type, transcript and contributors of episodes, ID and support page of subscriptions
+     * (Podcasting 2.0, concept 12.5). Without validators the next sync reads every feed fully once.
      */
     class ReadPodcasting20 : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
@@ -230,8 +230,8 @@ abstract class EarLoftDatabase : RoomDatabase() {
     }
 
     /**
-     * v37 → v38: mehrere Bibliotheken je Server (`books_improvements.md` M3). Die Bücher stammen bisher alle aus der einen
-     * abgeglichenen Bibliothek des Servers.
+     * v37 → v38: several libraries per server (`books_improvements.md` M3). The books so far all come from the server's
+     * one synced library.
      */
     class SeveralLibraries : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
@@ -243,8 +243,8 @@ abstract class EarLoftDatabase : RoomDatabase() {
     }
 
     /**
-     * v42 → v43 (ohne Schemaänderung): Vor v42 beendete Bücher bekommen ihr `finishedAt` aus dem bisherigen `updatedAt`. Sonst
-     * rückte „Aus Weiterhören entfernen“ bei ihnen den Zeitpunkt weiter, ab dem ihre Downloads gelöscht werden.
+     * v42 → v43 (no schema change): books finished before v42 get their `finishedAt` from the previous `updatedAt`. Otherwise
+     * "Remove from Continue listening" advanced the time for them from which their downloads are deleted.
      */
     class FillFinishedAt : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
@@ -253,9 +253,9 @@ abstract class EarLoftDatabase : RoomDatabase() {
     }
 
     /**
-     * v44 → v45: mehrere Genres je Song (`song_genres`). Bis zum nächsten Vollabgleich gilt das eine bekannte Genre. Ohne
-     * `lastModified` schreibt der Vollabgleich jeden Server-Song neu (dann mit allen Genres); er ist beim nächsten Öffnen der
-     * App fällig (`lastFullSyncAt` 1 statt 0: 0 hieße erstes Einlesen). Lokale Dateien liefern ohnehin nur ein Genre.
+     * v44 → v45: several genres per song (`song_genres`). Until the next full sync the one known genre applies. Without
+     * `lastModified`, the full sync rewrites every server song (then with all genres); it is due the next time the
+     * app is opened (`lastFullSyncAt` 1 instead of 0: 0 would mean initial import). Local files only provide one genre anyway.
      */
     class SeveralGenres : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
@@ -277,8 +277,8 @@ abstract class EarLoftDatabase : RoomDatabase() {
 
     companion object {
         /**
-         * Liegt in `noBackupFilesDir`, wenn diese Installation die Datenbank selbst angelegt hat (frisch installiert oder
-         * Daten gelöscht). Gesicherte Dateien, die noch `bookId`s o. Ä. enthalten, stammen dann von einer anderen Datenbank.
+         * Lives in `noBackupFilesDir` if this installation created the database itself (freshly installed or
+         * data cleared). Backed-up files that still contain `bookId`s or similar then come from a different database.
          */
         const val CREATED_MARKER = "main_database_created"
 

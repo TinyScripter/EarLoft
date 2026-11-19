@@ -3,17 +3,17 @@ package de.kleinabersmart.earloft.core.model
 import kotlin.math.min
 import kotlin.math.pow
 
-/** Lautstärkeangleichung (Konzept 7.3). */
+/** Volume normalization (concept 7.3). */
 enum class ReplayGainMode {
     OFF,
     TRACK,
     ALBUM,
 
-    /** Album, wenn die Warteschlange ein Album in Reihenfolge abspielt, sonst Track. */
+    /** Album when the queue plays an album in order, otherwise track. */
     AUTO,
 }
 
-/** ReplayGain-Werte eines Titels (Gain in dB, Peak linear, 1.0 = Vollaussteuerung). */
+/** ReplayGain values of a track (gain in dB, peak linear, 1.0 = full scale). */
 data class ReplayGain(
     val trackGainDb: Float? = null,
     val trackPeak: Float? = null,
@@ -23,9 +23,9 @@ data class ReplayGain(
     val isEmpty: Boolean get() = trackGainDb == null && albumGainDb == null
 
     /**
-     * Linearer Verstärkungsfaktor. Fehlt der gewünschte Gain, wird der andere genommen; der
-     * Clipping-Schutz nutzt den Peak, der zum verwendeten Gain gehört. Ohne Peak wird nicht über
-     * 1.0 verstärkt. Ohne Werte bleibt der Titel unverändert (auch ohne Pre-Amp).
+     * Linear gain factor. If the desired gain is missing, the other one is used; the
+     * clipping protection uses the peak that belongs to the gain used. Without a peak there is no amplification above
+     * 1.0. Without values the track stays unchanged (also without pre-amp).
      */
     fun linearFactor(useAlbum: Boolean, preAmpDb: Float = 0f): Float {
         val album = albumGainDb?.let { it to albumPeak }
@@ -37,7 +37,7 @@ data class ReplayGain(
     }
 
     companion object {
-        /** Opus `R128_*_GAIN` ist Q7.8 (1/256 dB) bezogen auf −23 LUFS; ReplayGain liegt 5 dB höher. */
+        /** Opus `R128_*_GAIN` is Q7.8 (1/256 dB) relative to −23 LUFS; ReplayGain is 5 dB higher. */
         fun r128ToReplayGainDb(q78: Int): Float = q78 / 256f + 5f
     }
 }

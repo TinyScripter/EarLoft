@@ -46,20 +46,20 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Mobilfunk nur, wenn der Nutzer es erlaubt hat und von Hand eingereihte Dateien warten ([manualWaiting]); die Automatik lädt
- * immer nur im WLAN. Ein Auftrag mit [NetworkType.CONNECTED] lädt deshalb nur die von Hand eingereihten und übergibt den Rest
- * an einen Auftrag im WLAN ([BookDownloadWorker]).
+ * Mobile data only if the user allowed it and manually enqueued files are waiting ([manualWaiting]); the automation always
+ * downloads on Wi-Fi only. A job with [NetworkType.CONNECTED] therefore only downloads the manually enqueued ones and hands the
+ * rest to a Wi-Fi job ([BookDownloadWorker]).
  */
 internal fun bookDownloadNetwork(mobileAllowed: Boolean, manualWaiting: Boolean): NetworkType =
     if (mobileAllowed && manualWaiting) NetworkType.CONNECTED else NetworkType.UNMETERED
 
 /**
- * Downloads von Hörbüchern: von Hand, und mit den Schaltern unter Bücher → Downloads auch automatisch (die ersten aus
- * „Weiterhören“, der nächste Band einer Serie, bald ablaufende Bücher aus ARD Sounds; nur im WLAN, [automaticBookDownloads]). Beendete Bücher verlieren ihre
- * Dateien nach der eingestellten Frist ([SpokenSettings.bookDeleteFinishedDays], Standard nie), sonst bleiben sie, bis der
- * Nutzer sie löscht. Beim Abspielen ersetzen die Dateien den Stream (`BookPlaybackSource`). Netz: WLAN, mit dem eigenen
- * Schalter „Auch über Mobilfunk laden“ der Bücher ([SpokenSettings.bookMobileData]) jedes Netz für die von Hand eingereihten
- * Dateien; die der Automatik (`autoDownload`) laden immer nur im WLAN.
+ * Audiobook downloads: manual, and with the switches under Books → Downloads also automatic (the first ones from
+ * "Continue listening", the next volume of a series, soon-expiring books from ARD Sounds; Wi-Fi only, [automaticBookDownloads]). Finished books lose their
+ * files after the configured period ([SpokenSettings.bookDeleteFinishedDays], default never), otherwise they stay until the
+ * user deletes them. During playback the files replace the stream (`BookPlaybackSource`). Network: Wi-Fi; with the books' own
+ * switch "Also download over mobile data" ([SpokenSettings.bookMobileData]) any network for the manually enqueued
+ * files; those of the automation (`autoDownload`) always download on Wi-Fi only.
  */
 @Singleton
 class BookDownloads @Inject constructor(
@@ -71,15 +71,15 @@ class BookDownloads @Inject constructor(
 ) {
     private val started = AtomicBoolean(false)
 
-    /** Das Buch im Player (aus [start]); seine Dateien bleiben beim Aufräumen beendeter Bücher. */
+    /** The book in the player (from [start]); its files are kept when cleaning up finished books. */
     private var loadedBookId: Flow<Long?> = flowOf(null)
 
-    /** Die zuletzt vollständig eingereihte Auswahl der Automatik; erst eine andere wird wieder eingereiht. */
+    /** The automation's last fully enqueued selection; only a different one gets enqueued again. */
     private var handled: List<Long> = emptyList()
 
     /**
-     * Reiht alle Dateien des Buchs ein, die noch nicht geladen sind. Die Dateiliste kommt vom Server und muss dafür
-     * erreichbar sein; ohne sie ist das Ergebnis [DownloadStart.OFFLINE].
+     * Enqueues all files of the book that aren't downloaded yet. The file list comes from the server, which must
+     * be reachable for this; without it the result is [DownloadStart.OFFLINE].
      */
     suspend fun download(bookId: Long): DownloadStart {
         val mobileAllowed = settings.bookMobileData.first()
@@ -98,24 +98,24 @@ class BookDownloads @Inject constructor(
         }
     }
 
-    /** Löscht alle Dateien des Buchs (auch einen wartenden oder laufenden Download). */
+    /** Deletes all files of the book (including a waiting or running download). */
     suspend fun remove(bookId: Long) {
         dao.markBookDownloadRemoved(bookId)
         storage.delete(bookId)
     }
 
-    /** Wie [EpisodeDownloads.deleteOrphans]: Dateien gelöschter Bücher, nur ohne laufende oder wartende Downloads. */
+    /** Like [EpisodeDownloads.deleteOrphans]: files of deleted books, only without running or waiting downloads. */
     suspend fun deleteOrphans(): Int {
         if (dao.countPendingBookDownloads() > 0) return 0
         return storage.deleteOrphans(dao.downloadedBookTracks().mapNotNull { it.filePath }) + storage.deleteParts()
     }
 
-    /** Löscht die Dateien beendeter Bücher, deren Frist abgelaufen ist (täglich aus dem `HeardCleanupWorker`). @return Anzahl. */
+    /** Deletes the files of finished books whose period has expired (daily from the `HeardCleanupWorker`). @return count. */
     suspend fun removeExpiredFinished(): Int =
         removeExpired(dao.observeFinishedBookDownloads().first(), settings.bookDeleteFinishedDays.first(), loadedBookId.first())
 
     private suspend fun removeExpired(rows: List<FinishedDownloadRow>, days: Int, loaded: Long?): Int {
-        // Wie bei Folgen zählt, wann die Dateien fertig wurden: Wer ein beendetes Buch neu lädt, behält es.
+        // As with episodes, what counts is when the files were finished: whoever re-downloads a finished book keeps it.
         val finished = rows.filter { it.bookId != loaded }.groupBy { it.bookId }.map { (bookId, files) ->
             HeardDownload(bookId, files.first().finishedAt, files.maxOf { row -> row.filePath?.let(::File)?.lastModified() ?: 0L })
         }
@@ -123,33 +123,33 @@ class BookDownloads @Inject constructor(
     }
 
     /**
-     * Einmal beim Start der App: wartende Downloads nach einem Prozessende fortsetzen, Netzeinstellung nachziehen,
-     * Automatik und Aufräumen anhängen. [loadedBookId]: was im Player liegt.
+     * Once at app start: resume waiting downloads after a process death, apply the network setting,
+     * attach the automation and cleanup. [loadedBookId]: what is in the player.
      */
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     fun start(scope: CoroutineScope, loadedBookId: Flow<Long?> = flowOf(null)) {
         if (!started.compareAndSet(false, true)) return
         this.loadedBookId = loadedBookId
         scope.launch {
-            // Nach einem Prozessende stehen Einträge evtl. noch auf RUNNING/QUEUED. KEEP: Hat der Worker selbst den Prozess
-            // gestartet, hängte sich sonst ein zweiter an ihn, der danach nichts mehr findet.
+            // After a process death entries may still be RUNNING/QUEUED. KEEP: if the worker itself started the process,
+            // a second one would otherwise attach to it and then find nothing.
             if (dao.countPendingBookDownloads() > 0) enqueueWorker(ExistingWorkPolicy.KEEP)
         }
-        // Die Einstellung „Mobilfunk“ gilt für wartende Downloads sofort: den Auftrag mit neuen Bedingungen ersetzen.
+        // The "mobile data" setting applies to waiting downloads immediately: replace the job with new constraints.
         scope.launch {
             settings.bookMobileData.distinctUntilChanged().drop(1).collect {
                 if (dao.countPendingBookDownloads() > 0) enqueueWorker(ExistingWorkPolicy.REPLACE)
             }
         }
-        // Automatik, nur mit einem ihrer Schalter: bei jeder Änderung von Fortschritt, Büchern und WLAN, höchstens alle
-        // [AUTOMATIC_SAMPLE_MS] (beim Hören ändert sich der Fortschritt alle paar Sekunden). Ohne WLAN wird nichts
-        // eingereiht, im WLAN dann nachgeholt; ein Buch ohne Dateiliste (Server nicht erreichbar) beim nächsten Mal.
+        // Automation, only with one of its switches on: on every change of progress, books and Wi-Fi, at most every
+        // [AUTOMATIC_SAMPLE_MS] (while listening the progress changes every few seconds). Without Wi-Fi nothing is
+        // enqueued, it catches up on Wi-Fi; a book without a file list (server unreachable) next time.
         scope.launch {
             combine(settings.bookAutoStarted, settings.bookAutoNextInSeries, settings.bookLoadExpiring, ::Triple)
                 .distinctUntilChanged()
                 .flatMapLatest { (started, next, expiring) ->
                     if (!started && !next && !expiring) return@flatMapLatest flowOf(emptyList())
-                    // Ablaufende Bücher ändern keine Zeile, wenn ihre Frist unter die Schwelle rutscht: Die Uhr stößt es an.
+                    // Expiring books don't change any row when their period drops below the threshold: the clock triggers it.
                     combine(books.continueListening(), books.books(), unmeteredNetwork(), expiryCheck()) { continueListening, all, wifi, _ ->
                         if (!wifi) return@combine emptyList()
                         automaticBookDownloads(continueListening, all, started, next, System.currentTimeMillis(), expiring)
@@ -166,7 +166,7 @@ class BookDownloads @Inject constructor(
         }
     }
 
-    /** Meldet sich sofort und dann alle [EXPIRY_CHECK_MS] (nur solange die Automatik läuft). */
+    /** Emits immediately and then every [EXPIRY_CHECK_MS] (only while the automation is running). */
     private fun expiryCheck(): Flow<Unit> = flow {
         while (true) {
             emit(Unit)
@@ -174,7 +174,7 @@ class BookDownloads @Inject constructor(
         }
     }
 
-    /** Ob das Standardnetz ohne Volumenbegrenzung ist (WLAN); meldet jeden Wechsel. */
+    /** Whether the default network is unmetered (Wi-Fi); reports every change. */
     private fun unmeteredNetwork(): Flow<Boolean> = callbackFlow {
         val manager = context.getSystemService(ConnectivityManager::class.java) ?: run {
             trySend(false)
@@ -195,12 +195,12 @@ class BookDownloads @Inject constructor(
         awaitClose { manager.unregisterNetworkCallback(callback) }
     }.distinctUntilChanged()
 
-    /** @return ob alle Bücher erledigt sind (sonst fehlte einem die Dateiliste vom Server). */
+    /** @return whether all books are done (otherwise one was missing its file list from the server). */
     private suspend fun queueAutomatic(bookIds: List<Long>): Boolean {
         var queued = 0
         var complete = true
         for (bookId in bookIds) {
-            // Dateiliste vom Server, falls noch nicht geladen; ohne Verbindung beim nächsten Mal.
+            // File list from the server, if not loaded yet; without a connection next time.
             if (books.timeline(bookId) == null) {
                 complete = false
                 continue
@@ -215,20 +215,20 @@ class BookDownloads @Inject constructor(
     }
 
     /**
-     * Der Auftrag über Mobilfunk hat alle von Hand eingereihten Dateien geladen; die der Automatik lädt danach einer im WLAN
-     * (angehängt, er beginnt, wenn der laufende fertig ist).
+     * The mobile data job has downloaded all manually enqueued files; the automation's files are then downloaded by a
+     * Wi-Fi job (appended, it starts when the running one is done).
      */
     internal suspend fun continueOnWifi() = enqueueWorker()
 
     /**
-     * Das Netz richtet sich danach, was wartet ([bookDownloadNetwork]): So bleiben die Dateien der Automatik im WLAN, egal ob
-     * der Auftrag von ihr, von Hand, vom Mobilfunk-Schalter oder beim App-Start kommt.
+     * The network depends on what is waiting ([bookDownloadNetwork]): this keeps the automation's files on Wi-Fi, whether
+     * the job comes from it, from a manual action, from the mobile data switch or from app start.
      */
     private suspend fun enqueueWorker(policy: ExistingWorkPolicy = ExistingWorkPolicy.APPEND_OR_REPLACE) {
         val network = bookDownloadNetwork(settings.bookMobileData.first(), dao.countPendingManualBookDownloads() > 0)
         val mobile = network == NetworkType.CONNECTED
-        // Ein angehängter Auftrag wartet auf den vorigen: Ein Auftrag im WLAN hielte einen von Hand gestarteten mobilen sonst
-        // auf, sobald das WLAN weg ist. Ersetzt wird er auch mitten in einer Datei, die beim nächsten Lauf dort weitermacht.
+        // An appended job waits for the previous one: otherwise a Wi-Fi job would hold up a manually started mobile one
+        // as soon as Wi-Fi is gone. It is replaced even in the middle of a file, which continues there on the next run.
         val chain = if (mobile && policy == ExistingWorkPolicy.APPEND_OR_REPLACE && !mobileWorkerRunning()) {
             ExistingWorkPolicy.REPLACE
         } else {

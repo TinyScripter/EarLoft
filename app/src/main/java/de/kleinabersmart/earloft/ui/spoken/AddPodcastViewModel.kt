@@ -34,24 +34,24 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Zustand beim Abonnieren (Feed-Adresse oder Vorschau). */
+/** State while subscribing (feed address or preview). */
 sealed interface AddPodcastState {
     data object Idle : AddPodcastState
     data object Working : AddPodcastState
     data class Failed(@param:StringRes val message: Int) : AddPodcastState
     data class Done(val feedId: String) : AddPodcastState
 
-    /** Das Abo besteht schon, ist aber archiviert: Der Nutzer entscheidet, ob es reaktiviert wird. */
+    /** The subscription already exists but is archived: the user decides whether it is reactivated. */
     data class Archived(val feedId: String, val title: String) : AddPodcastState
 
     /**
-     * Der Feed unter [input] verlangt eine Anmeldung (Konzept 12.10 „Geschützte Feeds“); [rejected]: die eingegebene nicht
-     * ([username] war ihr Benutzername).
+     * The feed at [input] requires authentication (concept 12.10 "protected feeds"); [rejected]: the entered credentials
+     * were not accepted ([username] was their user name).
      */
     data class NeedsCredentials(val input: String, val rejected: Boolean, val username: String = "") : AddPodcastState
 }
 
-/** Gelungen: das neue Abo; schon abonniert: Hinweis; geschützt: Frage nach den Zugangsdaten; sonst die Fehlermeldung. */
+/** Success: the new subscription; already subscribed: hint; protected: ask for credentials; otherwise the error message. */
 private fun SubscribeResult.toState(input: String, username: String?): AddPodcastState = when (this) {
     is SubscribeResult.Added -> AddPodcastState.Done(feedId)
     is SubscribeResult.AlreadySubscribed -> AddPodcastState.Failed(R.string.podcast_already)
@@ -71,8 +71,8 @@ internal val SubscribeResult.message: Int
     }
 
 /**
- * Abonniert im App-Scope: Wer die Seite während „Feed wird gelesen …“ verlässt, bricht nur das Warten ab, das Abo
- * entsteht trotzdem (ein großer Feed braucht einige Sekunden).
+ * Subscribes in the app scope: leaving the page during "Reading feed …" only cancels the waiting, the subscription
+ * is still created (a large feed takes a few seconds).
  */
 private suspend fun subscribeOutlivingScreen(
     scope: CoroutineScope,
@@ -82,14 +82,14 @@ private suspend fun subscribeOutlivingScreen(
 ): SubscribeResult =
     scope.async { podcasts.subscribe(input, credentials) }.await()
 
-/** Suche in den Verzeichnissen; [Done] gehört zu [term]. */
+/** Search in the directories; [Done] belongs to [term]. */
 sealed interface DirectorySearchState {
     data object Idle : DirectorySearchState
     data object Searching : DirectorySearchState
     data class Done(val term: String, val hits: List<DirectoryPodcast>, val failed: Set<PodcastDirectory>) : DirectorySearchState
 }
 
-/** Beliebte Podcasts ohne Suchbegriff („Entdecken“); [Done] gehört zu [category] (`null` = alle). */
+/** Popular podcasts without a search term ("Discover"); [Done] belongs to [category] (`null` = all). */
 sealed interface DiscoverState {
     val category: PodcastCategory?
 
@@ -97,7 +97,7 @@ sealed interface DiscoverState {
     data class Done(override val category: PodcastCategory?, val hits: List<DirectoryPodcast>, val failed: Set<PodcastDirectory>) : DiscoverState
 }
 
-/** Seite „Podcast hinzufügen“: Feed-Adresse, OPML-Import und Suche in Verzeichnissen (Konzept 12.10). */
+/** "Add podcast" page: feed address, OPML import and search in directories (concept 12.10). */
 @HiltViewModel
 class AddPodcastViewModel @Inject constructor(
     private val podcasts: PodcastRepository,
@@ -110,7 +110,7 @@ class AddPodcastViewModel @Inject constructor(
     private val _add = MutableStateFlow<AddPodcastState>(AddPodcastState.Idle)
     val add: StateFlow<AddPodcastState> = _add
 
-    /** [credentials]: für einen geschützten Feed, nach [AddPodcastState.NeedsCredentials]. */
+    /** [credentials]: for a protected feed, after [AddPodcastState.NeedsCredentials]. */
     fun subscribe(input: String, credentials: PodcastRepository.Credentials? = null) {
         if (_add.value == AddPodcastState.Working) return
         _add.value = AddPodcastState.Working
@@ -123,7 +123,7 @@ class AddPodcastViewModel @Inject constructor(
         _add.value = AddPodcastState.Idle
     }
 
-    /** Holt das archivierte Abo zurück und öffnet es danach (wie ein neues). */
+    /** Brings back the archived subscription and then opens it (like a new one). */
     fun reactivate(feedId: String) {
         _add.value = AddPodcastState.Working
         viewModelScope.launch {
@@ -132,17 +132,17 @@ class AddPodcastViewModel @Inject constructor(
         }
     }
 
-    /** Eingeschaltete Verzeichnisse; `null`, solange die Einstellung noch nicht gelesen ist. */
+    /** Enabled directories; `null` as long as the setting hasn't been read yet. */
     val directories: StateFlow<List<PodcastDirectory>?> = directorySearch.enabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Verzeichnisse dieses Builds, für den Dialog neben „In Verzeichnissen suchen“. */
+    /** Directories of this build, for the dialog next to "Search in directories". */
     val availableDirectories: List<PodcastDirectory> get() = directorySearch.available
 
     /**
-     * Schaltet [directory] ein oder aus (dieselbe Einstellung wie Einstellungen → Podcasts). Treffer einer Suche gelten für
-     * die bisherigen Verzeichnisse und werden deshalb neu gesucht, auch eine noch laufende (Review V21); „Entdecken“ lädt die
-     * Seite selbst neu.
+     * Turns [directory] on or off (the same setting as Settings → Podcasts). Search results apply to the
+     * previous directories and are therefore searched again, including one still running (review V21); "Discover" reloads
+     * the page by itself.
      */
     fun setDirectory(directory: PodcastDirectory, enabled: Boolean) {
         viewModelScope.launch {
@@ -151,7 +151,7 @@ class AddPodcastViewModel @Inject constructor(
         }
     }
 
-    /** Abos nach [feedKey], um Treffer als schon abonniert zu kennzeichnen. */
+    /** Subscriptions by [feedKey], to mark results as already subscribed. */
     val subscribed: StateFlow<Map<String, String>> = podcasts.subscribedByKey
         .orOnError(emptyMap())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
@@ -161,10 +161,10 @@ class AddPodcastViewModel @Inject constructor(
 
     private var searchJob: Job? = null
 
-    /** Begriff der letzten Suche, auch während sie läuft. */
+    /** Term of the last search, also while it is running. */
     private var lastTerm: String? = null
 
-    /** Sucht [term] in den eingeschalteten Verzeichnissen; eine laufende Suche wird abgebrochen. */
+    /** Searches [term] in the enabled directories; a running search is cancelled. */
     fun search(term: String) {
         val trimmed = term.trim()
         if (trimmed.isEmpty()) return
@@ -177,33 +177,33 @@ class AddPodcastViewModel @Inject constructor(
         }
     }
 
-    /** Das Suchfeld ist leer: wieder „Entdecken“ statt der Treffer. */
+    /** The search field is empty: back to "Discover" instead of the results. */
     fun clearSearch() {
         searchJob?.cancel()
         _search.value = DirectorySearchState.Idle
     }
 
-    /** Eingeschaltete Verzeichnisse mit Charts bzw. Trends; `null`, solange die Einstellung noch nicht gelesen ist. */
+    /** Enabled directories with charts or trends; `null` as long as the setting hasn't been read yet. */
     val discoverable: StateFlow<List<PodcastDirectory>?> = directorySearch.discoverable
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Land der Apple-Charts für die Überschrift. */
+    /** Country of the Apple charts, for the heading. */
     val country: StateFlow<String?> = directorySearch.country
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val _discover = MutableStateFlow<DiscoverState?>(null)
 
-    /** `null`: noch nicht geladen. */
+    /** `null`: not loaded yet. */
     val discover: StateFlow<DiscoverState?> = _discover
 
     private var discoverJob: Job? = null
 
-    /** Geladene Charts je Kategorie und Verzeichnissen, solange die Seite lebt: Hin- und Herwechseln fragt nicht erneut. */
+    /** Loaded charts per category and directories while the page lives: switching back and forth doesn't query again. */
     private val popular = HashMap<Pair<PodcastCategory?, List<PodcastDirectory>>, DiscoverState.Done>()
 
     /**
-     * Lädt die beliebten Podcasts von [directories] für [category] (eine laufende Abfrage wird abgebrochen). Ein Ergebnis mit
-     * ausgefallenem Verzeichnis wird nicht gemerkt, damit ein erneuter Tipp es noch einmal versucht.
+     * Loads the popular podcasts of [directories] for [category] (a running query is cancelled). A result with a
+     * failed directory isn't remembered, so that another tap tries it again.
      */
     fun discover(category: PodcastCategory?, directories: List<PodcastDirectory>) {
         if (directories.isEmpty()) return
@@ -226,28 +226,28 @@ class AddPodcastViewModel @Inject constructor(
 
     private val _opmlResults = Channel<OpmlImportResult?>(Channel.BUFFERED)
 
-    /** Ergebnis eines OPML-Imports, einmalig anzuzeigen; `null` = Datei nicht lesbar. */
+    /** Result of an OPML import, to be shown once; `null` = file not readable. */
     val opmlResults: Flow<OpmlImportResult?> = _opmlResults.receiveAsFlow()
 
-    /** Im App-Scope wie in den Einstellungen: Zurück während des Imports bräche sonst mitten im Löschen bzw. Anlegen ab (Review V27). */
+    /** In the app scope as in the settings: otherwise "Back" during the import would abort in the middle of deleting or creating (review V27). */
     fun importOpml(uri: Uri, replace: Boolean) {
         viewModelScope.launch { _opmlResults.send(applicationScope.async { opmlImporter.import(uri, replace) }.await()) }
     }
 }
 
-/** Laden des Feeds für die Vorschau. */
+/** Loading the feed for the preview. */
 sealed interface PreviewState {
     data object Loading : PreviewState
 
-    /** Als Probeabo angelegt (oder schon vorhanden): weiter auf seiner Seite. */
+    /** Created as a trial subscription (or already present): continue on its page. */
     data class Opened(val feedId: String) : PreviewState
 
-    /** Schon abonniert, aber archiviert: Erst nach Rückfrage reaktivieren. */
+    /** Already subscribed but archived: reactivate only after confirmation. */
     data class Archived(val feedId: String, val title: String) : PreviewState
     data class Failed(@param:StringRes val message: Int) : PreviewState
 }
 
-/** Vorschau eines Treffers (Konzept 12.10): legt den Feed als Probeabo an, damit seine Folgen hör- und ladbar sind. */
+/** Preview of a result (concept 12.10): creates the feed as a trial subscription so its episodes can be played and downloaded. */
 @HiltViewModel(assistedFactory = PodcastPreviewViewModel.Factory::class)
 class PodcastPreviewViewModel @AssistedInject constructor(
     @Assisted("feedUrl") private val feedUrl: String,
@@ -260,7 +260,7 @@ class PodcastPreviewViewModel @AssistedInject constructor(
     private val _state = MutableStateFlow<PreviewState>(PreviewState.Loading)
     val state: StateFlow<PreviewState> = _state
 
-    /** Das geöffnete Probeabo; es gilt als offen, bis die Seite des Podcasts übernommen hat (sonst räumte es der Aufräumer weg). */
+    /** The opened trial subscription; it counts as open until the podcast's page has taken over (otherwise the cleanup would remove it). */
     private var openedFeedId: String? = null
 
     init {
@@ -270,7 +270,7 @@ class PodcastPreviewViewModel @AssistedInject constructor(
     fun load() {
         _state.value = PreviewState.Loading
         viewModelScope.launch {
-            // Im App-Scope: Ein großer Feed braucht einige Sekunden; wer vorher zurückgeht, bricht nur das Warten ab.
+            // In the app scope: a large feed takes a few seconds; going back earlier only cancels the waiting.
             val result = applicationScope.async { podcasts.openPreview(feedUrl, imageUrl) }.await()
             _state.value = when (result) {
                 is SubscribeResult.Added -> opened(result.feedId)
@@ -281,7 +281,7 @@ class PodcastPreviewViewModel @AssistedInject constructor(
         }
     }
 
-    /** Reaktiviert das archivierte Abo und übergibt dann an seine Seite. */
+    /** Reactivates the archived subscription and then hands over to its page. */
     fun reactivate(feedId: String) {
         _state.value = PreviewState.Loading
         viewModelScope.launch {

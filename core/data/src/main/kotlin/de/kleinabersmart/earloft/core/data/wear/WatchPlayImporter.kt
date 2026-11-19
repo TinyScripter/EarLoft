@@ -10,13 +10,13 @@ import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Eine Wiedergabe auf der Uhr; [songUid] ist irgendeine Quelle des Songs, die auch das Handy kennt. */
+/** A play on the watch; [songUid] is any source of the song that the phone also knows. */
 data class WatchPlay(val songUid: String, val playedAt: Long, val listenedMs: Long)
 
 /**
- * Übernimmt die Wiedergaben der Uhr in den Hörverlauf des Handys und scrobbelt sie wie eigene (Wear-Konzept 10).
- * Ein Paket wird nur einmal importiert: Stürzt das Handy zwischen Import und Löschen des DataItems ab, kommt
- * es erneut an ([ImportedPackets]).
+ * Adopts the watch's plays into the phone's listening history and scrobbles them like its own (Wear concept 10).
+ * A packet is imported only once: if the phone crashes between import and deleting the DataItem,
+ * it arrives again ([ImportedPackets]).
  */
 @Singleton
 class WatchPlayImporter @Inject constructor(
@@ -28,8 +28,8 @@ class WatchPlayImporter @Inject constructor(
     private val mutex = Mutex()
 
     /**
-     * @return Anzahl der übernommenen Wiedergaben; Songs, die das Handy nicht kennt (z. B. nach einem
-     *   Abgleich entfernt), und schon importierte Pakete zählen nicht.
+     * @return number of adopted plays; songs the phone doesn't know (e.g. removed by a
+     *   sync) and already imported packets don't count.
      */
     suspend fun import(packetId: String, plays: List<WatchPlay>): Int = mutex.withLock {
         if (packetId in importedPackets) return 0
@@ -43,7 +43,7 @@ class WatchPlayImporter @Inject constructor(
                 Log.d(TAG, "Wiedergabe von ${play.songUid} übersprungen: Song unbekannt")
                 continue
             }
-            // Nicht live: Jede Meldung wartete sonst bis zu 10 s aufs Netz, und das Paket gälte erst danach als übernommen.
+            // Not live: otherwise every report would wait up to 10 s for the network, and the packet would only count as adopted afterwards.
             playbackState.recordPlay(songId, play.playedAt, play.listenedMs, live = false)
             imported++
         }

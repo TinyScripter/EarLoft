@@ -33,7 +33,7 @@ class ArtistViewModel @AssistedInject constructor(
         .asLoadStateOrMissing()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), LoadState.Loading)
 
-    /** Die meistgehörten Songs; leer, solange keiner gehört wurde. */
+    /** The most played songs; empty as long as none has been played. */
     val topSongs: StateFlow<List<Song>> = libraryRepository.topSongsOfArtist(artistId, TOP_SONGS)
         .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
@@ -42,7 +42,7 @@ class ArtistViewModel @AssistedInject constructor(
         .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
-    /** Alle Songs des Künstlers, nach Jahr oder gemischt. */
+    /** All of the artist's songs, by year or shuffled. */
     fun play(shuffle: Boolean) {
         viewModelScope.launch {
             val songs = libraryRepository.songsOfArtist(artistId)

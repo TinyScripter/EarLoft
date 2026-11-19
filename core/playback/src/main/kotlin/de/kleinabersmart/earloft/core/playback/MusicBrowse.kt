@@ -11,14 +11,14 @@ import de.kleinabersmart.earloft.core.model.Song
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
-/** Der Musik-Teil des Browse-Trees (Konzept 7.1); ob Musik eingeschaltet ist, prüft [BrowseTree]. */
+/** The music part of the browse tree (concept 7.1); [BrowseTree] checks whether music is enabled. */
 internal class MusicBrowse @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val libraryRepository: LibraryRepository,
     private val playlistRepository: PlaylistRepository,
     private val favoritesRepository: FavoritesRepository,
 ) {
-    /** Inhalt eines Musik-Ordners; `null`, wenn [parentId] keiner ist. */
+    /** Content of a music folder; `null` if [parentId] isn't one. */
     suspend fun children(parentId: String): List<MediaItem>? = when {
         parentId == MediaIds.RECENT -> recentAlbums(RECENT_ALBUMS)
         parentId == MediaIds.LIBRARY -> listOf(
@@ -41,9 +41,9 @@ internal class MusicBrowse @Inject constructor(
     }
 
     /**
-     * Ordner der favorisierten Alben und Künstler über den Favoriten-Songs, nur wenn es welche gibt. Ein Song der Favoriten
-     * reiht weiter nur die Favoriten-Songs ein ([songsOf]). Gezählt wird wie im Ordner selbst, also ohne Alben und Künstler
-     * ausgeschalteter Server: Sonst öffnete sich ein leerer Ordner (Review V15).
+     * Folders of the favorite albums and artists above the favorite songs, only if there are any. A song from the favorites
+     * still only enqueues the favorite songs ([songsOf]). Counted as in the folder itself, i.e. without albums and artists of
+     * disabled servers: otherwise an empty folder would open (review V15).
      */
     private suspend fun favoriteFolders(): List<MediaItem> = listOfNotNull(
         folderMediaItem(MediaIds.FAVORITE_ALBUMS, context.getString(R.string.albums), MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS, gridChildren = true)
@@ -52,13 +52,13 @@ internal class MusicBrowse @Inject constructor(
             .takeIf { favoritesRepository.favoriteArtists().first().isNotEmpty() },
     )
 
-    /** Zuletzt gehörte Alben; ohne Hörverlauf die zuletzt hinzugefügten. */
+    /** Recently played albums; without listening history the most recently added. */
     suspend fun recentAlbums(limit: Int): List<MediaItem> =
         libraryRepository.recentlyPlayedAlbums(limit).first()
             .ifEmpty { libraryRepository.recentlyAddedAlbums(limit).first() }
             .map { it.toBrowsableMediaItem(context) }
 
-    /** Die Songs eines Ordners (Album, Playlist, Favoriten, Suchtreffer); `null`, wenn [folderId] keine Songliste ist. */
+    /** The songs of a folder (album, playlist, favorites, search results); `null` if [folderId] is not a song list. */
     suspend fun songsOf(folderId: String): List<Song>? = when {
         folderId == MediaIds.FAVORITES -> favoritesRepository.favorites().first()
         MediaIds.searchQuery(folderId) != null -> libraryRepository.search(MediaIds.searchQuery(folderId)!!).songs
@@ -68,12 +68,12 @@ internal class MusicBrowse @Inject constructor(
         else -> null
     }
 
-    /** Alle Songs eines Künstlers (seine Alben und seine Songs auf anderen), Album für Album nach Jahr – wie auf der Künstlerseite. */
+    /** All songs of an artist (their albums and their songs on others), album by album by year – as on the artist page. */
     suspend fun artistSongs(artistId: Long): List<Song> = libraryRepository.songsOfArtist(artistId)
 
     suspend fun albumSongs(albumId: Long): List<Song> = libraryRepository.album(albumId).first()?.songs.orEmpty()
 
-    /** Gemischte Favoriten, ohne Favoriten die ganze Bibliothek gemischt (Sprachbefehl ohne Begriff). */
+    /** Shuffled favorites; without favorites the whole library shuffled (voice command without a term). */
     suspend fun shuffledFavorites(limit: Int): List<Song> {
         val favorites = favoritesRepository.favorites().first()
         return favorites.ifEmpty { libraryRepository.songs().first() }.shuffled().take(limit)

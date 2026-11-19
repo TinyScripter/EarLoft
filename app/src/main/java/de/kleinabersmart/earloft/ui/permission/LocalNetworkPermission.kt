@@ -12,8 +12,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 
 /**
- * Ab Android 17 (API 37) darf eine App, die dafür `targetSdk` 37 hat, Geräte im Heimnetz (z. B. einen Navidrome unter
- * `http://192.168.x.x`) nur mit dieser Laufzeitberechtigung erreichen. Davor gibt es sie nicht.
+ * From Android 17 (API 37) on, an app targeting `targetSdk` 37 may reach devices on the home network (e.g. a Navidrome at
+ * `http://192.168.x.x`) only with this runtime permission. Before that it doesn't exist.
  */
 object LocalNetworkPermission {
     const val name = "android.permission.ACCESS_LOCAL_NETWORK"
@@ -25,8 +25,8 @@ object LocalNetworkPermission {
 }
 
 /**
- * Liefert eine Funktion, die vor [block] bei Bedarf die Heimnetz-Berechtigung anfragt. [block] läuft danach in jedem Fall
- * (auch nach einer Ablehnung), damit der Verbindungsfehler wie gewohnt angezeigt wird.
+ * Returns a function that requests the home network permission before [block] if needed. [block] runs afterwards in any case
+ * (even after a denial) so the connection error is shown as usual.
  */
 @Composable
 fun rememberLocalNetworkRequester(block: () -> Unit): () -> Unit {

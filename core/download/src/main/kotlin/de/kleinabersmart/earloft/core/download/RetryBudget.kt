@@ -3,17 +3,17 @@ package de.kleinabersmart.earloft.core.download
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Entscheidet in einem Worker-Lauf, ob eine unterbrochene Datei ([DownloadOutcome.Retry]) aufgibt oder wieder eingereiht wird
- * und der Lauf mit Backoff wiederholt. Das Budget von [maxAttempts] Läufen zählt WorkManager je Auftrag, nicht je Datei: Ist es
- * erschöpft, gibt deshalb nur die erste Datei des Laufs auf. Sonst schlüge bei einem länger nicht erreichbaren Server jede
- * weitere Datei sofort fehl, und die Automatik lüde diese Bücher und Folgen nie wieder.
+ * Decides within a worker run whether an interrupted file ([DownloadOutcome.Retry]) gives up or is re-enqueued
+ * and the run retried with backoff. WorkManager counts the budget of [maxAttempts] runs per job, not per file: when it is
+ * exhausted, only the run's first file gives up. Otherwise, with a server unreachable for a longer time, every
+ * further file would fail immediately, and the automation would never download these books and episodes again.
  */
 internal class RetryBudget(private val runAttemptCount: Int, private val maxAttempts: Int) {
     private val gaveUp = AtomicBoolean(false)
 
-    /** `true`: Die Datei gibt auf. `false`: einreihen und den Lauf mit `Result.retry()` beenden. */
+    /** `true`: the file gives up. `false`: enqueue and end the run with `Result.retry()`. */
     fun giveUp(outcome: DownloadOutcome.Retry): Boolean {
-        // Ein abgelehnter Schlüssel ändert sich durch Warten nicht.
+        // A rejected key doesn't change by waiting.
         if (outcome.isAuthRejection) return true
         if (runAttemptCount + 1 < maxAttempts) return false
         return !gaveUp.getAndSet(true)

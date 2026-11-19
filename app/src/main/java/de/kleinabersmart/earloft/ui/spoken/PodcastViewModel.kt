@@ -33,23 +33,23 @@ class PodcastViewModel @Inject constructor(
     private val settings: PodcastSettings,
 ) : ViewModel() {
 
-    /** Nur eine Zeile über den Abos; ohne eigenen Hinweis, fällt sie bei einem Fehler einfach weg. */
+    /** Just a row above the subscriptions; without its own hint, it simply disappears on error. */
     val continueListening: StateFlow<List<BookWithProgress>> = continueListening.episodes
         .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** „Zuletzt hinzugefügt“ auf Start; wie „Weiterhören“ ohne eigenen Hinweis bei einem Fehler. */
+    /** "Recently added" on start; like "Continue listening" without its own hint on error. */
     val recent: StateFlow<List<BookWithProgress>> = podcasts.recentEpisodes()
         .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** Wie die Abos geordnet sind (Start und Reiter „Abos“). */
+    /** How the subscriptions are ordered (start and "Subscriptions" tab). */
     val feedSort: StateFlow<FeedSort> = settings.feedSort
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FeedSort.NAME)
 
     private val feedStats = podcasts.feedStats().orOnError(emptyMap())
 
-    /** Zahl der neuen Folgen je Abo für die Kacheln. */
+    /** Number of new episodes per subscription for the tiles. */
     val newEpisodeCounts: StateFlow<Map<String, Int>> = feedStats
         .map { stats -> stats.mapValues { it.value.newEpisodes } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
@@ -66,14 +66,14 @@ class PodcastViewModel @Inject constructor(
 
     fun refreshAll() = refresher.refreshAll()
 
-    /** Die Folge, die gerade läuft (nicht: pausiert). */
+    /** The episode currently playing (not: paused). */
     val playingBookId: StateFlow<Long?> = playback.state
         .map { if (it.isPlaying) it.spoken?.bookId else null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
-     * Läuft die Folge, pausiert sie; ist sie geladen und pausiert, geht es weiter; sonst startet oder setzt sie fort
-     * (und steht danach ganz vorn in „Weiterhören“).
+     * If the episode is playing, it pauses; if it is loaded and paused, it continues; otherwise it starts or resumes
+     * (and is then at the very front of "Continue listening").
      */
     fun playOrPause(bookId: Long) {
         if (playback.state.value.spoken?.bookId == bookId) playback.togglePlayPause() else launcher.play(bookId)

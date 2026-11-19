@@ -34,7 +34,7 @@ import de.kleinabersmart.earloft.ui.library.BackButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Datenschutzerklärung aus `PRIVACY.md` bzw. `PRIVACY.de.md` im Projektroot; die Datei je Sprache nennt `privacy_asset`. */
+/** Privacy policy from `PRIVACY.md` or `PRIVACY.de.md` in the project root; `privacy_asset` names the file per language. */
 @Composable
 fun PrivacyScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -66,18 +66,18 @@ private fun PrivacyContent(blocks: List<PolicyBlock>, onBack: () -> Unit, modifi
         ) {
             blocks.forEach { block ->
                 when (block) {
-                    // Die Hauptüberschrift steht schon in der App-Leiste.
+                    // The main heading is already in the app bar.
                     is PolicyBlock.Heading -> if (block.level > 1) {
                         Text(
                             policyText(block.text, linkStyles),
                             style = MaterialTheme.typography.titleMedium,
-                            // TalkBack springt von Überschrift zu Überschrift (Review V26).
+                            // TalkBack jumps from heading to heading (review V26).
                             modifier = Modifier.padding(top = 8.dp).semantics { heading() },
                         )
                     }
                     is PolicyBlock.Paragraph -> Text(policyText(block.text, linkStyles), style = MaterialTheme.typography.bodyMedium)
                     is PolicyBlock.Bullet -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        // Nur Schmuck: kein eigenes Element für TalkBack.
+                        // Decoration only: no separate element for TalkBack.
                         Text("•", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clearAndSetSemantics {})
                         Text(policyText(block.text, linkStyles), style = MaterialTheme.typography.bodyMedium)
                     }

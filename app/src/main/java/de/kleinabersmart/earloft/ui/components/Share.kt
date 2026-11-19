@@ -39,13 +39,13 @@ import javax.inject.Inject
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Teilen über das System (Konzept 13): Link auf ein öffentliches Verzeichnis, nie auf die eigenen Server. [shareMedia]
- * gibt dagegen die geladene Audiodatei einer Folge weiter.
+ * Sharing via the system (concept 13): a link to a public directory, never to our own servers. [shareMedia],
+ * by contrast, passes on the downloaded audio file of an episode.
  */
 @Stable
 class ShareController(val share: (ShareTarget) -> Unit, val shareMedia: (bookId: Long, title: String) -> Unit)
 
-/** `null` (Vorschau, Tests): kein Teilen. */
+/** `null` (preview, tests): no sharing. */
 val LocalShareController = staticCompositionLocalOf<ShareController?> { null }
 
 @HiltViewModel
@@ -60,10 +60,10 @@ class ShareViewModel @Inject constructor(
     suspend fun content(target: ShareTarget): ShareContent? = repository.content(target)
 
     /**
-     * Die geladene Folge als Datei zum Teilen: eine Kopie im Cache unter dem Titel der Folge (der Provider sieht nur dort,
-     * und der Empfänger sieht einen lesbaren Namen). Es bleibt höchstens eine Kopie liegen. `null`, wenn die Datei fehlt,
-     * schon eine Kopie entsteht (ein zweiter Aufruf löschte sie mitten im Schreiben) oder das Kopieren scheitert (Speicher
-     * voll, Datei inzwischen weg; vorher ein Absturz, Review D14).
+     * The downloaded episode as a file to share: a copy in the cache named after the episode title (the provider only sees there,
+     * and the recipient sees a readable name). At most one copy is kept. `null` if the file is missing,
+     * a copy is already being created (a second call would delete it mid-write) or copying fails (storage
+     * full, file gone in the meantime; previously a crash, review D14).
      */
     suspend fun media(bookId: Long, title: String): SharedMedia? {
         if (!copying.tryLock()) return null
@@ -98,14 +98,14 @@ class ShareViewModel @Inject constructor(
         const val TAG = "ShareViewModel"
         const val SHARED_DIR = "shared"
 
-        /** Ab dieser Größe dauert das Kopieren merklich: kurzer Hinweis, dass es weitergeht. */
+        /** From this size on, copying takes noticeably long: a short hint that it is in progress. */
         const val ANNOUNCE_COPY_BYTES = 20L * 1024 * 1024
         const val MAX_FILE_NAME = 80
         val UNSAFE_FILE_NAME_CHARS = Regex("[\\\\/:*?\"<>|\\p{Cntrl}]")
     }
 }
 
-/** Eine zum Teilen bereitgestellte Datei. */
+/** A file provided for sharing. */
 class SharedMedia(val uri: Uri, val mimeType: String)
 
 @Composable
@@ -126,7 +126,7 @@ private fun Context.startShare(content: ShareContent) {
         .putExtra(Intent.EXTRA_TEXT, content.text)
         .putExtra(Intent.EXTRA_SUBJECT, content.subject)
         .putExtra(Intent.EXTRA_TITLE, content.subject)
-    // EarLoft nimmt geteilten Text selbst an (Podcast hinzufügen); im eigenen Teilen-Menü wäre das nur verwirrend.
+    // EarLoft accepts shared text itself (add podcast); in its own share menu that would only be confusing.
     val chooser = Intent.createChooser(send, null)
         .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(this, ShareReceiverActivity::class.java)))
     startActivity(chooser)
@@ -142,7 +142,7 @@ private fun Context.startShareMedia(media: SharedMedia, title: String) {
     startActivity(Intent.createChooser(send, null))
 }
 
-/** Eintrag „Teilen“ für die Kontextmenüs; ohne [LocalShareController] unsichtbar. */
+/** "Share" entry for the context menus; invisible without [LocalShareController]. */
 @Composable
 fun ShareMenuItem(target: ShareTarget, onDismiss: () -> Unit, withIcon: Boolean = true) {
     val controller = LocalShareController.current ?: return
@@ -160,7 +160,7 @@ fun ShareMenuItem(target: ShareTarget, onDismiss: () -> Unit, withIcon: Boolean 
     )
 }
 
-/** Eintrag „Mediendatei teilen“ für eine geladene Folge; ohne [LocalShareController] unsichtbar. */
+/** "Share media file" entry for a downloaded episode; invisible without [LocalShareController]. */
 @Composable
 fun ShareMediaMenuItem(bookId: Long, title: String, onDismiss: () -> Unit) {
     val controller = LocalShareController.current ?: return
@@ -173,7 +173,7 @@ fun ShareMediaMenuItem(bookId: Long, title: String, onDismiss: () -> Unit) {
     )
 }
 
-/** Knopf „Teilen“ für die TopAppBar; ohne [LocalShareController] unsichtbar. */
+/** "Share" button for the TopAppBar; invisible without [LocalShareController]. */
 @Composable
 fun ShareButton(target: ShareTarget) {
     val controller = LocalShareController.current ?: return

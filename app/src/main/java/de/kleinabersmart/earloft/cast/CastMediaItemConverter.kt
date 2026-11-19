@@ -19,9 +19,9 @@ import de.kleinabersmart.earloft.core.playback.toMediaItem
 import org.json.JSONObject
 
 /**
- * `earloft://song/<id>` bzw. Buch-/Folgen-Datei → Server-Stream für den Cast-Empfänger. Die `contentId` ist die Media-ID
- * (`song:<id>`); darüber ordnet Media3 die Einträge des Empfängers wieder den ursprünglichen Items zu,
- * die Warteschlange auf dem Handy behält also ihre `earloft://`-URIs.
+ * `earloft://song/<id>` or a book/episode file → server stream for the cast receiver. The `contentId` is the media ID
+ * (`song:<id>`); Media3 uses it to map the receiver's entries back to the original items,
+ * so the queue on the phone keeps its `earloft://` URIs.
  */
 @OptIn(UnstableApi::class)
 internal class CastMediaItemConverter(private val cache: CastMediaCache) : MediaItemConverter {
@@ -34,7 +34,7 @@ internal class CastMediaItemConverter(private val cache: CastMediaCache) : Media
         val metadata = MediaMetadata(if (spoken) MediaMetadata.MEDIA_TYPE_GENERIC else MediaMetadata.MEDIA_TYPE_MUSIC_TRACK).apply {
             meta.title?.let { putString(MediaMetadata.KEY_TITLE, it.toString()) }
             if (spoken) {
-                // Autor bzw. Podcast-Name als Untertitel; Dateien eines Buchs haben keine Titel- und Plattennummern.
+                // Author or podcast name as subtitle; files of a book have no track and disc numbers.
                 meta.artist?.let { putString(MediaMetadata.KEY_SUBTITLE, it.toString()) }
             } else {
                 meta.artist?.let { putString(MediaMetadata.KEY_ARTIST, it.toString()) }
@@ -56,9 +56,9 @@ internal class CastMediaItemConverter(private val cache: CastMediaCache) : Media
     }
 
     /**
-     * Was die Cast-Metadaten nicht tragen, die App beim Wiederanhängen aber braucht: Folge oder Buch (Outro, Sleep-Timer,
-     * Weiterspielen) und bei Songs das Album (Cover, Albumfarben, Sprung zum Album). Kurz halten: Der Status des Empfängers
-     * trägt das für jeden Eintrag der Warteschlange (Grenze 64 KB, siehe `QueueReserve`).
+     * What the cast metadata doesn't carry but the app needs when rejoining: episode or book (outro, sleep timer,
+     * resume) and for songs the album (cover, album colors, jump to album). Keep it short: the receiver's status
+     * carries this for every queue entry (limit 64 KB, see `QueueReserve`).
      */
     private fun customData(meta: androidx.media3.common.MediaMetadata): JSONObject? {
         val json = JSONObject()
@@ -68,9 +68,9 @@ internal class CastMediaItemConverter(private val cache: CastMediaCache) : Media
     }
 
     /**
-     * Für Einträge, die Media3 keinem Item der App zuordnen kann: eine fremde Sitzung auf dem Empfänger, oder die App hängt
-     * sich nach einem Neustart wieder an die eigene. Dann kommt die Art (Folge/Buch) aus [KEY_MEDIA_TYPE]; ein Song mit
-     * [KEY_ALBUM_ID] wird wie in der App gebaut (Cover, Albumfarben, Dauer), sonst fehlte das Cover in Player und Widget.
+     * For entries Media3 can't map to an app item: a foreign session on the receiver, or the app rejoins
+     * its own after a restart. Then the kind (episode/book) comes from [KEY_MEDIA_TYPE]; a song with
+     * [KEY_ALBUM_ID] is built as in the app (cover, album colors, duration), otherwise player and widget would lack the cover.
      */
     override fun toMediaItem(mediaQueueItem: MediaQueueItem): MediaItem {
         val info = mediaQueueItem.media
@@ -96,7 +96,7 @@ internal class CastMediaItemConverter(private val cache: CastMediaCache) : Media
             .setMediaMetadata(
                 androidx.media3.common.MediaMetadata.Builder()
                     .setTitle(metadata?.getString(MediaMetadata.KEY_TITLE))
-                    // Bücher und Folgen tragen Autor bzw. Podcast als Untertitel.
+                    // Books and episodes carry the author or podcast as subtitle.
                     .setArtist(metadata?.getString(MediaMetadata.KEY_ARTIST) ?: metadata?.getString(MediaMetadata.KEY_SUBTITLE))
                     .setAlbumTitle(metadata?.getString(MediaMetadata.KEY_ALBUM_TITLE))
                     .setMediaType(mediaType)
@@ -109,10 +109,10 @@ internal class CastMediaItemConverter(private val cache: CastMediaCache) : Media
     private companion object {
         const val TAG = "CastMediaItemConverter"
 
-        /** `customData` des Eintrags: `MediaMetadata.mediaType` von Media3. */
+        /** `customData` of the entry: Media3's `MediaMetadata.mediaType`. */
         const val KEY_MEDIA_TYPE = "earloftMediaType"
 
-        /** `customData` eines Songs: seine Album-ID. */
+        /** `customData` of a song: its album ID. */
         const val KEY_ALBUM_ID = "earloftAlbum"
     }
 }

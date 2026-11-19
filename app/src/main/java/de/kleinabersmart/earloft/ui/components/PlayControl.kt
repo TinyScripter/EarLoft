@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Runder Play- (bei [playing] Pause-)Knopf, der unten rechts auf einem Cover sitzt; im [Modifier] wird er ausgerichtet. */
+/** Round play (with [playing] pause) button sitting at the bottom right of a cover; it is aligned via the [Modifier]. */
 @Composable
 fun PlayPauseButton(
     playing: Boolean,
@@ -43,8 +43,8 @@ fun PlayPauseButton(
 }
 
 /**
- * Play/Pause für Kacheln in den Übersichten, die kein eigenes ViewModel dafür haben (Alben, Suche).
- * Läuft das Album bzw. die Folge, pausiert der Knopf; ist es geladen und pausiert, geht es weiter; sonst startet es.
+ * Play/pause for tiles in the overviews that have no ViewModel of their own for it (albums, search).
+ * If the album or episode is playing, the button pauses; if it is loaded and paused, it resumes; otherwise it starts.
  */
 @HiltViewModel
 class PlayControlViewModel @Inject constructor(
@@ -53,12 +53,12 @@ class PlayControlViewModel @Inject constructor(
     private val launcher: BookLauncher,
 ) : ViewModel() {
 
-    /** Das Album, aus dem gerade ein Titel läuft (nicht: pausiert). */
+    /** The album a title is currently playing from (not: paused). */
     val playingAlbumId: StateFlow<Long?> = playback.state
         .map { if (it.isPlaying) it.current?.albumId else null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Das Buch bzw. die Folge, die gerade läuft (nicht: pausiert). */
+    /** The book or episode currently playing (not: paused). */
     val playingBookId: StateFlow<Long?> = playback.state
         .map { if (it.isPlaying) it.spoken?.bookId else null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

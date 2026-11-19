@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Meldet dem laufenden [PlaybackService], dass Songs aus der Bibliothek verschwunden sein können. */
+/** Tells the running [PlaybackService] that songs may have disappeared from the library. */
 @Singleton
 internal class LibraryRemovals @Inject constructor() {
     private val events = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -31,8 +31,8 @@ internal class LibraryRemovals @Inject constructor() {
 }
 
 /**
- * Sind Song-Quellen weg (Server entfernt, Datei auf dem Server gelöscht), nimmt der Service deren
- * Songs aus der Warteschlange, und der Stream-Cache gibt ihren Platz frei.
+ * If song sources are gone (server removed, file deleted on the server), the service removes their
+ * songs from the queue, and the stream cache frees their space.
  */
 @OptIn(UnstableApi::class)
 internal class PlaybackLibraryCleaner @Inject constructor(
@@ -42,7 +42,7 @@ internal class PlaybackLibraryCleaner @Inject constructor(
 ) : LibraryChangeListener {
 
     override suspend fun onSongSourcesRemoved() {
-        // Erst die Warteschlange, damit der Player die Cache-Dateien möglichst schon losgelassen hat.
+        // The queue first, so that the player has ideally already released the cache files.
         removals.notifyRemoved()
         val keys = withContext(Dispatchers.IO) { streamCache.keys.toList() }
         val existing = libraryRepository.existingSourceUids(keys)

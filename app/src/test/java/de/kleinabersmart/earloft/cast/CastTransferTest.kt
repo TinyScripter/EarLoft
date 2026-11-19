@@ -8,7 +8,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** Was nach „Stop casting“ aufs Handy zurückgeht, wenn die App sich nach einem Neustart an die Sitzung gehängt hat. */
+/** What goes back to the phone after "Stop casting" when the app reattached to the session after a restart. */
 @RunWith(RobolectricTestRunner::class)
 class CastTransferTest {
 

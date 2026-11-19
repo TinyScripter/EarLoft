@@ -44,8 +44,8 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Reiter „Statistik“ der Bücher-Bibliothek in zwei getrennten Bereichen: was Audiobookshelf aus den Sitzungen aller
- * Geräte zählt, und was diese App selbst gezählt hat.
+ * "Statistics" tab of the books library in two separate sections: what Audiobookshelf counts from the sessions of all
+ * devices, and what this app counted itself.
  */
 @Composable
 fun BookStatsScreen(

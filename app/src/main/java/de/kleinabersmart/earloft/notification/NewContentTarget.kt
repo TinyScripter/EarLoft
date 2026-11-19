@@ -5,9 +5,9 @@ import android.os.Bundle
 import de.kleinabersmart.earloft.core.model.SpokenMode
 
 /**
- * Wohin der Tipp auf eine Benachrichtigung über Neues führt: Start im Bereich [mode]; geht es um genau ein Album, einen
- * Podcast oder ein Buch, gleich dessen Seite darüber; bei mehreren neuen Büchern einer abonnierten Sendung aus ARD Sounds
- * ([ardShowId], [ardShowTitle]) deren Seite.
+ * Where tapping a new-content notification leads: Home in area [mode]; if it concerns exactly one album,
+ * podcast or book, its page on top right away; for several new books of a subscribed ARD Sounds show
+ * ([ardShowId], [ardShowTitle]) that show's page.
  */
 data class NewContentTarget(
     val mode: SpokenMode,

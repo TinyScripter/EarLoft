@@ -1,8 +1,8 @@
 package de.kleinabersmart.earloft.core.model
 
 /**
- * Gehörte Zeit eines Podcasts. [feedId] ist `null`, wenn er nicht (mehr) abonniert ist; [archived], wenn sein Abo
- * archiviert ist (dann auch ohne [feedId]). [episodes] ist 0, wenn die Zahl nicht bekannt ist (Jahresansicht).
+ * Listening time of a podcast. [feedId] is `null` if it is not (or no longer) subscribed; [archived] if its subscription
+ * is archived (then also without [feedId]). [episodes] is 0 if the number is unknown (year view).
  */
 data class PodcastListening(
     val key: String,
@@ -13,13 +13,13 @@ data class PodcastListening(
     val archived: Boolean = false,
 )
 
-/** Gehörte Zeit in einem Kalendermonat (nur was die App selbst gezählt hat). */
+/** Listening time in a calendar month (only what the app counted itself). */
 data class MonthListening(val year: Int, val month: Int, val listenedMs: Long)
 
 /**
- * Statistik der Podcasts. [year] ist `null` für „Gesamt“ (dann sind [months] die letzten zwölf Monate, der aktuelle
- * zuletzt), sonst das gewählte Jahr (dann sind [months] Januar bis Dezember und nur selbst gezählte Zeit ist enthalten).
- * [years] sind die wählbaren Jahre, das neueste zuerst.
+ * Podcast statistics. [year] is `null` for "Total" (then [months] are the last twelve months, the current one
+ * last), otherwise the selected year (then [months] are January to December and only self-counted time is included).
+ * [years] are the selectable years, newest first.
  */
 data class PodcastStats(
     val totalMs: Long,
@@ -29,20 +29,20 @@ data class PodcastStats(
     val months: List<MonthListening>,
     val years: List<Int> = emptyList(),
     val year: Int? = null,
-    /** Durch „Stille kürzen“ gesparte Zeit (Wanduhr), im gewählten Jahr bzw. insgesamt; nur selbst gezählt. */
+    /** Time saved by "Trim silence" (wall clock), in the selected year or in total; only self-counted. */
     val silenceSavedMs: Long = 0,
 ) {
-    /** Ob der Verlauf überhaupt Zahlen hat (sonst zeigt die Oberfläche kein Diagramm). */
+    /** Whether the history has any numbers at all (otherwise the UI shows no chart). */
     val hasHistory: Boolean get() = months.any { it.listenedMs > 0 }
 }
 
-/** Gehörte Zeit eines Buchs. [bookId] ist `null`, wenn es das Buch in der App nicht (mehr) gibt. */
+/** Listening time of a book. [bookId] is `null` if the book no longer exists in the app. */
 data class BookListening(val key: String, val title: String, val listenedMs: Long, val bookId: Long?)
 
-/** Gehörte Zeit an einem Wochentag; [dayOfWeek] zählt von 1 (Montag) bis 7 (Sonntag). */
+/** Listening time on a weekday; [dayOfWeek] counts from 1 (Monday) to 7 (Sunday). */
 data class WeekdayListening(val dayOfWeek: Int, val listenedMs: Long)
 
-/** Was die App selbst von Hörbüchern gezählt hat. [months], [years] und [year] wie bei [PodcastStats]; in einem Jahr ist [books] leer. */
+/** What the app itself counted for audiobooks. [months], [years] and [year] as in [PodcastStats]; within a year [books] is empty. */
 data class DeviceBookStats(
     val totalMs: Long,
     val finishedBooks: Int,
@@ -50,16 +50,16 @@ data class DeviceBookStats(
     val months: List<MonthListening>,
     val years: List<Int> = emptyList(),
     val year: Int? = null,
-    /** Wie bei [PodcastStats]. */
+    /** As in [PodcastStats]. */
     val silenceSavedMs: Long = 0,
 ) {
     val hasHistory: Boolean get() = months.any { it.listenedMs > 0 }
 }
 
 /**
- * Die Hörzeit des Kontos, wie Audiobookshelf sie aus den Sitzungen aller Geräte zählt. [fetchedAt] ist der Zeitpunkt des
- * Abrufs (Unix-ms); [streakDays] sind die Tage in Folge bis heute (oder gestern), an denen gehört wurde. [months], [years]
- * und [year] wie bei [PodcastStats]; in einem Jahr ist [books] leer und [weekdays] aus den Tagen dieses Jahres.
+ * The account's listening time as Audiobookshelf counts it from the sessions of all devices. [fetchedAt] is the time of the
+ * fetch (Unix ms); [streakDays] are the consecutive days up to today (or yesterday) with listening. [months], [years]
+ * and [year] as in [PodcastStats]; within a year [books] is empty and [weekdays] comes from that year's days.
  */
 data class ServerBookStats(
     val totalMs: Long,
@@ -76,8 +76,8 @@ data class ServerBookStats(
 }
 
 /**
- * Ein Eintrag der Bestenlisten der Musik-Statistik. [id] ist Song, Album bzw. Künstler (bei Genres `null`), [albumId] das
- * Album fürs Cover (bei Künstlern und Genres `null`); [subtitle] der Künstler eines Songs oder Albums.
+ * An entry of the music statistics' top lists. [id] is the song, album or artist (`null` for genres), [albumId] the
+ * album for the cover (`null` for artists and genres); [subtitle] the artist of a song or album.
  */
 data class MusicTopEntry(
     val id: Long?,
@@ -89,9 +89,9 @@ data class MusicTopEntry(
 )
 
 /**
- * Statistik der Musik aus dem Hörverlauf (gezählte Wiedergaben, Konzept 8 „Musik-Statistik“). [songs] und [albums] zählen verschiedene
- * Songs bzw. Alben; [newAlbums] die Alben, die im gewählten Jahr zum ersten Mal gehört wurden (in „Gesamt“ gleich
- * [albums]). [months], [years] und [year] wie bei [PodcastStats]; [weekdays] aus dem gewählten Zeitraum.
+ * Music statistics from the listening history (counted plays, concept 8 "music statistics"). [songs] and [albums] count distinct
+ * songs or albums; [newAlbums] the albums first played in the selected year (in "Total" equal to
+ * [albums]). [months], [years] and [year] as in [PodcastStats]; [weekdays] from the selected period.
  */
 data class MusicStats(
     val totalMs: Long,

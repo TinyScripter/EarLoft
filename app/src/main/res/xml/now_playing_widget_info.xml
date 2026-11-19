@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Beim Anlegen öffnet sich WidgetConfigActivity (Bereiche, Farben); über „Widget anpassen“ lässt sie sich wieder öffnen. -->
+<!-- WidgetConfigActivity opens when the widget is added (sections, colors); "Customize widget" reopens it. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:configure="de.kleinabersmart.earloft.widget.WidgetConfigActivity"
     android:widgetFeatures="reconfigurable"

@@ -22,12 +22,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
 
-/** Ergebnis der Prüfung einer neuen Quelle für ein Abo (Konzept 12.10, „Quelle wechseln“). */
+/** Result of checking a new source for a subscription (concept 12.10, "Switch source"). */
 sealed interface SourceCheck {
     /**
-     * Bereit: [matched] der [episodes] Folgen des Abos haben in der neuen Quelle ein Gegenstück und behalten Fortschritt,
-     * Downloads und Statistik. [keptUnmatched] angefangene oder gehörte Folgen ohne Gegenstück bleiben unter ihrer alten
-     * Kennung stehen; die übrigen ohne Gegenstück verschwinden wie beim Abgleich.
+     * Ready: [matched] of the subscription's [episodes] episodes have a counterpart in the new source and keep progress,
+     * downloads and statistics. [keptUnmatched] started or played episodes without a counterpart stay under their old
+     * ID; the other ones without a counterpart disappear as during a sync.
      */
     class Ready internal constructor(
         internal val plan: SwitchPlan,
@@ -36,13 +36,13 @@ sealed interface SourceCheck {
         val keptUnmatched: Int,
     ) : SourceCheck
 
-    /** Die neue Adresse ist die bisherige. */
+    /** The new address is the current one. */
     data object SameSource : SourceCheck
 
-    /** Unter der neuen Adresse besteht schon ein (Probe-)Abo [title]. */
+    /** A (trial) subscription [title] already exists under the new address. */
     data class Taken(val title: String) : SourceCheck
 
-    /** Die neue Quelle ist ungültig oder ließ sich nicht laden. */
+    /** The new source is invalid or could not be loaded. */
     data class Failed(val result: SubscribeResult) : SourceCheck
 }
 
@@ -51,19 +51,19 @@ internal class SwitchPlan(
     val oldUrl: String,
     val newUrl: String,
     val fetched: FeedFetch.Fetched,
-    /** Folge (`bookId`) → ihr Gegenstück in der neuen Quelle, samt alter Kennung. */
+    /** Episode (`bookId`) → its counterpart in the new source, including the old ID. */
     val matches: Map<Long, Match>,
-    /** Zugangsdaten, mit denen die neue Quelle geladen wurde (Konzept 12.10 „Geschützte Feeds“). */
+    /** Credentials with which the new source was loaded (concept 12.10 "Protected feeds"). */
     val auth: FeedAuth? = null,
 ) {
     class Match(val oldGuid: String, val episode: ParsedEpisode)
 }
 
 /**
- * Wechselt die Quelle eines Abos, etwa vom RSS-Feed zu ARD Sounds (Konzept 12.10). Das Abo bleibt dasselbe (`feedId`), seine
- * Folgen behalten ihre `bookId`: Fortschritt, Downloads, Warteschlange, Uhr-Auswahl und Einstellungen bleiben. Umgeschrieben
- * werden die Feed-Adresse, die Kennungen (guid) und Audio-Adressen der Folgen, die Statistik (Gruppe = Feed-Adresse,
- * Eintrag = guid), die Schlüssel in Warteschlange und „zuletzt gespielt“ ([BookKeyRenamer]) und der gesicherte Fortschritt
+ * Switches the source of a subscription, e.g. from the RSS feed to ARD Sounds (concept 12.10). The subscription stays the same (`feedId`), its
+ * episodes keep their `bookId`: progress, downloads, queue, watch selection and settings stay. Rewritten
+ * are the feed URL, the IDs (guid) and audio URLs of the episodes, the statistics (group = feed URL,
+ * entry = guid), the keys in the queue and "recently played" ([BookKeyRenamer]) and the backed-up progress
  * in `user.db`.
  */
 @Singleton
@@ -76,7 +76,7 @@ class PodcastSourceSwitch @Inject constructor(
     private val userDataBackup: UserDataBackup,
     private val renamers: Set<@JvmSuppressWildcards BookKeyRenamer>,
 ) {
-    /** Lädt die neue Quelle [input] und ordnet die Folgen zu; ändert noch nichts. */
+    /** Loads the new source [input] and matches the episodes; doesn't change anything yet. */
     suspend fun check(feedId: String, input: String): SourceCheck {
         val feed = podcastDao.feed(feedId) ?: return SourceCheck.Failed(SubscribeResult.NotAFeed)
         val source = when (val fetched = podcasts.fetchSource(input, podcasts.storedCredentials(feedId))) {
@@ -109,7 +109,7 @@ class PodcastSourceSwitch @Inject constructor(
         )
     }
 
-    /** Führt den geprüften Wechsel aus. `false`, wenn sich das Abo seit der Prüfung geändert hat (nichts geändert). */
+    /** Performs the checked switch. `false` if the subscription has changed since the check (nothing changed). */
     suspend fun switch(ready: SourceCheck.Ready): Boolean {
         val plan = ready.plan
         val renamed = plan.matches.filterValues { it.oldGuid != it.episode.guid }
@@ -118,10 +118,10 @@ class PodcastSourceSwitch @Inject constructor(
             val taken = podcastDao.feedByUrl(plan.newUrl)?.let { it.feedId != plan.feedId } ?: false
             if (feed == null || feed.url != plan.oldUrl || taken) return@withFeedLock false
             database.withTransaction {
-                // In zwei Schritten: Die neue Kennung einer Folge kann die alte einer anderen sein.
+                // In two steps: the new ID of one episode can be the old one of another.
                 renamed.keys.forEach { podcastDao.setRemoteId(it, TEMP_PREFIX + it) }
                 renamed.forEach { (bookId, match) -> podcastDao.setRemoteId(bookId, match.episode.guid) }
-                // Dieselbe Folge: Der Download bleibt, auch wenn die Datei jetzt unter einer anderen Adresse liegt.
+                // Same episode: the download stays, even if the file is now at a different URL.
                 plan.matches.forEach { (bookId, match) -> podcastDao.moveTrack(bookId, match.episode.audioUrl) }
                 val guidRenames = renamed.values.associate { it.oldGuid to it.episode.guid }
                 val groups = listOf(plan.oldUrl, plan.newUrl)
@@ -147,14 +147,14 @@ class PodcastSourceSwitch @Inject constructor(
         return true
     }
 
-    /** Umzüge, die nicht gingen (Ziel kein Feed, schon abonniert …); sie werden bis zum Neustart nicht erneut versucht. */
+    /** Moves that failed (target not a feed, already subscribed …); they are not retried until restart. */
     private val refusedMoves = Collections.synchronizedSet(HashSet<Pair<String, String>>())
 
     /**
-     * Feed-Umzug ohne Rückfrage (Konzept 12.10): Kündigt der Feed eine neue Adresse an (`itunes:new-feed-url`) oder leitet
-     * er dauerhaft weiter, zieht das Abo dorthin um wie bei „Quelle wechseln“. Nur, wenn dort ein Feed liegt, der kein
-     * anderes Abo ist, nicht zurück auf die alte Adresse verweist und nicht unverschlüsselt ist, wo es vorher HTTPS war.
-     * `true`, wenn das Abo umgezogen ist.
+     * Feed move without confirmation (concept 12.10): if the feed announces a new address (`itunes:new-feed-url`) or
+     * permanently redirects, the subscription moves there as with "Switch source". Only if there is a feed that is not
+     * another subscription, doesn't point back to the old address and isn't unencrypted where it was HTTPS before.
+     * `true` if the subscription moved.
      */
     suspend fun follow(feedId: String, newUrl: String): Boolean {
         val old = podcastDao.feed(feedId) ?: return false
@@ -175,7 +175,7 @@ class PodcastSourceSwitch @Inject constructor(
             Log.i(TAG, "Kein Umzug nach ${hostOf(target)}: unverschlüsselt oder zurück auf die alte Adresse")
             return false
         }
-        // Nennen beide Feeds ihre Kennung (`podcast:guid`), müssen sie gleich sein: sonst liegt dort ein anderer Podcast.
+        // If both feeds name their ID (`podcast:guid`), they must be equal: otherwise there is a different podcast there.
         if (!samePodcast(old.podcastGuid, fetched.feed.podcastGuid)) {
             Log.i(TAG, "Kein Umzug nach ${hostOf(target)}: anderer Podcast (podcast:guid)")
             return false
@@ -190,28 +190,28 @@ class PodcastSourceSwitch @Inject constructor(
         const val TAG = "PodcastSourceSwitch"
         const val MAX_ARGS = 500
 
-        /** Übergangskennung beim Umbenennen; kommt in keinem Feed vor. */
+        /** Temporary ID during renaming; doesn't occur in any feed. */
         const val TEMP_PREFIX = "\u0000switch:"
     }
 }
 
 /**
- * Ob zwei Feed-Adressen dieselbe sind, auch bei anderer Schreibweise (Groß-/Kleinschreibung des Hosts, Standardport);
- * Adressen, die keine URL sind (ARD Sounds), nur bei Gleichheit.
+ * Whether two feed URLs are the same, even with different spelling (case of the host, default port);
+ * addresses that are not URLs (ARD Sounds) only when equal.
  */
 internal fun sameAddress(a: String, b: String): Boolean = a == b || a.toHttpUrlOrNull()?.let { it == b.toHttpUrlOrNull() } == true
 
-/** Ob zwei Feeds derselbe Podcast sein können: Fehlt eine Kennung (`podcast:guid`), entscheidet sie nichts. */
+/** Whether two feeds can be the same podcast: if one ID (`podcast:guid`) is missing, it decides nothing. */
 internal fun samePodcast(oldGuid: String?, newGuid: String?): Boolean =
     oldGuid == null || newGuid == null || oldGuid.equals(newGuid, ignoreCase = true)
 
-/** Eine Folge des Abos vor dem Wechsel: Kennung, Audio-Adresse, Titel und Datum (Erscheinen bzw. erstes Auftauchen). */
+/** An episode of the subscription before the switch: ID, audio URL, title and date (published or first seen). */
 internal data class KnownEpisode(val bookId: Long, val guid: String, val audioUrl: String?, val title: String, val publishedAt: Long)
 
 /**
- * Ordnet die Folgen [known] eines Abos ihren Gegenstücken in [fresh] zu: erst über die Kennung, dann über die Adresse der
- * Audiodatei (ohne Schema und Query), zuletzt über den Titel, wenn das Datum höchstens [MAX_DATE_DIFF_MS] abweicht. Jede
- * Folge in [fresh] gehört höchstens zu einer bekannten; eine doppelte Kennung zählt wie beim Abgleich nur das erste Mal.
+ * Matches the episodes [known] of a subscription to their counterparts in [fresh]: first by ID, then by the URL of the
+ * audio file (without scheme and query), finally by title if the date differs by at most [MAX_DATE_DIFF_MS]. Each
+ * episode in [fresh] belongs to at most one known episode; a duplicate ID only counts the first time, as during a sync.
  */
 internal fun matchEpisodes(known: List<KnownEpisode>, fresh: List<ParsedEpisode>): Map<Long, ParsedEpisode> {
     val candidates = fresh.distinctBy { it.guid }.toMutableList()
@@ -235,19 +235,19 @@ internal fun matchEpisodes(known: List<KnownEpisode>, fresh: List<ParsedEpisode>
     return result
 }
 
-/** Adresse einer Audiodatei ohne Schema, Query und Groß-/Kleinschreibung des Hosts; Feeds hängen oft Zähl-Parameter an. */
+/** URL of an audio file without scheme, query and host case; feeds often append tracking parameters. */
 private fun audioKey(url: String): String = normalizeFeedUrl(url)?.let { it.host + it.encodedPath } ?: url.trim()
 
-/** Für das Log nur der Host: Private Feeds tragen ihr Zugangstoken in Pfad oder Query. */
+/** Only the host for the log: private feeds carry their access token in the path or query. */
 private fun hostOf(url: String): String = normalizeFeedUrl(url)?.host ?: url.substringBefore(':')
 
-/** Folgen erscheinen in RSS-Feed und ARD Sounds nicht immer zur selben Stunde. */
+/** Episodes don't always appear in the RSS feed and on ARD Sounds at the same hour. */
 private const val MAX_DATE_DIFF_MS = 2 * 24 * 60 * 60 * 1000L
 
 /**
- * Die Statistik der Gruppen [oldGroup] und [newGroup] nach dem Wechsel: alles unter [newGroup], Einträge mit neuer
- * Kennung laut [renames]. Treffen dabei zwei Einträge zusammen (etwa weil die neue Quelle schon einmal abonniert war),
- * zählen sie zusammen.
+ * The statistics of the groups [oldGroup] and [newGroup] after the switch: everything under [newGroup], entries with a new
+ * ID according to [renames]. If two entries collide (e.g. because the new source was subscribed before),
+ * they are added together.
  */
 internal fun rekeyStats(
     rows: List<ListeningStatEntity>,
@@ -264,7 +264,7 @@ internal fun rekeyStats(
         }.copy(statId = 0)
     }
 
-/** Wie [rekeyStats] für die Tage. */
+/** Like [rekeyStats] for the days. */
 internal fun rekeyDays(rows: List<ListeningDayEntity>, oldGroup: String, newGroup: String): List<ListeningDayEntity> = rows
     .map { if (it.groupKey == oldGroup) it.copy(groupKey = newGroup) else it }
     .groupBy { Triple(it.day, it.kind, it.groupKey) }

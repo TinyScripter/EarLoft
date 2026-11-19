@@ -68,7 +68,7 @@ class PodcastFeedViewModel @AssistedInject constructor(
 ) : ViewModel() {
 
     init {
-        // Solange eine Seite des Podcasts offen ist, bleibt ein Probeabo bestehen (Konzept 12.10).
+        // As long as a page of the podcast is open, a trial subscription persists (concept 12.10).
         trialPages.opened(feedId)
     }
 
@@ -80,15 +80,15 @@ class PodcastFeedViewModel @AssistedInject constructor(
 
     fun refresh() = refresher.refreshFeed(feedId)
 
-    /** Die Folge, die gerade läuft (nicht: pausiert). */
+    /** The episode currently playing (not: paused). */
     val playingBookId: StateFlow<Long?> = playback.state
         .map { if (it.isPlaying) it.spoken?.bookId else null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Anteil der gerade ladenden Folgen (0..1, [EpisodeDownloadProgress.UNKNOWN] ohne bekannte Größe). */
+    /** Fraction of the episodes currently downloading (0..1, [EpisodeDownloadProgress.UNKNOWN] without known size). */
     val progress: StateFlow<Map<Long, Float>> = downloadProgress.fractions
 
-    /** [LoadState.Missing], wenn das Abo beendet oder das Probeabo aufgeräumt wurde, während die Seite im Verlauf lag. */
+    /** [LoadState.Missing] if the subscription was ended or the trial subscription was cleaned up while the page was in the back stack. */
     val feed: StateFlow<LoadState<PodcastFeed>> = podcasts.feed(feedId)
         .asLoadStateOrMissing()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
@@ -97,13 +97,13 @@ class PodcastFeedViewModel @AssistedInject constructor(
         .asLoadState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
-    /** Folgen, die gerade in „Weiterhören“ (der Warteschlange) stehen, auch die von selbst dort stehenden. */
+    /** Episodes currently in "Continue listening" (the queue), including those that got there automatically. */
     val queued: StateFlow<Set<Long>> = continueListening.episodes
         .map { list -> list.mapTo(HashSet()) { it.book.id } }
         .orOnError(emptySet())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    /** Ans Ende der Warteschlange bzw. heraus, wie im Folgenmenü. */
+    /** To the end of the queue or out of it, as in the episode menu. */
     fun toggleQueued(bookId: Long) {
         val inQueue = bookId in queued.value
         viewModelScope.launch { if (inQueue) continueListening.remove(bookId) else continueListening.append(bookId) }
@@ -111,14 +111,14 @@ class PodcastFeedViewModel @AssistedInject constructor(
 
     private val searchQuery = MutableStateFlow("")
 
-    /** Suchtext der Seite [PodcastSearchScreen]; die Treffer kommen über [searchHits]. */
+    /** Search text of the [PodcastSearchScreen] page; the results come via [searchHits]. */
     fun search(text: String) {
         searchQuery.value = text.trim()
     }
 
     /**
-     * Treffer in Überschrift und Inhaltsangabe. Der Suchtext je Folge wird einmal je Änderung der Folgen normalisiert statt
-     * bei jedem Tastendruck; gefiltert wird abseits des Main-Threads und erst, wenn das Tippen kurz ruht.
+     * Matches in title and summary. The search text per episode is normalized once per change of the episodes instead of
+     * on every keystroke; filtering happens off the main thread and only once typing pauses briefly.
      */
     @OptIn(FlowPreview::class)
     val searchHits: StateFlow<EpisodeHits?> = combine(
@@ -131,12 +131,12 @@ class PodcastFeedViewModel @AssistedInject constructor(
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Download-Zustand je Folge. */
+    /** Download state per episode. */
     val downloadStates: StateFlow<Map<Long, TrackDownload>> = podcasts.downloadStates(feedId)
         .orOnError(emptyMap())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    /** Die Folgen nach Filter und Reihenfolge des Abos (Chips und Sortierung auf seiner Seite). */
+    /** The episodes by the subscription's filter and order (chips and sorting on its page). */
     val shownEpisodes: StateFlow<LoadState<List<BookWithProgress>>> = combine(
         episodes,
         podcasts.feed(feedId),
@@ -165,27 +165,27 @@ class PodcastFeedViewModel @AssistedInject constructor(
         viewModelScope.launch { podcasts.setKeepEpisodes(feedId, keep) }
     }
 
-    /** Vorgabe aus Einstellungen → Podcasts, für „Vorgabe (…)“. */
+    /** Default from Settings → Podcasts, for "Default (…)". */
     val defaultAutoDownloadCount: StateFlow<Int> = podcastSettings.autoDownloadCount
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PodcastSettings.DEFAULT_AUTO_DOWNLOAD_COUNT)
 
-    /** Wischgesten auf den Folgenzeilen (Einstellungen → Podcasts → Folgenlisten). */
+    /** Swipe gestures on the episode rows (Settings → Podcasts → Episode lists). */
     val swipeActions: StateFlow<Boolean> = podcastSettings.swipeActions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    /** `null` = Vorgabe. Eine größere Anzahl holt die Automatik sofort nach ([EpisodeDownloads]). */
+    /** `null` = default. A larger count makes the automation catch up immediately ([EpisodeDownloads]). */
     fun setAutoDownloadCount(count: Int?) {
         viewModelScope.launch { podcasts.setAutoDownloadCount(feedId, count) }
     }
 
     private val _messages = MutableSharedFlow<Int>(extraBufferCapacity = 2)
 
-    /** Hinweise für den Nutzer (String-Ressource), z. B. dass ein Download auf eine Verbindung wartet. */
+    /** Messages for the user (string resource), e.g. that a download is waiting for a connection. */
     val messages: SharedFlow<Int> = _messages.asSharedFlow()
 
     fun download(bookId: Long) {
         viewModelScope.launch {
-            // Probeabo: Was geladen wird, kommt in die Warteschlange und bleibt nur, solange es dort steht.
+            // Trial subscription: whatever is downloaded goes into the queue and stays only as long as it is there.
             if (feed.value.valueOrNull?.subscribed == false) continueListening.append(bookId)
             when (downloads.download(bookId)) {
                 DownloadStart.OFFLINE -> _messages.emit(R.string.podcast_download_offline)
@@ -219,11 +219,11 @@ class PodcastFeedViewModel @AssistedInject constructor(
         viewModelScope.launch { podcasts.setNotifyNew(feedId, enabled) }
     }
 
-    /** Vorgabe des Bereichs, für „Standard (…)“ in den Abo-Einstellungen. */
+    /** The area's default, for "Default (…)" in the subscription settings. */
     val areaEffects: StateFlow<SpokenEffects> = spokenSettings.podcastEffects
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SpokenEffects.DEFAULT)
 
-    /** Tempo und Effekte des Abos; `null` = Vorgabe des Bereichs. Folgen mit eigenen Werten behalten sie. */
+    /** Speed and effects of the subscription; `null` = the area's default. Episodes with their own values keep them. */
     fun setEffects(change: (EffectOverrides) -> EffectOverrides) {
         viewModelScope.launch { effects.setFeedEffects(feedId, change) }
     }
@@ -232,7 +232,7 @@ class PodcastFeedViewModel @AssistedInject constructor(
         viewModelScope.launch { effects.setSkipIntroOutro(feedId, introS, outroS) }
     }
 
-    /** Löscht erst die Downloads (sonst blieben die Dateien liegen), dann das Abo; im App-Scope wie [archive]. */
+    /** Deletes the downloads first (otherwise the files would remain), then the subscription; in the app scope like [archive]. */
     fun unsubscribe() {
         applicationScope.launch {
             downloads.removeAllOf(feedId)
@@ -240,7 +240,7 @@ class PodcastFeedViewModel @AssistedInject constructor(
         }
     }
 
-    /** Archiviert das Abo und löscht seine Downloads; im App-Scope, denn die Seite schließt sich sofort. */
+    /** Archives the subscription and deletes its downloads; in the app scope, because the page closes immediately. */
     fun archive() {
         applicationScope.launch {
             podcasts.archive(feedId)
@@ -248,20 +248,20 @@ class PodcastFeedViewModel @AssistedInject constructor(
         }
     }
 
-    /** Benutzername der gespeicherten Anmeldung eines geschützten Feeds; `null` = keine (Konzept 12.10). */
+    /** User name of the stored login of a protected feed; `null` = none (concept 12.10). */
     val credentialsUser: StateFlow<String?> = podcasts.credentials(feedId)
         .map { it?.username }
         .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Ist der geschützte Feed auf einen anderen Host umgezogen, dessen Adresse: Der Dialog nennt ihn statt des alten. */
+    /** If the protected feed moved to another host, its address: the dialog names it instead of the old one. */
     val credentialsAddress: StateFlow<String?> = podcasts.credentialsAddress(feedId)
         .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
-     * Speichert die Zugangsdaten (`null` entfernt sie) und gleicht gleich ab; im App-Scope, damit es auch nach dem Schließen
-     * der Seite gespeichert wird. Die Meldung sagt, ob der Feed sie angenommen hat.
+     * Stores the credentials (`null` removes them) and syncs right away; in the app scope so it is stored even after the page
+     * is closed. The message says whether the feed accepted them.
      */
     fun setCredentials(credentials: PodcastRepository.Credentials?) {
         applicationScope.launch {
@@ -270,12 +270,12 @@ class PodcastFeedViewModel @AssistedInject constructor(
         }
     }
 
-    /** Aus dem Probeabo wird ein Abo; Folgen, Stellen und Downloads bleiben. */
+    /** The trial subscription becomes a subscription; episodes, positions and downloads stay. */
     fun subscribe() {
         viewModelScope.launch { podcasts.subscribeTrial(feedId) }
     }
 
-    /** Wie [PodcastViewModel.playOrPause]. */
+    /** Like [PodcastViewModel.playOrPause]. */
     fun playOrPause(bookId: Long) {
         if (playback.state.value.spoken?.bookId == bookId) playback.togglePlayPause() else launcher.play(bookId)
     }
@@ -286,12 +286,12 @@ class PodcastFeedViewModel @AssistedInject constructor(
     }
 }
 
-/** Treffer der Folgensuche; [query] ist der Suchtext, zu dem sie gehören. */
+/** Results of the episode search; [query] is the search text they belong to. */
 data class EpisodeHits(val query: String, val hits: List<BookWithProgress>)
 
 /**
- * Eine Folge mit normalisiertem Titel und Beschreibung, mit [withPodcast] auch dem Namen des Podcasts (Warteschlange);
- * getrennt, damit kein Treffer über die Grenze der Felder reicht.
+ * An episode with normalized title and description, with [withPodcast] also the podcast's name (queue);
+ * separated so that no match spans the boundary between fields.
  */
 internal class SearchEntry(val episode: BookWithProgress, withPodcast: Boolean = false) {
     private val title = episode.book.title.normalizeForMerge()

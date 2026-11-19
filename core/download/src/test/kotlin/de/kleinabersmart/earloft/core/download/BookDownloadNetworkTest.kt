@@ -15,7 +15,7 @@ class BookDownloadNetworkTest {
     @Test
     fun `with the switch only files the user queued may use mobile data`() {
         assertEquals(NetworkType.CONNECTED, bookDownloadNetwork(mobileAllowed = true, manualWaiting = true))
-        // Nur Dateien der Automatik: auch beim Umlegen des Schalters oder beim App-Start bleibt der Auftrag im WLAN.
+        // Only automation files: even when flipping the switch or at app start the job stays on Wi-Fi.
         assertEquals(NetworkType.UNMETERED, bookDownloadNetwork(mobileAllowed = true, manualWaiting = false))
     }
 }

@@ -12,7 +12,7 @@ import de.kleinabersmart.earloft.core.data.spoken.AuthorImages
 import de.kleinabersmart.earloft.core.model.AppUris
 import java.io.IOException
 
-/** Lädt `earloft://cover/author/<Name>` über [AuthorImages]; ohne Bild bleibt, was darunter liegt (das Cover eines Buchs). */
+/** Loads `earloft://cover/author/<name>` via [AuthorImages]; without an image, whatever is underneath stays (a book's cover). */
 class AuthorImageFetcher(
     private val name: String,
     private val authorImages: AuthorImages,

@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.earloft.android.compose)
     alias(libs.plugins.earloft.hilt)
     alias(libs.plugins.kotlin.serialization)
-    // Nur der Export der Bibliotheken für die Lizenzliste der Handy-App; die Uhr zeigt keine eigene.
+    // Only the library export for the phone app's license list; the watch shows no list of its own.
     alias(libs.plugins.aboutlibraries.base)
 }
 
@@ -18,14 +18,14 @@ aboutLibraries {
     }
 }
 
-// Das Plugin hängt die Liste auch an die Ressourcen der Uhr-APK; dort wird sie nicht gebraucht.
+// The plugin also attaches the list to the watch APK's resources; it is not needed there.
 tasks.matching { it.name.startsWith("prepareLibraryDefinitions") }.configureEach { enabled = false }
 
 android {
     namespace = "de.kleinabersmart.earloft.wear"
 
     defaultConfig {
-        // Muss mit der Phone-App übereinstimmen (Wearable Data Layer).
+        // Must match the phone app (Wearable Data Layer).
         applicationId = "de.kleinabersmart.earloft"
         minSdk = BuildConfig.MIN_SDK_WEAR
         versionCode = appVersion.versionCode(Platform.WEAR_OS)
@@ -34,11 +34,11 @@ android {
 
     buildTypes {
         debug {
-            // Wie bei der Phone-App: Debug neben Release installierbar, applicationId beider Debug-Apps gleich.
+            // Same as the phone app: debug installable next to release, applicationId of both debug apps identical.
             applicationIdSuffix = ".debug"
         }
         release {
-            // Wie bei der Phone-App: nur androidx.** optimieren (kotlin.**/kotlinx.** führten dort zum Absturz beim Start).
+            // Same as the phone app: only optimize androidx.** (kotlin.**/kotlinx.** caused a crash on startup there).
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**")
@@ -65,8 +65,8 @@ dependencies {
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     implementation(libs.androidx.wear.compose.material3)
     implementation(libs.materialkolor)
-    // `dynamicColorScheme` von materialkolor liefert ein M3-ColorScheme; materialkolor bringt die Klasse nicht selbst mit
-    // (compileOnly stürzte auf der Uhr mit ClassNotFoundException ab).
+    // `dynamicColorScheme` from materialkolor returns an M3 ColorScheme; materialkolor does not ship the class itself
+    // (compileOnly crashed on the watch with ClassNotFoundException).
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.wear.compose.foundation)
     implementation(libs.androidx.wear.compose.navigation3)
@@ -78,7 +78,7 @@ dependencies {
     implementation(libs.androidx.wear.ongoing)
     implementation(libs.androidx.wear.tooling.preview)
     implementation(libs.kotlinx.coroutines.guava)
-    // Die Preview-Annotationen (WearPreviewDevices u. a.) liegen hier und werden auch im Release-Quelltext gebraucht.
+    // The preview annotations (WearPreviewDevices etc.) live here and are needed in the release sources too.
     implementation(libs.androidx.wear.compose.ui.tooling)
 
     testImplementation(libs.androidx.test.core)

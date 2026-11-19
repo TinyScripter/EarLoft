@@ -39,8 +39,8 @@ import de.kleinabersmart.earloft.wear.R
 import de.kleinabersmart.earloft.wear.download.estimatePhoneTransferMinutes
 
 /**
- * Speicher & Downloads (Wear-Konzept 11): belegt/frei/Grenze, Fortschritt, Hinweise und „Erneut versuchen“; darunter Alben,
- * Folgen und Bücher auf der Uhr, einzeln zu entfernen.
+ * Storage & downloads (Wear concept 11): used/free/limit, progress, hints and "Retry"; below that albums,
+ * episodes and books on the watch, removable individually.
  */
 @Composable
 fun StorageScreen(viewModel: StorageViewModel = hiltViewModel()) {
@@ -70,9 +70,9 @@ private fun StorageContent(
 ) {
     val context = LocalContext.current
     var confirmClear by remember { mutableStateOf(false) }
-    // `null` = alles; bleibt gesetzt, damit der Dialog beim Ausblenden seinen Text behält.
+    // `null` = everything; stays set so that the dialog keeps its text while fading out.
     var clearSection by remember { mutableStateOf<StoredSection?>(null) }
-    // Der Eintrag bleibt gesetzt, damit der Dialog beim Ausblenden seinen Text behält.
+    // The entry stays set so that the dialog keeps its text while fading out.
     var removeCandidate by remember { mutableStateOf<StoredEntry?>(null) }
     var confirmRemove by remember { mutableStateOf(false) }
     val columnState = rememberTransformingLazyColumnState()
@@ -92,7 +92,7 @@ private fun StorageContent(
                 line(transformationSpec) { stringResource(R.string.storage_limit, Formatter.formatFileSize(context, limit)) }
             }
             val progress = overview.currentProgress
-            // „Alles geladen“ nur, wenn auch nichts fehlgeschlagen ist; sonst steht darunter die Fehlerzeile.
+            // "All downloaded" only if nothing has failed either; otherwise the error line is shown below.
             if (overview.pendingSongs > 0 || overview.failedSongs == 0) {
                 line(transformationSpec) {
                     when {
@@ -139,7 +139,7 @@ private fun StorageContent(
                     )
                 }
             } else if (overview.pendingSongs > 0) {
-                // Z. B. „Telefon nicht erreichbar“: Die Titel warten, es ist noch nichts fehlgeschlagen.
+                // E.g. "Phone unreachable": the tracks are waiting, nothing has failed yet.
                 state.lastError?.let { error -> line(transformationSpec, maxLines = LAST_ERROR_MAX_LINES) { stringResource(R.string.storage_last_error, error) } }
             }
             if (removeFailed) {
@@ -162,7 +162,7 @@ private fun StorageContent(
                 val inSection = entries.filter { it.section == section }
                 if (inSection.isEmpty()) return@forEach
                 line(transformationSpec, header = true) { stringResource(section.titleRes) }
-                // Erste Option je Abschnitt: alles davon entfernen.
+                // First option per section: remove all of it.
                 item(key = "clear:$section") {
                     Button(
                         onClick = {
@@ -222,7 +222,7 @@ private fun StorageContent(
     )
 }
 
-/** Eine lange Fehlermeldung schiebt sonst die Restzeit und alles darunter aus dem Bild. */
+/** Otherwise a long error message pushes the remaining time and everything below it off the screen. */
 private const val LAST_ERROR_MAX_LINES = 3
 
 private val StoredSection.clearRes: Int
@@ -246,7 +246,7 @@ private val StoredSection.titleRes: Int
         StoredSection.BOOKS -> R.string.list_books
     }
 
-/** Belegter Speicher; solange noch geladen wird, mit Hinweis darauf. */
+/** Used storage; while still downloading, with a hint about it. */
 @Composable
 private fun StoredEntry.secondaryText(): String {
     val size = Formatter.formatFileSize(LocalContext.current, bytes)

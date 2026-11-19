@@ -115,8 +115,8 @@ private fun PlaylistContent(
     actions: SongActions,
     modifier: Modifier = Modifier,
 ) {
-    // Beim Umsortieren eine Arbeitskopie; erst „Speichern“ übernimmt sie, Zurück verwirft sie. Modus und Reihenfolge (als
-    // `entryId`s) überleben Drehen und Prozessende (Review D28).
+    // While reordering a working copy; only "Save" applies it, Back discards it. Mode and order (as
+    // `entryId`s) survive rotation and process death (review D28).
     val order = remember { mutableStateListOf<PlaylistEntry>() }
     var editing by rememberSaveable { mutableStateOf(false) }
     var savedOrder by rememberSaveable { mutableStateOf(LongArray(0)) }
@@ -125,7 +125,7 @@ private fun PlaylistContent(
     LaunchedEffect(editing, entries) {
         if (!editing || entries == null) return@LaunchedEffect
         if (order.isEmpty()) {
-            // Nach dem Drehen: die gemerkte Reihenfolge; was inzwischen dazukam, dahinter.
+            // After rotation: the remembered order; whatever was added in the meantime goes after it.
             val byId = entries.associateBy { it.entryId }
             val kept = savedOrder.toList().mapNotNull { byId[it] }
             val keptIds = kept.mapTo(HashSet()) { it.entryId }
@@ -224,7 +224,7 @@ private fun PlaylistEntries(
                                 Spacer(Modifier.width(8.dp))
                                 Text(stringResource(R.string.action_shuffle))
                             }
-                            // Rein lokale Playlists brauchen keinen Download.
+                            // Purely local playlists need no download.
                             if (offline.downloadableCount > 0) {
                                 DownloadButton(
                                     removeTitle = stringResource(R.string.download_album_remove_title),
@@ -243,7 +243,7 @@ private fun PlaylistEntries(
             if (details.entries.isEmpty()) {
                 item(key = "empty") { EmptyHint(stringResource(R.string.playlist_empty)) }
             }
-            // Ein Song kann mehrfach vorkommen – Schlüssel ist daher der Eintrag, nicht der Song.
+            // A song can occur several times – so the key is the entry, not the song.
             val serverName = playlist.serverName
             groupedItemsIndexed(details.entries, key = { _, entry -> entry.entryId }) { index, entry ->
                 SongListItem(
@@ -259,7 +259,7 @@ private fun PlaylistEntries(
                 )
             }
         }
-        // Ohne Marke: Playlists haben ihre eigene Reihenfolge.
+        // Without a label: playlists have their own order.
         LazyListFastScroller(listState)
     }
 }

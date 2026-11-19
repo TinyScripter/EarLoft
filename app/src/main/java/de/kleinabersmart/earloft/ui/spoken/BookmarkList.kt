@@ -54,7 +54,7 @@ import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import javax.inject.Inject
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Titel eines neuen Lesezeichens: „Kapitelname · 12:34“, ohne Kapitel nur die Zeit. */
+/** Title of a new bookmark: "Chapter name · 12:34", without a chapter just the time. */
 internal fun bookmarkTitle(resources: Resources, timeline: BookTimeline?, positionMs: Long): String {
     val time = formatClock(positionMs)
     val chapter = timeline?.chapterAt(positionMs) ?: return time
@@ -63,9 +63,9 @@ internal fun bookmarkTitle(resources: Resources, timeline: BookTimeline?, positi
 }
 
 /**
- * Lesezeichen im Player (Sheet bzw. rechter Bereich): oben „Lesezeichen hier setzen“ ([onAdd]), darunter die Liste. Ein
- * Tipp springt hin ([onJump]), Wischen nach links löscht, der Stift ändert Titel und Notiz. „Rückgängig“ steht hier in
- * der Liste: Die Snackbar läge unter dem Sheet.
+ * Bookmarks in the player (sheet or right pane): "Add bookmark here" at the top ([onAdd]), the list below. A
+ * tap jumps there ([onJump]), swiping left deletes, the pencil edits title and note. "Undo" is shown here in
+ * the list: the snackbar would be underneath the sheet.
  */
 @Composable
 internal fun BookmarkList(
@@ -122,7 +122,7 @@ internal fun BookmarkList(
     actions.Dialog()
 }
 
-/** Lesezeichen auf der Buch- bzw. Folgenseite unter den Kapiteln; ein Tipp spielt ab dort. */
+/** Bookmarks on the book or episode page below the chapters; a tap plays from there. */
 internal fun LazyListScope.bookmarkItems(bookmarks: List<Bookmark>, actions: BookmarkActions, onJump: (Long) -> Unit) {
     if (bookmarks.isEmpty()) return
     item(key = "bookmarks-header") {
@@ -138,8 +138,8 @@ internal fun LazyListScope.bookmarkItems(bookmarks: List<Bookmark>, actions: Boo
 }
 
 /**
- * Bearbeiten (Dialog) und Löschen mit Rückgängig; der Dialog muss einmal je Bildschirm gezeigt werden ([Dialog]). Welches
- * Lesezeichen bearbeitet wird, liegt in [editingState] (gesichert): Drehen schließt den Dialog nicht (Review V25).
+ * Editing (dialog) and deleting with undo; the dialog has to be shown once per screen ([Dialog]). Which
+ * bookmark is being edited lives in [editingState] (saved): rotating doesn't close the dialog (review V25).
  */
 @androidx.compose.runtime.Stable
 internal class BookmarkActions(
@@ -172,7 +172,7 @@ internal class BookmarkActions(
     }
 }
 
-/** [onDeleted]: eigenes „Rückgängig“; ohne bietet es eine Snackbar an. */
+/** [onDeleted]: own "Undo"; without it, a snackbar offers one. */
 @Composable
 internal fun rememberBookmarkActions(
     viewModel: BookmarksViewModel = hiltViewModel(),
@@ -181,8 +181,8 @@ internal fun rememberBookmarkActions(
     val snackbars = LocalSnackbars.current
     val deleted = stringResource(R.string.spoken_bookmark_deleted)
     val undo = stringResource(R.string.spoken_bookmark_undo)
-    // Immer das aktuelle: Nach einem Wechsel des Buchs schrieb der gemerkte Aufruf sonst in den Zustand des vorigen, und
-    // „Rückgängig“ fehlte (Review D36).
+    // Always the current one: after switching the book, the remembered call would otherwise write into the previous one's state, and
+    // "Undo" would be missing (review D36).
     val currentOnDeleted by rememberUpdatedState(onDeleted)
     val editing = rememberSaveable(stateSaver = BookmarkSaver) { mutableStateOf(null) }
     return remember(viewModel, snackbars, editing) {
@@ -197,7 +197,7 @@ internal fun rememberBookmarkActions(
     }
 }
 
-/** Ein Lesezeichen im gesicherten Zustand (Bearbeiten-Dialog über Drehen und Prozessende); `null` = keines. */
+/** A bookmark in saved state (edit dialog across rotation and process death); `null` = none. */
 private val BookmarkSaver: Saver<Bookmark?, Any> = listSaver(
     save = { bookmark ->
         if (bookmark == null) emptyList() else listOf(bookmark.id, bookmark.bookId, bookmark.positionMs, bookmark.title, bookmark.note, bookmark.createdAt)
@@ -219,7 +219,7 @@ internal fun BookmarkRow(bookmark: Bookmark, onJump: () -> Unit, actions: Bookma
         enableDismissFromStartToEnd = false,
         onDismiss = { if (it == SwipeToDismissBoxValue.EndToStart) actions.delete(bookmark) },
         backgroundContent = {
-            // Nur beim Wischen: Im Player ist die Zeile durchsichtig und läge sonst immer auf Rot.
+            // Only while swiping: in the player the row is transparent and would otherwise always sit on red.
             if (state.dismissDirection != SwipeToDismissBoxValue.EndToStart) return@SwipeToDismissBox
             Box(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = 24.dp),

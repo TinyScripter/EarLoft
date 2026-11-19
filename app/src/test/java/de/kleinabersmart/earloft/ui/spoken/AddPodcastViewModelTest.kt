@@ -25,7 +25,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import javax.inject.Inject
 
-/** Seite „Podcast hinzufügen“: Feed-Adresse und eingeschaltete Verzeichnisse (Konzept 12.10). */
+/** "Add podcast" page: feed address and enabled directories (concept 12.10). */
 @HiltAndroidTest
 @Config(application = HiltTestApplication::class)
 @RunWith(RobolectricTestRunner::class)

@@ -54,7 +54,7 @@ class StreamPreloaderTest {
         { CacheDataSource.Factory().setCache(cache).setUpstreamDataSourceFactory { server }.createDataSourceForDownloading() },
         { songId ->
             when (songId) {
-                // Song 1 liegt als Download vor, die anderen kommen vom Server.
+                // Song 1 is available as a download, the others come from the server.
                 1L -> listOf(ResolvedPlayback(PlaybackLocation.LocalFile(Uri.parse("file:///music/1.flac")), null, null))
                 else -> listOf(ResolvedPlayback(PlaybackLocation.Remote(uri(songId), "nav:$songId"), null, "nav"))
             }
@@ -73,7 +73,7 @@ class StreamPreloaderTest {
         assertEquals(3000L, cache.getCachedBytes("nav:2", 0, C.LENGTH_UNSET.toLong()))
         assertEquals(2000L, cache.getCachedBytes("nav:3", 0, C.LENGTH_UNSET.toLong()))
 
-        // Schon im Cache: kein zweiter Abruf.
+        // Already in the cache: no second request.
         preloader(this).preload(listOf(2), limitBytes = null)
         assertEquals(2, server.opened.size)
     }
@@ -88,7 +88,7 @@ class StreamPreloaderTest {
     @Test
     fun `upcoming songs follow the queue and repeat`() {
         player.update(listOf("song:1", "song:2", "episode:7", "song:3"), current = 0)
-        // Einträge ohne Song (Folgen) entfallen.
+        // Entries without a song (episodes) are dropped.
         assertEquals(listOf(2L), StreamPreloader.upcomingSongIds(player, 2))
         assertEquals(listOf(2L, 3L), StreamPreloader.upcomingSongIds(player, 3))
 
@@ -96,14 +96,14 @@ class StreamPreloaderTest {
         assertEquals(emptyList<Long>(), StreamPreloader.upcomingSongIds(player, 2))
         player.update(listOf("song:1", "song:2", "song:3"), current = 2, repeatMode = Player.REPEAT_MODE_ALL)
         assertEquals(listOf(1L, 2L), StreamPreloader.upcomingSongIds(player, 2))
-        // „Einen wiederholen“: vorgeladen wird, was beim Weiterspringen kommt.
+        // "Repeat one": what is preloaded is what comes when skipping ahead.
         player.update(listOf("song:1", "song:2", "song:3"), current = 0, repeatMode = Player.REPEAT_MODE_ONE)
         assertEquals(listOf(2L), StreamPreloader.upcomingSongIds(player, 1))
     }
 
     private fun uri(songId: Long): Uri = Uri.parse("https://music.example/rest/stream?id=$songId")
 
-    /** Liefert die Bytes je Adresse und merkt sich, was geöffnet wurde. */
+    /** Returns the bytes per address and remembers what was opened. */
     private class FakeServer(private val files: Map<Uri, ByteArray>) : DataSource {
         val opened = mutableListOf<Uri>()
         private var data = ByteArray(0)

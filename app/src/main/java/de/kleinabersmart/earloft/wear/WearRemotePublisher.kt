@@ -57,9 +57,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Hält für die Fernsteuerung von der Uhr aus (Wear-Konzept 15) drei DataItems aktuell: was das Handy spielt (Musik, Buch
- * oder Folge), dessen Cover sowie Alben, Künstler, Playlists, Abos und Bücher. Geschrieben wird nur, solange die Uhr sich angemeldet hat ([subscribe]) – jede Änderung
- * weckt sonst die Uhr-App, auch wenn niemand sie benutzt.
+ * For remote control from the watch (Wear concept 15), keeps three DataItems up to date: what the phone is playing (music, book
+ * or episode), its cover, and albums, artists, playlists, subscriptions and books. Written only while the watch has subscribed ([subscribe]) – otherwise every change
+ * would wake the watch app, even if nobody is using it.
  */
 @Singleton
 class WearRemotePublisher @Inject constructor(
@@ -80,7 +80,7 @@ class WearRemotePublisher @Inject constructor(
     private val active = MutableStateFlow(false)
     private var expiry: Job? = null
 
-    /** Die Uhr zeigt die Fernsteuerung: Beim ersten Mal schreibt das Handy sofort alles neu, danach bei Änderungen. */
+    /** The watch shows the remote control: the first time the phone rewrites everything immediately, afterwards on changes. */
     @Synchronized
     fun subscribe(scope: CoroutineScope) {
         Log.d(TAG, "Uhr angemeldet (aktiv bisher: ${active.value})")
@@ -92,26 +92,26 @@ class WearRemotePublisher @Inject constructor(
         }
     }
 
-    /** Zuletzt geschriebener Zustand; daran misst sich, ob der Sleep-Timer neu gemeldet werden muss. */
+    /** Last written state; used to decide whether the sleep timer must be reported again. */
     @Volatile private var publishedState: WearRemoteStateDto? = null
 
-    /** Letzter Stand des Sleep-Timers am Handy. */
+    /** Last state of the sleep timer on the phone. */
     @Volatile private var sleep = SleepSnapshot(null, toEnd = false)
 
-    /** [WearRemoteStateDto.coverKey] des zuletzt geschriebenen Covers; ändert sich nur beim Album- bzw. Buchwechsel. */
+    /** [WearRemoteStateDto.coverKey] of the last written cover; only changes when the album or book changes. */
     private var publishedCoverKey: Long? = null
 
-    /** Zuletzt geschriebene Kapitel ([WearRemoteChaptersDto]); neu geschrieben wird nur, wenn sie sich ändern. */
+    /** Last written chapters ([WearRemoteChaptersDto]); rewritten only when they change. */
     private var publishedChapters: WearRemoteChaptersDto? = null
 
     /**
-     * Zeitachse des laufenden Buchs mit dem Zeitpunkt des Lesens (`elapsedRealtime`), damit nicht jede Meldung Dateien und
-     * Kapitel neu liest. Nach [TIMELINE_MAX_AGE_MS] wird sie neu gelesen: Kapitel können später kommen (Folge beim Hören
-     * geladen, Kapitel-Liste erst im zweiten Anlauf), die Uhr behielte sonst die alten (Review V5).
+     * Timeline of the current book with the time it was read (`elapsedRealtime`), so not every report re-reads files and
+     * chapters. After [TIMELINE_MAX_AGE_MS] it is read again: chapters can come later (episode downloaded while listening,
+     * chapter list only on the second attempt), otherwise the watch would keep the old ones (review V5).
      */
     private var timelineCache: Triple<Long, BookTimeline?, Long>? = null
 
-    /** Zuletzt geschriebener Bibliotheksindex; `null` = noch beim Data Layer nachsehen. */
+    /** Last written library index; `null` = still check with the Data Layer. */
     private var publishedLibraryHash: String? = null
 
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -121,13 +121,13 @@ class WearRemotePublisher @Inject constructor(
                 if (!subscribed) {
                     emptyFlow()
                 } else {
-                    // Der Sleep-Timer meldet sich jede Sekunde; neu geschrieben wird nur bei Start, Ende oder Änderung, die Uhr
-                    // zählt selbst herunter.
+                    // The sleep timer reports every second; it is rewritten only on start, end or change, the watch
+                    // counts down by itself.
                     val sleepChanges = combine(playback.sleepTimerRemainingMs, playback.sleepTimerToEnd, ::SleepSnapshot)
                         .onEach { sleep = it }
                         .filter { publishedState?.sleepTimerDiffers(System.currentTimeMillis(), it.remainingMs, it.toEnd) == true }
                         .map { }
-                    // Zustandsänderungen und Sprünge (Spulen) zusammenfassen: Ein Titelwechsel löst beides aus.
+                    // Combine state changes and jumps (seeking): a track change triggers both.
                     merge(playback.state.map { }, playback.positionJumps, sleepChanges).debounce(STATE_DEBOUNCE_MS)
                 }
             }.collect { publishState() }
@@ -145,7 +145,7 @@ class WearRemotePublisher @Inject constructor(
                         library.artists(),
                         library.albumIdsByArtist(),
                     ) { albums, lists, favs, artists, albumIdsByArtist ->
-                        // Die Alben eines Künstlers in der Reihenfolge der Albumliste: Das erste liefert sein Bild auf der Uhr.
+                        // An artist's albums in the order of the album list: the first one provides its image on the watch.
                         val albumOrder = albums.withIndex().associate { it.value.id to it.index }
                         WearRemoteLibraryDto(
                             albums = albums.map { WearRemoteAlbumDto(it.id, it.title, it.artist, it.songCount) },
@@ -157,7 +157,7 @@ class WearRemotePublisher @Inject constructor(
                             },
                         )
                     }
-                    // Zuletzt favorisierte zuerst, wie auf der Favoriten-Seite am Handy.
+                    // Most recently favorited first, as on the favorites page on the phone.
                     val collectionFavorites = combine(favorites.favoriteAlbums(), favorites.favoriteArtists()) { albums, artists ->
                         albums.map { it.id } to artists.map { it.id }
                     }
@@ -186,7 +186,7 @@ class WearRemotePublisher @Inject constructor(
             .copy(sleepTimerRemainingMs = sleepNow.remainingMs, sleepTimerToEnd = sleepNow.toEnd, sleepTimerSupported = true)
         dataClient.putPayload(WearPaths.REMOTE_STATE, WearCodec.encode(dto))
         publishedState = dto
-        // Nach einer Pause ohne Anmeldung kann die Uhr ein altes Cover haben: bei neuer Anmeldung neu schreiben.
+        // After a pause without subscription the watch may have an old cover: rewrite on a new subscription.
         val coverKey = dto.coverKey
         if (coverKey != null && coverKey != publishedCoverKey) publishCover(dto, coverKey)
         val bookId = dto.bookId
@@ -194,8 +194,8 @@ class WearRemotePublisher @Inject constructor(
     }
 
     /**
-     * Einmal je Buch und bei geänderten Kapiteln: Den Kapitelnamen rechnet die Uhr aus der Position, das Handy muss ihn nicht
-     * bei jedem Wechsel melden.
+     * Once per book and when chapters change: the watch computes the chapter name from the position, the phone doesn't have to
+     * report it on every change.
      */
     private suspend fun publishChapters(bookId: Long) {
         val dto = remoteChapters(bookId, timeline(bookId))
@@ -224,7 +224,7 @@ class WearRemotePublisher @Inject constructor(
         )
     }
 
-    /** Buch oder Folge: Position und Länge im ganzen Buch, wie im Buch-Player der App. */
+    /** Book or episode: position and length in the whole book, as in the app's book player. */
     private suspend fun spokenState(state: PlayerState, positionInTrackMs: Long): WearRemoteStateDto {
         val spoken = checkNotNull(state.spoken)
         val timeline = timeline(spoken.bookId)
@@ -265,7 +265,7 @@ class WearRemotePublisher @Inject constructor(
         if (dataClient.putPayload(WearPaths.REMOTE_COVER, WearCodec.encodeCover(coverKey, jpeg))) publishedCoverKey = coverKey
     }
 
-    /** Nur bei geändertem Inhalt – ein Abgleich ändert die Bibliothek oft, ohne dass sich etwas Sichtbares ändert. */
+    /** Only when the content changed – a sync often changes the library without anything visible changing. */
     private suspend fun publishLibrary(dto: WearRemoteLibraryDto) {
         val hash = WearCodec.hash(WearCodec.encode(dto))
         if (publishedLibraryHash == null) publishedLibraryHash = dataClient.hashesAt(WearPaths.REMOTE_LIBRARY).values.firstOrNull()
@@ -285,7 +285,7 @@ class WearRemotePublisher @Inject constructor(
         return if (max > 0) audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) / max.toFloat() else 0f
     }
 
-    /** Buchcover kommen mit 800 px; die Uhr braucht wie bei Albumcovern nur [maxPx] (und die 100-KB-Grenze gilt). */
+    /** Book covers come at 800 px; as with album covers, the watch only needs [maxPx] (and the 100 KB limit applies). */
     private fun Bitmap.scaledTo(maxPx: Int): Bitmap {
         val longest = maxOf(width, height)
         if (longest <= maxPx) return this
@@ -302,17 +302,17 @@ class WearRemotePublisher @Inject constructor(
         const val LIBRARY_DEBOUNCE_MS = 3_000L
         const val TIMELINE_MAX_AGE_MS = 60_000L
 
-        /** Die Uhr zeigt das Cover im Kreis von rund 400 px; 300 px bleiben mit JPEG deutlich unter der 100-KB-Grenze. */
+        /** The watch shows the cover in a circle of about 400 px; 300 px stay well below the 100 KB limit with JPEG. */
         const val COVER_SIZE_PX = 300
         const val JPEG_QUALITY = 80
     }
 }
 
-/** Kapitel des Buchs [bookId] für die Fernsteuerung (Buchzeiten); ohne Zeitachse oder Kapitel eine leere Liste. */
+/** Chapters of the book [bookId] for the remote control (book times); without timeline or chapters an empty list. */
 internal fun remoteChapters(bookId: Long, timeline: BookTimeline?): WearRemoteChaptersDto = WearRemoteChaptersDto(
     bookId = bookId,
     chapters = timeline?.chapters.orEmpty().map { WearChapterDto(it.title, it.startMs, it.endMs, it.unavailable) },
 )
 
-/** Restzeit des Sleep-Timers am Handy und ob er bis zum Ende des Kapitels bzw. der Folge läuft. */
+/** Remaining time of the sleep timer on the phone and whether it runs until the end of the chapter or episode. */
 private data class SleepSnapshot(val remainingMs: Long?, val toEnd: Boolean)

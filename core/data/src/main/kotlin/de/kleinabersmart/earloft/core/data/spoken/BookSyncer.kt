@@ -27,12 +27,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToLong
 
-/** Ergebnis eines Bücher-Abgleichs: `ok`, wenn nichts fehlgeschlagen ist, und die neuen Bücher. */
+/** Result of a book sync: `ok` if nothing failed, and the new books. */
 data class BookSyncResult(val ok: Boolean, val newBooks: List<NewBook>)
 
 /**
- * Gleicht die Bibliothek eines Audiobookshelf-Servers ab (Konzept 12.1/12.3): Bücher anlegen und aktualisieren,
- * Gelöschtes per Mark-and-Sweep entfernen, danach den Fortschritt des Kontos übernehmen und fehlende Kapitel laden.
+ * Syncs the library of an Audiobookshelf server (concept 12.1/12.3): create and update books, remove deleted
+ * ones via mark-and-sweep, then adopt the account's progress and load missing chapters.
  */
 @Singleton
 class BookSyncer @Inject constructor(
@@ -47,9 +47,9 @@ class BookSyncer @Inject constructor(
 ) {
     private val syncMutex = Mutex()
 
-    /** `ok`, wenn alle Server, der Ordner „Audiobooks“ und die Bücher aus ARD Sounds abgeglichen werden konnten. */
+    /** `ok` if all servers, the "Audiobooks" folder and the books from ARD Sounds could be synced. */
     suspend fun syncAll(): BookSyncResult = coroutineScope {
-        // Mit Ordnerfreigabe fragt der Ordner „Audiobooks“ je Buchordner einmal den Provider; die Server warten nicht darauf.
+        // With folder access, the "Audiobooks" folder queries the provider once per book folder; the servers don't wait for it.
         val local = async { localBooks.sync() }
         val results = servers.all().map { syncSafely(it) }
         val ard = ardBooks.refresh()
@@ -59,7 +59,7 @@ class BookSyncer @Inject constructor(
     suspend fun syncSafely(server: AbsServer): BookSyncResult =
         try {
             val fresh = sync(server)
-            // Ein hochgeladenes Buch aus ARD Sounds, das der Server jetzt meldet, bekommt seinen Stand.
+            // An uploaded book from ARD Sounds that the server now reports gets its state.
             uploads.settle(server.serverId)
             BookSyncResult(ok = true, newBooks = fresh)
         } catch (e: CancellationException) {
@@ -70,9 +70,9 @@ class BookSyncer @Inject constructor(
         }
 
     /**
-     * Gibt die Bücher zurück, die es auf dem Server neu gibt (keine beim allerersten Abgleich). Abgeglichen werden alle Buch-
-     * Bibliotheken außer den abgewählten (`books_improvements.md` M3); die Bücher einer gerade erst gewählten zählen nicht als neu.
-     * Die Bücher abgewählter Bibliotheken bleiben unberührt stehen; nur die einer Bibliothek, die der Server nicht mehr hat, fallen weg.
+     * Returns the books that are new on the server (none on the very first sync). All book libraries are synced
+     * except the deselected ones (`books_improvements.md` M3); the books of a library that was just selected don't count as new.
+     * The books of deselected libraries stay untouched; only those of a library the server no longer has are dropped.
      */
     private suspend fun sync(server: AbsServer): List<NewBook> = syncMutex.withLock {
         val entity = dao.server(server.serverId) ?: return@withLock emptyList()
@@ -84,26 +84,26 @@ class BookSyncer @Inject constructor(
         val firstSync = entity.lastFullSyncAt == 0L
         val stored = if (firstSync) emptyList() else dao.booksOf(server.serverId)
         val known = stored.mapTo(HashSet()) { it.remoteId }
-        // Nur Bibliotheken, die schon der letzte Abgleich gelesen hat: Die Bücher einer abgewählten stehen noch mit älterer Generation da.
+        // Only libraries the last sync already read: the books of a deselected one are still there with an older generation.
         val syncedBefore = stored.filter { it.seenInGeneration == entity.syncGeneration }.mapNotNullTo(HashSet()) { it.libraryId }
         val fresh = HashSet<String>()
         for (library in shown) {
             val countsAsNew = library.id in syncedBefore
-            // Fällt unterwegs ein Buch weg (Löschen, Scan am Server), einmal von vorn; zweimal in Folge bricht der Abgleich
-            // ab, ohne etwas zu löschen (Review D3, wie R8 bei Jellyfin/Emby).
+            // If a book disappears along the way (deletion, scan on the server), start over once; twice in a row aborts the
+            // sync without deleting anything (review D3, like R8 for Jellyfin/Emby).
             if (!scanLibrary(server, library.id, generation) { if (countsAsNew && it !in known) fresh += it } &&
                 !scanLibrary(server, library.id, generation) { if (countsAsNew && it !in known) fresh += it }
             ) {
                 throw IOException("${library.name} hat sich während des Abgleichs geändert")
             }
         }
-        // Erst ungemeldeten Fortschritt hochladen: Gelöschte Bücher nehmen ihn mit.
+        // First upload unreported progress: deleted books take it with them.
         progressSync.pushPending()
         bookmarks.pushPending()
-        // Ein abgebrochener Abgleich kommt nie bis hierher und löscht deshalb nichts.
+        // An aborted sync never gets this far and therefore deletes nothing.
         if (hidden.isEmpty()) dao.deleteUnseen(server.serverId, generation)
         else dao.deleteUnseenOutside(server.serverId, generation, hidden.map { it.id })
-        // Neu gelesen: Schalter und Auswahl können sich während des Abgleichs geändert haben.
+        // Re-read: switch and selection may have changed during the sync.
         val current = dao.server(server.serverId) ?: entity
         dao.upsertServer(current.copy(libraryId = shown.first().id, syncGeneration = generation, lastFullSyncAt = System.currentTimeMillis()))
         bookmarks.pull(server.serverId) { progressSync.pullAll(server).bookmarks }
@@ -114,8 +114,8 @@ class BookSyncer @Inject constructor(
     }
 
     /**
-     * Autoren der gezeigten Bibliotheken mit ihrer Beschreibung für die Autorenseite (`books_improvements.md` M8). Scheitert der
-     * Abruf, bleiben die bisherigen: Die Autoren sind Beiwerk und sollen den Abgleich der Bücher nicht scheitern lassen.
+     * Authors of the visible libraries with their description for the author page (`books_improvements.md` M8). If the
+     * fetch fails, the previous ones stay: the authors are an extra and shouldn't make the book sync fail.
      */
     private suspend fun syncAuthors(server: AbsServer, libraryIds: List<String>) {
         val authors = try {
@@ -132,7 +132,7 @@ class BookSyncer @Inject constructor(
         )
     }
 
-    /** Kapitel und Dateien aller Bücher, die sie noch nicht haben (wenige gleichzeitig). */
+    /** Chapters and files of all books that don't have them yet (a few at a time). */
     private suspend fun loadMissingDetails(server: AbsServer) = coroutineScope {
         val permits = Semaphore(DETAIL_PARALLELISM)
         dao.booksOf(server.serverId)
@@ -141,7 +141,7 @@ class BookSyncer @Inject constructor(
             .awaitAll()
     }
 
-    /** Lädt Kapitel und Dateien eines Buchs, falls sie fehlen. `false`, wenn sie nicht zu bekommen sind. */
+    /** Loads a book's chapters and files if they're missing. `false` if they can't be obtained. */
     suspend fun ensureDetails(bookId: Long): Boolean {
         val book = dao.book(bookId) ?: return false
         if (book.detailsLoaded) return true
@@ -198,12 +198,12 @@ class BookSyncer @Inject constructor(
     private fun String?.orNullIfBlank(): String? = this?.trim()?.ifEmpty { null }
 
     /**
-     * Liest eine Bibliothek seitenweise (nach `addedAt`, neue kommen ans Ende) und schreibt jedes Buch mit [generation].
-     * Nach jeder Seite steht der letzte Eintrag der vorigen noch an seiner Stelle, sonst ist davor etwas weggefallen und der
-     * erste dieser Seite fehlte – `deleteUnseen` löschte ihn samt Download. Gefragt wird nach der Seite: Eine Verschiebung
-     * davor fällt so ebenfalls auf, eine danach gibt höchstens einen unnötigen Neuanfang. Was der abgebrochene Durchgang noch
-     * gesehen hat, gilt als gesehen: Ein gerade gelöschtes Buch fällt so erst beim nächsten Abgleich weg. [onStored] bekommt die
-     * Kennung jedes geschriebenen Buchs. @return `false` bei einer Verschiebung.
+     * Reads a library page by page (by `addedAt`, new ones go to the end) and writes each book with [generation].
+     * After each page the last entry of the previous one is still in its place; otherwise something before it disappeared and the
+     * first one of this page would be missing – `deleteUnseen` would delete it along with its download. The check happens after
+     * the page: a shift before it is noticed as well, one after it causes at most an unnecessary restart. What the aborted pass
+     * has already seen counts as seen: a book that was just deleted is thus only dropped on the next sync. [onStored] receives the
+     * identifier of every written book. @return `false` on a shift.
      */
     private suspend fun scanLibrary(server: AbsServer, libraryId: String, generation: Long, onStored: (String) -> Unit): Boolean {
         var page = 0
@@ -216,8 +216,8 @@ class BookSyncer @Inject constructor(
             }
             result.results.forEach {
                 if (it.isMissing || it.isInvalid) {
-                    // Fehlen die Dateien nur gerade (Freigabe beim Scan nicht eingehängt), bleibt ein bekanntes Buch
-                    // samt Download und Fortschritt stehen; neue kommen erst, wenn sie abspielbar sind.
+                    // If the files are only temporarily missing (share not mounted during the scan), a known book stays
+                    // along with its download and progress; new ones only come once they are playable.
                     dao.markSeen(server.serverId, it.id, generation)
                     return@forEach
                 }

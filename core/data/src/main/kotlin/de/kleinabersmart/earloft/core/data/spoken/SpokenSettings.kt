@@ -38,8 +38,8 @@ private val KEY_ARD_MISSING = stringSetPreferencesKey("ard_missing")
 private const val ARD_SEPARATOR = '\t'
 
 /**
- * Nutzerdaten in den Einstellungen, beim Einspielen einer Sicherung zusammengeführt: Abos (eine Sendung einmal, die hiesige geht vor) und
- * die bekannten Bücher je Sendung (sonst kämen entfernte als „neu“ zurück); die Merker zu abgelaufenen Büchern gehören zu diesem Gerät.
+ * User data in the settings, merged when restoring a backup: subscriptions (a show once, the local one takes precedence) and
+ * the known books per show (otherwise removed ones would come back as "new"); the markers for expired books belong to this device.
  */
 internal val SPOKEN_SETTINGS_MERGES: Map<String, SettingsMerge> = mapOf(
     KEY_ARD_SHOWS.name to SettingsMerge { current, saved, _ ->
@@ -64,8 +64,8 @@ class SpokenSettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
     /**
-     * Schalter Musik / Podcasts / Bücher in Start und Bibliothek (Standard: Musik). Immer einer der eingeschalteten
-     * [areas]; ist der gespeicherte ausgeschaltet, der erste davon.
+     * Music / Podcasts / Books switch on Home and Library (default: music). Always one of the enabled
+     * [areas]; if the stored one is disabled, the first of them.
      */
     val mode: Flow<SpokenMode> = context.spokenSettingsDataStore.data.map { preferences ->
         shownMode(preferences[KEY_MODE], enabledAreas(preferences[KEY_HIDDEN_AREAS]))
@@ -75,19 +75,19 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_MODE] = mode.name }
     }
 
-    /** Eingeschaltete Bereiche in der Reihenfolge des Schalters (Allgemein → Bereiche); nie leer, Standard: alle drei. */
+    /** Enabled sections in the order of the switch (General → Sections); never empty, default: all three. */
     val areas: Flow<List<SpokenMode>> = context.spokenSettingsDataStore.data.map { enabledAreas(it[KEY_HIDDEN_AREAS]) }
         .onEach { lastAreas = it }
 
     /**
-     * Zuletzt gelesene [areas]. Ein neuer Bildschirm zeichnet damit den Bereichsschalter gleich im ersten Bild richtig,
-     * bevor der Flow liefert; sonst spränge der Kopf beim Wechsel zwischen Start und Bibliothek.
+     * Most recently read [areas]. A new screen uses it to draw the section switch correctly in the very first frame,
+     * before the flow emits; otherwise the header would jump when switching between Home and Library.
      */
     @Volatile
     var lastAreas: List<SpokenMode> = SpokenMode.entries
         private set
 
-    /** Schaltet [area] ein oder aus; den letzten eingeschalteten Bereich lässt es an. */
+    /** Enables or disables [area]; it leaves the last enabled section on. */
     suspend fun setAreaEnabled(area: SpokenMode, enabled: Boolean) {
         context.spokenSettingsDataStore.edit { preferences ->
             val hidden = hiddenAfter(preferences[KEY_HIDDEN_AREAS].orEmpty(), area, enabled)
@@ -95,14 +95,14 @@ class SpokenSettings @Inject constructor(
         }
     }
 
-    /** Suche über Musik, Podcasts und Bücher zugleich; aus (Standard) = nur der Inhalt des gewählten Modus. */
+    /** Search across music, podcasts and books at once; off (default) = only the content of the selected mode. */
     val searchAll: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_SEARCH_ALL] ?: false }
 
     suspend fun setSearchAll(enabled: Boolean) {
         context.spokenSettingsDataStore.edit { it[KEY_SEARCH_ALL] = enabled }
     }
 
-    /** Bücher aus dem Ordner „Audiobooks“ auf diesem Gerät anzeigen (Standard: aus, siehe [LocalSourcesDefault]). */
+    /** Show books from the "Audiobooks" folder on this device (default: off, see [LocalSourcesDefault]). */
     val useLocalBooks: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_LOCAL_BOOKS] ?: false }
 
     suspend fun setUseLocalBooks(enabled: Boolean) {
@@ -110,8 +110,8 @@ class SpokenSettings @Inject constructor(
     }
 
     /**
-     * Hörbücher und Hörspiele aus ARD Sounds (`books_improvements.md` M9, Standard: aus): Seite „ARD Sounds“ in *Bücher* und Abgleich
-     * der Bücher von dort. Aus fragt die App ARD Sounds nicht mehr; Bücher in der Bibliothek bleiben hörbar.
+     * Audiobooks and radio plays from ARD Sounds (`books_improvements.md` M9, default: off): "ARD Sounds" page in *Books* and sync
+     * of the books from there. When off, the app no longer queries ARD Sounds; books in the library stay playable.
      */
     val ardSoundsBooks: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_ARD_SOUNDS_BOOKS] ?: false }
 
@@ -120,8 +120,8 @@ class SpokenSettings @Inject constructor(
     }
 
     /**
-     * Abonnierte Sendungen und Reihen aus ARD Sounds, nach Titel sortiert. Sie stehen mit den Einstellungen in der Sicherung; je Eintrag
-     * `Kennung<Tab>Titel`.
+     * Subscribed shows and series from ARD Sounds, sorted by title. They are in the backup along with the settings; each entry
+     * `id<Tab>title`.
      */
     val ardSubscriptions: Flow<List<ArdSubscription>> = context.spokenSettingsDataStore.data.map { preferences ->
         preferences[KEY_ARD_SHOWS].orEmpty().mapNotNull { entry ->
@@ -129,7 +129,7 @@ class SpokenSettings @Inject constructor(
         }.sortedBy { it.title.lowercase() }
     }
 
-    /** Die Bücher von [showId], die der Abgleich schon kennt: Was fehlt, ist neu (Eintrag `Sendung<Tab>Buch`). */
+    /** The books of [showId] that the sync already knows: whatever is missing is new (entry `show<Tab>book`). */
     suspend fun ardSeen(showId: String): Set<String> {
         val prefix = showId + ARD_SEPARATOR
         return context.spokenSettingsDataStore.data.first()[KEY_ARD_SEEN].orEmpty().filter { it.startsWith(prefix) }.mapTo(HashSet()) { it.removePrefix(prefix) }
@@ -140,19 +140,19 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_ARD_SEEN] = it[KEY_ARD_SEEN].orEmpty() + keys.map { key -> showId + ARD_SEPARATOR + key } }
     }
 
-    /** Wann ARD Sounds zuletzt nach einem abgelaufenen Buch gefragt wurde: Kennung des Buchs → Zeitpunkt (Eintrag `Buch<Tab>Zeitpunkt`). */
+    /** When ARD Sounds was last asked about an expired book: book id → timestamp (entry `book<Tab>timestamp`). */
     suspend fun ardGoneChecks(): Map<String, Long> = ardTimes(KEY_ARD_GONE)
 
-    /** Merkt [at] als letzte Nachfrage nach dem Buch [key]; `null` vergisst sie. */
+    /** Remembers [at] as the last query for book [key]; `null` forgets it. */
     suspend fun setArdGoneCheck(key: String, at: Long?) = setArdTime(KEY_ARD_GONE, key, at)
 
     /**
-     * Seit wann ARD Sounds ein Buch nicht mehr liefert, das noch nicht als weg gilt: Kennung des Buchs → Zeitpunkt der ersten leeren
-     * Antwort. Erst eine zweite, spätere bestätigt es (Review F6).
+     * Since when ARD Sounds no longer delivers a book that doesn't count as gone yet: book id → time of the first empty
+     * response. Only a second, later one confirms it (review F6).
      */
     suspend fun ardMissing(): Map<String, Long> = ardTimes(KEY_ARD_MISSING)
 
-    /** Merkt [at] als erste leere Antwort zum Buch [key]; `null` vergisst sie. */
+    /** Remembers [at] as the first empty response for book [key]; `null` forgets it. */
     suspend fun setArdMissing(key: String, at: Long?) = setArdTime(KEY_ARD_MISSING, key, at)
 
     private suspend fun ardTimes(preference: Preferences.Key<Set<String>>): Map<String, Long> =
@@ -168,7 +168,7 @@ class SpokenSettings @Inject constructor(
         }
     }
 
-    /** Abonniert [showId]; [seen] sind die Bücher, die schon da sind und deshalb nicht als neu gelten. */
+    /** Subscribes to [showId]; [seen] are the books that are already there and therefore don't count as new. */
     suspend fun subscribeArd(showId: String, title: String, seen: Collection<String>) {
         context.spokenSettingsDataStore.edit { preferences ->
             val prefix = showId + ARD_SEPARATOR
@@ -186,14 +186,14 @@ class SpokenSettings @Inject constructor(
         }
     }
 
-    /** Podcast-Dateien aus dem Ordner „Podcasts“ auf diesem Gerät anzeigen (Standard: aus). */
+    /** Show podcast files from the "Podcasts" folder on this device (default: off). */
     val useLocalPodcasts: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_LOCAL_PODCASTS] ?: false }
 
     suspend fun setUseLocalPodcasts(enabled: Boolean) {
         context.spokenSettingsDataStore.edit { it[KEY_LOCAL_PODCASTS] = enabled }
     }
 
-    /** Zurückspulen beim Fortsetzen von Büchern. */
+    /** Rewind when resuming books. */
     val bookResume: Flow<ResumeRule> = context.spokenSettingsDataStore.data.map {
         ResumeRule(it[KEY_BOOK_REWIND_AFTER] ?: ResumeRule.DEFAULT_AFTER_S, it[KEY_BOOK_REWIND] ?: ResumeRule.DEFAULT_REWIND_S)
     }
@@ -205,7 +205,7 @@ class SpokenSettings @Inject constructor(
         }
     }
 
-    /** Zurückspulen beim Fortsetzen von Podcast-Folgen. */
+    /** Rewind when resuming podcast episodes. */
     val podcastResume: Flow<ResumeRule> = context.spokenSettingsDataStore.data.map {
         ResumeRule(it[KEY_PODCAST_REWIND_AFTER] ?: ResumeRule.DEFAULT_AFTER_S, it[KEY_PODCAST_REWIND] ?: ResumeRule.DEFAULT_REWIND_S)
     }
@@ -217,7 +217,7 @@ class SpokenSettings @Inject constructor(
         }
     }
 
-    /** Sprungweiten der Spulen-Knöpfe bei Büchern (Standard −10 s / +30 s). */
+    /** Skip intervals of the seek buttons for books (default −10 s / +30 s). */
     val bookSeek: Flow<SeekSteps> = context.spokenSettingsDataStore.data.map {
         SeekSteps(it[KEY_BOOK_SEEK_BACK] ?: SeekSteps.DEFAULT_BACK_S, it[KEY_BOOK_SEEK_FORWARD] ?: SeekSteps.DEFAULT_FORWARD_S)
     }
@@ -229,7 +229,7 @@ class SpokenSettings @Inject constructor(
         }
     }
 
-    /** Sprungweiten der Spulen-Knöpfe bei Podcast-Folgen (Standard −10 s / +30 s). */
+    /** Skip intervals of the seek buttons for podcast episodes (default −10 s / +30 s). */
     val podcastSeek: Flow<SeekSteps> = context.spokenSettingsDataStore.data.map {
         SeekSteps(it[KEY_PODCAST_SEEK_BACK] ?: SeekSteps.DEFAULT_BACK_S, it[KEY_PODCAST_SEEK_FORWARD] ?: SeekSteps.DEFAULT_FORWARD_S)
     }
@@ -242,8 +242,8 @@ class SpokenSettings @Inject constructor(
     }
 
     /**
-     * Vorgabe für Tempo, Stille kürzen und Lautstärke anheben bei Büchern (Konzept 12.4, Standard 1,0 ohne Effekte); ein
-     * Buch mit eigenen Werten behält sie.
+     * Default for speed, trim silence and volume boost for books (concept 12.4, default 1.0 without effects); a
+     * book with its own values keeps them.
      */
     val bookEffects: Flow<SpokenEffects> = context.spokenSettingsDataStore.data.map {
         SpokenEffects(it[KEY_BOOK_SPEED] ?: 1f, it[KEY_BOOK_SKIP_SILENCE] ?: false, it[KEY_BOOK_BOOST] ?: 0)
@@ -257,7 +257,7 @@ class SpokenSettings @Inject constructor(
         }
     }
 
-    /** Wie [bookEffects] für Podcast-Folgen; ein Abo kann eigene Werte haben, eine Folge ebenso. */
+    /** Like [bookEffects] for podcast episodes; a subscription can have its own values, and so can an episode. */
     val podcastEffects: Flow<SpokenEffects> = context.spokenSettingsDataStore.data.map {
         SpokenEffects(it[KEY_PODCAST_SPEED] ?: 1f, it[KEY_PODCAST_SKIP_SILENCE] ?: false, it[KEY_PODCAST_BOOST] ?: 0)
     }
@@ -270,7 +270,7 @@ class SpokenSettings @Inject constructor(
         }
     }
 
-    /** Knöpfe in Benachrichtigung und Android Auto bei Büchern ([BookButtons], Standard: Spulen). */
+    /** Buttons in the notification and Android Auto for books ([BookButtons], default: seek). */
     val bookButtons: Flow<BookButtons> = context.spokenSettingsDataStore.data.map { prefs ->
         BookButtons.entries.firstOrNull { it.name == prefs[KEY_BOOK_BUTTONS] } ?: BookButtons.SEEK
     }
@@ -279,7 +279,7 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_BOOK_BUTTONS] = buttons.name }
     }
 
-    /** Ein Buch, das kurz nach einem Kapitelanfang beendet wurde, beginnt das Kapitel von vorn (Standard: aus). */
+    /** A book that was stopped shortly after a chapter start begins the chapter from the beginning (default: off). */
     val restartChapter: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_CHAPTER_RESTART] ?: false }
 
     suspend fun setRestartChapter(enabled: Boolean) {
@@ -287,8 +287,8 @@ class SpokenSettings @Inject constructor(
     }
 
     /**
-     * Schütteln verlängert den Sleep-Timer bei Büchern und Folgen (Standard: an); ein Schalter für beide Bereiche, zu
-     * finden unter Bücher und unter Podcasts → Wiedergabe.
+     * Shaking extends the sleep timer for books and episodes (default: on); one switch for both sections, found
+     * under Books and under Podcasts → Playback.
      */
     val shakeToExtend: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_SLEEP_SHAKE] ?: true }
 
@@ -296,7 +296,7 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_SLEEP_SHAKE] = enabled }
     }
 
-    /** Bücher auch über Mobilfunk herunterladen (Standard: nur WLAN); unabhängig vom Schalter der Podcasts. */
+    /** Download books over mobile data too (default: Wi-Fi only); independent of the podcasts' switch. */
     val bookMobileData: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_BOOK_MOBILE] ?: false }
 
     suspend fun setBookMobileData(enabled: Boolean) {
@@ -304,8 +304,8 @@ class SpokenSettings @Inject constructor(
     }
 
     /**
-     * Vor dem Streamen eines Buchs oder einer Folge über mobile Daten fragen (Standard: nein, wie bisher); gilt für Starts
-     * aus der App, nicht von der Uhr.
+     * Ask before streaming a book or episode over mobile data (default: no, as before); applies to playback started
+     * from the app, not from the watch.
      */
     val askBeforeMobileStreaming: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_ASK_MOBILE_STREAM] ?: false }
 
@@ -313,14 +313,14 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_ASK_MOBILE_STREAM] = enabled }
     }
 
-    /** Die ersten Bücher aus „Weiterhören“ automatisch laden, nur im WLAN ([automaticBookDownloads]; Standard: aus). */
+    /** Automatically download the first books from "Continue listening", Wi-Fi only ([automaticBookDownloads]; default: off). */
     val bookAutoStarted: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_BOOK_AUTO_STARTED] ?: false }
 
     suspend fun setBookAutoStarted(enabled: Boolean) {
         context.spokenSettingsDataStore.edit { it[KEY_BOOK_AUTO_STARTED] = enabled }
     }
 
-    /** Den nächsten Band einer Serie automatisch laden, nur im WLAN ([automaticBookDownloads]; Standard: aus). */
+    /** Automatically download the next volume of a series, Wi-Fi only ([automaticBookDownloads]; default: off). */
     val bookAutoNextInSeries: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_BOOK_AUTO_NEXT] ?: false }
 
     suspend fun setBookAutoNextInSeries(enabled: Boolean) {
@@ -328,8 +328,8 @@ class SpokenSettings @Inject constructor(
     }
 
     /**
-     * Bücher aus ARD Sounds in der Bibliothek, die bald ablaufen, im WLAN laden ([automaticBookDownloads], [ARD_EXPIRY_LOAD_DAYS] Tage
-     * vorher; Standard: an – sonst verschwände ein Buch, das man behalten wollte, mit dem Ablauf bei ARD Sounds).
+     * Download books from ARD Sounds in the library that expire soon, on Wi-Fi ([automaticBookDownloads], [ARD_EXPIRY_LOAD_DAYS] days
+     * before; default: on – otherwise a book one wanted to keep would disappear when it expires on ARD Sounds).
      */
     val bookLoadExpiring: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_BOOK_LOAD_EXPIRING] ?: true }
 
@@ -338,8 +338,8 @@ class SpokenSettings @Inject constructor(
     }
 
     /**
-     * Nach wie vielen Tagen der Download eines beendeten Buchs gelöscht wird: wie bei Folgen 0 = sofort, eine Anzahl Tage
-     * oder [PodcastSettings.DELETE_HEARD_NEVER] (Standard); die Auswahl wie dort ([PodcastSettings.DELETE_HEARD_CHOICES]).
+     * After how many days the download of a finished book is deleted: as with episodes 0 = immediately, a number of days
+     * or [PodcastSettings.DELETE_HEARD_NEVER] (default); the choices as there ([PodcastSettings.DELETE_HEARD_CHOICES]).
      */
     val bookDeleteFinishedDays: Flow<Int> =
         context.spokenSettingsDataStore.data.map { it[KEY_BOOK_DELETE_FINISHED] ?: PodcastSettings.DELETE_HEARD_NEVER }
@@ -348,7 +348,7 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_BOOK_DELETE_FINISHED] = days.coerceAtLeast(PodcastSettings.DELETE_HEARD_NEVER) }
     }
 
-    /** Reihenfolge und Filter des Reiters „Alle“ der Bücher (Standard: nach Titel, alle). */
+    /** Order and filter of the books' "All" tab (default: by title, all). */
     val bookSort: Flow<BookSort> = context.spokenSettingsDataStore.data.map { prefs ->
         BookSort.entries.firstOrNull { it.name == prefs[KEY_BOOK_SORT] } ?: BookSort.TITLE
     }
@@ -365,21 +365,21 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_BOOK_FILTER] = filter.name }
     }
 
-    /** Genre-Filter des Reiters „Alle“ (`books_improvements.md` S9); `null` = alle Genres. */
+    /** Genre filter of the "All" tab (`books_improvements.md` S9); `null` = all genres. */
     val bookGenre: Flow<String?> = context.spokenSettingsDataStore.data.map { prefs -> prefs[KEY_BOOK_GENRE]?.ifEmpty { null } }
 
     suspend fun setBookGenre(genre: String?) {
         context.spokenSettingsDataStore.edit { if (genre == null) it.remove(KEY_BOOK_GENRE) else it[KEY_BOOK_GENRE] = genre }
     }
 
-    /** Bibliotheks-Filter des Reiters „Alle“ (Kennung der Audiobookshelf-Bibliothek, M3); `null` = alle. */
+    /** Library filter of the "All" tab (identifier of the Audiobookshelf library, M3); `null` = all. */
     val bookLibrary: Flow<String?> = context.spokenSettingsDataStore.data.map { prefs -> prefs[KEY_BOOK_LIBRARY]?.ifEmpty { null } }
 
     suspend fun setBookLibrary(libraryId: String?) {
         context.spokenSettingsDataStore.edit { if (libraryId == null) it.remove(KEY_BOOK_LIBRARY) else it[KEY_BOOK_LIBRARY] = libraryId }
     }
 
-    /** Reihenfolge der Reiter „Serien“ und „Autoren“ (Standard: nach Name). */
+    /** Order of the "Series" and "Authors" tabs (default: by name). */
     val seriesSort: Flow<SeriesSort> = context.spokenSettingsDataStore.data.map { prefs ->
         SeriesSort.entries.firstOrNull { it.name == prefs[KEY_SERIES_SORT] } ?: SeriesSort.NAME
     }
@@ -427,25 +427,25 @@ class SpokenSettings @Inject constructor(
         val KEY_PODCAST_SKIP_SILENCE = booleanPreferencesKey("podcast_skip_silence")
         val KEY_PODCAST_BOOST = intPreferencesKey("podcast_volume_boost_db")
         val KEY_MODE = stringPreferencesKey("mode")
-        // Gespeichert sind die ausgeschalteten, damit ein neuer Bereich von selbst eingeschaltet ist.
+        // The disabled ones are stored so that a new section is enabled automatically.
         val KEY_HIDDEN_AREAS = stringSetPreferencesKey("hidden_areas")
         val KEY_SEARCH_ALL = booleanPreferencesKey("search_all")
     }
 }
 
-/** Die eingeschalteten Bereiche zu den gespeicherten ausgeschalteten [hidden]; sind alle aus (nur von außen möglich), alle. */
+/** The enabled sections for the stored disabled ones [hidden]; if all are off (only possible from outside), all. */
 internal fun enabledAreas(hidden: Set<String>?): List<SpokenMode> =
     SpokenMode.entries.filter { it.name !in hidden.orEmpty() }.ifEmpty { SpokenMode.entries }
 
-/** Der gezeigte Bereich zum gespeicherten Namen [saved]: er selbst, wenn eingeschaltet, sonst der erste von [areas]. */
+/** The shown section for the stored name [saved]: itself if enabled, otherwise the first of [areas]. */
 internal fun shownMode(saved: String?, areas: List<SpokenMode>): SpokenMode {
-    // „SPOKEN“ hieß der Modus, bevor er in Podcasts und Bücher geteilt wurde.
+    // "SPOKEN" was the mode's name before it was split into podcasts and books.
     val mode = saved?.let { name -> if (name == "SPOKEN") SpokenMode.BOOKS else SpokenMode.entries.firstOrNull { it.name == name } }
         ?: SpokenMode.MUSIC
     return mode.takeIf { it in areas } ?: areas.first()
 }
 
-/** Die ausgeschalteten Bereiche, nachdem [area] ein- bzw. ausgeschaltet ist; `null`, wenn sonst keiner mehr an wäre. */
+/** The disabled sections after [area] has been enabled or disabled; `null` if otherwise none would be on anymore. */
 internal fun hiddenAfter(hidden: Set<String>, area: SpokenMode, enabled: Boolean): Set<String>? {
     val next = if (enabled) hidden - area.name else hidden + area.name
     return next.takeIf { names -> SpokenMode.entries.any { it.name !in names } }

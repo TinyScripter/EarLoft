@@ -5,8 +5,8 @@ import java.util.Locale
 private val UNITS = listOf("B", "KB", "MB", "GB", "TB")
 
 /**
- * Dateigröße im SI-Maßstab (1 KB = 1000 B) mit deutschem Dezimalkomma. Bewusst nicht
- * `Formatter.formatShortFileSize`: Das folgt der System-Sprache, die App-Texte sind aber nur deutsch.
+ * File size on the SI scale (1 KB = 1000 B) with a German decimal comma. Deliberately not
+ * `Formatter.formatShortFileSize`: that follows the system language, but the app texts are German only.
  */
 fun formatBytes(bytes: Long): String {
     var value = bytes.coerceAtLeast(0).toDouble()

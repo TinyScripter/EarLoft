@@ -20,24 +20,24 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class ServerFormUiState(
-    /** `true` = vorhandenen Server bearbeiten, sonst neuen anlegen. */
+    /** `true` = edit an existing server, otherwise create a new one. */
     val isEditing: Boolean = false,
     val isLoading: Boolean = false,
-    /** Wählbar nur beim Anlegen. */
+    /** Selectable only when creating. */
     val type: SourceType = SourceType.SUBSONIC,
     val name: String = "",
     val url: String = "",
     val username: String = "",
-    /** Beim Bearbeiten: leer = gespeichertes Passwort behalten. */
+    /** When editing: empty = keep the stored password. */
     val password: String = "",
-    /** Beim Bearbeiten: Es gibt ein lesbares gespeichertes Passwort (bei Jellyfin: eine Anmeldung). */
+    /** When editing: there is a readable stored password (for Jellyfin: a sign-in). */
     val hasStoredPassword: Boolean = false,
     val allowHttp: Boolean = false,
-    /** Alles von diesem Server automatisch herunterladen. */
+    /** Automatically download everything from this server. */
     val autoDownload: Boolean = false,
     val isBusy: Boolean = false,
     val result: ConnectionResult? = null,
-    /** Gespeichert oder der Server existiert nicht mehr → Formular schließen. */
+    /** Saved, or the server no longer exists → close the form. */
     val done: Boolean = false,
 ) {
     val isHttp: Boolean get() = url.trim().startsWith("http://", ignoreCase = true)
@@ -50,7 +50,7 @@ data class ServerFormUiState(
             (!isHttp || allowHttp)
 }
 
-/** Formular zum Anlegen ([sourceId] `null`) oder Bearbeiten eines Servers. */
+/** Form for creating ([sourceId] `null`) or editing a server. */
 @HiltViewModel(assistedFactory = ServerFormViewModel.Factory::class)
 class ServerFormViewModel @AssistedInject constructor(
     private val serverRepository: ServerRepository,
@@ -62,7 +62,7 @@ class ServerFormViewModel @AssistedInject constructor(
     private val _state = MutableStateFlow(ServerFormUiState(isEditing = sourceId != null, isLoading = sourceId != null))
     val state: StateFlow<ServerFormUiState> = _state.asStateFlow()
 
-    /** Beim Bearbeiten: die geladenen Angaben, um reine Download-Änderungen ohne Verbindungstest zu speichern. */
+    /** When editing: the loaded values, to save download-only changes without a connection test. */
     private var loaded: ServerInfo? = null
 
     init {
@@ -86,7 +86,7 @@ class ServerFormViewModel @AssistedInject constructor(
                     url = server.info.baseUrl,
                     username = server.info.username.orEmpty(),
                     hasStoredPassword = server.hasPassword,
-                    // Die unverschlüsselte Verbindung wurde beim Einrichten schon bestätigt.
+                    // The unencrypted connection was already confirmed during setup.
                     allowHttp = server.info.baseUrl.startsWith("http://", ignoreCase = true),
                     autoDownload = autoDownload,
                 )
@@ -102,11 +102,11 @@ class ServerFormViewModel @AssistedInject constructor(
     fun onAllowHttpChange(value: Boolean) = _state.update { it.copy(allowHttp = value) }
     fun onAutoDownloadChange(value: Boolean) = _state.update { it.copy(autoDownload = value) }
 
-    /** Bei einem neuen Server wird die Download-Option erst gespeichert, wenn er angelegt ist. */
+    /** For a new server the download option is only saved once it has been created. */
     fun save() {
         val current = _state.value
         val original = loaded
-        // Nur die Download-Option geändert: kein Verbindungstest, kein erneuter Vollabgleich.
+        // Only the download option changed: no connection test, no new full sync.
         if (sourceId != null && original != null && current.canSubmit && current.onlyLocalOptionsDifferFrom(original)) {
             viewModelScope.launch {
                 downloadSettings.setAutoDownloadServer(sourceId, current.autoDownload)
@@ -121,9 +121,9 @@ class ServerFormViewModel @AssistedInject constructor(
                 serverRepository.updateServer(sourceId, s.name, s.url, s.username, s.newPassword)
             }
             if (result is ConnectionResult.Success) {
-                // Reihenfolge egal: Die Downloads starten bei Änderung der Einstellung und nach jedem Abgleich.
+                // Order doesn't matter: downloads start when the setting changes and after every sync.
                 (sourceId ?: result.sourceId)?.let { downloadSettings.setAutoDownloadServer(it, s.autoDownload) }
-                // Mit abgelehnten Zugangsdaten gescheiterte Downloads holt die korrigierte Anmeldung nach.
+                // The corrected sign-in retries downloads that failed due to rejected credentials.
                 sourceId?.let { downloads.retryFailedOf(it) }
                 _state.update { it.copy(done = true) }
             }

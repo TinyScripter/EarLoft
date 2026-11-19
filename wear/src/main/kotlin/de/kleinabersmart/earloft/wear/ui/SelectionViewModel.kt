@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-/** `Loading` vor dem ersten Wert; `Missing`, wenn die Auswahl inzwischen entfernt wurde; `Failed`, wenn Room eine Ausnahme warf. */
+/** `Loading` before the first value; `Missing` if the selection has been removed meanwhile; `Failed` if Room threw an exception. */
 sealed interface SelectionUiState {
     data object Loading : SelectionUiState
 
@@ -37,7 +37,7 @@ sealed interface SelectionUiState {
     }
 }
 
-/** Woher die Titel einer Liste auf der Uhr kommen: eine Geräte-Playlist (Auswahl vom Handy) oder ein geladenes Album. */
+/** Where the tracks of a list on the watch come from: a device playlist (selection from the phone) or a downloaded album. */
 sealed interface LocalList {
     data class OfPlaylist(val id: Long) : LocalList
 
@@ -57,7 +57,7 @@ class SelectionViewModel @AssistedInject constructor(
         is LocalList.OfPlaylist -> playlistRepository.playlist(source.id)
         is LocalList.OfAlbum -> libraryRepository.album(source.id).map { album ->
             album?.let {
-                // Ein Album verhält sich wie eine Playlist ohne Duplikate; die Song-ID dient als Eintrags-ID.
+                // An album behaves like a playlist without duplicates; the song ID serves as the entry ID.
                 PlaylistDetails(
                     playlist = Playlist(it.album.id, it.album.title, it.songs.size, it.songs.sumOf { song -> song.durationMs }, null),
                     entries = it.songs.map { song -> PlaylistEntry(song.id, song, false) },
@@ -72,7 +72,7 @@ class SelectionViewModel @AssistedInject constructor(
         .orOnError(SelectionUiState.Failed)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SelectionUiState.Loading)
 
-    /** Spielt die geladenen Songs der Auswahl; ab [entryId] (Duplikate in Playlists bleiben unterscheidbar) oder von vorn. */
+    /** Plays the downloaded songs of the selection; from [entryId] (duplicates in playlists stay distinguishable) or from the start. */
     fun play(entryId: Long? = null, shuffle: Boolean = false) {
         val ready = state.value as? SelectionUiState.Ready ?: return
         val entries = ready.details.entries.filter { ready.isLoaded(it.song.id) }

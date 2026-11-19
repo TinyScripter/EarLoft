@@ -11,8 +11,8 @@ import de.kleinabersmart.earloft.core.wearsync.WearServerSourceDto
 import de.kleinabersmart.earloft.core.wearsync.WearSongDto
 
 /**
- * Bildet die aufgelösten Auswahlen auf das Manifest für die Uhr ab (Wear-Konzept 4.1). Songs
- * verweisen per `key` (bevorzugte `sourceUid` am Handy) aufeinander, nicht per `songId`.
+ * Maps the resolved selections to the manifest for the watch (Wear concept 4.1). Songs
+ * reference each other via `key` (preferred `sourceUid` on the phone), not via `songId`.
  */
 object WearManifestBuilder {
 

@@ -44,17 +44,17 @@ class EpisodeMenuViewModel @Inject constructor(
 ) : ViewModel() {
 
     /**
-     * Aktionen laufen im App-Scope auf dem Main-Thread zu Ende: Die Snackbar mit „Rückgängig“ überlebt die Seite, und eine
-     * Aktion über viele Folgen bräche beim Zurück sonst mittendrin ab (Review D13).
+     * Actions complete in the app scope on the main thread: the snackbar with "Undo" outlives the page, and an
+     * action over many episodes would otherwise abort midway on "Back" (review D13).
      */
     private fun act(block: suspend CoroutineScope.() -> Unit): Job = applicationScope.launch(Dispatchers.Main.immediate, block = block)
 
-    /** Das Buch bzw. die Folge im Player; ein Buch aus ARD Sounds lässt sich dann nicht entfernen. */
+    /** The book or episode in the player; a book from ARD Sounds can't be removed then. */
     val loadedBookId: StateFlow<Long?> = playback.state
         .map { it.spoken?.bookId }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Ein Buch aus ARD Sounds samt Downloads aus der Bibliothek nehmen (`books_improvements.md` M9). */
+    /** Remove a book from ARD Sounds including downloads from the library (`books_improvements.md` M9). */
     fun removeFromLibrary(item: BookWithProgress) {
         val id = item.book.id
         if (!item.book.isArdSounds || loadedBookId.value == id) return
@@ -64,14 +64,14 @@ class EpisodeMenuViewModel @Inject constructor(
         }
     }
 
-    /** Folgen, die gerade in der Zeile „Weiterhören“ (der Warteschlange) stehen. */
+    /** Episodes currently in the "Continue listening" row (the queue). */
     val queued: StateFlow<Set<Long>> = continueListening.episodes
         .map { list -> list.mapTo(HashSet()) { it.book.id } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     /**
-     * Folgen und Bücher mit geladenen Dateien oder laufendem bzw. wartendem Download (dann gibt es etwas zu löschen); auch
-     * teilweise geladene Bücher, deren Zustand nach einer gescheiterten Datei „fehlgeschlagen“ ist.
+     * Episodes and books with downloaded files or a running or waiting download (then there is something to delete); also
+     * partially downloaded books whose state is "failed" after a failed file.
      */
     val downloaded: StateFlow<Set<Long>> = combine(
         podcasts.downloadedIds(),
@@ -81,21 +81,21 @@ class EpisodeMenuViewModel @Inject constructor(
     ) { episodes, bookIds -> episodes + bookIds }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    /** Folgen mit fertig geladener Datei; nur die lassen sich als Datei teilen. */
+    /** Episodes with a fully downloaded file; only those can be shared as a file. */
     val downloadedEpisodes: StateFlow<Set<Long>> = podcasts.downloadedIds()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    /** Die vorderste Folge der Zeile (die laufende bzw. die, mit der es weitergeht); hinter sie kommt „Als Nächstes“. */
+    /** The frontmost episode of the row (the current one or the one playback continues with); "Play next" goes after it. */
     val queueHead: StateFlow<Long?> = continueListening.episodes
         .map { it.firstOrNull()?.book?.id }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Ist die Folge schon die zweite der Zeile, ändert sich nichts. */
+    /** If the episode is already the second in the row, nothing changes. */
     val queueSecond: StateFlow<Long?> = continueListening.episodes
         .map { it.getOrNull(1)?.book?.id }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Probeabos aus der Vorschau: Ihre Folgen lassen sich nicht merken (das Abo verschwindet mit dem Verlassen der Seite). */
+    /** Trial subscriptions from the preview: their episodes can't be starred (the subscription disappears when leaving the page). */
     val trialFeeds: StateFlow<Set<String>> = podcasts.trialFeedIds
         .map { it.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
@@ -104,7 +104,7 @@ class EpisodeMenuViewModel @Inject constructor(
         act { continueListening.playNext(bookId) }
     }
 
-    /** Merken (Stern) bzw. nicht mehr merken, auch für mehrere Folgen der Mehrfachauswahl. */
+    /** Star or unstar, also for several episodes of the multi-selection. */
     fun setStarred(items: List<BookWithProgress>, starred: Boolean) {
         act { podcasts.setStarred(items.filter { it.isEpisode }.map { it.book.id }, starred) }
     }
@@ -114,12 +114,12 @@ class EpisodeMenuViewModel @Inject constructor(
     }
 
     /**
-     * Bücher melden den Stand auch an Audiobookshelf, Folgen haben nur den lokalen Stand. Ein Buch „ungehört“ geht aus
-     * „Weiterhören“ zurück in „Zuletzt hinzugefügt“.
+     * Books also report the progress to Audiobookshelf, episodes only have the local progress. A book marked "unplayed" moves from
+     * "Continue listening" back to "Recently added".
      */
     fun setPlayed(item: BookWithProgress, played: Boolean) {
         val id = item.book.id
-        // Im Player geladen: Der hält an und schreibt den Stand selbst, sonst überschriebe er ihn beim nächsten Speichern.
+        // Loaded in the player: it pauses and writes the progress itself, otherwise it would overwrite it on the next save.
         if (played && servicePlayer.markFinished(id, playNext = false)) return
         act {
             if (item.isEpisode) {
@@ -131,7 +131,7 @@ class EpisodeMenuViewModel @Inject constructor(
         }
     }
 
-    /** „Als abgespielt markieren und nächste spielen“ (nur Folgen): danach die nächste Folge der Warteschlange. */
+    /** "Mark as played and play next" (episodes only): afterwards the next episode of the queue. */
     fun setPlayedAndPlayNext(item: BookWithProgress) {
         val id = item.book.id
         if (servicePlayer.markFinished(id, playNext = true)) return
@@ -143,7 +143,7 @@ class EpisodeMenuViewModel @Inject constructor(
 
     fun resetPosition(item: BookWithProgress) {
         val bookId = item.book.id
-        // Ein nie gestartetes Buch hat nichts zurückzusetzen. Ein zurückgesetztes geht wie „ungehört“ aus „Weiterhören“.
+        // A book that was never started has nothing to reset. A reset one leaves "Continue listening" like "unplayed".
         if (!item.isEpisode && item.progress == null) return
         act {
             if (item.isEpisode) {
@@ -151,12 +151,12 @@ class EpisodeMenuViewModel @Inject constructor(
             } else {
                 progressSync.record(bookId, 0, item.book.durationMs, finished = false, force = true, hidden = true)
             }
-            // Läuft die Folge gerade, springt auch die Wiedergabe an den Anfang.
+            // If the episode is currently playing, playback also jumps to the start.
             if (playback.state.value.spoken?.bookId == bookId) playback.seekTo(0)
         }
     }
 
-    /** „Aus Weiterhören entfernen“ (nur Bücher): Der Stand bleibt; bei Audiobookshelf auf allen Geräten. */
+    /** "Remove from Continue listening" (books only): the progress stays; with Audiobookshelf on all devices. */
     fun hideFromContinueListening(item: BookWithProgress) {
         act { progressSync.hideFromContinueListening(item.book.id) }
     }
@@ -165,11 +165,11 @@ class EpisodeMenuViewModel @Inject constructor(
         act { if (item.isEpisode) downloads.remove(item.book.id) else bookDownloads.remove(item.book.id) }
     }
 
-    // --- Mehrfachauswahl und Wischen (Konzept 12.5): dieselben Aktionen für mehrere Folgen, in der Reihenfolge der Liste.
+    // --- Multi-selection and swiping (concept 12.5): the same actions for several episodes, in list order.
 
     /**
-     * „Gehört“ bzw. „ungehört“ für alle [items]. Die im Player geladene Folge hält der Player selbst an (wie beim einzelnen
-     * Menüpunkt); für die übrigen bekommt [onUndo] einen Weg zurück zum vorherigen Stand.
+     * "Played" or "unplayed" for all [items]. The player itself pauses the episode loaded in it (as with the single
+     * menu item); for the others [onUndo] gets a way back to the previous state.
      */
     fun setPlayed(items: List<BookWithProgress>, played: Boolean, onUndo: (suspend () -> Unit) -> Unit = {}) {
         val ids = items.map { it.book.id }.filter { !played || !servicePlayer.markFinished(it, playNext = false) }
@@ -181,13 +181,13 @@ class EpisodeMenuViewModel @Inject constructor(
         act { restore() }
     }
 
-    /** Ans Ende der Warteschlange, in der Reihenfolge der Auswahl; was schon darin steht, bleibt, wo es ist. */
+    /** To the end of the queue, in the order of the selection; whatever is already in it stays where it is. */
     fun append(items: List<BookWithProgress>) {
         val inQueue = queued.value
         act { items.filter { it.book.id !in inQueue }.forEach { continueListening.append(it.book.id) } }
     }
 
-    /** Direkt hinter die vorderste Folge, in der Reihenfolge der Auswahl (die vorderste selbst bleibt, wo sie ist). */
+    /** Directly after the frontmost episode, in the order of the selection (the frontmost one itself stays where it is). */
     fun playNext(items: List<BookWithProgress>) {
         act { continueListening.playNext(items.map { it.book.id }) }
     }
@@ -201,7 +201,7 @@ class EpisodeMenuViewModel @Inject constructor(
         act { items.filter { it.book.id in present }.forEach { downloads.remove(it.book.id) } }
     }
 
-    /** Lädt alle noch nicht geladenen Folgen (nicht die vom Gerät); [onHint] wie bei [download], höchstens einmal. */
+    /** Downloads all episodes not yet downloaded (not those from the device); [onHint] as with [download], at most once. */
     fun download(items: List<BookWithProgress>, onHint: (Int) -> Unit) {
         val present = downloaded.value
         val missing = items.filter { !it.book.isLocal && it.book.id !in present }
@@ -214,7 +214,7 @@ class EpisodeMenuViewModel @Inject constructor(
         }
     }
 
-    /** [onHint] bekommt einen Text, wenn der Download nicht gleich beginnt (offline, wartet auf WLAN). */
+    /** [onHint] receives a text if the download doesn't start right away (offline, waiting for Wi-Fi). */
     fun download(item: BookWithProgress, onHint: (Int) -> Unit) {
         act {
             val start = if (item.isEpisode) downloads.download(item.book.id) else bookDownloads.download(item.book.id)

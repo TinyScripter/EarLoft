@@ -9,17 +9,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Woher ein Song gespielt wird: Datei auf dem Gerät, Download (Kopie einer Server-Datei) oder Stream von [sourceId];
- * [transcodedTo] sind Format und Bitrate (kbit/s), wenn der Server den Stream umwandelt.
+ * Where a song is played from: file on the device, download (copy of a server file) or stream from [sourceId];
+ * [transcodedTo] is format and bitrate (kbit/s) if the server transcodes the stream.
  */
 data class PlayedFrom(val kind: Kind, val sourceId: String?, val transcodedTo: Pair<String, Int>? = null) {
     enum class Kind { DEVICE, DOWNLOAD, STREAM }
 }
 
 /**
- * Welche Quelle [SongDataSource] je Song zuletzt geöffnet hat (Konzept 7.2: entschieden wird erst beim Laden). Nur für die
- * Anzeige (Titel-Info); App und Wiedergabe laufen im selben Prozess. Nicht gespeichert: Nach einem Neustart weiß es erst der
- * nächste Ladevorgang.
+ * Which source [SongDataSource] last opened per song (concept 7.2: decided only on load). Only for
+ * display (title info); app and playback run in the same process. Not persisted: after a restart only the
+ * next load knows.
  */
 @Singleton
 class PlayingSources @Inject constructor() {
@@ -30,7 +30,7 @@ class PlayingSources @Inject constructor() {
     internal fun record(songId: Long, playback: ResolvedPlayback) {
         val from = when {
             playback.location is PlaybackLocation.Remote -> PlayedFrom(PlayedFrom.Kind.STREAM, playback.sourceId, playback.transcodedTo)
-            // Downloads haben keine Quelle (sie liegen auf dem Gerät, unabhängig vom Server), lokale Dateien schon.
+            // Downloads have no source (they live on the device, independent of the server), local files do.
             playback.sourceId == null -> PlayedFrom(PlayedFrom.Kind.DOWNLOAD, null)
             else -> PlayedFrom(PlayedFrom.Kind.DEVICE, playback.sourceId)
         }
@@ -40,7 +40,7 @@ class PlayingSources @Inject constructor() {
     }
 
     private companion object {
-        /** Mehr als die Titel um den laufenden herum braucht niemand. */
+        /** Nobody needs more than the titles around the current one. */
         const val MAX_SONGS = 50
     }
 }

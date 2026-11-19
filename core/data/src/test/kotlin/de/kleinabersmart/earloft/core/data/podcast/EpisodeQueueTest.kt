@@ -47,7 +47,7 @@ class EpisodeQueueTest {
         assertEquals(listOf(b, a), queue.order.first())
         assertEquals(setOf(c), queue.hidden.first())
 
-        // Neues Gerät: dieselbe (gesicherte) Datei, die Folgen kommen mit anderen Ids und erst nach und nach.
+        // New device: the same (backed-up) file, the episodes come with different ids and only gradually.
         val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         try {
             val restored = EpisodeQueue(context, newDevice.bookDao())

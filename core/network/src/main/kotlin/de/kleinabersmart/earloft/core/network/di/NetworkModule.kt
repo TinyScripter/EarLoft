@@ -24,7 +24,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 internal object NetworkModule {
 
-    /** Der eine Client für API, Cover und Streams (Konzept 3): gemeinsame Auth, Pools und Cache. */
+    /** The single client for API, covers and streams (concept 3): shared auth, pools and cache. */
     @Provides
     @Singleton
     fun provideOkHttpClient(
@@ -41,7 +41,7 @@ internal object NetworkModule {
             .addNetworkInterceptor(authInterceptor)
             .addNetworkInterceptor(absAuthInterceptor)
             .addNetworkInterceptor(jellyfinAuthInterceptor)
-            // Nach den Servern: Ihre Anmeldung geht auf demselben Host vor.
+            // After the servers: their auth takes precedence on the same host.
             .addNetworkInterceptor(feedAuthInterceptor)
             .addNetworkInterceptor(coverArtCacheInterceptor)
             .authenticator(absTokenAuthenticator)
@@ -49,7 +49,7 @@ internal object NetworkModule {
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
 
-    /** Gerätename und App-Version, wie sie die Jellyfin-Geräteliste anzeigt. */
+    /** Device name and app version, as shown in the Jellyfin device list. */
     @Provides
     @Singleton
     fun provideJellyfinClientInfo(@ApplicationContext context: Context): JellyfinClientInfo {

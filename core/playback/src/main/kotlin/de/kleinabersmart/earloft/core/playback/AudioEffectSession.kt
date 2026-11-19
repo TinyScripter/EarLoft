@@ -14,20 +14,20 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Die Audio-Session des Players für Equalizer (Konzept 7 „Equalizer“): Der Dienst meldet sie beim System an und ab
- * (`ACTION_OPEN/CLOSE_AUDIO_EFFECT_CONTROL_SESSION`), damit der System-Equalizer bzw. eine Equalizer-App sie findet;
- * die App öffnet über [sessionId] deren Einstellungen. Einen eigenen Equalizer gibt es nicht. Nur im Speicher, App und Dienst
- * laufen im selben Prozess.
+ * The player's audio session for equalizers (concept 7 "Equalizer"): the service registers and unregisters it with the system
+ * (`ACTION_OPEN/CLOSE_AUDIO_EFFECT_CONTROL_SESSION`) so the system equalizer or an equalizer app can find it;
+ * the app opens its settings via [sessionId]. There is no built-in equalizer. In memory only; app and service
+ * run in the same process.
  */
 @OptIn(UnstableApi::class)
 @Singleton
 class AudioEffectSession @Inject constructor() {
     private val current = MutableStateFlow<Int?>(null)
 
-    /** `null`, solange der Dienst nicht läuft. */
+    /** `null` while the service is not running. */
     val sessionId: StateFlow<Int?> = current
 
-    /** Meldet die Session von [player] an und folgt ihr, bis [close]. */
+    /** Registers the session of [player] and follows it until [close]. */
     internal fun attach(context: Context, player: ExoPlayer) {
         open(context, player.audioSessionId)
         player.addListener(object : Player.Listener {
@@ -52,7 +52,7 @@ class AudioEffectSession @Inject constructor() {
     }
 
     companion object {
-        /** Öffnet die Einstellungen des Equalizers für [sessionId]; mit `startActivityForResult` starten, sonst kennt er den Absender nicht. */
+        /** Opens the equalizer settings for [sessionId]; start with `startActivityForResult`, otherwise it doesn't know the caller. */
         fun controlPanelIntent(context: Context, sessionId: Int): Intent =
             intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL, context, sessionId)
 

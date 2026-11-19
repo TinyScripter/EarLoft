@@ -37,9 +37,9 @@ import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 
 /**
- * Wiedergabe-Bildschirm (Wear-Konzept 11): Zustand des Players, Fortschritt, Cover und Lautstärke der Krone. Spielt ein Buch
- * oder eine Folge (16.1), kommen Bild und Farbe von dort, und Position, Länge und Spulen gelten im ganzen Buch (wie in der
- * Fernsteuerung); der Player selbst kennt nur die Position in der Datei.
+ * Now playing screen (Wear concept 11): player state, progress, cover and crown volume. If a book
+ * or episode is playing (16.1), image and color come from there, and position, length and seeking apply to the whole book (as in
+ * remote control); the player itself only knows the position within the file.
  */
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
@@ -53,7 +53,7 @@ class PlayerViewModel @Inject constructor(
 
     private val audioManager = context.getSystemService(AudioManager::class.java)
 
-    /** Zeitachse des laufenden Buchs bzw. der Folge (Dateien und Kapitel) mit dessen ID; `null` bei Musik. */
+    /** Timeline of the current book or episode (files and chapters) with its ID; `null` for music. */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val timeline: StateFlow<Pair<Long, BookTimeline>?> = playback.state
         .map { it.spoken?.bookId }
@@ -62,19 +62,19 @@ class PlayerViewModel @Inject constructor(
         .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Die Zeitachse von [spoken]; `null` bei Musik und solange sie (noch) die eines anderen Buchs ist. */
+    /** The timeline of [spoken]; `null` for music and as long as it is (still) that of another book. */
     private fun Pair<Long, BookTimeline>?.of(spoken: SpokenEntry?): BookTimeline? =
         this?.takeIf { spoken != null && it.first == spoken.bookId }?.second
 
-    /** Bei einem Buch oder einer Folge mit der Länge des ganzen Buchs statt der laufenden Datei. */
+    /** For a book or episode, with the length of the whole book instead of the current file. */
     override val state: StateFlow<PlayerState> = combine(playback.state, timeline) { state, timeline ->
         val length = timeline.of(state.spoken)?.durationMs?.takeIf { it > 0 }
         if (length != null) state.copy(durationMs = length) else state
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), playback.state.value)
 
     /**
-     * Position in Millisekunden, bei Gesprochenem im ganzen Buch; regelmäßig abgefragt nur, solange der Bildschirm sichtbar ist
-     * und es spielt. Pausiert einmal und nach jedem Sprung (Spulen mit der Krone, Titelwechsel).
+     * Position in milliseconds, for spoken content within the whole book; polled regularly only while the screen is visible
+     * and it is playing. When paused, once and after every jump (seeking with the crown, track change).
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     override val positionMs: StateFlow<Long> = playback.state
@@ -92,7 +92,7 @@ class PlayerViewModel @Inject constructor(
                     playback.positionJumps.collect { emit(playback.currentPositionMs) }
                 }
             }
-            // Ohne Zeitachse (Musik, oder noch nicht gelesen) bleibt es die Position in der Datei, wie die Länge im [state].
+            // Without a timeline (music, or not read yet) it stays the position within the file, like the length in [state].
             combine(inTrack, timeline) { position, timeline ->
                 if (spoken == null) position else timeline.of(spoken)?.toBookPosition(spoken.trackIndex, position) ?: position
             }
@@ -113,7 +113,7 @@ class PlayerViewModel @Inject constructor(
         .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Akzentfarbe des laufenden Albums bzw. der Folge (ARGB); `null`, solange sie fehlt oder nichts läuft. */
+    /** Accent color of the current album or episode (ARGB); `null` as long as it is missing or nothing is playing. */
     @OptIn(ExperimentalCoroutinesApi::class)
     override val seedColor: StateFlow<Int?> = playback.state
         .map { it.current?.albumId to it.spoken?.bookId }
@@ -132,7 +132,7 @@ class PlayerViewModel @Inject constructor(
         .map { it?.second?.chapters.orEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** [positionMs] gilt bei Gesprochenem schon im ganzen Buch, wie die Kapitel. */
+    /** For spoken content, [positionMs] already applies to the whole book, like the chapters. */
     override val currentChapter: StateFlow<BookChapter?> = combine(timeline, playback.state, positionMs) { timeline, state, position ->
         timeline.of(state.spoken)?.chapterAt(position)
     }
@@ -146,7 +146,7 @@ class PlayerViewModel @Inject constructor(
 
     private val _volume = MutableStateFlow(readVolume())
 
-    /** 0..1 für die Anzeige beim Drehen der Krone. */
+    /** 0..1 for the display while turning the crown. */
     override val volume: StateFlow<Float> = _volume
 
     override fun togglePlayPause() = playback.togglePlayPause()
@@ -159,17 +159,17 @@ class PlayerViewModel @Inject constructor(
 
     override fun cycleRepeat() = playback.cycleRepeatMode()
 
-    // Podcast-Folgen auf der Uhr (Wear-Konzept 16.1); die Ansicht zeigt die Knöpfe nur bei Gesprochenem.
+    // Podcast episodes on the watch (Wear concept 16.1); the view only shows the buttons for spoken content.
     override fun skipBack() = playback.skipBack()
 
     override fun skipForward() = playback.skipForward()
 
-    /** In der Zeit von [positionMs]: bei Gesprochenem mit Zeitachse im ganzen Buch, sonst in der Datei. */
+    /** In the time base of [positionMs]: for spoken content with a timeline within the whole book, otherwise within the file. */
     override fun seekTo(positionMs: Long) {
         if (timeline.value.of(playback.state.value.spoken) != null) seekToBook(positionMs) else playback.seekTo(positionMs)
     }
 
-    /** Restzeit des Sleep-Timers; `null`, solange keiner läuft. */
+    /** Remaining time of the sleep timer; `null` as long as none is running. */
     override val sleepTimerRemainingMs: StateFlow<Long?> = playback.sleepTimerRemainingMs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -184,13 +184,13 @@ class PlayerViewModel @Inject constructor(
 
     private val _volumeVisible = MutableStateFlow(false)
 
-    /** Der Lautstärkebalken steht kurz nach jeder Drehung der Krone. */
+    /** The volume bar is shown briefly after every turn of the crown. */
     override val volumeVisible: StateFlow<Boolean> = _volumeVisible
 
     private var hideVolumeJob: Job? = null
     private val crown = CrownStepper(CROWN_PX_PER_STEP)
 
-    /** Dreht jemand an der Krone, ändert sich die Lautstärke schrittweise, und der Balken wird kurz sichtbar. */
+    /** When someone turns the crown, the volume changes step by step and the bar becomes briefly visible. */
     override fun onCrown(pixels: Float) {
         val steps = crown.add(pixels)
         if (steps != 0) changeVolume(steps)
@@ -206,7 +206,7 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    /** [steps] > 0 lauter, < 0 leiser. */
+    /** [steps] > 0 louder, < 0 quieter. */
     private fun changeVolume(steps: Int) {
         val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         val target = (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) + steps).coerceIn(0, max)
@@ -219,7 +219,7 @@ class PlayerViewModel @Inject constructor(
         return if (max > 0) audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) / max.toFloat() else 0f
     }
 
-    /** Bilder der Folgen kommen mit bis zu 800 px; die Uhr zeigt sie unscharf im Hintergrund, so groß wie Albumcover. */
+    /** Episode images come with up to 800 px; the watch shows them blurred in the background, as large as album covers. */
     private fun Bitmap.scaledTo(maxPx: Int): Bitmap {
         val longest = maxOf(width, height)
         if (longest <= maxPx) return this
@@ -229,7 +229,7 @@ class PlayerViewModel @Inject constructor(
 
     private companion object {
         const val POSITION_INTERVAL_MS = 500L
-        /** Knapp unter einer langsamen Rastung (rund 34 px), damit jede Rastung genau einen Schritt gibt. */
+        /** Just below a slow detent (around 34 px) so that every detent gives exactly one step. */
         const val CROWN_PX_PER_STEP = 30f
         const val VOLUME_VISIBLE_MS = 1_500L
         const val COVER_SIZE_PX = 400

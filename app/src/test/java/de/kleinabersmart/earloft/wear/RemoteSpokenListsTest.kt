@@ -25,7 +25,7 @@ class RemoteSpokenListsTest {
 
     @Test
     fun `Folgen - angefangene auch aeltere, dann die neuesten`() {
-        // Neueste zuerst geliefert; Folge 9 ist alt, aber angefangen.
+        // Delivered newest first; episode 9 is old but started.
         val episodes = listOf(entry(1), entry(2), entry(3, finished = true), entry(4), entry(9, positionMs = 10))
         assertEquals(listOf(9L, 1L, 2L), remoteEpisodes(episodes, newest = 2).map { it.id })
     }

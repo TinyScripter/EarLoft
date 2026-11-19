@@ -11,7 +11,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearEpisodeProgressDto
 import de.kleinabersmart.earloft.core.wearsync.WearPodcastFeedDto
 import de.kleinabersmart.earloft.core.wearsync.WearPodcastManifest
 
-/** Bildet die Folgen und Bücher für die Uhr auf das Folgen-Manifest ab (Wear-Konzept 16.1/16.2). */
+/** Maps the episodes and books for the watch to the episode manifest (Wear concept 16.1/16.2). */
 object WearPodcastManifestBuilder {
 
     fun build(content: WatchSpokenContent): WearPodcastManifest = WearPodcastManifest(
@@ -61,7 +61,7 @@ object WearPodcastManifestBuilder {
         },
     )
 
-    /** Dasselbe Manifest ohne Fortschritt: Unterscheiden sich nur die Fortschritte, wartet das Handy mit dem Senden. */
+    /** The same manifest without progress: if only the progress values differ, the phone holds off sending. */
     fun withoutProgress(manifest: WearPodcastManifest): WearPodcastManifest =
         manifest.copy(
             episodes = manifest.episodes.map { it.copy(progress = null) },

@@ -144,7 +144,7 @@ fun List<BookWithProgress>.groups(kind: BookGroupKind): List<BookGroup> = when (
     BookGroupKind.GENRE -> genreGroups()
 }
 
-/** Start im Modus „Bücher“: weiterhören und neu hinzugekommene Bücher. */
+/** Start in "Books" mode: continue listening and newly added books. */
 @Composable
 fun SpokenHomeScreen(
     onBookClick: (Long) -> Unit,
@@ -186,7 +186,7 @@ fun SpokenHomeScreen(
                         }
                     }
                 }
-                // Nächster Band von Serien, in denen zuletzt einer beendet wurde (books_improvements M2).
+                // Next volume of series in which one was recently finished (books_improvements M2).
                 if (continueSeries.isNotEmpty()) {
                     item(key = "series") {
                         Shelf(stringResource(R.string.spoken_continue_series)) {
@@ -215,7 +215,7 @@ fun SpokenHomeScreen(
                 ) {
                     item(key = "empty") { NoBooksHint(signInNeeded, onEditServer, viewModel::syncNow) }
                 }
-                // Hörbücher und Hörspiele aus ARD Sounds (books_improvements M9), wie „Podcast hinzufügen“ unter den Regalen.
+                // Audiobooks and radio plays from ARD Sounds (books_improvements M9), like "Add podcast" below the shelves.
                 if (ardSounds) {
                     item(key = "ard-sounds") {
                         FilledTonalButton(onClick = onOpenArdSounds, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -237,8 +237,8 @@ private enum class BookTab(@StringRes val label: Int) {
 }
 
 /**
- * Bibliothek im Modus „Bücher“: Alle (Raster), Serien und Autoren (Listen) wie bei der Musik, dazu die Statistik; im Kopf der
- * Weg zu den gesammelten Lesezeichen ([onOpenBookmarks]).
+ * Library in "Books" mode: All (grid), Series and Authors (lists) as with music, plus the statistics; in the header the
+ * way to the collected bookmarks ([onOpenBookmarks]).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -267,7 +267,7 @@ fun SpokenLibraryScreen(
     val pagerState = rememberPagerState { BookTab.entries.size }
     val scope = rememberCoroutineScope()
 
-    // Wie in der Musik-Bibliothek steht die Sortierung des Reiters im Kopf der App links von der Lupe, davor die Lesezeichen.
+    // As in the music library, the tab's sorting is in the app header left of the magnifier, preceded by the bookmarks.
     HeaderAction {
         BookmarksHeaderButton(BookKind.BOOK, onOpenBookmarks)
         if (!booksState.valueOrNull.isNullOrEmpty()) {
@@ -310,7 +310,7 @@ fun SpokenLibraryScreen(
                                 viewModel::playOrPause,
                                 scrollLabel = bookSort.scrollLabel(),
                                 pinHeader = true,
-                                // Die Chips bleiben stehen, auch wenn der Filter nichts übrig lässt, damit man ihn lösen kann.
+                                // The chips stay even if the filter leaves nothing, so it can be cleared.
                                 header = {
                                     Column {
                                         BookFilterChips(
@@ -329,7 +329,7 @@ fun SpokenLibraryScreen(
                                         }
                                     }
                                 },
-                                // Andere Reihenfolge oder anderer Filter: wieder von oben.
+                                // Different order or different filter: back to the top.
                                 resetKey = listOf(bookSort, bookFilter, bookGenre, bookLibrary),
                             )
                         }
@@ -348,8 +348,8 @@ fun SpokenLibraryScreen(
 }
 
 /**
- * Bücher als Raster mit Schnellscroller, mit [scrollLabel] samt Marke (z. B. Anfangsbuchstabe), mit [header] einer Zeile darüber über die
- * ganze Breite, mit [volumes] dem Band je Buch oben links (Serienseite). Ändert sich [resetKey], beginnt das Raster oben.
+ * Books as a grid with fast scroller, with [scrollLabel] including a marker (e.g. initial letter), with [header] a row above it across the
+ * full width, with [volumes] the volume per book at the top left (series page). If [resetKey] changes, the grid starts at the top.
  */
 @Composable
 private fun BookGrid(
@@ -361,15 +361,15 @@ private fun BookGrid(
     header: (@Composable () -> Unit)? = null,
     volumes: Map<Long, String> = emptyMap(),
     resetKey: Any? = null,
-    /** Beendete Bücher mit vollem Balken (Serienseite). */
+    /** Finished books with a full bar (series page). */
     markFinished: Boolean = false,
     /**
-     * Statt [books] in Abschnitten je Serie (Autorenseite): Überschrift antippbar ([onSectionClick]), Band auf dem Cover,
-     * beendete mit vollem Balken; die Bücher ohne Serie heißen „Weitere Bücher“.
+     * Instead of [books], in sections per series (author page): heading tappable ([onSectionClick]), volume on the cover,
+     * finished ones with a full bar; the books without a series are called "More books".
      */
     sections: List<SeriesSection>? = null,
     onSectionClick: (String) -> Unit = {},
-    /** [header] (Chip-Leiste von „Alle“) steht beim Scrollen fest darüber, siehe [PinnableHeaderBox]. */
+    /** [header] (chip bar of "All") stays fixed above while scrolling, see [PinnableHeaderBox]. */
     pinHeader: Boolean = false,
 ) {
     val state = rememberLazyGridState()
@@ -407,7 +407,7 @@ private fun BookGrid(
             } else {
                 sections.forEachIndexed { index, section ->
                     val series = section.series
-                    // Ohne jede Serie keine Überschrift.
+                    // Without any series, no heading.
                     if (series != null || sections.size > 1) {
                         item(key = "section-$index", span = { GridItemSpan(maxLineSpan) }) {
                             SeriesSectionTitle(series, onClick = series?.let { { onSectionClick(it) } })
@@ -425,7 +425,7 @@ private fun BookGrid(
     }
 }
 
-/** Überschrift eines Abschnitts der Autorenseite: der Name der Serie (öffnet sie) bzw. „Weitere Bücher“. */
+/** Heading of a section of the author page: the name of the series (opens it) or "More books". */
 @Composable
 private fun SeriesSectionTitle(series: String?, onClick: (() -> Unit)?) {
     Row(
@@ -449,7 +449,7 @@ private fun SeriesSectionTitle(series: String?, onClick: (() -> Unit)?) {
     }
 }
 
-/** Marke für den Schnellscroller je Reihenfolge; ohne sinnvolle Marke (Datum, Dauer) keiner. */
+/** Marker for the fast scroller per order; without a sensible marker (date, duration) none. */
 private fun BookSort.scrollLabel(): ((BookWithProgress) -> String)? = when (this) {
     BookSort.TITLE -> { item -> foldedLetterOf(item.book.title.sortKey()) }
     BookSort.AUTHOR -> { item -> foldedLetterOf(bookAuthors(item.book.author).firstOrNull().orEmpty().sortKey()) }
@@ -469,7 +469,7 @@ private val AuthorSort.label: Int
         AuthorSort.BOOK_COUNT -> R.string.sort_book_count
     }
 
-/** Wechselt die Reihenfolge ([resetKey]), beginnt die Liste wieder oben. */
+/** If the order changes ([resetKey]), the list starts at the top again. */
 @Composable
 private fun ResetScroll(resetKey: Any?, scrollToTop: suspend () -> Unit) {
     var shownKey by rememberSaveable { mutableStateOf(resetKey?.toString()) }
@@ -491,12 +491,12 @@ private val BookSort.label: Int
         BookSort.YEAR -> R.string.sort_year
     }
 
-/** Ein Filter mit Auswahlliste: [options] als (Kennung, Name), [selected] die gewählte Kennung (`null` = alle). */
+/** A filter with a selection list: [options] as (ID, name), [selected] the selected ID (`null` = all). */
 private class OptionFilter(val options: List<Pair<String, String>>, val selected: String?, val onSelect: (String?) -> Unit)
 
 /**
- * Filter des Reiters „Alle“: genau einer ist gewählt; lässt sich seitlich wischen, wenn die Breite nicht reicht. Davor, wenn
- * es sie gibt, Chips mit Auswahlliste für die Bibliothek (ab zwei, M3) und das Genre (S9); sie wirken zusätzlich zum Filter.
+ * Filter of the "All" tab: exactly one is selected; can be swiped sideways if the width isn't enough. Before it, if
+ * they exist, chips with a selection list for the library (from two, M3) and the genre (S9); they apply in addition to the filter.
  */
 @Composable
 private fun BookFilterChips(selected: BookFilter, onSelect: (BookFilter) -> Unit, genre: OptionFilter, library: OptionFilter) {
@@ -513,7 +513,7 @@ private fun BookFilterChips(selected: BookFilter, onSelect: (BookFilter) -> Unit
     }
 }
 
-/** „Genre ▾“ bzw. das Gewählte; die Liste beginnt mit [allLabel] („Alle Genres“). */
+/** "Genre ▾" or the selected one; the list starts with [allLabel] ("All genres"). */
 @Composable
 private fun OptionChip(filter: OptionFilter, label: String, allLabel: String) {
     var open by remember { mutableStateOf(false) }
@@ -567,8 +567,8 @@ private val BookFilter.label: Int
     }
 
 /**
- * Autoren als Raster, zwei pro Reihe: Autorenbild (von Audiobookshelf, sonst aus dem Internet, wenn die Option an ist), darunter
- * Name und Anzahl der Bücher. Ohne Bild bleibt das Cover des ersten Buchs. Der Schnellscroller zeigt nur nach Name ([byName]) den Buchstaben.
+ * Authors as a grid, two per row: author image (from Audiobookshelf, otherwise from the internet if the option is on), below it
+ * name and number of books. Without an image the cover of the first book remains. The fast scroller only shows the letter when sorted by name ([byName]).
  */
 @Composable
 private fun AuthorGrid(authors: List<BookGroup>, byName: Boolean, resetKey: Any?, onClick: (String) -> Unit) {
@@ -596,7 +596,7 @@ private fun AuthorGrid(authors: List<BookGroup>, byName: Boolean, resetKey: Any?
                 ) {
                     Box {
                         BookArt(author.books.first().book.id, Modifier.fillMaxWidth())
-                        // Liegt über dem Buchcover; schlägt das Laden fehl, bleibt das Cover sichtbar.
+                        // Lies over the book cover; if loading fails, the cover stays visible.
                         AsyncImage(
                             model = AppUris.authorImage(author.name),
                             contentDescription = null,
@@ -626,8 +626,8 @@ private fun AuthorGrid(authors: List<BookGroup>, byName: Boolean, resetKey: Any?
 }
 
 /**
- * Serien mit dem Cover des Bands, mit dem es weitergeht (sonst des ersten), und ihrem Stand: „3 von 7 gehört“, solange noch
- * keiner beendet ist die Anzahl. Der Schnellscroller zeigt nur nach Name ([byName]) den Buchstaben.
+ * Series with the cover of the volume that comes next (otherwise the first), and their progress: "3 of 7 played"; as long as
+ * none is finished, the count. The fast scroller only shows the letter when sorted by name ([byName]).
  */
 @Composable
 private fun SeriesList(groups: List<SeriesProgress>, byName: Boolean, resetKey: Any?, onClick: (String) -> Unit) {
@@ -654,7 +654,7 @@ private fun SeriesList(groups: List<SeriesProgress>, byName: Boolean, resetKey: 
     }
 }
 
-/** Kopf der Serienseite: Stand der Serie und „Weiter mit Band 4“ bzw. „Beginnen mit Band 1“ (spielt ihn). */
+/** Header of the series page: progress of the series and "Continue with volume 4" or "Start with volume 1" (plays it). */
 @Composable
 private fun SeriesHeader(series: SeriesProgress, playingId: Long?, onPlay: (Long) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -676,8 +676,8 @@ private fun SeriesHeader(series: SeriesProgress, playingId: Long?, onPlay: (Long
 }
 
 /**
- * Kopf der Autorenseite: das Autorenbild groß (fehlt es, entfällt es) und die Beschreibung von Audiobookshelf, gekürzt bis
- * zum Tipp. Auf breiten Fenstern steht die Beschreibung neben dem Bild.
+ * Header of the author page: the author image large (omitted if missing) and the description from Audiobookshelf, truncated until
+ * tapped. On wide windows the description sits next to the image.
  */
 @Composable
 private fun AuthorHeader(name: String, description: String?) {
@@ -711,7 +711,7 @@ private fun AuthorHeader(name: String, description: String?) {
 
 private val AuthorImageSize = 200.dp
 
-/** Text, der bis zum Tipp auf [CollapsedLines] Zeilen gekürzt ist; „Mehr“ bzw. „Weniger“ darunter, wenn er länger ist. */
+/** Text truncated to [CollapsedLines] lines until tapped; "More" or "Less" below it if it is longer. */
 @Composable
 private fun CollapsibleText(text: String, modifier: Modifier = Modifier) {
     var expanded by rememberSaveable(text) { mutableStateOf(false) }
@@ -735,7 +735,7 @@ private fun CollapsibleText(text: String, modifier: Modifier = Modifier) {
 
 private const val CollapsedLines = 5
 
-/** „3 von 7 gehört“, „Alle 7 gehört“ bzw. ohne beendeten Band „7 Bücher“. */
+/** "3 of 7 played", "All 7 played" or, without a finished volume, "7 books". */
 @Composable
 private fun seriesState(series: SeriesProgress): String = when {
     series.finished == 0 -> pluralStringResource(R.plurals.book_count, series.total, series.total)
@@ -743,7 +743,7 @@ private fun seriesState(series: SeriesProgress): String = when {
     else -> stringResource(R.string.series_finished_count, series.finished, series.total)
 }
 
-/** Alle Bücher einer Serie, eines Autors oder eines Sprechers. */
+/** All books of a series, an author or a narrator. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookGroupScreen(
@@ -774,7 +774,7 @@ fun BookGroupScreen(
             is LoadState.Ready -> if (group == null) {
                 EmptyHint(stringResource(R.string.item_missing))
             } else {
-                // Auf Serienseiten steht der Band auf dem Cover.
+                // On series pages the volume is on the cover.
                 val volumes = remember(group, kind) {
                     if (kind != BookGroupKind.SERIES) {
                         emptyMap()
@@ -784,10 +784,10 @@ fun BookGroupScreen(
                         }.toMap()
                     }
                 }
-                // Serien: oben der Stand und der Band, mit dem es weitergeht (books_improvements M2); beendete Bände mit vollem Balken.
+                // Series: at the top the progress and the volume that comes next (books_improvements M2); finished volumes with a full bar.
                 val series = remember(group, kind) { if (kind == BookGroupKind.SERIES) seriesProgress(name, group.books) else null }
                 if (kind == BookGroupKind.AUTHOR) {
-                    // Autoren: großes Bild und Beschreibung, die Bücher nach Serie (books_improvements M8).
+                    // Authors: large image and description, the books by series (books_improvements M8).
                     val sections = remember(group) { group.books.seriesSections() }
                     BookGrid(
                         group.books,
@@ -820,8 +820,8 @@ private fun NoServerHint(onSetup: () -> Unit) {
 }
 
 /**
- * Server da, aber keine Bücher. Fehlt einem Server die Anmeldung bzw. der API-Key ([signInNeeded]), ist das meist der
- * Grund: dann der Weg ins Formular des Servers. Sonst „Jetzt abgleichen“.
+ * Server present, but no books. If a server is missing its login or API key ([signInNeeded]), that is usually the
+ * reason: then the way to the server's form. Otherwise "Sync now".
  */
 @Composable
 private fun NoBooksHint(signInNeeded: SpokenServer?, onEditServer: (String) -> Unit, onSync: () -> Unit) {
@@ -844,7 +844,7 @@ internal fun BookRow(
     state: LazyListState = rememberLazyListState(),
     playingId: Long? = null,
     onPlay: ((Long) -> Unit)? = null,
-    /** Band je Buch oben links auf dem Cover (Regal „Serie fortsetzen“). */
+    /** Volume per book at the top left of the cover ("Continue series" shelf). */
     volumes: Map<Long, String> = emptyMap(),
 ) {
     LazyRow(
@@ -868,25 +868,25 @@ internal fun BookRow(
     }
 }
 
-/** Zeile aus [rememberFrontRow]: ihr Scrollzustand und ihre Einträge in der Reihenfolge, die sie gerade zeigt. */
+/** Row from [rememberFrontRow]: its scroll state and its entries in the order it currently shows. */
 class FrontRow<T>(val state: LazyListState, val items: List<T>)
 
 /**
- * Zeile, deren Neues vorn steht („Weiterhören“, „Zuletzt hinzugefügt“, Musik-Warteschlange; [key] liefert die ID eines
- * Eintrags): Kommt ein Eintrag neu oder von weiter hinten nach vorn (etwa in der Zeile selbst gestartet), behält die Zeile
- * ihre Reihenfolge noch [FRONT_HOLD] lang – die angetippte Kachel bleibt stehen und lässt sich gleich wieder anhalten.
- * Danach gleitet die Zeile an ihren Anfang ([glideToStart]), und der Eintrag rückt nach vorn. Ohne das hielte eine
- * Lazy-Zeile den bisher ersten Eintrag fest, und der neue läge links außerhalb. Fällt nur der vorderste weg (zu Ende
- * gehört, angefangen, aus der Warteschlange genommen), rückt der Rest sofort gleitend nach ([rowItemAnimation]); ein
- * Sprung an den Anfang schnitte diese Animation ab. Die vorderen Einträge überstehen das Verlassen des Bildschirms: Zurück
- * von einer Buchseite bleibt die Zeile, wo sie war, solange vorn nichts Neues steht, sonst zeigt sie gleich ihren Anfang.
+ * Row whose new items are at the front ("Continue listening", "Recently added", music queue; [key] provides the ID of an
+ * entry): if an entry is new or moves to the front from further back (e.g. started in the row itself), the row keeps
+ * its order for [FRONT_HOLD] – the tapped tile stays in place and can be paused again right away.
+ * Then the row glides to its start ([glideToStart]), and the entry moves to the front. Without this a
+ * lazy row would hold on to the previous first entry, and the new one would lie outside on the left. If only the frontmost drops out (fully
+ * played, started, removed from the queue), the rest moves up immediately with a glide ([rowItemAnimation]); a
+ * jump to the start would cut that animation off. The front entries survive leaving the screen: back
+ * from a book page, the row stays where it was as long as nothing new is at the front, otherwise it shows its start right away.
  */
 @Composable
 fun <T> rememberFrontRow(items: List<T>, key: (T) -> Long): FrontRow<T> {
     val state = rememberLazyListState()
     val saved = rememberSaveable(saver = FrontIdsSaver) { FrontIds(emptyList()) }
     val ids = items.map(key)
-    // Zuletzt übernommene Reihenfolge; null, bis die Zeile hier zum ersten Mal gezeichnet ist.
+    // Last adopted order; null until the row is drawn here for the first time.
     var shown by remember { mutableStateOf<List<Long>?>(null) }
     val held = shown?.takeIf { frontChange(it, ids) == FrontChange.MOVED }
     val visible = if (held == null) items else items.associateBy(key).let { byId -> held.mapNotNull(byId::get) }
@@ -896,7 +896,7 @@ fun <T> rememberFrontRow(items: List<T>, key: (T) -> Long): FrontRow<T> {
             if (frontChange(saved.ids, ids) != FrontChange.NONE) state.scrollToItem(0)
         } else if (frontChange(before, ids) != FrontChange.NONE) {
             delay(FRONT_HOLD)
-            // Zusammen mit der neuen Reihenfolge, sonst hielte die Zeile den bisher ersten fest.
+            // Together with the new order, otherwise the row would hold on to the previous first one.
             if (state.glideToStart()) state.requestScrollToItem(0)
         }
         shown = ids
@@ -905,15 +905,15 @@ fun <T> rememberFrontRow(items: List<T>, key: (T) -> Long): FrontRow<T> {
     return FrontRow(state, visible)
 }
 
-/** Was sich vorn in einer Zeile geändert hat ([rememberFrontRow]). */
+/** What changed at the front of a row ([rememberFrontRow]). */
 internal enum class FrontChange {
-    /** Vorn steht derselbe, oder nur der vorderste fiel weg und der zweite rückt nach. */
+    /** The same one is at the front, or only the frontmost dropped out and the second moves up. */
     NONE,
 
-    /** Ein Eintrag kam neu oder von weiter hinten nach vorn, der bisher erste ist noch da. */
+    /** An entry is new or moved to the front from further back; the previous first one is still there. */
     MOVED,
 
-    /** Vorn steht ein anderer, der bisher erste ist weg. */
+    /** Another one is at the front, the previous first one is gone. */
     REPLACED,
 }
 
@@ -929,8 +929,8 @@ internal fun frontChange(before: List<Long>, ids: List<Long>): FrontChange {
 }
 
 /**
- * Gleitet ruhig an den Anfang der Zeile (die Kacheln sind gleich breit); false, wenn der Nutzer dabei selbst scrollt.
- * [LazyListState.animateScrollToItem] wäre schneller, als man folgen kann, und ließe sich nicht verlangsamen.
+ * Glides calmly to the start of the row (the tiles have equal width); false if the user scrolls during it.
+ * [LazyListState.animateScrollToItem] would be faster than the eye can follow and can't be slowed down.
  */
 private suspend fun LazyListState.glideToStart(): Boolean {
     val info = layoutInfo
@@ -949,14 +949,14 @@ private suspend fun LazyListState.glideToStart(): Boolean {
 private val FRONT_HOLD = 2.seconds
 private const val FRONT_GLIDE_MS = 800
 
-/** Die ersten beiden Einträge einer Zeile beim letzten Zeichnen (für [rememberFrontRow]). */
+/** The first two entries of a row at the last draw (for [rememberFrontRow]). */
 private class FrontIds(var ids: List<Long>)
 
 private val FrontIdsSaver = Saver<FrontIds, LongArray>(save = { it.ids.toLongArray() }, restore = { FrontIds(it.toList()) })
 
 /**
- * Kachel einer horizontalen Zeile: Ein entfernter Eintrag löst sich schnell auf, die Kacheln rechts davon gleiten
- * danach nach links, als schiebe sich die Zeile zusammen.
+ * Tile of a horizontal row: a removed entry dissolves quickly, the tiles to its right then glide
+ * to the left, as if the row were contracting.
  */
 fun Modifier.rowItemAnimation(scope: LazyItemScope): Modifier = with(scope) {
     this@rowItemAnimation.animateItem(
@@ -970,10 +970,10 @@ private const val ROW_FADE_MS = 150
 private const val ROW_SLIDE_MS = 350
 
 /**
- * Cover mit Fortschrittsbalken, darunter Titel und Autor; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts
- * auf dem Cover, unten links die Download-Markierung ([BookDownloadBadge]), oben links der Band ([volume], auf Serienseiten).
- * Mit [selection] bietet das Langklick-Menü „Auswählen“ (Konzept 12.5); während der Auswahl schaltet ein Tipp die Kachel
- * dazu oder weg.
+ * Cover with progress bar, title and author below; with [onPlay] a play (with [playing] pause) button sits at the bottom right
+ * of the cover, the download marker at the bottom left ([BookDownloadBadge]), the volume at the top left ([volume], on series pages).
+ * With [selection] the long-press menu offers "Select" (concept 12.5); during the selection a tap adds or removes
+ * the tile.
  */
 @Composable
 fun BookCard(
@@ -983,14 +983,14 @@ fun BookCard(
     onPlay: (() -> Unit)? = null,
     playing: Boolean = false,
     contentPadding: Dp = 0.dp,
-    /** Uhrzeit beim Datum der Folge ([episodesSharingDay]). */
+    /** Time of day next to the episode's date ([episodesSharingDay]). */
     withTime: Boolean = false,
     volume: String? = null,
     selection: EpisodeSelection? = null,
-    /** Beendet: voller Balken statt keinem (Serienseite). */
+    /** Finished: full bar instead of none (series page). */
     markFinished: Boolean = false,
 ) {
-    // Kontextmenü per Langklick, bei Folgen und Büchern.
+    // Context menu via long press, for episodes and books.
     var menu by remember { mutableStateOf(false) }
     val episode = item.isEpisode
     val selecting = selection?.active == true
@@ -1020,8 +1020,8 @@ fun BookCard(
                 )
             }
         }
-        // Alle Kacheln einer Zeile sind gleich hoch, egal ob begonnen und wie lang der Titel ist: sonst springt der Inhalt
-        // darunter, wenn beim Scrollen andere Kacheln sichtbar werden. Deshalb Platz für den Balken und zwei Titelzeilen.
+        // All tiles of a row have the same height, regardless of whether started and how long the title is: otherwise the content
+        // below jumps when other tiles become visible while scrolling. Hence space for the bar and two title lines.
         val progress = item.progress
         Box(Modifier.fillMaxWidth().padding(top = 6.dp).height(PROGRESS_HEIGHT)) {
             if (progress != null && progress.positionMs > 0 && !progress.finished) {
@@ -1046,7 +1046,7 @@ fun BookCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        // Erscheinungsdatum der Folge (bei Büchern ist `addedAt` nur der Zeitpunkt des Abgleichs); die Zeile bleibt als Platz stehen.
+        // Publication date of the episode (for books `addedAt` is only the time of the sync); the row stays as a placeholder.
         if (episode) {
             Text(
                 item.book.addedAt.takeIf { it > 0 }?.let { formatEpisodeDate(it, withTime) }.orEmpty(),
@@ -1061,7 +1061,7 @@ fun BookCard(
 
 private val PROGRESS_HEIGHT = 4.dp
 
-/** Kleines Schild mit einer Zahl auf einem Cover (Band einer Serie, neue Folgen eines Abos); [description] für TalkBack. */
+/** Small badge with a number on a cover (volume of a series, new episodes of a subscription); [description] for TalkBack. */
 @Composable
 internal fun CoverPill(text: String, description: String, modifier: Modifier = Modifier) {
     Surface(

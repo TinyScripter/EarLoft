@@ -12,14 +12,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.withTimeout
 
-/** Liest [EmbeddedTags] mit Media3 (Spike S2: Entscheidung für `MetadataRetriever` statt TagLib). */
+/** Reads [EmbeddedTags] with Media3 (spike S2: decision for `MetadataRetriever` instead of TagLib). */
 @OptIn(UnstableApi::class)
 internal class LocalTagReader(private val context: Context) {
 
-    /** `null`, wenn die Datei nicht lesbar ist. */
+    /** `null` if the file isn't readable. */
     suspend fun read(uri: Uri): EmbeddedTags? = metadata(uri, EmbeddedTags::from)
 
-    /** Datum, Beschreibung, Untertitel und Kapitel einer Folge oder eines Buchs; `null`, wenn die Datei nicht lesbar ist. */
+    /** Date, description, subtitle and chapters of an episode or book; `null` if the file isn't readable. */
     suspend fun readSpoken(uri: Uri): SpokenTags? = metadata(uri, SpokenTags::from)
 
     private suspend fun <T> metadata(uri: Uri, parse: (List<Metadata>) -> T): T? = try {
@@ -30,7 +30,7 @@ internal class LocalTagReader(private val context: Context) {
             }
         }
     } catch (e: CancellationException) {
-        // Auch das Zeitlimit (TimeoutCancellationException) ist eine CancellationException.
+        // The timeout (TimeoutCancellationException) is also a CancellationException.
         if (e is kotlinx.coroutines.TimeoutCancellationException) null else throw e
     } catch (e: Exception) {
         Log.w(TAG, "Tags von $uri nicht lesbar", e)

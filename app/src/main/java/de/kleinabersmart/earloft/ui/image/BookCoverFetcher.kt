@@ -14,7 +14,7 @@ import de.kleinabersmart.earloft.core.data.spoken.BookCovers
 import de.kleinabersmart.earloft.core.model.AppUris
 import java.io.IOException
 
-/** Lädt `earloft://cover/book/<id>` über [BookCovers] (Server-Cover, danach aus dem Cache-Verzeichnis). */
+/** Loads `earloft://cover/book/<id>` via [BookCovers] (server cover, then from the cache directory). */
 class BookCoverFetcher(
     private val bookId: Long,
     private val options: Options,

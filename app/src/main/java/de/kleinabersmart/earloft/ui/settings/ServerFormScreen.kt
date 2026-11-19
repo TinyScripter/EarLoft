@@ -53,7 +53,7 @@ import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.ui.permission.rememberLocalNetworkRequester
 
-/** Server anlegen ([sourceId] `null`) oder bearbeiten. */
+/** Create ([sourceId] `null`) or edit a server. */
 @Composable
 fun ServerFormScreen(
     sourceId: String?,
@@ -106,7 +106,7 @@ private fun ServerFormContent(
             LinearProgressIndicator(Modifier.fillMaxWidth())
             return@Column
         }
-        // Auf niedrigen Fenstern stehen Ergebnis und Knöpfe fest unten, sonst lägen sie unter den Feldern außer Sicht.
+        // On low windows, result and buttons stay pinned at the bottom, otherwise they'd be out of sight below the fields.
         val pinned = LocalConfiguration.current.screenHeightDp < 700
         val actions: @Composable ColumnScope.() -> Unit = {
             state.result?.let { ResultText(it, state.type) }
@@ -125,7 +125,7 @@ private fun ServerFormContent(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Die Art steht nach dem Anlegen fest: Songs, Favoriten und Playlists hängen an ihr.
+            // The type is fixed after creation: songs, favorites and playlists depend on it.
             if (!state.isEditing) ServerTypeSelector(state.type, onTypeChange)
             OutlinedTextField(
                 value = state.url,
@@ -170,15 +170,15 @@ private fun ServerFormContent(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth(),
             )
-            // Unter den Textfeldern statt unter der Adresse: Der Hinweis erscheint schon beim Tippen von „http://“ und schöbe sonst
-            // die folgenden Felder weg.
+            // Below the text fields instead of below the address: the hint already appears while typing "http://" and would otherwise
+            // push the following fields away.
             if (state.isHttp) {
                 Text(
                     stringResource(R.string.add_server_http_warning),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
-                // Die ganze Zeile schaltet um; die Checkbox selbst trägt keinen Klick und keinen eigenen Namen.
+                // The whole row toggles; the checkbox itself has no click and no name of its own.
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -189,7 +189,7 @@ private fun ServerFormContent(
                     Text(stringResource(R.string.add_server_allow_http), modifier = Modifier.padding(start = 8.dp))
                 }
             }
-            // Wie die Checkbox darüber: Die ganze Zeile schaltet.
+            // Like the checkbox above: the whole row toggles.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -222,7 +222,7 @@ private fun ServerFormContent(
     }
 }
 
-/** Navidrome/Subsonic, Jellyfin oder Emby; die Zeile ist eine Auswahlgruppe für Bedienungshilfen. */
+/** Navidrome/Subsonic, Jellyfin or Emby; the row is a selection group for accessibility services. */
 @Composable
 private fun ServerTypeSelector(selected: SourceType, onSelect: (SourceType) -> Unit) {
     val label = stringResource(R.string.add_server_type)
@@ -245,7 +245,7 @@ private val SERVER_TYPES = listOf(
     SourceType.EMBY to R.string.add_server_type_emby,
 )
 
-/** Jellyfin und Emby: Das Passwort dient nur der Anmeldung, gespeichert wird der Token. */
+/** Jellyfin and Emby: the password is only used to sign in, the token is stored. */
 private val SourceType.signsIn: Boolean get() = this == SourceType.JELLYFIN || this == SourceType.EMBY
 
 @Composable

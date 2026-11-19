@@ -8,9 +8,9 @@ import kotlinx.serialization.Serializable
 import java.util.UUID
 
 /*
- * Detail-Routen tragen eine Instanz-ID: Dasselbe Album kann gleichzeitig im Start- und im
- * aktuellen Tab-Stack liegen (oder zweimal in einem Stack), braucht aber je eigenen UI-Zustand
- * und eigenes ViewModel.
+ * Detail routes carry an instance ID: the same album can be in the Home stack and the
+ * current tab stack at the same time (or twice in one stack), but needs its own UI state
+ * and its own ViewModel for each.
  */
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -27,7 +27,7 @@ data class ArtistRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
-/** Ein Genre; [name] ist eine seiner Schreibweisen (Groß-/Kleinschreibung zählt nicht). */
+/** A genre; [name] is one of its spellings (case doesn't matter). */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class GenreRoute(
@@ -49,7 +49,7 @@ data class BookRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
-/** Detailseite eines abonnierten Podcasts. */
+/** Detail page of a subscribed podcast. */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class PodcastRoute(
@@ -57,7 +57,7 @@ data class PodcastRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
-/** Info-Seite eines Podcasts (Beschreibung, Feed-Adresse). */
+/** Info page of a podcast (description, feed address). */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class PodcastInfoRoute(
@@ -66,8 +66,8 @@ data class PodcastInfoRoute(
 ) : NavKey
 
 /**
- * Suche im aktuellen Bereich (Musik, Podcasts oder Bücher), geöffnet über die Lupe im Kopf von Start und Bibliothek;
- * liegt im Stack des Tabs, aus dem sie kam.
+ * Search in the current area (music, podcasts or books), opened via the magnifier in the header of Home and Library;
+ * lives in the stack of the tab it came from.
  */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
@@ -75,7 +75,7 @@ data class SearchRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
-/** Suche in den Folgen eines Podcasts (Überschrift und Inhaltsangabe). */
+/** Search within a podcast's episodes (title and summary). */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class PodcastSearchRoute(
@@ -83,7 +83,7 @@ data class PodcastSearchRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
-/** Einstellungen eines Podcasts. */
+/** Settings of a podcast. */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class PodcastSettingsRoute(
@@ -91,14 +91,14 @@ data class PodcastSettingsRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
-/** Seite „Podcast hinzufügen“: Feed-Adresse, OPML-Import und Suche in Verzeichnissen (Konzept 12.10). */
+/** "Add podcast" page: feed address, OPML import and directory search (concept 12.10). */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class AddPodcastRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
-/** Vorschau eines Verzeichnistreffers; Titel, Autor und Bild stammen aus dem Verzeichnis, bis der Feed geladen ist. */
+/** Preview of a directory hit; title, author and image come from the directory until the feed is loaded. */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class PodcastPreviewRoute(
@@ -109,14 +109,14 @@ data class PodcastPreviewRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
-/** Seite „ARD Sounds“ in *Bücher*: Rubriken Hörbuch/Hörspiel und Suche (`books_improvements.md` M9). */
+/** "ARD Sounds" page in *Books*: audiobook/radio play categories and search (`books_improvements.md` M9). */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class ArdSoundsRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
-/** Die Bücher einer Sendung aus ARD Sounds. */
+/** The books of an ARD Sounds show. */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class ArdShowRoute(
@@ -125,7 +125,7 @@ data class ArdShowRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
-/** Vorschau eines Buchs aus ARD Sounds; [key] ist seine Kennung dort. */
+/** Preview of a book from ARD Sounds; [key] is its ID there. */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class ArdBookRoute(
@@ -136,7 +136,7 @@ data class ArdBookRoute(
 
 enum class BookGroupKind { SERIES, AUTHOR, NARRATOR, GENRE }
 
-/** Alle Bücher einer Serie, eines Autors, eines Sprechers oder eines Genres. */
+/** All books of a series, author, narrator or genre. */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class BookGroupRoute(
@@ -157,27 +157,27 @@ data object FavoritesRoute : NavKey
 @Serializable
 data object NowPlayingRoute : NavKey
 
-/** Die Musik-Warteschlange; [overPlayer]: über der Wiedergabe-Ansicht geöffnet (Vollbild), sonst von Start aus. */
+/** The music queue; [overPlayer]: opened over the playback screen (full screen), otherwise from Home. */
 @Serializable
 data class QueueRoute(val overPlayer: Boolean) : NavKey
 
-/** Die Warteschlange der Podcasts (Zeile „Weiterhören“) bearbeiten. */
+/** Edit the podcast queue ("Continue listening" row). */
 @Serializable
 data object PodcastQueueRoute : NavKey
 
-/** Die Warteschlange der Bücher (Zeile „Weiterhören“) bearbeiten. */
+/** Edit the book queue ("Continue listening" row). */
 @Serializable
 data object BookQueueRoute : NavKey
 
-/** Suche nur in der Warteschlange der Podcasts. */
+/** Search only within the podcast queue. */
 @Serializable
 data object PodcastQueueSearchRoute : NavKey
 
-/** Verlauf der gehörten Folgen (aus dem Reiter „Statistik“ der Podcasts). */
+/** History of played episodes (from the podcasts' "Statistics" tab). */
 @Serializable
 data object PodcastHistoryRoute : NavKey
 
-/** Gesammelte Lesezeichen der Bücher bzw. Folgen (aus dem Kopf der Bibliothek). */
+/** Collected bookmarks of books and episodes (from the library header). */
 @Serializable
 data class BookmarksRoute(val kind: BookKind) : NavKey
 
@@ -214,17 +214,17 @@ data object LicensesRoute : NavKey
 @Serializable
 data object PrivacyRoute : NavKey
 
-/** Seiten des Einrichtungsassistenten (Konzept 15) in ihrer Reihenfolge. */
+/** Pages of the setup wizard (concept 15) in their order. */
 enum class SetupPage { WELCOME, AREAS, MUSIC, PODCASTS, BOOKS, NOTIFICATIONS, WATCH, DESIGN, DONE }
 
 /**
- * Eine Seite des Einrichtungsassistenten. Jede Seite liegt als eigener Eintrag im Stack: „Zurück“ und die Zurück-Geste
- * führen so zur vorigen Seite, und Formulare (Server, Abo) öffnen sich darüber und kehren hierher zurück.
+ * A page of the setup wizard. Each page is a separate entry in the stack: "Back" and the back gesture
+ * thus lead to the previous page, and forms (server, subscription) open on top and return here.
  */
 @Serializable
 data class SetupRoute(val page: SetupPage) : NavKey
 
-/** Bildschirme, auf denen Bottom-Bar und Mini-Player ausgeblendet werden. */
+/** Screens on which the bottom bar and mini player are hidden. */
 val NavKey.isFullScreenPlayer: Boolean
     get() = this == NowPlayingRoute || (this is QueueRoute && overPlayer)
 

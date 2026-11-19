@@ -46,7 +46,7 @@ class PodcastSourceSwitchTest {
     private lateinit var switch: PodcastSourceSwitch
     private val renamed = mutableListOf<Map<String, String>>()
 
-    /** Eigene Antworten je Adresse; sonst liefert jeder Host [RSS]. */
+    /** Custom responses per address; otherwise every host serves [RSS]. */
     private val bodies = mutableMapOf<String, String>()
     private val requests = mutableListOf<String>()
 
@@ -121,7 +121,7 @@ class PodcastSourceSwitchTest {
 
         val feed = db.podcastDao().feed(feedId)!!
         assertEquals("ardsounds:urn:ard:show:abc", feed.url)
-        // A über die Audio-Adresse (ohne Query), B über Titel und Datum; C fehlt in ARD Sounds und war nicht angefangen.
+        // A via the audio address (without query), B via title and date; C is missing in ARD Sounds and wasn't started.
         assertEquals("urn:ard:publication:a", db.bookDao().book(a)!!.remoteId)
         assertEquals("urn:ard:publication:b", db.bookDao().book(b)!!.remoteId)
         assertEquals(listOf("Folge A (Wiederholung)", "Folge B", "Folge D"), db.bookDao().booksOf(feedId).map { it.title }.sorted())
@@ -143,7 +143,7 @@ class PodcastSourceSwitchTest {
             renamed,
         )
         assertTrue(user.userDataDao().progress().none { it.remoteId == "guid-B" })
-        // Ein erneuter Abgleich lässt alles, wie es ist.
+        // Syncing again leaves everything as it is.
         repository.refresh(feedId)
         assertEquals(b, idOf(feedId, "Folge B"))
     }
@@ -190,7 +190,7 @@ class PodcastSourceSwitchTest {
         bodies[OLD_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$NEW_FEED_URL")
         bodies[NEW_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$spelledBack")
 
-        // Sonst zieht das Abo um und beim nächsten Prozess wieder zurück, jedes Mal mit neuen Kennungen und Statistik.
+        // Otherwise the subscription moves and moves back on the next process, each time with new identifiers and statistics.
         assertEquals(false, switch.follow(feedId, NEW_URL))
         assertEquals(OLD_URL, db.podcastDao().feed(feedId)!!.url)
     }

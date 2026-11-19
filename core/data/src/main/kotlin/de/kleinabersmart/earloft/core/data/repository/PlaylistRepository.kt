@@ -20,8 +20,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Playlists (Konzept 5.4/6.4): lokal oder mit genau einem Server verknüpft. Jede Änderung an einer
- * Server-Playlist reiht ein `UPSERT_PLAYLIST` ein, das den vollständigen Stand sendet.
+ * Playlists (concept 5.4/6.4): local or linked to exactly one server. Every change to a
+ * server playlist enqueues an `UPSERT_PLAYLIST` that sends the complete state.
  */
 @Singleton
 class PlaylistRepository @Inject constructor(
@@ -32,7 +32,7 @@ class PlaylistRepository @Inject constructor(
 ) {
     fun playlists(): Flow<List<Playlist>> = playlistDao.observePlaylistRows().map { rows -> rows.map { it.toPlaylist() } }
 
-    /** `null`, sobald die Playlist gelöscht ist. */
+    /** `null` once the playlist is deleted. */
     fun playlist(playlistId: Long): Flow<PlaylistDetails?> =
         combine(playlistDao.observePlaylistRow(playlistId), playlistDao.observeEntryRows(playlistId)) { row, entries ->
             row?.let {
@@ -43,7 +43,7 @@ class PlaylistRepository @Inject constructor(
             }
         }
 
-    /** @param serverSourceId Server, auf dem die Playlist angelegt wird; `null` = nur auf diesem Gerät. */
+    /** @param serverSourceId Server on which the playlist is created; `null` = only on this device. */
     suspend fun create(name: String, serverSourceId: String?, songIds: List<Long> = emptyList()): Long =
         change {
             val playlistId = playlistDao.insertPlaylist(
@@ -78,14 +78,14 @@ class PlaylistRepository @Inject constructor(
     }
 
     /**
-     * Neue Reihenfolge: [entryIds] in der gewünschten Folge (Einträge, nicht Songs – ein Song kann mehrfach vorkommen).
-     * Einträge, die [entryIds] nicht nennt (z. B. gerade vom Abgleich hinzugekommen), bleiben vorn. Eine Server-Playlist
-     * wird als Ganzes neu gesendet.
+     * New order: [entryIds] in the desired sequence (entries, not songs – a song can appear more than once).
+     * Entries not named by [entryIds] (e.g. just added by the sync) stay at the front. A server playlist
+     * is resent as a whole.
      */
     suspend fun reorder(playlistId: Long, entryIds: List<Long>) {
         if (entryIds.isEmpty()) return
         change {
-            // Hinter alle bisherigen Stellen, damit keine Stelle doppelt vergeben wird.
+            // After all previous positions, so no position is assigned twice.
             val start = playlistDao.nextPosition(playlistId)
             entryIds.forEachIndexed { index, entryId -> playlistDao.setPosition(playlistId, entryId, start + index) }
             playlistDao.touch(playlistId, System.currentTimeMillis())
@@ -93,7 +93,7 @@ class PlaylistRepository @Inject constructor(
         }
     }
 
-    /** Auf dem Server wird sie ebenfalls gelöscht – falls sie dort schon angelegt war. */
+    /** It is deleted on the server as well – if it had already been created there. */
     suspend fun delete(playlistId: Long) {
         val queued = database.withTransaction {
             val playlist = playlistDao.getPlaylist(playlistId) ?: return@withTransaction false
@@ -108,7 +108,7 @@ class PlaylistRepository @Inject constructor(
         if (queued) scheduler.enqueue()
     }
 
-    /** Führt [block] in einer Transaktion aus und reiht für Server-Playlists das Senden ein. */
+    /** Runs [block] in a transaction and enqueues sending for server playlists. */
     private suspend fun change(block: suspend () -> Long): Long {
         var queued = false
         val playlistId = database.withTransaction {

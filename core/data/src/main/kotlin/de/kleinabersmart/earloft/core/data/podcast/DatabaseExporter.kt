@@ -18,18 +18,18 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Was ein Export geschrieben hat: Podcasts (auch archivierte) und Folgen. */
+/** What an export wrote: podcasts (including archived ones) and episodes. */
 data class DatabaseExportResult(val feeds: Int, val episodes: Int)
 
 /**
- * Schreibt Abos (samt Tempo, Effekten, Intro und Ende, [ExchangeEffects]), Hörfortschritt, gehörte Zeit und gemerkte Folgen in eine SQLite-Datei mit genau den Tabellen, die [DatabaseReader] liest
- * (`Feeds`, `FeedItems`, `FeedMedia`, `Favorites`; dazu leere Hilfstabellen im selben Format). Der Export ist das Gegenstück zum Import.
+ * Writes subscriptions (including speed, effects, intro and outro, [ExchangeEffects]), listening progress, listened time and saved episodes into an SQLite file with exactly the tables [DatabaseReader] reads
+ * (`Feeds`, `FeedItems`, `FeedMedia`, `Favorites`; plus empty helper tables in the same format). The export is the counterpart of the import.
  *
- * - Podcasts vom Gerät fehlen (kein Feed). Archivierte Abos gehen als archiviert mit, samt Folgen und Fortschritt.
- * - Sendungen aus ARD Sounds stehen wie im OPML-Export als Feed der RSS-Bridge darin, damit auch andere Apps sie abonnieren
- *   können; der Import macht daraus wieder `ardsounds:<Kennung>`. Ohne Bridge gehen sie als archiviert mit.
- * - Gehörte Zeit, deren Folge oder Podcast es in der App nicht mehr gibt, steht unter der Feed-Adresse der Statistik
- *   (ein Podcast ohne Abo als archiviert), damit sie nicht verloren geht. Ihr „gehört“-Stand ist nicht bekannt.
+ * - Podcasts from the device are missing (no feed). Archived subscriptions are included as archived, with episodes and progress.
+ * - Shows from ARD Sounds are included as an RSS bridge feed, as in the OPML export, so that other apps can subscribe to them
+ *   too; the import turns them back into `ardsounds:<id>`. Without a bridge they are included as archived.
+ * - Listened time whose episode or podcast no longer exists in the app is stored under the statistics' feed URL
+ *   (a podcast without a subscription as archived), so it isn't lost. Its "played" state is unknown.
  */
 @Singleton
 class DatabaseExporter @Inject constructor(
@@ -38,7 +38,7 @@ class DatabaseExporter @Inject constructor(
     private val statsDao: StatsDao,
     private val settings: SpokenSettings,
 ) {
-    /** Schreibt nach [file] (eine vorhandene Datei wird ersetzt); [rssBridge]: Instanz für Sendungen aus ARD Sounds, `null` = keine. */
+    /** Writes to [file] (an existing file is replaced); [rssBridge]: instance for shows from ARD Sounds, `null` = none. */
     suspend fun export(file: File, rssBridge: String?): DatabaseExportResult {
         val feeds = buildFeeds(rssBridge)
         withContext(Dispatchers.IO) {
@@ -93,13 +93,13 @@ class DatabaseExporter @Inject constructor(
 
     private suspend fun buildFeeds(rssBridge: String?): List<OutFeed> {
         val progress = bookDao.observeAllProgress().first().associateBy { it.bookId }
-        // Das Austauschformat kennt keine Vorgabe der Lautstärke (Stufe 0 gilt dort ausdrücklich); es geht mit, was man hört.
+        // The exchange format has no volume default (level 0 explicitly applies there); what is heard is exported.
         val areaBoostDb = settings.podcastEffects.first().volumeBoostDb
         val stats = statsDao.all().filter { it.kind == BookKind.EPISODE }.groupBy { it.groupKey to it.itemKey }.toMutableMap()
 
         val result = LinkedHashMap<String, OutFeed>()
         for (feed in podcastDao.keptFeeds().filter { !it.feedId.startsWith(LOCAL_FEED_PREFIX) }.sortedBy { it.title.lowercase() }) {
-            // `ardsounds:` kann keine andere App abonnieren: als Feed der Bridge, ohne Bridge archiviert (samt Folgen und Fortschritt).
+            // No other app can subscribe to `ardsounds:`: as a bridge feed, archived without a bridge (with episodes and progress).
             val bridgeUrl = ardSoundsShowId(feed.url)?.let { show -> rssBridge?.let { ardSoundsBridgeUrl(it, show) } }
             val out = OutFeed(
                 bridgeUrl ?: feed.url, feed.title, feed.author, feed.description, feed.imageUrl, feed.autoDownload,
@@ -133,7 +133,7 @@ class DatabaseExporter @Inject constructor(
                 )
             }
         }
-        // Gehörte Zeit ohne Folge in der App: unter ihrem Podcast, notfalls unter einem archivierten.
+        // Listened time without an episode in the app: under its podcast, or an archived one if needed.
         for ((key, rows) in stats) {
             val (groupKey, itemKey) = key
             val out = result.getOrPut(groupKey) {
@@ -235,7 +235,7 @@ class DatabaseExporter @Inject constructor(
         }
     }
 
-    // Ist die Folge zu Ende gehört, steht die Position am Anfang (so liest sie auch der Import als „gehört“).
+    // If the episode has been played to the end, the position is at the start (that's also how the import reads it as "played").
     private fun BookProgressEntity?.openPosition(): Long = if (this == null || finished) 0 else positionMs
 
     private fun List<ListeningStatEntity>?.totalMs(): Long = this?.sumOf { it.listenedMs } ?: 0
@@ -246,7 +246,7 @@ class DatabaseExporter @Inject constructor(
         const val STATE_ACTIVE = 0
         const val STATE_ARCHIVED = 2
 
-        /** Versionsnummer des Tabellenformats (`PRAGMA user_version`). */
+        /** Version number of the table format (`PRAGMA user_version`). */
         const val FORMAT_VERSION = 3110000
 
         val SCHEMA = listOf(

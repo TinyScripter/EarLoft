@@ -68,8 +68,8 @@ import de.kleinabersmart.earloft.wear.WatchSetup
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Die Seiten, die auf diesem Gerät, für die eingeschalteten Bereiche ([areas]) und mit bzw. ohne Uhr ([watch]) vorkommen,
- * in ihrer Reihenfolge.
+ * The pages that apply on this device, for the enabled areas ([areas]) and with or without a watch ([watch]),
+ * in their order.
  */
 internal fun visibleSetupPages(areas: List<SpokenMode>, watch: Boolean): List<SetupPage> = SetupPage.entries.filter { page ->
     when (page) {
@@ -83,17 +83,17 @@ internal fun visibleSetupPages(areas: List<SpokenMode>, watch: Boolean): List<Se
 }
 
 /**
- * Die Seiten wie [visibleSetupPages], die gerade gezeigte [current] immer dabei: Solange Bereiche oder Uhr noch laden, fehlte sie
- * sonst („Schritt 1“, kein „Zurück“, „Weiter“ an die falsche Stelle, Review D27). [watch] `null`: noch unbekannt.
+ * The pages like [visibleSetupPages], always including the currently shown [current]: while areas or watch are still loading,
+ * it would otherwise be missing ("Step 1", no "Back", "Next" to the wrong place, review D27). [watch] `null`: not yet known.
  */
 internal fun setupPages(areas: List<SpokenMode>, watch: WatchSetup?, current: SetupPage): List<SetupPage> =
     visibleSetupPages(areas, watch = watch != null && watch != WatchSetup.NONE)
         .let { pages -> if (current in pages) pages else (pages + current).sortedBy { it.ordinal } }
 
 /**
- * Eine Seite des Einrichtungsassistenten (Konzept 15). Jede Einstellung darauf wirkt sofort; Beenden verwirft deshalb
- * nichts. [onNext] öffnet die folgende Seite, [onFinish] beendet den Assistenten, [onSkip] fragt vorher nach. Die
- * `on…`-Formulare öffnen sich über dem Assistenten und kehren mit „Zurück“ hierher zurück.
+ * One page of the setup wizard (concept 15). Every setting on it takes effect immediately; finishing therefore discards
+ * nothing. [onNext] opens the next page, [onFinish] ends the wizard, [onSkip] asks first. The
+ * `on…` forms open on top of the wizard and return here with "Back".
  */
 @Composable
 fun SetupScreen(
@@ -115,18 +115,18 @@ fun SetupScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val watch by watchViewModel.watch.collectAsStateWithLifecycle()
     val watchSettings by watchViewModel.settings.collectAsStateWithLifecycle()
-    // Nur die Bücher-Seite listet Audiobookshelf-Server; die Seite eines Eintrags wechselt nie.
+    // Only the books page lists Audiobookshelf servers; an entry's page never changes.
     val absServers = if (page == SetupPage.BOOKS) {
         val list by hiltViewModel<AudiobookshelfViewModel>().list.collectAsStateWithLifecycle()
         list.valueOrNull.orEmpty()
     } else {
         emptyList()
     }
-    // Einschalten erst mit Berechtigung, wie auf den Einstellungsseiten.
+    // Enable only with permission, as on the settings pages.
     val requestLocalMusic = rememberAudioPermissionRequester { if (it) viewModel.setUseLocalMedia(true) }
     val requestLocalPodcasts = rememberAudioPermissionRequester { if (it) viewModel.setUseLocalPodcasts(true) }
     val requestLocalBooks = rememberAudioPermissionRequester { if (it) viewModel.setUseLocalBooks(true) }
-    // Einspielen wie in den Einstellungen; die Ergebnisse melden Snackbars.
+    // Import as in the settings; snackbars report the results.
     val restoreBackup = rememberFullBackupImport(backupViewModel)
     FullBackupMessagesEffect(backupViewModel)
     val podcastDatabaseLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -184,7 +184,7 @@ private fun SetupContent(
     SetupScaffold(
         step = index + 1,
         steps = pages.size,
-        // Bis Bereiche und Uhr bekannt sind, stimmt die Zahl der Schritte noch nicht.
+        // Until areas and watch are known, the number of steps isn't right yet.
         stepsKnown = !state.isLoading && watch != null,
         nextLabel = when (page) {
             SetupPage.WELCOME -> R.string.setup_start
@@ -210,7 +210,7 @@ private fun SetupContent(
     }
 }
 
-/** Kopf mit Fortschritt und „Überspringen“, die Seite als Liste, unten „Zurück“ und „Weiter“. */
+/** Header with progress and "Skip", the page as a list, "Back" and "Next" at the bottom. */
 @Composable
 private fun SetupScaffold(
     step: Int,
@@ -257,12 +257,12 @@ private fun SetupScaffold(
     }
 }
 
-/** Wenig Höhe (Handy quer): Kopf, Bild und Abstände kleiner, damit von der Seite selbst genug zu sehen ist. */
+/** Little height (phone in landscape): header, image and spacing smaller, so enough of the page itself is visible. */
 @Composable
 private fun isLowHeight(): Boolean =
     !currentWindowAdaptiveInfoV2().windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
 
-/** Überschrift einer Seite: Bild (oder Logo), Titel und ein kurzer Text, mittig. Bei wenig Höhe ohne Symbol. */
+/** Heading of a page: image (or logo), title and a short text, centered. Without icon when height is limited. */
 internal fun LazyListScope.pageHeader(title: Int, text: Int, icon: Int? = null, logo: Boolean = false) {
     item(key = "header") {
         val lowHeight = isLowHeight()
@@ -299,7 +299,7 @@ internal fun LazyListScope.pageHeader(title: Int, text: Int, icon: Int? = null, 
     }
 }
 
-/** Ein Hinweis unter der Überschrift oder einer Gruppe, kleiner. */
+/** A hint below the heading or a group, smaller. */
 internal fun LazyListScope.pageHint(key: String, text: Int) {
     item(key = key) {
         Text(
@@ -315,7 +315,7 @@ internal fun LazyListScope.pageHint(key: String, text: Int) {
 private fun LazyListScope.welcomePage(actions: SetupActions) {
     pageHeader(R.string.setup_welcome_title, R.string.setup_welcome_text, logo = true)
     pageHint("hint", R.string.setup_welcome_hint)
-    // Wer schon eine Sicherung hat, spielt sie gleich ein; die folgenden Seiten zeigen dann, was zurückkam.
+    // Anyone who already has a backup restores it right away; the following pages then show what came back.
     group("backup", R.string.settings_section_backup) {
         row("restore") {
             ActionRow(
@@ -333,7 +333,7 @@ private fun LazyListScope.notificationsPage() {
     item(key = "allow") { NotificationsAllow() }
 }
 
-/** „Erlauben“ bzw. der Hinweis, dass es erlaubt ist; auch nach dem Erlauben in den Systemeinstellungen. */
+/** "Allow" or the note that it is allowed; also after allowing it in the system settings. */
 @Composable
 private fun NotificationsAllow() {
     val context = LocalContext.current
@@ -362,7 +362,7 @@ private fun LazyListScope.donePage() {
     pageHeader(R.string.setup_done_title, R.string.setup_done_text, icon = DesignR.drawable.ic_check)
 }
 
-/** Nachfrage vor dem Beenden über „Überspringen“ oder „Zurück“ auf der ersten Seite. */
+/** Confirmation before finishing via "Skip" or "Back" on the first page. */
 @Composable
 fun SetupExitDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(

@@ -42,7 +42,7 @@ class BookCoversTest {
     private lateinit var db: EarLoftDatabase
     private lateinit var covers: BookCovers
 
-    /** Bilder im Netz nach Adresse; alles andere gibt 404. */
+    /** Images on the network by address; everything else returns 404. */
     private val images = mapOf(
         EPISODE_IMAGE to byteArrayOf(1, 2, 3),
         FEED_IMAGE to byteArrayOf(7, 8, 9),
@@ -50,7 +50,7 @@ class BookCoversTest {
         COLLIDING_B to byteArrayOf(11),
     )
 
-    /** Angefragte Adressen. */
+    /** Requested addresses. */
     private val requested = mutableListOf<String>()
 
     @Before
@@ -122,7 +122,7 @@ class BookCoversTest {
 
     @Test
     fun `book from the phone storage has no cover on the watch until it is stored`() = runTest {
-        // Auf der Uhr ist die Datei eine Kennung des Handys, keine content://-Adresse.
+        // On the watch the file is a phone identifier, not a content:// address.
         val id = db.bookDao().upsertBook(book(LOCAL_BOOK_SERVER_ID, "Buch"))
         db.bookDao().insertTracks(listOf(BookTrackEntity(id, 0, "book:local:Buch:0", 0, 1_000)))
         assertNull(covers.coverBytes(id))
@@ -134,7 +134,7 @@ class BookCoversTest {
     fun `thumbnail only comes from the cache`() = runTest {
         val id = episode("f1", "g1", coverUrl = EPISODE_IMAGE)
         assertNull(covers.thumbnail(id, 96))
-        // Das Bild ist im Netz, aber die Liste hat es nicht geladen.
+        // The image is on the network, but the list didn't download it.
         assertArrayEquals(byteArrayOf(1, 2, 3), covers.coverBytes(id))
     }
 
@@ -254,7 +254,7 @@ class BookCoversTest {
         const val FEED_IMAGE = "https://example.org/abo.jpg"
         const val BROKEN_IMAGE = "https://example.org/kaputt.jpg"
 
-        // "Aa" und "BB" haben denselben `hashCode`.
+        // "Aa" and "BB" have the same `hashCode`.
         const val COLLIDING_A = "https://example.org/Aa.jpg"
         const val COLLIDING_B = "https://example.org/BB.jpg"
     }

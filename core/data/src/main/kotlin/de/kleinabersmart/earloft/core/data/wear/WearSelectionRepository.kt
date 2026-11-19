@@ -23,8 +23,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Was am Handy für die Uhr ausgewählt ist (Wear-Konzept 5) und was daraus folgt. Gilt für alle
- * gekoppelten Uhren (W3). Das Auflösen einer Auswahl in Songs und Quellen gibt es nur hier.
+ * What is selected on the phone for the watch (Wear concept 5) and what follows from it. Applies to all
+ * paired watches (W3). Resolving a selection into songs and sources only happens here.
  */
 @Singleton
 class WearSelectionRepository @Inject constructor(
@@ -32,7 +32,7 @@ class WearSelectionRepository @Inject constructor(
     private val wearDao: WearDao,
     private val playlistDao: PlaylistDao,
 ) {
-    /** Schlüssel der Auswahlen ([WearSelectionKind.key]). */
+    /** Keys of the selections ([WearSelectionKind.key]). */
     fun selectedKeys(): Flow<Set<String>> =
         wearDao.observeSelections().map { selections -> selections.mapTo(HashSet()) { it.key } }
 
@@ -42,7 +42,7 @@ class WearSelectionRepository @Inject constructor(
             wearDao.delete(key)
             return
         }
-        // Erneutes Auswählen behält den ursprünglichen Zeitpunkt (Download-Reihenfolge auf der Uhr).
+        // Selecting again keeps the original timestamp (download order on the watch).
         database.withTransaction {
             if (wearDao.getSelection(key) == null) {
                 wearDao.upsert(WearSelectionEntity(key, kind, refId, addedAt = System.currentTimeMillis()))
@@ -53,9 +53,9 @@ class WearSelectionRepository @Inject constructor(
     suspend fun clear() = wearDao.deleteAll()
 
     /**
-     * [load], neu bei jeder Änderung der beteiligten Tabellen („lebende Auswahl“). Gedrosselt: Ein
-     * Abgleich ändert die Tabellen in vielen Transaktionen; dazwischen wird höchstens alle
-     * [THROTTLE_MS] neu aufgelöst, der letzte Stand kommt immer an.
+     * [load], emitted anew on every change of the involved tables ("live selection"). Throttled: a
+     * sync changes the tables in many transactions; in between it re-resolves at most every
+     * [THROTTLE_MS], the last state always arrives.
      */
     fun content(): Flow<WearContent> =
         database.invalidationTracker.createFlow(*OBSERVED_TABLES)
@@ -67,8 +67,8 @@ class WearSelectionRepository @Inject constructor(
             .distinctUntilChanged()
 
     /**
-     * Löst alle Auswahlen auf. Auswahlen, deren Album bzw. Playlist es nicht mehr gibt, werden dabei
-     * entfernt (ein Fremdschlüssel geht nicht, weil `refId` auf zwei Tabellen zeigt).
+     * Resolves all selections. Selections whose album or playlist no longer exists are
+     * removed in the process (a foreign key isn't possible because `refId` points to two tables).
      */
     suspend fun load(): WearContent = database.withTransaction {
         wearDao.deleteDangling()
@@ -88,7 +88,7 @@ class WearSelectionRepository @Inject constructor(
                 val playlist = refId?.let { playlistDao.getPlaylist(it) } ?: return null
                 playlist.name to playlistDao.getSongIds(refId)
             }
-            // Favorisierte Alben kommen ganz mit (wie beim automatischen Download am Handy), hinter den favorisierten Songs.
+            // Favorited albums come along in full (like the automatic download on the phone), after the favorited songs.
             WearSelectionKind.FAVORITES -> "" to (wearDao.getFavoriteSongIds() + wearDao.getFavoriteAlbumSongIds()).distinct()
         }
         return WearSelectionContent(selection.key, selection.kind, refId, title, songIds)
@@ -115,7 +115,7 @@ class WearSelectionRepository @Inject constructor(
         val servers = sources.filter { it.sourceType.isServer }
         val phoneFile = sources.firstOrNull { it.sourceType == SourceType.LOCAL }
             ?.let { WearPhoneFile(it.uid, it.sizeBytes, it.mimeType) }
-            // Wie beim Abspielen: Fehlt die Datei (vom System gelöscht), gilt der Download nicht.
+            // As during playback: if the file is missing (deleted by the system), the download doesn't count.
             ?: servers.firstOrNull { it.downloadPath?.let(::File)?.isFile == true }
                 ?.let { WearPhoneFile(it.uid, it.downloadBytes ?: it.sizeBytes, it.mimeType) }
         return WearSongContent(
@@ -152,7 +152,7 @@ class WearSelectionRepository @Inject constructor(
         const val THROTTLE_MS = 2_000L
         const val MAX_SQL_VARIABLES = 900
 
-        /** Alles, wovon Auswahlen, Song-Angaben und Quellen abhängen. */
+        /** Everything the selections, song details and sources depend on. */
         val OBSERVED_TABLES = arrayOf(
             "wear_selections", "albums", "songs", "song_sources", "song_artists", "artists",
             "playlists", "playlist_entries", "downloads", "sources",

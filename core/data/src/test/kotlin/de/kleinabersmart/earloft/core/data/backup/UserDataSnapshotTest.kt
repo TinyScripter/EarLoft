@@ -14,7 +14,7 @@ class UserDataSnapshotTest {
 
     @Test
     fun `a restored finished book takes its last change as the time it was finished`() {
-        // Die Sicherung kennt kein `finishedAt`; ohne es rückte „Aus Weiterhören entfernen“ das Löschen der Downloads (Review F39).
+        // The backup knows no `finishedAt`; without it "Remove from Continue listening" would postpone deleting the downloads (review F39).
         assertEquals(1_000L, progress(finished = true).toMain(bookId = 7).finishedAt)
         assertNull(progress(finished = false).toMain(bookId = 7).finishedAt)
     }

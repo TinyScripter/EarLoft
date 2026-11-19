@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Favoriten von Alben und Künstlern (Konzept 8 „Favoriten“); Songs haben ihr Herz an jedem Song selbst. */
+/** Favorites of albums and artists (concept 8 "Favorites"); songs have their heart on each song itself. */
 @Stable
 class CollectionFavoritesController(
     private val albums: State<Set<Long>>,
@@ -40,7 +40,7 @@ class CollectionFavoritesController(
     }
 }
 
-/** `null` (Vorschau, Tests): keine Herzen an Alben und Künstlern. */
+/** `null` (preview, tests): no hearts on albums and artists. */
 val LocalCollectionFavorites = staticCompositionLocalOf<CollectionFavoritesController?> { null }
 
 @HiltViewModel
@@ -65,7 +65,7 @@ fun rememberCollectionFavorites(viewModel: CollectionFavoritesViewModel = hiltVi
     return remember(viewModel) { CollectionFavoritesController(albums, artists, viewModel::toggle) }
 }
 
-/** Herz für die TopAppBar der Album- bzw. Künstlerseite; ohne [LocalCollectionFavorites] unsichtbar. */
+/** Heart for the TopAppBar of the album or artist page; invisible without [LocalCollectionFavorites]. */
 @Composable
 fun CollectionFavoriteButton(kind: FavoriteKind, id: Long) {
     val controller = LocalCollectionFavorites.current ?: return
@@ -78,7 +78,7 @@ fun CollectionFavoriteButton(kind: FavoriteKind, id: Long) {
     }
 }
 
-/** Eintrag „Zu Favoriten“ bzw. „Aus Favoriten entfernen“ für die Kontextmenüs; ohne [LocalCollectionFavorites] unsichtbar. */
+/** "Add to favorites" or "Remove from favorites" entry for the context menus; invisible without [LocalCollectionFavorites]. */
 @Composable
 fun CollectionFavoriteMenuItem(kind: FavoriteKind, id: Long, onDismiss: () -> Unit) {
     val controller = LocalCollectionFavorites.current ?: return

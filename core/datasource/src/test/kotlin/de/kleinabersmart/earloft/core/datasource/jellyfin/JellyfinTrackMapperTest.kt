@@ -27,7 +27,7 @@ class JellyfinTrackMapperTest {
         variousArtists = "Verschiedene Künstler",
     )
 
-    /** Wie ein Song vom Testserver (Jellyfin 12.4), gekürzt. */
+    /** Like a song from the test server (Jellyfin 12.4), shortened. */
     private val song = JfItem(
         id = "s1",
         name = "20th Century Fox Fanfare",
@@ -125,7 +125,7 @@ class JellyfinTrackMapperTest {
         assertEquals("Unbekanntes Album", track.albumTitle)
         assertEquals(1, track.discNumber)
         assertNull(JellyfinTrackMapper.map(JfItem(id = "s3", type = "Audio"), names).coverRemoteId)
-        // Emby nennt den Bild-Tag des Albums nie: ohne eigenes Bild das Album ohne Tag.
+        // Emby never names the album's image tag: without its own image, the album has no tag.
         assertEquals("al4", JellyfinTrackMapper.map(JfItem(id = "s4", type = "Audio", albumId = "al4"), names).coverRemoteId)
     }
 

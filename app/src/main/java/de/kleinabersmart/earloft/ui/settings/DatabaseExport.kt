@@ -23,8 +23,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * „Datenbank exportieren“ aus den Einstellungen und vor dem Wechsel der Quelle eines Abos: dieselbe Datei. Läuft im App-Scope zu
- * Ende, auch wenn die Seite vorher geht; die temporäre Datei gehört dem Auftrag (je Export eine eigene).
+ * "Export database" from the settings and before switching a subscription's source: the same file. Runs to completion in the app scope,
+ * even if the page goes away first; the temporary file belongs to the job (a separate one per export).
  */
 @Singleton
 class DatabaseExport @Inject constructor(
@@ -33,7 +33,7 @@ class DatabaseExport @Inject constructor(
     private val podcastSettings: PodcastSettings,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) {
-    /** @return was geschrieben wurde; `null`, wenn der Export scheiterte. */
+    /** @return what was written; `null` if the export failed. */
     suspend fun export(uri: Uri): DatabaseExportResult? = try {
         applicationScope.async {
             val file = withContext(Dispatchers.IO) { File.createTempFile("export", ".db", context.cacheDir) }
@@ -63,7 +63,7 @@ class DatabaseExport @Inject constructor(
     }
 }
 
-/** Meldung nach dem Export (Einstellungen und Quellwechsel); [result] `null` = fehlgeschlagen. */
+/** Message after the export (settings and source switch); [result] `null` = failed. */
 fun databaseExportMessage(resources: Resources, result: DatabaseExportResult?): String =
     if (result == null) {
         resources.getString(R.string.settings_db_export_failed)

@@ -24,29 +24,29 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Ergebnis von „Auf Handy öffnen“. */
+/** Result of "Open on phone". */
 enum class OpenOnPhoneResult { OPENED, FAILED }
 
 data class StartUiState(
     val phone: PhoneStatus = PhoneStatus.Checking,
-    /** Auswahlen vom Handy in dessen Reihenfolge; dann zeigt die Uhr sie, auch ohne Handy. */
+    /** Selections from the phone in its order; then the watch shows them, even without the phone. */
     val selections: List<SelectionItem> = emptyList(),
     val openOnPhone: OpenOnPhoneResult? = null,
-    /** Titel bzw. Folge, die gerade auf der Uhr läuft; `null`, solange nichts geladen ist. */
+    /** Track or episode currently playing on the watch; `null` as long as nothing is loaded. */
     val nowPlaying: String? = null,
-    /** Titel, der gerade auf dem Handy läuft (Fernsteuerung). */
+    /** Track currently playing on the phone (remote control). */
     val phoneNowPlaying: String? = null,
-    /** Es liegen Folgen vom Handy auf der Uhr (Wear-Konzept 16.1). */
+    /** There are episodes from the phone on the watch (Wear concept 16.1). */
     val hasEpisodes: Boolean = false,
-    /** Es liegen offene Hörbücher vom Handy auf der Uhr (Wear-Konzept 16.2). */
+    /** There are open audiobooks from the phone on the watch (Wear concept 16.2). */
     val hasBooks: Boolean = false,
-    /** Am Handy eingeschaltete Bereiche (Allgemein → Bereiche); die anderen fehlen auf der Uhr und am Handy. */
+    /** Sections enabled on the phone (General → Sections); the others are missing on the watch and on the phone. */
     val areas: List<SpokenMode> = SpokenMode.entries,
 ) {
-    /** Die Fernsteuerung gibt es, solange ein Handy mit der App verbunden ist. */
+    /** The remote control exists as long as a phone with the app is connected. */
     val phoneConnected: Boolean get() = phone is PhoneStatus.Connected
 
-    /** Musik ist ausgewählt, auch wenn sie noch lädt. */
+    /** Music is selected, even if it is still downloading. */
     val hasMusic: Boolean get() = selections.isNotEmpty()
 
     val hasContent: Boolean get() = hasMusic || hasEpisodes || hasBooks
@@ -65,9 +65,9 @@ class StartViewModel @Inject constructor(
 
     private val openOnPhone = MutableStateFlow<OpenOnPhoneResult?>(null)
 
-    /** Was gerade auf dem Handy läuft und ob Folgen bzw. Bücher auf der Uhr liegen; zusammengefasst, damit `combine` typsicher bleibt. */
-    // Die Room-Quellen einzeln abgesichert (orOnError): Kann die Uhr ihre Inhalte nicht lesen, bleiben Handy und Fernsteuerung
-    // bedienbar, statt dass die App beendet wird.
+    /** What is currently playing on the phone and whether episodes or books are on the watch; combined so that `combine` stays type-safe. */
+    // The Room sources are guarded individually (orOnError): if the watch cannot read its content, phone and remote control
+    // stay usable instead of the app being terminated.
     private val phoneAndSpoken = combine(
         remote.state,
         continueListening.episodes.orOnError(emptyList()),
@@ -93,7 +93,7 @@ class StartViewModel @Inject constructor(
             hasBooks = hasBooks,
         )
     }.combine(watchState.settings.map { it.areas }.distinctUntilChanged()) { state, areas ->
-        // Ausgeblendete Bereiche zeigt der Start nicht; was davon auf der Uhr liegt, bleibt dort (Speicher & Downloads).
+        // The start screen does not show hidden sections; whatever of them is on the watch stays there (Storage & downloads).
         state.copy(
             selections = state.selections.takeIf { SpokenMode.MUSIC in areas }.orEmpty(),
             hasEpisodes = state.hasEpisodes && SpokenMode.PODCASTS in areas,

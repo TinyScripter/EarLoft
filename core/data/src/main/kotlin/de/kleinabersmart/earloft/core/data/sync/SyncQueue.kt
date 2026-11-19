@@ -44,12 +44,12 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Startet die Abarbeitung der Sync-Queue (Konzept 6.4). */
+/** Starts processing the sync queue (concept 6.4). */
 interface SyncScheduler {
-    /** Neue Aktion: Ein laufender Durchgang hat sie vielleicht nicht mehr gesehen, deshalb einer danach. */
+    /** New action: a running pass may not have seen it anymore, so one more afterwards. */
     suspend fun enqueue()
 
-    /** Ausstehendes nachholen: Ein wartender oder laufender Durchgang genügt. */
+    /** Catch up on pending items: a waiting or running pass suffices. */
     suspend fun resume() = enqueue()
 }
 
@@ -59,7 +59,7 @@ internal class WorkManagerSyncScheduler @Inject constructor(
 ) : SyncScheduler {
     override suspend fun enqueue() = enqueue(ExistingWorkPolicy.APPEND_OR_REPLACE)
 
-    // Nach jedem Abgleich: APPEND hängte sonst jedes Mal einen weiteren Durchgang an einen, der im Backoff wartet.
+    // After every sync: otherwise APPEND would each time append another pass to one waiting in backoff.
     override suspend fun resume() = enqueue(ExistingWorkPolicy.KEEP)
 
     private fun enqueue(policy: ExistingWorkPolicy) {
@@ -81,7 +81,7 @@ internal val Context.syncSettingsDataStore: DataStore<Preferences> by preference
 class SyncSettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
-    /** Gehörte Titel an den Server melden (Navidrome leitet sie ggf. an Last.fm/ListenBrainz weiter). */
+    /** Report played tracks to the server (Navidrome forwards them to Last.fm/ListenBrainz if configured). */
     val scrobble: Flow<Boolean> = context.syncSettingsDataStore.data.map { it[KEY_SCROBBLE] ?: true }
 
     suspend fun setScrobble(enabled: Boolean) {
@@ -94,9 +94,9 @@ class SyncSettings @Inject constructor(
 }
 
 /**
- * Sendet die gesammelten Aktionen an die Server. Ist ein Server nicht erreichbar, bleiben seine
- * Aktionen liegen, die anderer Server werden trotzdem gesendet. Aktionen, die der Server ablehnt
- * (z. B. Song gelöscht), oder die zu oft gescheitert sind, werden verworfen.
+ * Sends the collected actions to the servers. If a server is unreachable, its
+ * actions stay queued; those of other servers are sent anyway. Actions the server rejects
+ * (e.g. song deleted), or that failed too often, are discarded.
  */
 class SyncQueueProcessor @Inject constructor(
     private val database: EarLoftDatabase,
@@ -106,14 +106,14 @@ class SyncQueueProcessor @Inject constructor(
     private val sources: MusicDataSources,
     private val notices: SyncNotices,
 ) {
-    /** @return `true`, wenn nichts mehr aussteht, das später erneut versucht werden sollte. */
+    /** @return `true` if nothing is pending anymore that should be retried later. */
     suspend fun process(): Boolean {
         val unreachable = mutableSetOf<String>()
         for (action in syncDao.getActions()) {
             if (action.sourceId in unreachable) continue
             val remote = sources[action.sourceId] as? RemoteLibraryActions
             if (remote == null) {
-                // Server entfernt oder nicht mehr nutzbar (z. B. Passwort nicht entschlüsselbar).
+                // Server removed or no longer usable (e.g. password can't be decrypted).
                 syncDao.deleteAction(action.actionId)
                 continue
             }
@@ -140,7 +140,7 @@ class SyncQueueProcessor @Inject constructor(
     private suspend fun execute(action: SyncActionEntity, remote: RemoteLibraryActions) {
         when (action.actionType) {
             SyncActionType.SET_FAVORITE -> {
-                // Song-Quelle inzwischen gelöscht (Abgleich) – nichts mehr zu tun.
+                // Song source deleted in the meantime (sync) – nothing more to do.
                 val songSource = syncDao.getSongSource(action.targetKey) ?: return
                 val favorite = action.payloadJson.toBoolean()
                 remote.setFavorite(songSource.remoteId, favorite)
@@ -153,14 +153,14 @@ class SyncQueueProcessor @Inject constructor(
                 remote.scrobble(songSource.remoteId, action.payloadJson!!.toLong())
             }
             SyncActionType.UPSERT_PLAYLIST -> upsertPlaylist(action, remote)
-            // Die lokale Playlist ist schon gelöscht, die Remote-ID steht deshalb im Payload.
+            // The local playlist is already deleted, so the remote ID is in the payload.
             SyncActionType.DELETE_PLAYLIST -> remote.deletePlaylist(action.payloadJson!!)
         }
     }
 
-    /** Wie bei Songs; `targetKey` ist die `remoteId` des Albums bzw. Künstlers auf diesem Server. */
+    /** As with songs; `targetKey` is the `remoteId` of the album or artist on this server. */
     private suspend fun setCollectionFavorite(kind: FavoriteKind, action: SyncActionEntity, remote: RemoteLibraryActions) {
-        // Inzwischen nicht mehr auf dem Server (Abgleich) – nichts mehr zu tun.
+        // No longer on the server in the meantime (sync) – nothing more to do.
         syncDao.collectionStarState(kind, action.sourceId, action.targetKey) ?: return
         val favorite = action.payloadJson.toBoolean()
         remote.setFavorite(action.targetKey, favorite, kind)
@@ -168,10 +168,10 @@ class SyncQueueProcessor @Inject constructor(
     }
 
     /**
-     * Sendet Name und Songs; Songs ohne Quelle auf diesem Server fehlen dort. Wurde die Playlist auf dem
-     * Server seit dem letzten Abgleich geändert, gewinnt der Server (Konzept 6.4) und nichts wird gesendet –
-     * außer nach einem Fehlversuch: Emby ändert in mehreren Schritten, ein abgebrochener Versuch hinterlässt dort
-     * einen halben Stand, der wie eine Änderung auf dem Server aussieht. Dann gewinnt die lokale Fassung.
+     * Sends name and songs; songs without a source on this server are missing there. If the playlist was changed on the
+     * server since the last sync, the server wins (concept 6.4) and nothing is sent –
+     * except after a failed attempt: Emby changes in several steps, an aborted attempt leaves a
+     * half-applied state there that looks like a change on the server. Then the local version wins.
      */
     private suspend fun upsertPlaylist(action: SyncActionEntity, remote: RemoteLibraryActions) {
         val sourceId = action.sourceId
@@ -191,12 +191,12 @@ class SyncQueueProcessor @Inject constructor(
             remote.replacePlaylist(current, local.name, songs)
         }
         if (playlistDao.setRemoteState(playlistId, info.remoteId, info.changedAt) == 0 && remoteId == null) {
-            // Während des Anlegens lokal gelöscht: sonst käme sie beim nächsten Abgleich zurück.
+            // Deleted locally during creation: otherwise it would come back on the next sync.
             remote.deletePlaylist(info.remoteId)
         }
     }
 
-    /** Scrobbles und Löschen einer Playlist, die es dort nicht gibt, sind für den Nutzer keine Meldung wert. */
+    /** Scrobbles and deleting a playlist that doesn't exist there aren't worth a message to the user. */
     private fun noticeKind(type: SyncActionType): SyncNotice.ChangeDropped.Kind? = when (type) {
         SyncActionType.SET_FAVORITE, SyncActionType.SET_ALBUM_FAVORITE, SyncActionType.SET_ARTIST_FAVORITE ->
             SyncNotice.ChangeDropped.Kind.FAVORITE
@@ -204,9 +204,9 @@ class SyncQueueProcessor @Inject constructor(
         SyncActionType.SCROBBLE, SyncActionType.DELETE_PLAYLIST -> null
     }
 
-    /** Spezielle Fälle zuerst: Alle Server- und HTTP-Fehler sind ebenfalls `IOException`s. */
+    /** Special cases first: all server and HTTP errors are `IOException`s too. */
     private fun isRetryable(e: Exception): Boolean = when (e) {
-        // Falsches Passwort: liegen lassen, bis es korrigiert ist.
+        // Wrong password: keep it queued until it's corrected.
         is HttpStatusException -> e.isAuthError || e.status >= 500 || e.status == 429
         is ServerApiException -> e.isAuthError
         is UnexpectedResponseException -> true
@@ -237,7 +237,7 @@ class SyncQueueWorker(
     }
 }
 
-/** Stößt die Queue an, falls noch etwas aussteht (z. B. nach App-Start oder Abgleich). */
+/** Kicks off the queue if anything is still pending (e.g. after app start or sync). */
 class SyncQueueStarter @Inject constructor(
     private val syncDao: SyncDao,
     private val scheduler: SyncScheduler,
@@ -247,7 +247,7 @@ class SyncQueueStarter @Inject constructor(
     }
 }
 
-/** Reiht eine Aktion ein und fasst sie mit früheren für dasselbe Ziel zusammen. */
+/** Enqueues an action and merges it with earlier ones for the same target. */
 internal suspend fun SyncDao.replaceAction(sourceId: String, type: SyncActionType, targetKey: String, payload: String?) {
     deleteActions(sourceId, type, targetKey)
     insert(

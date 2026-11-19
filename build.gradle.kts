@@ -1,14 +1,14 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
-// Eigene R8-Version statt der von AGP mitgebrachten (Grund im Versionskatalog bei `r8`).
+// Own R8 version instead of the one bundled with AGP (reason in the version catalog at `r8`).
 buildscript {
     dependencies {
         classpath(libs.android.r8)
     }
 }
 
-// Alle Plugins werden hier einmal deklariert, damit die Convention Plugins aus build-logic sie
-// mit derselben Version im selben Classloader finden.
+// All plugins are declared here once so the convention plugins from build-logic find them
+// with the same version in the same classloader.
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false

@@ -28,9 +28,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Autorenbilder: zuerst die von Audiobookshelf, dann (nur bei eingeschalteter Option) aus dem Internet (Audnexus).
- * `null`, wenn es keines gibt – die Oberfläche nimmt dann das Cover eines Buchs. Gefundene Bilder liegen auf dem Gerät (nicht
- * im Cache-Verzeichnis, `OfflineImages` lädt sie vorab); Bilder aus dem Internet verschwinden, wenn die Option ausgeschaltet wird.
+ * Author images: first those from Audiobookshelf, then (only with the option enabled) from the internet (Audnexus).
+ * `null` if there is none – the UI then uses a book's cover. Found images are stored on the device (not
+ * in the cache directory, `OfflineImages` preloads them); images from the internet disappear when the option is disabled.
  */
 @Singleton
 class AuthorImages @Inject constructor(
@@ -63,7 +63,7 @@ class AuthorImages @Inject constructor(
         val bytes = try {
             candidates.firstNotNullOfOrNull { onlineClient.findAuthorImage(it) }
         } catch (e: IOException) {
-            return@withContext null // Kein Netz o. Ä.: nicht als „nicht gefunden“ merken
+            return@withContext null // No network or similar: don't remember as "not found"
         } catch (e: JSONException) {
             return@withContext null
         }
@@ -81,10 +81,10 @@ class AuthorImages @Inject constructor(
         }
     }
 
-    /** Räumt die Bilder aus dem Internet weg (Option ausgeschaltet). */
+    /** Clears away the images from the internet (option disabled). */
     suspend fun clearOnlineImages() = withContext(Dispatchers.IO) { directory(ONLINE).deleteRecursively() }
 
-    /** Der ganze Name, bei mehreren Autoren („A, B“, „A & B“, „A und B“) zusätzlich der erste. */
+    /** The full name, and with several authors ("A, B", "A & B", "A und B") additionally the first one. */
     private fun candidates(name: String): List<String> {
         val first = name.split(SEPARATORS).firstOrNull()?.trim().orEmpty()
         return listOfNotNull(name.trim(), first.takeIf { it.isNotEmpty() && it != name.trim() })
@@ -93,7 +93,7 @@ class AuthorImages @Inject constructor(
     private suspend fun fromServers(candidates: List<String>): ByteArray? {
         val wanted = candidates.map { it.normalizeForMerge() }
         for (entity in dao.servers()) {
-            // Alle gezeigten Buch-Bibliotheken des Servers (M3); vor dem ersten Abgleich nur die eine bekannte.
+            // All visible book libraries of the server (M3); before the first sync only the one known library.
             val libraryIds = dao.libraries(entity.serverId).map { it.libraryId }.filter { it !in entity.hiddenLibraryIds }
                 .ifEmpty { listOfNotNull(entity.libraryId) }
             if (libraryIds.isEmpty()) continue
@@ -129,7 +129,7 @@ class AuthorImages @Inject constructor(
 
     private fun directory(kind: String) = File(root, kind)
 
-    /** Bisher hieß die Datei nach `hashCode` (Review D35); ein Bild unter dem alten Namen zieht beim ersten Blick um. */
+    /** The file used to be named after `hashCode` (review D35); an image under the old name is moved on first access. */
     private fun file(kind: String, key: String, suffix: String = "") =
         File(directory(kind), "${hashedName(key)}.img$suffix").adoptingLegacy(File(directory(kind), "${key.hashCode()}.img$suffix"))
 

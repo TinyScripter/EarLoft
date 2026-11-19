@@ -38,9 +38,9 @@ import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Kontextmenü eines Albums (Langklick), aufgebaut wie das der Folgen: oben der Titel, darunter Als Nächstes spielen,
- * Zur Warteschlange, Mix starten, Zu Favoriten, Zur Playlist, Teilen, Herunterladen, Auf Uhr laden bzw. Von Uhr entfernen, Download entfernen. Erst einbinden, wenn es offen ist; [onDismiss]
- * schließt es (auch nach den Dialogen für Playlist und Entfernen).
+ * Context menu of an album (long press), structured like the episode menu: the title at the top, below it Play next,
+ * Add to queue, Start mix, Add to favorites, Add to playlist, Share, Download, Load onto watch or Remove from watch, Remove download. Only include it while it is open; [onDismiss]
+ * closes it (also after the playlist and removal dialogs).
  */
 @Composable
 fun AlbumMenu(
@@ -89,7 +89,7 @@ fun AlbumMenu(
             },
         )
         ShareMenuItem(ShareTarget.Album(album.id), onDismiss)
-        // Wie auf der Album-Seite: rein lokale Alben brauchen keinen Download; ein teilweise geladenes Album bietet beides.
+        // As on the album page: purely local albums need no download; a partially downloaded album offers both.
         if (offline.downloadableCount > 0) {
             if (!offline.isFullyOffline && offline.pendingCount == 0) {
                 DropdownMenuItem(

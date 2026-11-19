@@ -8,11 +8,11 @@ import dagger.multibindings.IntoSet
 import de.kleinabersmart.earloft.core.data.podcast.EpisodeQueue
 
 /**
- * Wer Schlüssel von Büchern ([BookKeys]) in einer Datei speichert, schreibt sie um, wenn Folgen eine neue Kennung bekommen
- * (Quelle eines Abos wechseln, Konzept 12.10). Die `bookId`s bleiben dabei gleich.
+ * Anyone who stores book keys ([BookKeys]) in a file rewrites them when episodes get a new identifier
+ * (switching a subscription's source, concept 12.10). The `bookId`s stay the same.
  */
 interface BookKeyRenamer {
-    /** [renames]: alter Schlüssel → neuer Schlüssel; andere Einträge bleiben. */
+    /** [renames]: old key → new key; other entries stay. */
     suspend fun renameBookKeys(renames: Map<String, String>)
 }
 

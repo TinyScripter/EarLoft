@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Ein Buch, das geladen ist, lädt oder wartet (oder dessen Download fehlschlug). */
+/** A book that is downloaded, downloading or waiting (or whose download failed). */
 data class DownloadedBook(val book: Book, val download: BookDownload)
 
 data class DownloadsUiState(
@@ -61,7 +61,7 @@ class DownloadsViewModel @Inject constructor(
         val downloadedBooks = allBooks.mapNotNull { item ->
             downloads[item.book.id]?.takeIf { it.state in shown }?.let { DownloadedBook(item.book, it) }
         }
-        // Die Kopfzeile „belegt“ zählt die Musik; die geladenen Bücher und Folgen kommen dazu.
+        // The "used" header line counts the music; the downloaded books and episodes are added.
         val used = overview.usedBytes + downloadedBooks.sumOf { it.download.bytes } + podcasts.sumOf { it.bytes }
         DownloadsUiState(
             overview = overview.copy(usedBytes = used),
@@ -71,7 +71,7 @@ class DownloadsViewModel @Inject constructor(
             isLoading = false,
         )
     }.combine(spokenSettings.areas) { state, areas ->
-        // Ausgeblendete Bereiche (Allgemein → Bereiche) zeigt die Übersicht nicht; „belegt“ zählt weiter alles.
+        // Hidden areas (General → Areas) aren't shown in the overview; "used" still counts everything.
         state.copy(
             albums = state.albums.takeIf { SpokenMode.MUSIC in areas }.orEmpty(),
             books = state.books.takeIf { SpokenMode.BOOKS in areas }.orEmpty(),
@@ -81,7 +81,7 @@ class DownloadsViewModel @Inject constructor(
         .orOnError(DownloadsUiState(isLoading = false, isFailed = true))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DownloadsUiState())
 
-    /** Bytes der gerade ladenden Bücher. */
+    /** Bytes of the books currently downloading. */
     val transfers: StateFlow<Map<Long, BookTransfer>> = bookProgress.transfers
 
     fun retryFailed() {
@@ -100,7 +100,7 @@ class DownloadsViewModel @Inject constructor(
         viewModelScope.launch { episodeDownloads.removeFeed(feedId) }
     }
 
-    /** Alle Musik-Downloads (Alben, Playlists, Favoriten). */
+    /** All music downloads (albums, playlists, favorites). */
     fun removeAllMusic() {
         viewModelScope.launch { downloadRepository.removeAll() }
     }

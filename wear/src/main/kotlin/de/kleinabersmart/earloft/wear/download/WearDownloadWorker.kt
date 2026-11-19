@@ -54,13 +54,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Lädt die eingereihten Songs der Auswahlen vom Server (Wear-Konzept 8.2): nur über ein ausdrücklich
- * angefordertes WLAN, nach Einstellung nur am Ladegerät (Bedingung des Auftrags, siehe [WearDownloadScheduler]).
- * Ohne WLAN folgt später ein neuer Lauf mit wachsendem Abstand ([retryLater]), nach [MAX_WIFI_ATTEMPTS] Versuchen erst am Ladegerät. Songs, die nur das Handy hat, und Songs, bei
- * denen der Server dreimal gescheitert ist, kommen über das Handy ([PhoneFileFetcher], Konzept 8.3/8.4).
- * Nach der Musik die Podcast-Folgen (16.1): direkt aus dem Feed über dasselbe WLAN, Folgen vom Gerät des Handys und nach
- * drei Fehlversuchen über das Handy. Danach die Hörbücher (16.2): direkt von Audiobookshelf über dasselbe WLAN (eine
- * abgebrochene Datei macht beim nächsten Lauf weiter), Bücher vom Gerät des Handys und nach drei Fehlversuchen über das Handy.
+ * Downloads the queued songs of the selections from the server (Wear concept 8.2): only over an explicitly
+ * requested Wi-Fi, depending on the setting only on the charger (constraint of the job, see [WearDownloadScheduler]).
+ * Without Wi-Fi a new run follows later with a growing interval ([retryLater]), after [MAX_WIFI_ATTEMPTS] attempts only on the charger. Songs only the phone has, and songs for
+ * which the server failed three times, come via the phone ([PhoneFileFetcher], concept 8.3/8.4).
+ * After the music, the podcast episodes (16.1): directly from the feed over the same Wi-Fi, episodes from the phone's device and after
+ * three failed attempts via the phone. Then the audiobooks (16.2): directly from Audiobookshelf over the same Wi-Fi (an
+ * interrupted file resumes on the next run), books from the phone's device and after three failed attempts via the phone.
  */
 class WearDownloadWorker(
     context: Context,
@@ -88,12 +88,12 @@ class WearDownloadWorker(
         val pending = pendingCount()
         if (pending == 0 && !coversMissing) return finish()
         if (!hasRoomToStart()) return finish()
-        // Nur für fehlende Cover kein Vordergrunddienst samt Download-Symbol: Ein Cover, das es nie gibt, löste es sonst bei
-        // jedem Lauf aus (Review V2).
+        // No foreground service with download icon just for missing covers: a cover that never exists would otherwise trigger it
+        // on every run (Review V2).
         if (pending > 0) startForeground()
 
-        // Songs, die nur das Handy hat, brauchen kein WLAN. Ist das Handy nicht erreichbar, warten nur sie; was der Server
-        // liefert, lädt trotzdem (Review V1).
+        // Songs only the phone has need no Wi-Fi. If the phone is unreachable, only they wait; whatever the server
+        // delivers is downloaded anyway (Review V1).
         val phoneReachable = drainPhoneQueue()
 
         var lease: WifiLease? = null
@@ -103,12 +103,12 @@ class WearDownloadWorker(
                 val next = downloadDao.nextQueuedFromServers() ?: break
                 val uid = next.sourceUid
                 if (state.hasServerFailedTooOften(uid)) {
-                    // Der Server hat es schon mehrmals nicht geschafft (Wechsel an anderer Stelle, später erneut versucht).
+                    // The server has already failed several times (switch elsewhere, retried later).
                     if (!viaPhone(next, serverFailed = true)) return waitForPhone()
                     continue
                 }
                 if (!downloader.knowsSource(uid)) {
-                    // Die Uhr kennt den Server nicht (noch keine Zugangsdaten): gleich über das Handy, ohne WLAN (Review V4).
+                    // The watch does not know the server (no credentials yet): go via the phone right away, without Wi-Fi (Review V4).
                     Log.i(TAG, "Quelle von $uid hier unbekannt, über das Handy")
                     if (!viaPhoneForUnknownSource(next)) return waitForPhone()
                     continue
@@ -124,15 +124,15 @@ class WearDownloadWorker(
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
                         val failures = state.recordServerFailure(uid)
-                        // Ein nicht erreichbarer Server trifft alle wartenden Songs von ihm: Sonst brauchte jeder drei eigene
-                        // Läufe, und der Backoff von WorkManager wüchse dabei weiter.
+                        // An unreachable server affects all waiting songs from it: otherwise each would need three runs of its
+                        // own, and WorkManager's backoff would keep growing meanwhile.
                         val sourceId = downloadDao.getSongSource(uid)?.sourceId
                         if (sourceId != null) {
                             state.recordServerFailures(downloadDao.queuedUidsOfSource(sourceId).filter { it != uid })
-                            // Neues Passwort bzw. neuer Token am Handy: Die Antwort ersetzt die Zugangsdaten vor dem nächsten Versuch.
+                            // New password or token on the phone: the answer replaces the credentials before the next attempt.
                             if (outcome.isAuthRejection) entryPoint.credentials().request(listOf(sourceId))
                         }
-                        // Der Text steht ausdrücklich im Log: Log.w mit Throwable gibt bei UnknownHostException keinen Stacktrace aus.
+                        // The text is logged explicitly: Log.w with a Throwable prints no stack trace for UnknownHostException.
                         Log.w(TAG, "Download $uid unterbrochen (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
                         if (failures < WatchState.SERVER_ATTEMPTS) {
                             downloadDao.requeue(uid)
@@ -142,13 +142,13 @@ class WearDownloadWorker(
                     }
                     is DownloadOutcome.Failed -> {
                         Log.w(TAG, "Download $uid fehlgeschlagen: ${outcome.reason}")
-                        // Datei weg, Anmeldung abgelehnt o. Ä.: Vielleicht hat das Handy sie.
+                        // File gone, login refused or similar: maybe the phone has it.
                         if (outcome.sourceUnavailable) {
                             if (!viaPhoneForUnknownSource(next)) return waitForPhone()
                         } else {
                             state.markViaPhone(listOf(uid))
-                            // Der Grund steht im Log; die Anzeige bekommt keinen internen Text, sondern was jetzt geschieht. Der
-                            // Server war erreichbar, hat die Datei aber nicht geliefert (Review V16).
+                            // The reason is in the log; the display gets no internal text, but what happens now. The
+                            // server was reachable but did not deliver the file (Review V16).
                             state.setLastError(applicationContext.getString(R.string.download_error_server_refused_via_phone))
                             if (!viaPhone(next, serverFailed = true)) return waitForPhone()
                         }
@@ -183,7 +183,7 @@ class WearDownloadWorker(
                         if (!episodeViaPhone(track)) return waitForPhone()
                     }
                     is DownloadOutcome.Failed -> {
-                        // Adresse weg, keine Audiodatei o. Ä.: Vielleicht hat das Handy sie geladen.
+                        // Address gone, no audio file or similar: maybe the phone has downloaded it.
                         Log.w(TAG, "Folge ${track.bookId} fehlgeschlagen: ${outcome.reason}")
                         if (!episodeViaPhone(track)) return waitForPhone()
                     }
@@ -200,9 +200,9 @@ class WearDownloadWorker(
                     continue
                 }
                 val book = bookDao.book(track.bookId) ?: break
-                // Bücher aus ARD Sounds lädt die Uhr wie Folgen direkt von ihrer Adresse, ohne Schlüssel.
+                // Books from ARD Sounds are downloaded by the watch directly from their address like episodes, without a key.
                 if (!isArdSoundsBook(book.serverId) && entryPoint.audiobookshelf().server(book.serverId) == null) {
-                    // Der Schlüssel ist noch unterwegs (Anfrage beim Handy läuft) oder fehlt dort; zählt als Fehlversuch.
+                    // The key is still on its way (request to the phone running) or missing there; counts as a failed attempt.
                     val failures = state.recordServerFailure(key)
                     Log.w(TAG, "Buch ${track.bookId}: Audiobookshelf ohne Schlüssel (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS})")
                     if (failures < WatchState.SERVER_ATTEMPTS) return retryLater()
@@ -218,15 +218,15 @@ class WearDownloadWorker(
                     is DownloadOutcome.Retry -> {
                         val failures = state.recordServerFailure(key)
                         Log.w(TAG, "Buch ${track.bookId} Datei ${track.trackIndex} unterbrochen (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
-                        // Die Teildatei bleibt; der nächste Lauf macht dort weiter.
+                        // The partial file stays; the next run resumes there.
                         bookDao.requeueBookTrack(track.bookId, track.trackIndex)
-                        // Neuer Schlüssel am Handy: Die Antwort ersetzt ihn vor dem nächsten Versuch.
+                        // New key on the phone: the answer replaces it before the next attempt.
                         if (outcome.isAuthRejection) entryPoint.credentials().request(listOf(book.serverId))
                         if (failures < WatchState.SERVER_ATTEMPTS) return retryLater()
                         if (!bookViaPhone(track)) return waitForPhone()
                     }
                     is DownloadOutcome.Failed -> {
-                        // Datei weg, Schlüssel abgelehnt o. Ä.: Vielleicht hat das Handy das Buch geladen.
+                        // File gone, key refused or similar: maybe the phone has downloaded the book.
                         Log.w(TAG, "Buch ${track.bookId} fehlgeschlagen: ${outcome.reason}")
                         if (!bookViaPhone(track)) return waitForPhone()
                     }
@@ -243,9 +243,9 @@ class WearDownloadWorker(
     }
 
     /**
-     * Bei Anmeldung per OpenID gilt der Access-Token vom Handy höchstens eine Stunde (Konzept 12.11): Läuft er bald ab, vorher
-     * einen frischen anfragen und kurz auf die Antwort warten, statt einen Fehlversuch mit 401 zu verbrauchen. Antwortet das
-     * Handy nicht, geht es mit dem alten weiter; eine Ablehnung fragt dann wie bisher erneut.
+     * With OpenID login, the access token from the phone is valid for at most one hour (concept 12.11): if it expires soon,
+     * request a fresh one beforehand and wait briefly for the answer instead of wasting a failed attempt on a 401. If the
+     * phone does not answer, continue with the old one; a refusal then asks again as before.
      */
     private suspend fun renewExpiringBookKeys() {
         val audiobookshelf = entryPoint.audiobookshelf()
@@ -259,9 +259,9 @@ class WearDownloadWorker(
     }
 
     /**
-     * Das Handy war für einen Download nicht erreichbar: höchstens [WatchState.PHONE_ATTEMPTS] Läufe, danach wartet der Auftrag
-     * aufs Ladegerät; meldet sich das Handy vorher, plant `PhoneLibrarySync` gleich neu (Review V1). Jeder Lauf startet sonst den
-     * Vordergrunddienst und funkt über Bluetooth. Dass es sich meldet, erfährt die Uhr über [PhoneReturn].
+     * The phone was unreachable for a download: at most [WatchState.PHONE_ATTEMPTS] runs, then the job waits for the
+     * charger; if the phone checks in earlier, `PhoneLibrarySync` reschedules right away (Review V1). Otherwise every run starts the
+     * foreground service and transmits over Bluetooth. The watch learns that it checked in via [PhoneReturn].
      */
     private suspend fun waitForPhone(): Result {
         val runs = state.recordPhoneUnreachable()
@@ -276,8 +276,8 @@ class WearDownloadWorker(
                 retryLater()
             }
             PhoneWaitStep.RETRY_ON_CHARGER -> {
-                // Ein Auftrag ohne Verzögerung liefe am Ladegerät sofort wieder an und scheiterte nach 30 s erneut, ohne
-                // Ende. So wächst der Abstand (bis 5 h), bis das Handy sich meldet.
+                // A job without delay would restart immediately on the charger and fail again after 30 s, without
+                // end. This way the interval grows (up to 5 h) until the phone checks in.
                 Log.i(TAG, "Handy nach $runs Läufen nicht erreichbar, am Ladegerät später erneut oder wenn es sich meldet")
                 retryLater(onCharger = true)
             }
@@ -289,13 +289,13 @@ class WearDownloadWorker(
         }
     }
 
-    /** Am Strom (auch voll geladen): Dann läuft ein Auftrag mit Lade-Bedingung sofort an. */
+    /** On power (even fully charged): then a job with a charging constraint starts immediately. */
     private fun isPluggedIn(): Boolean =
         applicationContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             ?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
             ?.let { it != 0 } == true
 
-    /** Kein WLAN zählt nicht als Fehlversuch des Servers: Sonst käme die ganze Auswahl über Bluetooth. */
+    /** No Wi-Fi does not count as a failed server attempt: otherwise the whole selection would come over Bluetooth. */
     private fun waitForWifi(): Result {
         state.setWaitingForWifi(true)
         val attempt = state.retryRuns + 1
@@ -303,17 +303,17 @@ class WearDownloadWorker(
             Log.i(TAG, "Kein WLAN, später erneut (Versuch $attempt)")
             return retryLater()
         }
-        // Jeder Versuch startet einen Vordergrunddienst und schaltet das WLAN bis zu 30 s ein: nach einigen
-        // Versuchen erst am Ladegerät weiter.
+        // Every attempt starts a foreground service and turns Wi-Fi on for up to 30 s: after a few
+        // attempts continue only on the charger.
         Log.i(TAG, "Kein WLAN nach $attempt Versuchen, weiter am Ladegerät")
         entryPoint.scheduler().enqueueOnCharger()
         return Result.success()
     }
 
     /**
-     * Dieser Lauf soll später wiederholt werden: als neuer Auftrag nach [retryDelayMs], nicht per `Result.retry()`. Den Backoff
-     * von WorkManager verlängerte jeder Stopp durchs System mit (Review W1): Er zählt solche Stopps als Versuch und rechnet
-     * vom letzten `retry()` an. [onCharger]: der neue Auftrag nur am Ladegerät (sonst wie dieser).
+     * This run should be retried later: as a new job after [retryDelayMs], not via `Result.retry()`. WorkManager's backoff
+     * was lengthened by every stop by the system (Review W1): it counts such stops as attempts and calculates
+     * from the last `retry()`. [onCharger]: the new job only on the charger (otherwise like this one).
      */
     private fun retryLater(onCharger: Boolean = this.onCharger): Result {
         val runs = state.recordRetry()
@@ -323,12 +323,12 @@ class WearDownloadWorker(
         return Result.success()
     }
 
-    /** Dieser Auftrag stammt aus [WearDownloadScheduler.enqueueOnCharger] bzw. einer Wiederholung davon. */
+    /** This job comes from [WearDownloadScheduler.enqueueOnCharger] or a retry of it. */
     private val onCharger: Boolean get() = inputData.getBoolean(KEY_ON_CHARGER, false)
 
     /**
-     * Holt eine Folge über das Handy. @return `false`, wenn das Handy nicht erreichbar war; die Folge wartet dann weiter.
-     * Hat das Handy keine Datei, bleibt die Folge fehlgeschlagen (neuer Versuch, wenn das Handy sie ins Manifest neu aufnimmt).
+     * Fetches an episode via the phone. @return `false` if the phone was unreachable; the episode then keeps waiting.
+     * If the phone has no file, the episode stays failed (new attempt when the phone adds it to the manifest again).
      */
     private suspend fun episodeViaPhone(track: BookTrackEntity): Boolean {
         return when (val outcome = downloadSpoken(track) { onProgress -> phoneFetcher.fetchEpisode(track, onProgress) }) {
@@ -352,7 +352,7 @@ class WearDownloadWorker(
         }
     }
 
-    /** Wie [episodeViaPhone] für eine Buchdatei. */
+    /** Like [episodeViaPhone] for a book file. */
     private suspend fun bookViaPhone(track: BookTrackEntity): Boolean {
         return when (val outcome = downloadSpoken(track) { onProgress -> phoneFetcher.fetchBookTrack(track, onProgress) }) {
             DownloadOutcome.Done -> {
@@ -376,8 +376,8 @@ class WearDownloadWorker(
     }
 
     /**
-     * Lädt eine Datei einer Folge bzw. eines Buchs über [download] und meldet ihren Stand der Benachrichtigung und der
-     * Oberfläche ([WatchState.spokenFileProgress], Knopf „Download“ im Bereich „Telefon“).
+     * Downloads a file of an episode or book via [download] and reports its progress to the notification and the
+     * UI ([WatchState.spokenFileProgress], "Download" button in the "Phone" section).
      */
     private suspend fun downloadSpoken(
         track: BookTrackEntity,
@@ -402,9 +402,9 @@ class WearDownloadWorker(
         downloadDao.countPending() + podcastDao.countPendingDownloads() + bookDao.countPendingBookDownloads()
 
     /**
-     * Prüft vor dem Start den freien Speicher (Planung und Start liegen zeitlich auseinander). Passt nicht einmal der
-     * kleinste wartende Titel unter die Grenze, bleibt alles eingereiht und der Auftrag endet ohne Fehlversuch: Der Planer
-     * reiht nach dem nächsten Abgleich oder bei geänderten Einstellungen neu ein.
+     * Checks the free storage before the start (planning and start are separated in time). If not even the
+     * smallest waiting track fits under the limit, everything stays queued and the job ends without a failed attempt: the planner
+     * queues again after the next sync or on changed settings.
      */
     private suspend fun hasRoomToStart(): Boolean {
         val settings = state.settings.value
@@ -418,8 +418,8 @@ class WearDownloadWorker(
     }
 
     /**
-     * Lädt alle wartenden Songs und Folgen, die nur das Handy hat. @return `false`, wenn das Handy fehlt und es später
-     * erneut versucht werden soll.
+     * Downloads all waiting songs and episodes that only the phone has. @return `false` if the phone is missing and it
+     * should be retried later.
      */
     private suspend fun drainPhoneQueue(): Boolean {
         while (true) {
@@ -436,8 +436,8 @@ class WearDownloadWorker(
     }
 
     /**
-     * Die Uhr kennt die Quelle von [download] nicht: Das trifft alle wartenden Songs von ihr, sie zählen gleich in die Restzeit
-     * über das Handy. @return wie [viaPhone].
+     * The watch does not know the source of [download]: this affects all waiting songs from it, they count toward the remaining time
+     * via the phone right away. @return like [viaPhone].
      */
     private suspend fun viaPhoneForUnknownSource(download: DownloadEntity): Boolean {
         val uid = download.sourceUid
@@ -448,13 +448,13 @@ class WearDownloadWorker(
     }
 
     /**
-     * Holt [download] im Original vom Handy (Wear-Konzept 8.4). [serverFailed]: Der Server hat es nicht geschafft
-     * (sonst gibt es nur das Handy), das bestimmt den Fehlertext, wenn auch das Handy nichts hat.
-     * @return `false`, wenn das Handy nicht erreichbar war; der Eintrag wartet dann weiter.
+     * Fetches [download] in its original form from the phone (Wear concept 8.4). [serverFailed]: the server did not manage it
+     * (otherwise only the phone has it); this determines the error text if the phone has nothing either.
+     * @return `false` if the phone was unreachable; the entry then keeps waiting.
      */
     private suspend fun viaPhone(download: DownloadEntity, serverFailed: Boolean): Boolean {
         val uid = download.sourceUid
-        // Zurück auf QUEUED: aus RUNNING (Netzfehler) bzw. FAILED (Server hat abgelehnt).
+        // Back to QUEUED: from RUNNING (network error) or FAILED (server refused).
         downloadDao.requeue(uid)
         downloadDao.retryFailed(listOf(uid))
         val throttle = ProgressThrottle()
@@ -489,14 +489,14 @@ class WearDownloadWorker(
     }
 
     /**
-     * Je Album mit geladenen Songs einmal das Cover als Datei (Wear-Konzept 8.2), ebenso das Bild jeder geladenen Folge
-     * und jedes geladenen Buchs (16.1/16.2, im Cache von [BookCovers]; Folgen ohne eigenes Bild zeigen das des Abos).
-     * Was die Uhr nicht selbst laden kann (Dateien vom Gerät des Handys, Server nicht erreichbar), schickt das Handy.
-     * Fehlt es, geht die Wiedergabe trotzdem.
+     * For each album with downloaded songs, the cover once as a file (Wear concept 8.2), likewise the image of every downloaded episode
+     * and every downloaded book (16.1/16.2, in the cache of [BookCovers]; episodes without their own image show the subscription's).
+     * What the watch cannot load itself (files from the phone's device, server unreachable) is sent by the phone.
+     * If it is missing, playback works anyway.
      */
     private suspend fun cacheCovers() {
         val bookCovers = entryPoint.bookCovers()
-        // Je Buch einmal, auch bei mehreren Dateien.
+        // Once per book, even with several files.
         for (bookId in (podcastDao.downloadedTracks() + bookDao.downloadedBookTracks()).map { it.bookId }.distinct()) {
             try {
                 if (!bookCovers.ensureCached(bookId)) phoneFetcher.fetchCover(bookId)?.let { bookCovers.store(bookId, it) }
@@ -519,14 +519,14 @@ class WearDownloadWorker(
 
     private suspend fun finish(): Result {
         storage.deleteOrphans(downloadDao.getAll())
-        // Folgen, die nicht mehr im Manifest stehen, löscht der Abgleich samt Eintrag; hier verschwinden ihre Dateien.
+        // Episodes no longer in the manifest are deleted along with their entry by the sync; here their files disappear.
         entryPoint.episodeStorage().deleteOrphans(
             podcastDao.downloadedTracks().mapNotNull { it.filePath },
             podcastDao.pendingTracks().map { it.bookId },
         )
         val bookStorage = entryPoint.bookStorage()
         bookStorage.deleteOrphans(bookDao.downloadedBookTracks().mapNotNull { it.filePath })
-        // Teildateien nur, wenn nichts mehr wartet: Sonst macht der nächste Lauf dort weiter.
+        // Partial files only when nothing is waiting any more: otherwise the next run resumes there.
         if (bookDao.countPendingBookDownloads() == 0) bookStorage.deleteParts()
         coverFiles.retainOnly(downloadDao.getAlbumIdsWithDoneDownload().toSet())
         state.clearRetries()
@@ -536,9 +536,9 @@ class WearDownloadWorker(
     override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo(buildNotification(pending = 0, progress = null))
 
     /**
-     * Ohne Vordergrund-Erlaubnis (Start aus dem Hintergrund, etwa die Wiederholung nach Backoff) wird einfach normal
-     * weitergeladen und in diesem Lauf nicht erneut gefragt – sonst gab es bei jedem Prozent eine Ausnahme samt Stacktrace.
-     * Dann gilt das Zeitlimit für Aufträge; was dabei abbricht, setzt der nächste Lauf fort (alles vom Handy, Bücher vom Server).
+     * Without foreground permission (started from the background, e.g. the retry after backoff) downloading simply
+     * continues normally and is not asked again in this run – otherwise every percent raised an exception with a stack trace.
+     * Then the time limit for jobs applies; whatever is cut off is resumed by the next run (everything from the phone, books from the server).
      */
     private var foregroundDenied = false
 
@@ -549,7 +549,7 @@ class WearDownloadWorker(
         try {
             setForeground(foregroundInfo(buildNotification(pendingCount(), progress)))
         } catch (e: CancellationException) {
-            // Unterklasse von IllegalStateException: Der Worker wurde gestoppt, nicht der Vordergrund verweigert (Review V28).
+            // Subclass of IllegalStateException: the worker was stopped, the foreground was not denied (Review V28).
             throw e
         } catch (e: IllegalStateException) {
             foregroundDenied = true
@@ -583,8 +583,8 @@ class WearDownloadWorker(
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
-        // Ongoing Activity (WO-V4): Symbol auf dem Zifferblatt und Eintrag unter „Zuletzt“, solange geladen wird; der Tipp
-        // führt zu Speicher & Downloads. Die Statuszeile ist der Text der Benachrichtigung („N wartend“).
+        // Ongoing Activity (WO-V4): icon on the watch face and entry under "Recent" while downloading; tapping it
+        // leads to Storage & downloads. The status line is the notification text ("N waiting").
         if (openStorage != null) {
             OngoingActivity.Builder(applicationContext, NOTIFICATION_ID, builder)
                 .setStaticIcon(R.drawable.ic_download)
@@ -595,7 +595,7 @@ class WearDownloadWorker(
         return builder.build()
     }
 
-    /** Öffnet die App bei Speicher & Downloads; eigener Request-Code, sonst überschriebe er den Intent der Wiedergabe. */
+    /** Opens the app at Storage & downloads; own request code, otherwise it would overwrite the playback intent. */
     private fun storageIntent(): PendingIntent? {
         val intent = applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName) ?: return null
         intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(EXTRA_OPEN_STORAGE, true)
@@ -633,7 +633,7 @@ class WearDownloadWorker(
     }
 
     companion object {
-        /** Eingabe: Der Auftrag läuft nur am Ladegerät ([WearDownloadScheduler.enqueueOnCharger]); Wiederholungen bleiben es. */
+        /** Input: the job only runs on the charger ([WearDownloadScheduler.enqueueOnCharger]); retries keep that. */
         internal const val KEY_ON_CHARGER = "on_charger"
 
         private const val TAG = "WearDownloadWorker"
@@ -641,17 +641,17 @@ class WearDownloadWorker(
         private const val NOTIFICATION_ID = 2002
         private const val COVER_SIZE_PX = 400
 
-        /** Mit [retryDelayMs] ab 30 s rund eine Viertelstunde. */
+        /** With [retryDelayMs] from 30 s, roughly a quarter of an hour. */
         private const val MAX_WIFI_ATTEMPTS = 5
 
-        /** Ein Access-Token, der in weniger als 5 Minuten abläuft, wird vor dem Lauf ersetzt (Konzept 12.11). */
+        /** An access token that expires in less than 5 minutes is replaced before the run (concept 12.11). */
         private const val KEY_MARGIN_SECONDS = 5 * 60L
         private const val KEY_WAIT_MS = 15_000L
         private const val KEY_POLL_MS = 500L
     }
 }
 
-/** Abstand vor der [runs]. Wiederholung in Folge: 30 s, 1, 2, 4 … min, höchstens 5 h (wie bisher der Backoff von WorkManager). */
+/** Delay before the [runs]-th consecutive retry: 30 s, 1, 2, 4 … min, at most 5 h (like WorkManager's backoff used to be). */
 internal fun retryDelayMs(runs: Int): Long =
     (RETRY_BASE_MS shl (runs.coerceAtLeast(1) - 1).coerceAtMost(20)).coerceAtMost(RETRY_MAX_MS)
 
@@ -661,8 +661,8 @@ private const val RETRY_MAX_MS = 5 * 60 * 60 * 1000L
 internal enum class PhoneWaitStep { RETRY, RETRY_ON_CHARGER, WAIT_FOR_CHARGER }
 
 /**
- * Nächster Schritt, wenn das Handy im [runs]. Lauf nicht erreichbar war (Review V1): bis [WatchState.PHONE_ATTEMPTS] mit
- * Backoff erneut, danach aufs Ladegerät warten. Hängt die Uhr schon am Strom, bleibt es beim Backoff.
+ * Next step when the phone was unreachable in the [runs]-th run (Review V1): retry with backoff up to
+ * [WatchState.PHONE_ATTEMPTS], then wait for the charger. If the watch is already on power, it stays with the backoff.
  */
 internal fun phoneWaitStep(runs: Int, pluggedIn: Boolean): PhoneWaitStep = when {
     runs < WatchState.PHONE_ATTEMPTS -> PhoneWaitStep.RETRY
@@ -670,16 +670,16 @@ internal fun phoneWaitStep(runs: Int, pluggedIn: Boolean): PhoneWaitStep = when 
     else -> PhoneWaitStep.WAIT_FOR_CHARGER
 }
 
-/** Fehlversuche von Folgen stehen neben denen der Songs ([WatchState]); eigener Schlüssel, damit sie sich nicht mischen. */
+/** Failed attempts of episodes are stored next to those of songs ([WatchState]); own key so they do not mix. */
 private fun episodeFailureKey(bookId: Long) = "episode:$bookId"
 
-/** Wie [episodeFailureKey], je Buch (16.2). */
+/** Like [episodeFailureKey], per book (16.2). */
 private fun bookFailureKey(bookId: Long) = "book:$bookId"
 
-/** Eine Datei eines Buchs vom Gerät des Handys: Ihre Kennung ist die des Datei-Kanals ([de.kleinabersmart.earloft.wear.sync.PodcastMirror]). */
+/** A book file from the phone's device: its identifier is that of the file channel ([de.kleinabersmart.earloft.wear.sync.PodcastMirror]). */
 private val BookTrackEntity.isPhoneOnlyBook: Boolean get() = WearBookFile.parse(remoteFileId) != null
 
-/** Eine Folge vom Gerät des Handys: Ihre Kennung ist die des Datei-Kanals, eine Adresse gibt es nicht ([de.kleinabersmart.earloft.wear.sync.PodcastMirror]). */
+/** An episode from the phone's device: its identifier is that of the file channel, there is no address ([de.kleinabersmart.earloft.wear.sync.PodcastMirror]). */
 private val BookTrackEntity.isPhoneOnly: Boolean get() = WearEpisodeFile.parse(remoteFileId) != null
 
 private fun WearQuality.toProfile(): DownloadProfile = when (this) {

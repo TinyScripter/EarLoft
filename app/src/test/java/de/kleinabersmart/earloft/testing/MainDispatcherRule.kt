@@ -8,7 +8,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 
-/** `viewModelScope` läuft auf `Dispatchers.Main`; im Test sofort, statt auf den Looper von Robolectric zu warten. */
+/** `viewModelScope` runs on `Dispatchers.Main`; in tests immediately, instead of waiting for Robolectric's looper. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainDispatcherRule : TestWatcher() {
     override fun starting(description: Description) = Dispatchers.setMain(UnconfinedTestDispatcher())

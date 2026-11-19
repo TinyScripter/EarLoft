@@ -12,8 +12,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Vorschaubilder für die Listen der Uhr im Bereich „Telefon“ (Wear-Konzept 17): Album-Cover, Bild eines Abos, Cover eines
- * Buchs bzw. Bild einer Folge, als kleines JPEG über den Datei-Kanal. Dieselben Bilder, die die App zeigt.
+ * Thumbnails for the watch's lists in the "Phone" area (Wear concept 17): album cover, image of a subscription, cover of a
+ * book or image of an episode, as a small JPEG over the file channel. The same images the app shows.
  */
 @Singleton
 class WearThumbnails @Inject constructor(
@@ -21,7 +21,7 @@ class WearThumbnails @Inject constructor(
     private val bookCovers: BookCovers,
     private val books: BookRepository,
 ) {
-    /** `null`, wenn es das Album, Abo oder Buch nicht gibt oder es kein Bild hat. */
+    /** `null` if the album, subscription or book doesn't exist or has no image. */
     suspend fun open(ref: WearThumbnailFile.Ref): ByteArray? {
         val size = WearThumbnailFile.SIZE_PX
         val bitmap = when (ref) {

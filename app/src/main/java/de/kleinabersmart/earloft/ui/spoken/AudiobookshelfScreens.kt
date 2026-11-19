@@ -63,7 +63,7 @@ import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthApi
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Die Audiobookshelf-Server in den Bücher-Einstellungen: auflisten, ein-/ausschalten, bearbeiten, abgleichen, entfernen, hinzufügen. */
+/** The Audiobookshelf servers in the books settings: list, enable/disable, edit, sync, remove, add. */
 @Composable
 fun AudiobookshelfSection(
     onAdd: () -> Unit,
@@ -114,7 +114,7 @@ fun AudiobookshelfSection(
                     }
                 },
             )
-            // Mehrere Buch-Bibliotheken: jede abwählbar (books_improvements M3); die letzte gezeigte bleibt.
+            // Several book libraries: each can be deselected (books_improvements M3); the last one shown stays.
             if (server.libraries.size > 1) {
                 Text(
                     stringResource(R.string.spoken_abs_libraries),
@@ -169,20 +169,20 @@ fun AudiobookshelfSection(
     }
 }
 
-/** Die eigene Rückleitung für Browser ohne Auth Tab; muss in Audiobookshelf eingetragen sein (Konzept 12.11). */
+/** The app's own redirect for browsers without Auth Tab; must be registered in Audiobookshelf (concept 12.11). */
 private const val OWN_REDIRECT_URI = "earloft://oauth"
 
 /**
- * Der Browser, der die Anmeldung per OpenID öffnet, wenn er Auth Tab kann (Chrome ab 137): Er gibt die Rückleitung auf
- * `audiobookshelf://oauth` direkt an EarLoft, ohne Intent-Filter, der der offiziellen App in die Quere käme. `null`: Der
- * Standardbrowser kann das nicht, es bleibt [OWN_REDIRECT_URI].
+ * The browser that opens the OpenID login, if it supports Auth Tab (Chrome 137+): it passes the redirect to
+ * `audiobookshelf://oauth` directly to EarLoft, without an intent filter that would interfere with the official app. `null`: the
+ * default browser can't do that, [OWN_REDIRECT_URI] remains.
  */
 private fun authTabBrowser(context: Context): String? =
     CustomTabsClient.getPackageName(context, null)?.takeIf { CustomTabsClient.isAuthTabSupported(context, it) }
 
 /**
- * Formular zum Verbinden mit einem Audiobookshelf-Server per API-Schlüssel oder OpenID ([serverId] `null`) oder zum Bearbeiten
- * eines vorhandenen.
+ * Form for connecting to an Audiobookshelf server via API key or OpenID ([serverId] `null`) or for editing
+ * an existing one.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -208,17 +208,17 @@ fun AudiobookshelfFormScreen(
                 .apply { intent.setPackage(authTab) }
                 .launch(authTabLauncher, address, AbsAuthApi.DEFAULT_REDIRECT_URI.substringBefore(':'))
         } else {
-            // Die Rückleitung kommt über OpenIdRedirectActivity.
+            // The redirect arrives via OpenIdRedirectActivity.
             CustomTabsIntent.Builder().build().launchUrl(context, address)
         }
     }
     var name by rememberSaveable { mutableStateOf("") }
     var url by rememberSaveable { mutableStateOf("") }
     var key by viewModel::keyInput
-    // Beim Bearbeiten: leer = gespeicherter Schlüssel bzw. die gespeicherte Anmeldung per OpenID bleibt.
+    // When editing: empty = the stored key or the stored OpenID login is kept.
     var hasStoredKey by rememberSaveable { mutableStateOf(false) }
     var usesOpenId by rememberSaveable { mutableStateOf(false) }
-    // HTTP nur nach ausdrücklicher Bestätigung (Konzept 10), wie im Formular der Musik-Server.
+    // HTTP only after explicit confirmation (concept 10), as in the music server form.
     var allowHttp by rememberSaveable { mutableStateOf(false) }
     val isHttp = url.trim().startsWith("http://", ignoreCase = true)
     LaunchedEffect(serverId) {
@@ -231,7 +231,7 @@ fun AudiobookshelfFormScreen(
             url = server.baseUrl
             hasStoredKey = server.hasKey
             usesOpenId = server.openId
-            // Ein schon per HTTP eingerichteter Server war bestätigt.
+            // A server already set up via HTTP was confirmed.
             allowHttp = server.baseUrl.startsWith("http://", ignoreCase = true)
         }
     }
@@ -275,7 +275,7 @@ fun AudiobookshelfFormScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
-            // Wie im Musik-Formular zuletzt und freiwillig: Bleibt er leer, heißt der Server wie der Host seiner Adresse.
+            // As in the music form, last and optional: if it stays empty, the server is named after the host of its address.
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -284,8 +284,8 @@ fun AudiobookshelfFormScreen(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
-            // Unter dem Schlüssel statt unter der Adresse: Der Hinweis erscheint schon beim Tippen von „http://“ und schöbe sonst die
-            // folgenden Felder weg.
+            // Below the key instead of below the address: the hint appears as soon as "http://" is typed and would otherwise push
+            // the following fields away.
             if (isHttp) {
                 Text(
                     stringResource(R.string.spoken_abs_http_warning),
@@ -293,7 +293,7 @@ fun AudiobookshelfFormScreen(
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 4.dp),
                 )
-                // Die ganze Zeile schaltet um; die Checkbox selbst trägt keinen Klick und keinen eigenen Namen.
+                // The whole row toggles; the checkbox itself carries no click and no name of its own.
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -313,7 +313,7 @@ fun AudiobookshelfFormScreen(
                 )
             }
             Button(
-                // Ab Android 17 erreicht die App Server im Heimnetz nur mit dieser Berechtigung (wie im Musik-Formular).
+                // From Android 17 the app reaches servers on the home network only with this permission (as in the music form).
                 onClick = rememberLocalNetworkRequester { viewModel.connect(serverId, name, url, key) },
                 enabled = url.isNotBlank() && (key.isNotBlank() || hasStoredKey) && (!isHttp || allowHttp) &&
                     connectState != ConnectState.Connecting,
@@ -329,7 +329,7 @@ fun AudiobookshelfFormScreen(
                     ),
                 )
             }
-            // Nur, wenn der Server unter dieser Adresse OpenID anbietet (`/status`).
+            // Only if the server offers OpenID at this address (`/status`).
             loginOptions?.takeIf { it.openId }?.let { options ->
                 OutlinedButton(
                     onClick = rememberLocalNetworkRequester {

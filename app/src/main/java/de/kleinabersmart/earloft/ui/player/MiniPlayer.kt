@@ -113,21 +113,21 @@ fun MiniPlayer(
     }
 }
 
-/** So weit (oder schnell genug) nach unten gewischt, verschwindet der Mini-Player; sonst springt er zurück. */
+/** Swiped this far down (or fast enough), the mini player disappears; otherwise it springs back. */
 private val DISMISS_DISTANCE_DOWN = 48.dp
 
-/** Zur Seite: dieser Anteil der Breite (Seitwärtswischen ist leichter versehentlich als nach unten). */
+/** Sideways: this fraction of the width (sideways swipes happen accidentally more easily than downward ones). */
 private const val DISMISS_FRACTION_SIDEWAYS = 0.3f
 private const val DISMISS_VELOCITY = 1_500f
 
 /**
- * Mini-Player nach unten, links oder rechts wegwischen (nur wenn [enabled], also pausiert und nicht beim Casten): Er folgt dem
- * Finger und blasst aus. Nach unten über [DISMISS_DISTANCE_DOWN], zur Seite über [DISMISS_FRACTION_SIDEWAYS] der Breite, oder
- * jeweils mit Schwung, ruft das Loslassen [onDismiss]; zur Seite gleitet er vorher ganz hinaus. Welche Richtung gilt, entscheidet
- * die erste Bewegung (zwei `draggable`, je eine Achse). Für TalkBack dieselbe Aktion als „Mini-Player ausblenden“ ([label]).
+ * Swipe the mini player away down, left or right (only if [enabled], i.e. paused and not casting): it follows the
+ * finger and fades out. Down past [DISMISS_DISTANCE_DOWN], sideways past [DISMISS_FRACTION_SIDEWAYS] of the width, or
+ * with a fling in either case, releasing calls [onDismiss]; sideways it first glides all the way out. Which direction applies is decided by
+ * the first movement (two `draggable`s, one per axis). For TalkBack the same action as "Hide mini player" ([label]).
  *
- * Der Versatz folgt dem Finger synchron (einfacher State, keine Coroutine je Bewegung): Mit `Animatable.snapTo` je Delta
- * konnte ein nachzügelndes `snapTo` die Animation beim Loslassen abbrechen, und der Mini-Player blieb halb draußen stehen.
+ * The offset follows the finger synchronously (plain state, no coroutine per movement): with `Animatable.snapTo` per delta
+ * a straggling `snapTo` could cancel the animation on release, and the mini player stayed stuck halfway out.
  */
 @Composable
 internal fun Modifier.swipeToDismiss(enabled: Boolean, label: String, onDismiss: () -> Unit): Modifier {
@@ -150,8 +150,8 @@ internal fun Modifier.swipeToDismiss(enabled: Boolean, label: String, onDismiss:
             state = verticalState,
             orientation = Orientation.Vertical,
             enabled = enabled,
-            // Weggewischt bleibt er, wo er ist: Das Ausblenden kommt einen Frame später an, ein Zurückspringen blitzte auf.
-            // Kommt er wieder, entsteht er neu (mit Versatz 0).
+            // Once swiped away it stays where it is: hiding arrives a frame later, springing back would flash.
+            // When it comes back, it is created anew (with offset 0).
             onDragStopped = { velocity ->
                 if (offsetY >= downPx || velocity >= DISMISS_VELOCITY) {
                     currentOnDismiss()
@@ -168,8 +168,8 @@ internal fun Modifier.swipeToDismiss(enabled: Boolean, label: String, onDismiss:
                 val far = widthPx > 0 && abs(offsetX) >= widthPx * DISMISS_FRACTION_SIDEWAYS
                 val fast = abs(velocity) >= DISMISS_VELOCITY
                 if (far || fast) {
-                    // In Wischrichtung ganz hinaus, dann weg; bei Schwung ohne Weg zählt die Richtung des Schwungs. Weg ist er
-                    // auch, wenn die Animation abbricht (neues Greifen).
+                    // All the way out in the swipe direction, then gone; for a fling without distance, the fling direction counts. It's also
+                    // gone if the animation is cancelled (new grab).
                     val direction = if (offsetX != 0f) sign(offsetX) else sign(velocity)
                     try {
                         animate(offsetX, direction * widthPx, animationSpec = tween(150)) { value, _ -> offsetX = value }

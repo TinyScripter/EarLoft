@@ -43,25 +43,25 @@ import androidx.compose.ui.unit.dp
 import de.kleinabersmart.earloft.core.playback.SleepTimer
 import de.kleinabersmart.earloft.wear.R
 
-/** Aufgerundet auf ganze Minuten: Bis zum Ablauf steht „1 min“ statt „0 min“. */
+/** Rounded up to whole minutes: until it expires, "1 min" is shown instead of "0 min". */
 internal fun minutesLeft(remainingMs: Long): Int = ((remainingMs + MS_PER_MINUTE - 1) / MS_PER_MINUTE).toInt()
 
 private const val MS_PER_MINUTE = 60_000L
 
-/** Sleep-Timer des Handys wählen (Fernsteuerung, Wear-Konzept 15). */
+/** Choose the phone's sleep timer (remote control, Wear concept 15). */
 @Composable
 fun RemoteSleepTimerScreen(onCustom: () -> Unit, onDone: () -> Unit, viewModel: RemotePlayerViewModel = hiltViewModel()) =
     SleepTimerScreen(onCustom, onDone, viewModel)
 
-/** Eigene Dauer für den Sleep-Timer des Handys. */
+/** Custom duration for the phone's sleep timer. */
 @Composable
 fun RemoteSleepTimerCustomScreen(onDone: () -> Unit, viewModel: RemotePlayerViewModel = hiltViewModel()) =
     SleepTimerCustomScreen(onDone, viewModel)
 
 /**
- * Sleep-Timer wählen: bei Folgen und Büchern mit Kapiteln zuerst „Ende der Folge“ bzw. „Ende des Kapitels“, dann feste
- * Dauern und „Eigene Dauer“. Beenden geschieht über den Knopf in der Wiedergabe.
- * [onDone] schließt den Bildschirm nach einer Auswahl. [viewModel] ist der Timer der Uhr oder, in der Fernsteuerung, der des Handys.
+ * Choose the sleep timer: for episodes and books with chapters first "End of episode" or "End of chapter", then fixed
+ * durations and "Custom duration". Ending it is done via the button in the now playing view.
+ * [onDone] closes the screen after a selection. [viewModel] is the watch's timer or, in remote control, the phone's.
  */
 @Composable
 fun SleepTimerScreen(onCustom: () -> Unit, onDone: () -> Unit, viewModel: SleepTimerModel = hiltViewModel<PlayerViewModel>()) {
@@ -115,14 +115,14 @@ fun SleepTimerScreen(onCustom: () -> Unit, onDone: () -> Unit, viewModel: SleepT
     }
 }
 
-/** Eigene Dauer: die Krone (oder +/−) ändert die Minuten in Fünferschritten bis 240, „Starten“ übernimmt sie. */
+/** Custom duration: the crown (or +/−) changes the minutes in steps of five up to 240, "Start" applies them. */
 @Composable
 fun SleepTimerCustomScreen(onDone: () -> Unit, viewModel: SleepTimerModel = hiltViewModel<PlayerViewModel>()) {
     var minutes by remember { mutableIntStateOf(CUSTOM_DEFAULT_MINUTES) }
     val crown = remember { CrownStepper(CROWN_PX_PER_STEP) }
     val focusRequester = remember { FocusRequester() }
     var hasFocus by remember { mutableStateOf(false) }
-    // Wie in der Wiedergabe-Ansicht: Ohne Fokus kommt die Krone nie an, und er geht beim Bildschirmwechsel gern verloren.
+    // As in the now playing view: without focus the crown never gets through, and focus tends to get lost on a screen change.
     LaunchedEffect(hasFocus) {
         if (!hasFocus) {
             delay(FOCUS_RETRY_MS)
@@ -173,5 +173,5 @@ private const val CUSTOM_DEFAULT_MINUTES = 20
 private const val FOCUS_RETRY_MS = 150L
 private val MINUTES_WIDTH = 96.dp
 
-/** Wie bei der Lautstärke: knapp unter einer langsamen Rastung, damit jede Rastung genau einen Schritt (5 min) gibt. */
+/** As with the volume: just below a slow detent so that every detent gives exactly one step (5 min). */
 private const val CROWN_PX_PER_STEP = 30f

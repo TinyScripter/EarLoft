@@ -31,7 +31,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
 
-/** Die Uhr übernimmt die gewählten Folgen und Bücher des Handys (Wear-Konzept 16.1/16.2). */
+/** The watch applies the phone's chosen episodes and books (Wear concept 16.1/16.2). */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class PodcastMirrorTest {
@@ -77,7 +77,7 @@ class PodcastMirrorTest {
         assertEquals(BookKind.EPISODE, book.kind)
         assertEquals("Podcast", book.author)
         assertEquals("https://example.org/a.mp3", db.podcastDao().trackOf(book.bookId)!!.remoteFileId)
-        // Folgen vom Gerät des Handys gibt es nur über den Datei-Kanal.
+        // Episodes from the phone's device are only available via the file channel.
         assertEquals(WearEpisodeFile.uid("local:1", "x"), db.podcastDao().trackOf(bookId("x", "local:1")!!)!!.remoteFileId)
     }
 
@@ -137,7 +137,7 @@ class PodcastMirrorTest {
         assertEquals(listOf("f0", "f1"), db.bookDao().tracks(b1.bookId).map { it.remoteFileId })
         assertEquals(4_000_000, db.bookDao().progress(b1.bookId)!!.positionMs)
         assertEquals(7, reported.progressAt("abs", "b1"))
-        // Bücher vom Gerät des Handys gibt es nur über den Datei-Kanal.
+        // Books from the phone's device are only available via the file channel.
         assertEquals(WearBookFile.uid("local", "eigen", 0), db.bookDao().tracks(eigen.bookId).single().remoteFileId)
     }
 
@@ -189,7 +189,7 @@ class PodcastMirrorTest {
         assertEquals(listOf("Intro"), db.bookDao().chapters(a).map { it.title })
         assertEquals("https://example.org/a.json", db.bookDao().book(a)!!.chaptersUrl)
 
-        // Das Handy kennt die Kapitel (noch) nicht, die Uhr hat sie aber schon: Sie bleiben.
+        // The phone does not know the chapters (yet), but the watch already has them: they stay.
         mirror.apply(WearPodcastManifest(listOf(feed), listOf(episode("a"))))
         assertEquals(listOf("Intro"), db.bookDao().chapters(a).map { it.title })
     }

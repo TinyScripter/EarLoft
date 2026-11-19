@@ -27,7 +27,7 @@ class GenreViewModel @AssistedInject constructor(
         .asLoadState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
-    /** Alle Songs des Genres, Album für Album oder gemischt. */
+    /** All songs of the genre, album by album or shuffled. */
     fun play(shuffle: Boolean) {
         viewModelScope.launch {
             val songs = libraryRepository.songsOfGenre(genre)

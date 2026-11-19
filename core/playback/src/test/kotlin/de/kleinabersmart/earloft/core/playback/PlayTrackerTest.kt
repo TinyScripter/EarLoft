@@ -16,7 +16,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import java.time.Duration
 
-/** Hörverlauf beim Wechsel zwischen Handy und Cast-Gerät (R24). */
+/** Listening history when switching between phone and cast device (R24). */
 @OptIn(UnstableApi::class)
 @RunWith(RobolectricTestRunner::class)
 class PlayTrackerTest {
@@ -33,7 +33,7 @@ class PlayTrackerTest {
     fun `a song handed over to cast is recorded once`() {
         player.update(items = listOf("local" to "song:1"), playing = true)
         listen(40)
-        // Der Empfänger meldet die Warteschlange erst nach dem Laden.
+        // The receiver only reports the queue after loading.
         player.update(items = emptyList(), remote = true, playing = false)
         listen(6)
         player.update(items = listOf("remote" to "song:1"), remote = true, playing = true)
@@ -77,7 +77,7 @@ class PlayTrackerTest {
 
     private fun listen(seconds: Long) = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(seconds))
 
-    /** Ein Player, dessen Warteschlange (`uid` zu Media-ID), Gerät und Abspielzustand der Test setzt. */
+    /** A player whose queue (`uid` to media ID), device and playback state the test sets. */
     private class FakeCastPlayer : SimpleBasePlayer(Looper.getMainLooper()) {
         private var items: List<Pair<String, String>> = emptyList()
         private var remote = false

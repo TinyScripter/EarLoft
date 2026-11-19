@@ -6,8 +6,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Ein Audiobookshelf-Server mit normalisierter Basis-URL (endet immer auf `/`). [token] ist der API-Key oder bei der Anmeldung
- * per OpenID der Access-Token (Konzept 12.11), der sich stündlich ändert: maßgeblich ist der in der [AbsServerRegistry].
+ * An Audiobookshelf server with a normalized base URL (always ends with `/`). [token] is the API key or, when signed in
+ * via OpenID, the access token (concept 12.11), which changes hourly: the one in the [AbsServerRegistry] is authoritative.
  */
 data class AbsServer(
     val serverId: String,
@@ -18,7 +18,7 @@ data class AbsServer(
 
     fun endpoint(path: String): HttpUrl.Builder = baseUrl.newBuilder().addPathSegments(path.trimStart('/'))
 
-    /** Gehört [url] zu diesem Server (API, Dateien, Cover)? */
+    /** Does [url] belong to this server (API, files, covers)? */
     fun owns(url: HttpUrl): Boolean =
         url.scheme == baseUrl.scheme &&
             url.host == baseUrl.host &&
@@ -26,7 +26,7 @@ data class AbsServer(
             url.encodedPath.startsWith(baseUrl.encodedPath + "api/")
 
     companion object {
-        /** Ergänzt `https://`, entfernt Pfad-Reste hinter der Basis und sorgt für den abschließenden `/`. */
+        /** Adds `https://`, removes path remnants after the base and ensures the trailing `/`. */
         fun normalizeBaseUrl(input: String): HttpUrl? {
             val trimmed = input.trim()
             if (trimmed.isEmpty()) return null
@@ -47,8 +47,8 @@ data class AbsServer(
 }
 
 /**
- * Bekannte Server, damit [AbsAuthInterceptor] auch Anfragen authentifiziert, die nicht von [AbsApi] stammen
- * (Media3-Streams, Cover).
+ * Known servers, so that [AbsAuthInterceptor] also authenticates requests that don't come from [AbsApi]
+ * (Media3 streams, covers).
  */
 @Singleton
 class AbsServerRegistry @Inject constructor() {

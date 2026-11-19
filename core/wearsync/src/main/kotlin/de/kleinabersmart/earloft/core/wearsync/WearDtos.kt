@@ -6,12 +6,12 @@ import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
 import kotlinx.serialization.Serializable
 
-// Nachrichten zwischen Handy und Uhr (Wear-Konzept 4). Neue Felder immer mit Standardwert anlegen,
-// damit ältere Gegenstellen sie ignorieren bzw. weglassen können.
+// Messages between phone and watch (Wear concept 4). Always add new fields with a default value,
+// so that older counterparts can ignore or omit them.
 
-// ---- Manifest (Handy → Uhr) ----
+// ---- Manifest (phone → watch) ----
 
-/** Soll-Zustand der Uhr: Auswahlen und die aufgelösten Songs (Wear-Konzept 4.1). */
+/** Target state of the watch: selections and the resolved songs (Wear concept 4.1). */
 @Serializable
 data class WearManifest(
     val selections: List<WearSelectionDto> = emptyList(),
@@ -20,17 +20,17 @@ data class WearManifest(
 
 @Serializable
 data class WearSelectionDto(
-    /** [WearSelectionKind.key] mit den IDs des Handys – nur als Schlüssel, nicht als ID auf der Uhr. */
+    /** [WearSelectionKind.key] with the phone's IDs – only as a key, not as an ID on the watch. */
     val key: String,
     val kind: WearSelectionKind,
     val title: String,
-    /** Reihenfolge der Auswahl; Duplikate bei Playlists erlaubt. Verweist auf [WearSongDto.key]. */
+    /** Order of the selection; duplicates allowed for playlists. Refers to [WearSongDto.key]. */
     val songKeys: List<String>,
 )
 
 @Serializable
 data class WearSongDto(
-    /** Bevorzugte `sourceUid` am Handy – nur Verweis innerhalb des Manifests. */
+    /** Preferred `sourceUid` on the phone – only a reference within the manifest. */
     val key: String,
     val title: String,
     val artists: List<String> = emptyList(),
@@ -46,15 +46,15 @@ data class WearSongDto(
     val mbid: String? = null,
     val albumMbid: String? = null,
     val replayGain: ReplayGainDto? = null,
-    /** Server-Quellen, von denen die Uhr direkt laden kann (leer = nur über das Handy). */
+    /** Server sources the watch can download from directly (empty = only via the phone). */
     val serverSources: List<WearServerSourceDto> = emptyList(),
-    /** `null` = das Handy hat keine Datei (weder lokal noch heruntergeladen). */
+    /** `null` = the phone has no file (neither local nor downloaded). */
     val phoneFile: PhoneFileDto? = null,
 )
 
 @Serializable
 data class WearServerSourceDto(
-    /** `sourceId:remoteId`, wie am Handy. */
+    /** `sourceId:remoteId`, as on the phone. */
     val uid: String,
     val sourceId: String,
     val remoteId: String,
@@ -66,7 +66,7 @@ data class WearServerSourceDto(
 
 @Serializable
 data class PhoneFileDto(
-    /** `sourceUid` am Handy, über die die Uhr die Datei anfordert. */
+    /** `sourceUid` on the phone via which the watch requests the file. */
     val uid: String,
     val sizeBytes: Long? = null,
     val mimeType: String? = null,
@@ -80,31 +80,31 @@ data class ReplayGainDto(
     val albumPeak: Float? = null,
 )
 
-// ---- Server, Katalog, Einstellungen (Handy → Uhr) ----
+// ---- Servers, catalog, settings (phone → watch) ----
 
-/** Die Handy-App ist installiert und spricht [protocol] (siehe [WearPaths.PHONE_INFO]). */
+/** The phone app is installed and speaks [protocol] (see [WearPaths.PHONE_INFO]). */
 @Serializable
 data class WearPhoneInfoDto(
     val protocol: Int = WearProtocol.VERSION,
     val appVersion: String? = null,
 )
 
-/** Die Uhr-App ist installiert und spricht [protocol] (siehe [WearPaths.WATCH_INFO]). */
+/** The watch app is installed and speaks [protocol] (see [WearPaths.WATCH_INFO]). */
 @Serializable
 data class WearWatchInfoDto(
     val protocol: Int = WearProtocol.VERSION,
     val appVersion: String? = null,
 )
 
-/** Seit [since] (Uhrzeit der Uhr, ms) wartet der Download-Auftrag der Uhr aufs Handy ([WearPaths.PHONE_WANTED]). */
+/** Since [since] (watch time, ms) the watch's download job has been waiting for the phone ([WearPaths.PHONE_WANTED]). */
 @Serializable
 data class WearPhoneWantedDto(val since: Long)
 
 /**
- * Server ohne Secrets; das Passwort bzw. der API-Schlüssel kommt nur per [WearCredentialsDto] auf Anfrage.
- * [servers]: die Subsonic-Server. [otherServers]: alle anderen Musikserver (Jellyfin, Emby, Konzept 14) – eigene Liste, weil
- * ältere Uhren jeden Eintrag in [servers] als Subsonic spiegeln; diese Liste kennen sie nicht.
- * [spokenServers]: die eingeschalteten Audiobookshelf-Server (Bücher auf der Uhr, Wear-Konzept 16.2).
+ * Servers without secrets; the password or API key only comes via [WearCredentialsDto] on request.
+ * [servers]: the Subsonic servers. [otherServers]: all other music servers (Jellyfin, Emby, concept 14) – a separate list because
+ * older watches mirror every entry in [servers] as Subsonic; they don't know this list.
+ * [spokenServers]: the enabled Audiobookshelf servers (books on the watch, Wear concept 16.2).
  */
 @Serializable
 data class WearServersDto(
@@ -113,58 +113,58 @@ data class WearServersDto(
     val spokenServers: List<WearSpokenServerDto> = emptyList(),
 )
 
-/** Ein Audiobookshelf-Server; [serverId] ist auf beiden Geräten dieselbe. */
+/** An Audiobookshelf server; [serverId] is the same on both devices. */
 @Serializable
 data class WearSpokenServerDto(
     val serverId: String,
     val name: String,
     val baseUrl: String,
-    /** Wie [WearServerDto.credentialsStamp], für den API-Schlüssel. */
+    /** Like [WearServerDto.credentialsStamp], for the API key. */
     val credentialsStamp: String? = null,
 )
 
 @Serializable
 data class WearServerDto(
     val sourceId: String,
-    /** Name des `SourceType`; als Text, damit die Uhr unbekannte Typen überspringen kann. */
+    /** Name of the `SourceType`; as text so that the watch can skip unknown types. */
     val type: String = SourceType.SUBSONIC.name,
     val name: String,
     val baseUrl: String,
     val username: String,
     val priority: Int = 0,
     val formPost: Boolean = false,
-    /** Ändert sich mit den Zugangsdaten am Handy (HMAC, verrät nichts über sie); `null`, wenn das Handy keine hat. */
+    /** Changes with the credentials on the phone (HMAC, reveals nothing about them); `null` if the phone has none. */
     val credentialsStamp: String? = null,
 )
 
 enum class WearQuality {
-    /** Der Server transkodiert beim Download (Opus mit 128 kbit/s). */
+    /** The server transcodes on download (Opus at 128 kbit/s). */
     OPUS_128,
 
-    /** Die Datei wie auf dem Server. */
+    /** The file as on the server. */
     ORIGINAL,
 }
 
 @Serializable
 data class WearSettingsDto(
     val quality: WearQuality = WearQuality.OPUS_128,
-    /** Feste Obergrenze für Downloads; `null` = nur [minFreeBytes] gilt (W1). */
+    /** Fixed upper limit for downloads; `null` = only [minFreeBytes] applies (W1). */
     val storageLimitBytes: Long? = null,
-    /** So viel Speicher bleibt auf der Uhr mindestens frei (W1: 1 GB). */
+    /** At least this much storage stays free on the watch (W1: 1 GB). */
     val minFreeBytes: Long = DEFAULT_MIN_FREE_BYTES,
-    /** Vom Server nur am Ladegerät laden (Standard) oder auch ohne. */
+    /** Download from the server only while charging (default) or also without. */
     val requireCharging: Boolean = true,
-    /** Wie am Handy (W2). */
+    /** As on the phone (W2). */
     val replayGainMode: ReplayGainMode = ReplayGainMode.AUTO,
     val preAmpDb: Float = 0f,
-    /** Eingeschaltete Bereiche wie am Handy (Allgemein → Bereiche); die Uhr zeigt nur diese. */
+    /** Enabled areas as on the phone (General → Areas); the watch only shows these. */
     val areas: List<SpokenMode> = SpokenMode.entries,
-    /** Sprungweiten der Spulen-Knöpfe wie am Handy (Konzept 12.4), in Sekunden; Standard wie dort. */
+    /** Skip distances of the seek buttons as on the phone (concept 12.4), in seconds; defaults as there. */
     val bookSeekBackSeconds: Int = 10,
     val bookSeekForwardSeconds: Int = 30,
     val podcastSeekBackSeconds: Int = 10,
     val podcastSeekForwardSeconds: Int = 30,
-    /** Vorgaben für Tempo und Effekte je Bereich wie am Handy (Konzept 12.4). */
+    /** Defaults for speed and effects per area as on the phone (concept 12.4). */
     val bookSpeed: Float = 1f,
     val bookSkipSilence: Boolean = false,
     val bookVolumeBoostDb: Int = 0,
@@ -172,7 +172,7 @@ data class WearSettingsDto(
     val podcastSkipSilence: Boolean = false,
     val podcastVolumeBoostDb: Int = 0,
 ) {
-    /** Dieselben Einstellungen ohne die der Wiedergabe (Sprungweiten, Tempo, Effekte): Nur der Rest betrifft die Downloads. */
+    /** The same settings without the playback ones (skip distances, speed, effects): only the rest affects downloads. */
     fun withoutSeek(): WearSettingsDto = copy(
         bookSeekBackSeconds = 0,
         bookSeekForwardSeconds = 0,
@@ -191,11 +191,11 @@ data class WearSettingsDto(
     }
 }
 
-// ---- Podcast-Folgen auf der Uhr (Wear-Konzept 16.1) ----
+// ---- Podcast episodes on the watch (Wear concept 16.1) ----
 
 /**
- * Die am Handy für die Uhr gewählten Folgen und Bücher (16.2) je in der Reihenfolge des Wählens, mit den Abos der Folgen
- * (Handy → Uhr, gzip-Asset).
+ * The episodes and books (16.2) chosen on the phone for the watch, each in the order chosen, with the episodes' subscriptions
+ * (phone → watch, gzip asset).
  */
 @Serializable
 data class WearPodcastManifest(
@@ -205,8 +205,8 @@ data class WearPodcastManifest(
 )
 
 /**
- * Ein Hörbuch (Wear-Konzept 16.2). [serverId] ist der Audiobookshelf-Server bzw. bei Büchern vom Gerät des Handys dessen
- * Kennung; zusammen mit [remoteId] auf beiden Geräten derselbe Schlüssel.
+ * An audiobook (Wear concept 16.2). [serverId] is the Audiobookshelf server or, for books from the phone's device, its
+ * identifier; together with [remoteId] the same key on both devices.
  */
 @Serializable
 data class WearBookDto(
@@ -222,15 +222,15 @@ data class WearBookDto(
 )
 
 /**
- * Ein Kapitel; Beginn und Ende als Position im ganzen Buch bzw. in der Folge. [unavailable]: liegt in einer Datei, die nicht mehr
- * abrufbar ist (nur in der Fernsteuerung gesetzt, [WearRemoteChaptersDto]).
+ * A chapter; start and end as a position in the whole book or episode. [unavailable]: lies in a file that is no longer
+ * available (only set in the remote control, [WearRemoteChaptersDto]).
  */
 @Serializable
 data class WearChapterDto(val title: String, val startMs: Long, val endMs: Long, val unavailable: Boolean = false)
 
 /**
- * Eine Datei des Buchs. [fileId] ist die Kennung bei Audiobookshelf; `null` bei Büchern vom Gerät des Handys (die gibt es
- * nur über den Datei-Kanal, [WearBookFile]).
+ * A file of the book. [fileId] is the identifier at Audiobookshelf; `null` for books from the phone's device (those are only
+ * available via the file channel, [WearBookFile]).
  */
 @Serializable
 data class WearBookTrackDto(
@@ -239,11 +239,11 @@ data class WearBookTrackDto(
     val startMs: Long = 0,
     val durationMs: Long = 0,
     val mimeType: String? = null,
-    /** Am Handy nicht geladen und an der Quelle nicht mehr abrufbar (ein abgelaufener Teil aus ARD Sounds): nicht laden, überspringen. */
+    /** Not downloaded on the phone and no longer available at the source (an expired part from ARD Sounds): don't download, skip. */
     val unavailable: Boolean = false,
 )
 
-/** Ein Abo; [feedId] und [url] sind die des Handys, damit Fortschritt und Statistik auf beiden Geräten passen. */
+/** A subscription; [feedId] and [url] are the phone's, so that progress and statistics match on both devices. */
 @Serializable
 data class WearPodcastFeedDto(
     val feedId: String,
@@ -253,7 +253,7 @@ data class WearPodcastFeedDto(
     val imageUrl: String? = null,
     val newestFirst: Boolean = false,
     val continuous: Boolean = true,
-    /** Tempo und Effekte des Abos wie am Handy (Konzept 12.4); `null` = Vorgabe des Bereichs ([WearSettingsDto]). */
+    /** Speed and effects of the subscription as on the phone (concept 12.4); `null` = the area's default ([WearSettingsDto]). */
     val speed: Float? = null,
     val skipSilence: Boolean? = null,
     val volumeBoostDb: Int? = null,
@@ -266,17 +266,17 @@ data class WearEpisodeDto(
     val feedId: String,
     val guid: String,
     val title: String,
-    /** Veröffentlichung (bzw. erstes Auftauchen), wie `books.addedAt` am Handy. */
+    /** Publication (or first appearance), like `books.addedAt` on the phone. */
     val publishedAt: Long = 0,
     val durationMs: Long = 0,
-    /** Adresse der Audiodatei im Feed; `null` bei Folgen vom Handy selbst (nur über den Datei-Kanal). */
+    /** Address of the audio file in the feed; `null` for episodes from the phone itself (only via the file channel). */
     val audioUrl: String? = null,
     val mimeType: String? = null,
     val coverUrl: String? = null,
     val progress: WearEpisodeProgressDto? = null,
-    /** Kapitel, die das Handy kennt (aus dem Kapitel-Link des Feeds oder den Tags der Datei). */
+    /** Chapters the phone knows (from the feed's chapter link or the file's tags). */
     val chapters: List<WearChapterDto> = emptyList(),
-    /** Kapitel-Link des Feeds: Fehlen [chapters], holt die Uhr sie beim Abspielen selbst. */
+    /** The feed's chapter link: if [chapters] is missing, the watch fetches them itself on playback. */
     val chaptersUrl: String? = null,
 )
 
@@ -285,33 +285,33 @@ data class WearEpisodeProgressDto(
     val positionMs: Long,
     val durationMs: Long,
     val finished: Boolean = false,
-    /** Eigenes Tempo; `null` = das des Abos bzw. Bereichs (fehlt dann im JSON, ältere Gegenstellen lesen 1,0). */
+    /** Own speed; `null` = that of the subscription or area (then missing from the JSON, older counterparts read 1.0). */
     val speed: Float? = null,
-    /** Zeitpunkt der letzten Änderung; die neuere Seite gewinnt. */
+    /** Time of the last change; the newer side wins. */
     val updatedAt: Long,
-    /** Eigene Effekte; `null` = die des Abos bzw. Bereichs. */
+    /** Own effects; `null` = those of the subscription or area. */
     val skipSilence: Boolean? = null,
     val volumeBoostDb: Int? = null,
 )
 
-/** Was auf der Uhr gehört wurde (Uhr → Handy); das Handy löscht das DataItem nach dem Import. */
+/** What was listened to on the watch (watch → phone); the phone deletes the DataItem after import. */
 @Serializable
 data class WearEpisodeReportDto(
-    /** Gegen doppelten Import, wie bei [WearPlaysDto]. */
+    /** Against duplicate import, as with [WearPlaysDto]. */
     val packetId: String,
     val progress: List<WearEpisodeStateDto> = emptyList(),
     val listening: List<WearEpisodeListeningDto> = emptyList(),
 )
 
-/** Bei Büchern (16.2) steht in [feedId] die `serverId` und in [guid] die `remoteId` des Buchs. */
+/** For books (16.2) [feedId] holds the book's `serverId` and [guid] its `remoteId`. */
 @Serializable
 data class WearEpisodeStateDto(val feedId: String, val guid: String, val progress: WearEpisodeProgressDto)
 
-/** [listenedMs] Inhaltszeit seit der letzten Meldung, gehört bis [at]. Schlüssel wie bei [WearEpisodeStateDto]. */
+/** [listenedMs] content time since the last report, listened until [at]. Key as in [WearEpisodeStateDto]. */
 @Serializable
 data class WearEpisodeListeningDto(val feedId: String, val guid: String, val listenedMs: Long, val at: Long)
 
-// ---- Uhr → Handy ----
+// ---- Watch → phone ----
 
 @Serializable
 data class WearStatusDto(
@@ -319,7 +319,7 @@ data class WearStatusDto(
     val freeBytes: Long = 0,
     val limitBytes: Long? = null,
     val selections: List<WearSelectionStatusDto> = emptyList(),
-    /** Titel, die wegen der Speichergrenze nicht eingereiht sind. */
+    /** Titles not enqueued because of the storage limit. */
     val missingForStorage: Int = 0,
     val lastError: String? = null,
     val updatedAt: Long = 0,
@@ -333,10 +333,10 @@ data class WearSelectionStatusDto(
     val failed: Int = 0,
 )
 
-/** Wiedergaben auf der Uhr; das Handy übernimmt sie in den Hörverlauf und scrobbelt (Wear-Konzept 10). */
+/** Plays on the watch; the phone adds them to the listening history and scrobbles (Wear concept 10). */
 @Serializable
 data class WearPlaysDto(
-    /** Gegen doppelten Import, falls das Handy vor dem Löschen des DataItems abstürzt. */
+    /** Against duplicate import in case the phone crashes before deleting the DataItem. */
     val packetId: String,
     val plays: List<WearPlayDto>,
 )
@@ -348,7 +348,7 @@ data class WearPlayDto(
     val listenedMs: Long,
 )
 
-/** Auswahl von der Uhr aus ändern: Album, Playlist oder Favoriten des Handys (Schalter „Auf der Uhr“, Wear-Konzept 17). */
+/** Change a selection from the watch: album, playlist or favorites of the phone (switch "On the watch", Wear concept 17). */
 @Serializable
 data class WearSelectRequest(
     val kind: WearSelectionKind,
@@ -360,22 +360,22 @@ data class WearSelectRequest(
 data class WearCredentialsRequest(val sourceId: String)
 
 /**
- * [deviceId]: bei Jellyfin und Emby das Gerät, zu dem der Token gehört; die Uhr weist sich damit aus wie das Handy.
- * `null` bei anderen Servern und bei Anmeldungen von vorher (dann gilt `earloft-<sourceId>`).
+ * [deviceId]: for Jellyfin and Emby the device the token belongs to; the watch identifies itself with it like the phone.
+ * `null` for other servers and for earlier sign-ins (then `earloft-<sourceId>` applies).
  */
 @Serializable
 data class WearCredentialsDto(val sourceId: String, val password: String, val deviceId: String? = null)
 
-// ---- Fernsteuerung des Handys von der Uhr aus ----
+// ---- Remote control of the phone from the watch ----
 
-/** Was das Handy spielt: Musik oder Gesprochenes (Konzept 12). */
+/** What the phone plays: music or spoken content (concept 12). */
 @Serializable
 enum class WearRemoteMediaKind { MUSIC, BOOK, EPISODE }
 
 /**
- * Was das Handy gerade spielt (Handy → Uhr). Die Position rechnet die Uhr mit [positionAt] weiter.
- * Bei Büchern und Folgen sind [positionMs] und [durationMs] Zeiten im ganzen Buch (nicht in der Datei), [artist] ist
- * der Autor bzw. der Podcast.
+ * What the phone is currently playing (phone → watch). The watch advances the position with [positionAt].
+ * For books and episodes [positionMs] and [durationMs] are times in the whole book (not in the file), [artist] is
+ * the author or the podcast.
  */
 @Serializable
 data class WearRemoteStateDto(
@@ -383,43 +383,43 @@ data class WearRemoteStateDto(
     val kind: WearRemoteMediaKind = WearRemoteMediaKind.MUSIC,
     val title: String = "",
     val artist: String = "",
-    /** Album-ID am Handy (nur Musik). */
+    /** Album ID on the phone (music only). */
     val albumId: Long? = null,
-    /** Buch- bzw. Folgen-ID am Handy (nur Gesprochenes). */
+    /** Book or episode ID on the phone (spoken content only). */
     val bookId: Long? = null,
     val albumTitle: String = "",
     val durationMs: Long = 0,
-    /** Position zum Zeitpunkt [sampledAt] (Handy-Uhrzeit, Millisekunden seit 1970). */
+    /** Position at time [sampledAt] (phone clock, milliseconds since 1970). */
     val positionMs: Long = 0,
     val sampledAt: Long = 0,
     val isPlaying: Boolean = false,
-    /** Wiedergabetempo; bei Musik immer 1. */
+    /** Playback speed; always 1 for music. */
     val speed: Float = 1f,
-    /** Sprungweiten der Spulen-Knöpfe am Handy in Sekunden (nur Gesprochenes). */
+    /** Skip distances of the phone's seek buttons in seconds (spoken content only). */
     val seekBackSeconds: Int = 10,
     val seekForwardSeconds: Int = 30,
     val shuffle: Boolean = false,
-    /** `Player.REPEAT_MODE_*` des Handys; ältere Handys melden nichts (= aus). */
+    /** The phone's `Player.REPEAT_MODE_*`; older phones report nothing (= off). */
     val repeatMode: Int = 0,
-    /** Akzentfarbe des Albums (ARGB); `null`, solange sie fehlt. */
+    /** Accent color of the album (ARGB); `null` while it is missing. */
     val seedColor: Int? = null,
-    /** Medienlautstärke des Handys, 0..1. */
+    /** The phone's media volume, 0..1. */
     val volume: Float = 0f,
-    /** Höchste Lautstärkestufe des Handys; [volume] ist ein Vielfaches von 1/[volumeMax]. */
+    /** The phone's highest volume step; [volume] is a multiple of 1/[volumeMax]. */
     val volumeMax: Int = 15,
-    /** Restzeit des Sleep-Timers am Handy (Echtzeit) zum Zeitpunkt [sampledAt]; `null`, solange keiner läuft. */
+    /** Remaining time of the phone's sleep timer (real time) at time [sampledAt]; `null` while none is running. */
     val sleepTimerRemainingMs: Long? = null,
-    /** Der Timer läuft bis zum Ende des Kapitels bzw. der Folge; dann steht er, solange pausiert ist. */
+    /** The timer runs until the end of the chapter or episode; it then stands still while paused. */
     val sleepTimerToEnd: Boolean = false,
-    /** Das Handy nimmt die Sleep-Timer-Befehle an; ältere Handys melden nichts, dann zeigt die Uhr keinen Knopf. */
+    /** The phone accepts the sleep timer commands; older phones report nothing, then the watch shows no button. */
     val sleepTimerSupported: Boolean = false,
 ) {
     val isSpoken: Boolean get() = kind != WearRemoteMediaKind.MUSIC
 
-    /** Ob die Restzeit des Sleep-Timers weiterläuft: bei fester Dauer immer, „bis zum Ende“ nur während der Wiedergabe. */
+    /** Whether the sleep timer's remaining time keeps running: always with a fixed duration, "until the end" only during playback. */
     val sleepTimerCounting: Boolean get() = !sleepTimerToEnd || isPlaying
 
-    /** Restzeit des Sleep-Timers zum Zeitpunkt [now] (Handy-Uhrzeit wie [sampledAt]), nicht unter 0; `null` ohne Timer. */
+    /** Remaining time of the sleep timer at time [now] (phone clock like [sampledAt]), not below 0; `null` without a timer. */
     fun sleepTimerRemainingAt(now: Long): Long? {
         val remaining = sleepTimerRemainingMs ?: return null
         if (!sleepTimerCounting || sampledAt == 0L) return remaining
@@ -427,9 +427,9 @@ data class WearRemoteStateDto(
     }
 
     /**
-     * Das Handy muss neu melden, weil die Uhr mit dieser Meldung zum Zeitpunkt [now] eine andere Restzeit rechnete als der Timer
-     * ([remainingMs], [toEnd]): gestartet, beendet, verlängert, in ein anderes Kapitel gespult, Tempo geändert. Kleine
-     * Abweichungen aus dem Sekundentakt des Timers zählen nicht.
+     * The phone must report again because, with this report, the watch computed a different remaining time at [now] than the timer
+     * ([remainingMs], [toEnd]): started, ended, extended, seeked into another chapter, speed changed. Small
+     * deviations from the timer's one-second tick don't count.
      */
     fun sleepTimerDiffers(now: Long, remainingMs: Long?, toEnd: Boolean): Boolean {
         val shown = sleepTimerRemainingAt(now)
@@ -438,12 +438,12 @@ data class WearRemoteStateDto(
     }
 
     /**
-     * Schlüssel des Covers unter [WearPaths.REMOTE_COVER]: die Album-ID, bei Gesprochenem die negative Buch-ID
-     * (Room-IDs sind positiv, die beiden kommen sich so nicht in die Quere).
+     * Key of the cover under [WearPaths.REMOTE_COVER]: the album ID, for spoken content the negative book ID
+     * (Room IDs are positive, so the two don't get in each other's way).
      */
     val coverKey: Long? get() = if (isSpoken) bookId?.let { -it } else albumId
 
-    /** Position zum Zeitpunkt [now]: läuft die Wiedergabe, zählt sie seit [sampledAt] im Tempo [speed] weiter (höchstens bis zum Ende). */
+    /** Position at time [now]: while playing, it advances from [sampledAt] at speed [speed] (at most up to the end). */
     fun positionAt(now: Long): Long {
         if (!isPlaying || sampledAt == 0L) return positionMs
         val elapsed = ((now - sampledAt).coerceAtLeast(0) * speed.toDouble()).toLong()
@@ -452,22 +452,22 @@ data class WearRemoteStateDto(
     }
 
     private companion object {
-        /** Der Timer meldet sich etwa jede Sekunde; erst mehr Abweichung heißt, dass er sich geändert hat. */
+        /** The timer reports about every second; only a larger deviation means it has changed. */
         const val SLEEP_TIMER_DRIFT_MS = 2_500L
     }
 }
 
 /**
- * Kapitel des Buchs bzw. der Folge, die das Handy spielt (Handy → Uhr, [WearPaths.REMOTE_CHAPTERS]); geschrieben einmal je Buch,
- * nicht mit jeder Zustandsmeldung. Das laufende Kapitel rechnet die Uhr aus der fortgerechneten Position
- * ([WearRemoteStateDto.positionAt]); sie nimmt die Liste nur, wenn [bookId] zu [WearRemoteStateDto.bookId] passt.
+ * Chapters of the book or episode the phone is playing (phone → watch, [WearPaths.REMOTE_CHAPTERS]); written once per book,
+ * not with every state report. The watch computes the current chapter from the extrapolated position
+ * ([WearRemoteStateDto.positionAt]); it only takes the list if [bookId] matches [WearRemoteStateDto.bookId].
  */
 @Serializable
 data class WearRemoteChaptersDto(val bookId: Long, val chapters: List<WearChapterDto> = emptyList())
 
 /**
- * Alben, Künstler und Playlists, Podcast-Abos und Hörbücher des Handys, damit die Uhr sie anzeigen kann (Handy → Uhr, als
- * gzip-Asset). Die Folgen eines Abos fragt die Uhr einzeln ab ([WearRemoteEpisodesRequest]).
+ * The phone's albums, artists and playlists, podcast subscriptions and audiobooks, so the watch can show them (phone → watch, as a
+ * gzip asset). The watch requests a subscription's episodes individually ([WearRemoteEpisodesRequest]).
  */
 @Serializable
 data class WearRemoteLibraryDto(
@@ -475,28 +475,28 @@ data class WearRemoteLibraryDto(
     val playlists: List<WearRemotePlaylistDto> = emptyList(),
     val favoritesCount: Int = 0,
     val artists: List<WearRemoteArtistDto> = emptyList(),
-    /** Aktive Abos in der Reihenfolge des Handys. */
+    /** Active subscriptions in the phone's order. */
     val podcasts: List<WearRemotePodcastDto> = emptyList(),
-    /** Hörbücher, angefangene zuerst (zuletzt gehörtes vorn), dann nach Titel. */
+    /** Audiobooks, started ones first (last listened at the front), then by title. */
     val books: List<WearRemoteBookDto> = emptyList(),
-    /** Favorisierte Alben bzw. Künstler (IDs aus [albums] bzw. [artists]), zuletzt favorisierte zuerst; ältere Handys schicken keine. */
+    /** Favorite albums or artists (IDs from [albums] or [artists]), most recently favorited first; older phones send none. */
     val favoriteAlbumIds: List<Long> = emptyList(),
     val favoriteArtistIds: List<Long> = emptyList(),
     /**
-     * Das Handy liefert die Podcast-Warteschlange ([WearRemoteEpisodesRequest.QUEUE_FEED_ID]); ältere Handys kennen sie nicht
-     * und antworten „nicht gefunden“ (Review V18).
+     * The phone serves the podcast queue ([WearRemoteEpisodesRequest.QUEUE_FEED_ID]); older phones don't know it
+     * and answer "not found" (review V18).
      */
     val hasPodcastQueue: Boolean = false,
 )
 
-/** Ein Podcast-Abo des Handys; [feedId] wie am Handy und auf der Uhr. */
+/** A podcast subscription of the phone; [feedId] as on the phone and on the watch. */
 @Serializable
 data class WearRemotePodcastDto(val feedId: String, val title: String, val author: String = "")
 
 /**
- * Ein Hörbuch oder eine Folge des Handys. [id] ist die Buch-ID am Handy (zum Abspielen und Auswählen), [serverId] und
- * [remoteId] erkennen es auf der Uhr wieder (bei Folgen Abo und guid). [author] ist bei Folgen der Podcast. [started]:
- * angefangen und nicht zu Ende gehört.
+ * An audiobook or episode of the phone. [id] is the book ID on the phone (for playing and selecting), [serverId] and
+ * [remoteId] identify it on the watch (for episodes: subscription and guid). For episodes [author] is the podcast. [started]:
+ * started and not finished.
  */
 @Serializable
 data class WearRemoteBookDto(
@@ -509,20 +509,20 @@ data class WearRemoteBookDto(
 )
 
 /**
- * Die Uhr fragt die Folgen eines Abos ab ([WearPaths.REMOTE_EPISODES_REQUEST]). Mit [QUEUE_FEED_ID] statt eines Abos fragt sie die
- * Warteschlange der Podcasts ab (in deren Reihenfolge); ältere Handys antworten darauf mit `found = false`.
+ * The watch requests a subscription's episodes ([WearPaths.REMOTE_EPISODES_REQUEST]). With [QUEUE_FEED_ID] instead of a subscription it requests the
+ * podcast queue (in its order); older phones answer that with `found = false`.
  */
 @Serializable
 data class WearRemoteEpisodesRequest(val requestId: String, val feedId: String) {
     companion object {
-        /** Kein echter Feed (Feed-IDs sind Adressen). */
+        /** Not a real feed (feed IDs are addresses). */
         const val QUEUE_FEED_ID = "earloft:queue"
     }
 }
 
 /**
- * Antwort auf [WearRemoteEpisodesRequest]: angefangene Folgen zuerst (zuletzt gehörte vorn), dann die neuesten [MAX_NEWEST];
- * [found] = `false`, wenn das Abo am Handy nicht mehr existiert.
+ * Response to [WearRemoteEpisodesRequest]: started episodes first (last listened at the front), then the newest [MAX_NEWEST];
+ * [found] = `false` if the subscription no longer exists on the phone.
  */
 @Serializable
 data class WearRemoteEpisodesResult(
@@ -537,9 +537,9 @@ data class WearRemoteEpisodesResult(
 }
 
 /**
- * Folge oder Buch des Handys für die Uhr auswählen bzw. abwählen (Schalter „Auf der Uhr“, Wear-Konzept 17); [bookId] am Handy.
- * Die Speicher-Ansicht der Uhr kennt nur Server bzw. Abo und Kennung aus dem Folgen-Manifest: dann [serverId] und [remoteId]
- * statt [bookId].
+ * Select or deselect an episode or book of the phone for the watch (switch "On the watch", Wear concept 17); [bookId] on the phone.
+ * The watch's storage view only knows server or subscription and identifier from the episode manifest: then [serverId] and [remoteId]
+ * instead of [bookId].
  */
 @Serializable
 data class WearSelectSpokenRequest(
@@ -549,14 +549,14 @@ data class WearSelectSpokenRequest(
     val remoteId: String? = null,
 )
 
-/** Was „Entfernen“ in der Speicher-Ansicht der Uhr leert: alles oder nur Musik, Folgen bzw. Bücher. */
+/** What "Remove" clears in the watch's storage view: everything or only music, episodes or books. */
 @Serializable
 enum class WearClearScope { ALL, MUSIC, PODCASTS, BOOKS }
 
 @Serializable
 data class WearClearRequest(val scope: WearClearScope = WearClearScope.ALL)
 
-/** Ein Künstler des Handys mit seinen Alben (Albumkünstler, IDs aus [WearRemoteLibraryDto.albums]). */
+/** An artist of the phone with their albums (album artist, IDs from [WearRemoteLibraryDto.albums]). */
 @Serializable
 data class WearRemoteArtistDto(val id: Long, val name: String, val albumIds: List<Long>)
 
@@ -567,9 +567,9 @@ data class WearRemoteAlbumDto(val id: Long, val title: String, val artist: Strin
 data class WearRemotePlaylistDto(val id: Long, val name: String, val songCount: Int)
 
 /**
- * Welche Titelliste am Handy gemeint ist. [CONTINUE] spielt ein Buch bzw. eine Folge ([WearRemotePlayRequest.refId], wie in
- * der App inkl. Fortsetzen); der Name stammt vom früheren „Weiterhören“ der Uhr (seit 2026-11-05 in Podcasts/Bücher
- * aufgegangen), Titellisten gibt es dafür nicht.
+ * Which title list on the phone is meant. [CONTINUE] plays a book or episode ([WearRemotePlayRequest.refId], as in
+ * the app incl. resume); the name comes from the watch's former "Continue listening" (merged into Podcasts/Books
+ * since 2026-11-05), there are no title lists for it.
  */
 @Serializable
 enum class WearRemoteListKind { ALBUM, PLAYLIST, FAVORITES, ALL, CONTINUE }
@@ -580,22 +580,22 @@ enum class WearRemoteAction {
     PREVIOUS,
     TOGGLE_SHUFFLE,
 
-    /** [WearRemoteCommand.value] = Position in Millisekunden, bei Gesprochenem im ganzen Buch. */
+    /** [WearRemoteCommand.value] = position in milliseconds, for spoken content in the whole book. */
     SEEK,
 
-    /** Gesprochenes: 30 s zurück bzw. 10 s vor (wie in der App). */
+    /** Spoken content: 30 s back or 10 s forward (as in the app). */
     SKIP_BACK,
     SKIP_FORWARD,
 
-    /** [WearRemoteCommand.value] = Schritte der Medienlautstärke, negativ = leiser. */
+    /** [WearRemoteCommand.value] = steps of the media volume, negative = quieter. */
     VOLUME_STEPS,
 
-    /** Wiederholen: aus → alle → Titel → aus. Ältere Handys verwerfen den unbekannten Befehl. */
+    /** Repeat: off → all → one → off. Older phones discard the unknown command. */
     CYCLE_REPEAT,
 
     /**
-     * Sleep-Timer am Handy: [SLEEP_TIMER_START] mit [WearRemoteCommand.value] = Minuten, [SLEEP_TIMER_TO_END] bis zum Ende des
-     * Kapitels bzw. der Folge, [SLEEP_TIMER_CANCEL] beendet ihn. Nur, wenn das Handy [WearRemoteStateDto.sleepTimerSupported] meldet.
+     * Sleep timer on the phone: [SLEEP_TIMER_START] with [WearRemoteCommand.value] = minutes, [SLEEP_TIMER_TO_END] until the end of the
+     * chapter or episode, [SLEEP_TIMER_CANCEL] ends it. Only if the phone reports [WearRemoteStateDto.sleepTimerSupported].
      */
     SLEEP_TIMER_START,
     SLEEP_TIMER_TO_END,
@@ -606,8 +606,8 @@ enum class WearRemoteAction {
 data class WearRemoteCommand(val action: WearRemoteAction, val value: Long = 0)
 
 /**
- * Das Handy soll eine Titelliste abspielen, ab [startIndex] bzw. dem Titel [startSongId] (falls die Liste sich verschoben hat).
- * Bei [WearRemoteListKind.CONTINUE] ist [refId] das Buch bzw. die Folge, die starten soll.
+ * The phone should play a title list, from [startIndex] or the title [startSongId] (in case the list has shifted).
+ * With [WearRemoteListKind.CONTINUE], [refId] is the book or episode to start.
  */
 @Serializable
 data class WearRemotePlayRequest(
@@ -621,27 +621,27 @@ data class WearRemotePlayRequest(
 @Serializable
 data class WearRemoteTracksRequest(val requestId: String, val kind: WearRemoteListKind, val refId: Long? = null)
 
-/** Antwort auf [WearRemoteTracksRequest]; [found] = `false`, wenn Album bzw. Playlist am Handy nicht mehr existiert. */
+/** Response to [WearRemoteTracksRequest]; [found] = `false` if the album or playlist no longer exists on the phone. */
 @Serializable
 data class WearRemoteTracksResult(
     val requestId: String,
     val found: Boolean = true,
     val title: String = "",
     val tracks: List<WearRemoteTrackDto> = emptyList(),
-    /** Die Liste war länger als [MAX_TRACKS] und wurde gekürzt. */
+    /** The list was longer than [MAX_TRACKS] and was truncated. */
     val truncated: Boolean = false,
 ) {
     companion object {
-        /** Eine Message verträgt rund 100 KB; mit gzip passen so viele Titel sicher hinein. */
+        /** A message holds about 100 KB; with gzip this many titles fit safely. */
         const val MAX_TRACKS = 1000
     }
 }
 
-/** Ein Eintrag einer Titelliste. */
+/** An entry of a title list. */
 @Serializable
 data class WearRemoteTrackDto(val songId: Long, val title: String, val artist: String)
 
-/** Wie lange eine Anmeldung ([WearPaths.REMOTE_SUBSCRIBE]) gilt und wie oft die Uhr sie erneuert (mit Reserve für verlorene Nachrichten). */
+/** How long a subscription ([WearPaths.REMOTE_SUBSCRIBE]) is valid and how often the watch renews it (with slack for lost messages). */
 object WearRemoteSubscription {
     const val TTL_MS = 90_000L
     const val RENEW_MS = 30_000L

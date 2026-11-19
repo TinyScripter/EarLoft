@@ -10,7 +10,7 @@ class FinishedRuleTest {
 
     @Test
     fun `a stopped episode counts as heard with 2 percent left`() {
-        // 2 % von einer Stunde = 72 s.
+        // 2 % of one hour = 72 s.
         assertTrue(isFinishedAt(hour - 72_000, hour, isEpisode = true, stopped = true))
         assertFalse(isFinishedAt(hour - 73_000, hour, isEpisode = true, stopped = true))
     }
@@ -24,7 +24,7 @@ class FinishedRuleTest {
 
     @Test
     fun `very short episodes miss at most 10 percent`() {
-        // „tagesschau in 100 Sekunden“: höchstens 10 s, nicht 30 s.
+        // "tagesschau in 100 Sekunden": at most 10 s, not 30 s.
         assertTrue(isFinishedAt(90_000, 100_000, isEpisode = true, stopped = true))
         assertFalse(isFinishedAt(85_000, 100_000, isEpisode = true, stopped = true))
     }
@@ -39,7 +39,7 @@ class FinishedRuleTest {
 
     @Test
     fun `a stopped book counts as finished from 99 percent`() {
-        // 1 % von zehn Stunden = 6 min.
+        // 1 % of ten hours = 6 min.
         val tenHours = 10 * hour
         assertTrue(isFinishedAt(tenHours - 360_000, tenHours, isEpisode = false, stopped = true))
         assertFalse(isFinishedAt(tenHours - 361_000, tenHours, isEpisode = false, stopped = true))
@@ -48,10 +48,10 @@ class FinishedRuleTest {
     @Test
     fun `a stopped book with chapters must be in its last chapter`() {
         val tenHours = 10 * hour
-        // Schlusskapitel von 2 min: 4 min vor dem Ende steckt man noch im vorletzten.
+        // Final chapter of 2 min: 4 min before the end you are still in the second to last one.
         assertFalse(isFinishedAt(tenHours - 240_000, tenHours, isEpisode = false, stopped = true, lastChapterStartMs = tenHours - 120_000))
         assertTrue(isFinishedAt(tenHours - 100_000, tenHours, isEpisode = false, stopped = true, lastChapterStartMs = tenHours - 120_000))
-        // Langes Schlusskapitel: es zählen die 99 %.
+        // Long final chapter: the 99 % count.
         assertTrue(isFinishedAt(tenHours - 300_000, tenHours, isEpisode = false, stopped = true, lastChapterStartMs = tenHours - hour))
     }
 

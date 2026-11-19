@@ -35,8 +35,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
- * Umsortieren ohne Ziehen: Den Ziehgriff kann TalkBack nicht bedienen; die Zeile bietet deshalb „Nach oben“ und „Nach unten“
- * als eigene Aktionen an. [index] ist ihre Stelle unter [count] Zeilen.
+ * Reordering without dragging: TalkBack can't operate the drag handle, so the row offers "Move up" and "Move down"
+ * as separate actions. [index] is its position among [count] rows.
  */
 @Composable
 fun Modifier.reorderActions(index: Int, count: Int, onMove: (from: Int, to: Int) -> Unit): Modifier {
@@ -51,9 +51,9 @@ fun Modifier.reorderActions(index: Int, count: Int, onMove: (from: Int, to: Int)
 }
 
 /**
- * Umsortieren per Ziehgriff in einer LazyColumn, die nur aus den sortierbaren Zeilen besteht (Listenstelle = Zeilenstelle).
- * Die gezogene Zeile folgt dem Finger, die übrigen gleiten an ihren neuen Platz; nach dem Loslassen rutscht die gezogene
- * Zeile in ihre Lücke. Kommt sie an den oberen oder unteren Rand, scrollt die Liste mit, je näher am Rand, desto schneller.
+ * Reordering via drag handle in a LazyColumn that consists only of the sortable rows (list position = row position).
+ * The dragged row follows the finger, the others glide to their new place; after release the dragged
+ * row slides into its gap. When it reaches the top or bottom edge, the list scrolls along, the closer to the edge, the faster.
  */
 @Stable
 class ReorderState internal constructor(
@@ -62,27 +62,27 @@ class ReorderState internal constructor(
     private val edgePx: Float,
     private val maxScrollPxPerMs: Float,
 ) {
-    /** Kennung der Zeile unter dem Finger. */
+    /** Key of the row under the finger. */
     var draggedKey by mutableStateOf<Any?>(null)
         private set
     private var dragOffset by mutableFloatStateOf(0f)
 
-    // Vom Ziehgriff der gezogenen Zeile; das Mitscrollen am Rand verschiebt sie damit auch ohne Fingerbewegung.
+    // From the drag handle of the dragged row; edge auto-scrolling thus moves it even without finger movement.
     private var indexOfDragged: () -> Int = { -1 }
     private var move: (from: Int, to: Int) -> Unit = { _, _ -> }
-    // Gesamte Fingerbewegung seit dem Greifen: Mitgescrollt wird nur in Zugrichtung, nicht schon beim Greifen am Rand.
+    // Total finger movement since grabbing: auto-scroll only in the drag direction, not already when grabbing at the edge.
     private var dragTotal = 0f
     private var autoScroll: Job? = null
 
-    // Die losgelassene Zeile, solange sie noch in ihre Lücke rutscht.
+    // The released row while it is still sliding into its gap.
     private var settlingKey by mutableStateOf<Any?>(null)
     private val settleOffset = Animatable(0f)
 
-    /** Die Zeile ist angehoben (gezogen oder noch auf dem Weg in ihre Lücke) und braucht einen eigenen Hintergrund. */
+    /** The row is lifted (dragged or still on its way into its gap) and needs its own background. */
     fun isLifted(key: Any): Boolean = key == draggedKey || key == settlingKey
 
     internal fun start(key: Any, index: () -> Int, onMove: (from: Int, to: Int) -> Unit) {
-        // Greift der Finger die Zeile, während sie noch rutscht, geht es von dort weiter statt mit einem Sprung.
+        // If the finger grabs the row while it is still sliding, continue from there instead of jumping.
         dragOffset = if (key == settlingKey) settleOffset.value else 0f
         if (key == settlingKey) settlingKey = null
         draggedKey = key
@@ -100,18 +100,18 @@ class ReorderState internal constructor(
         moveIfPastNeighbour()
     }
 
-    /** Ist die gezogene Zeile über die Mitte ihrer sichtbaren Nachbarin hinaus, tauschen beide den Platz. */
+    /** Once the dragged row is past the middle of its visible neighbor, the two swap places. */
     private fun moveIfPastNeighbour() {
         val key = draggedKey ?: return
         val from = indexOfDragged()
         val visible = listState.layoutInfo.visibleItemsInfo
         if (visible.none { it.key == key }) return
         val to = if (dragOffset > 0) from + 1 else from - 1
-        // Nur mit einer sichtbaren Nachbarin tauschen; sonst rutschte die gezogene Zeile aus dem Bild und verschwände.
+        // Only swap with a visible neighbor; otherwise the dragged row would slide out of view and disappear.
         val neighbour = visible.firstOrNull { it.index == to } ?: return
         if (abs(dragOffset) <= neighbour.size / 2f) return
-        // Die Liste hält ihre Position an der Kennung der obersten sichtbaren Zeile fest. Wandert genau diese, scrollte die
-        // Liste ihr hinterher und die gezogene Zeile spränge aus dem Bild; deshalb hier an der Stelle festhalten.
+        // The list anchors its position to the key of the topmost visible row. If exactly that row moves, the list would
+        // scroll after it and the dragged row would jump out of view; hence anchor to the position here.
         listState.requestScrollToItem(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
         move(from, to)
         dragOffset -= sign(dragOffset) * neighbour.size
@@ -124,12 +124,12 @@ class ReorderState internal constructor(
             val step = edgeScrollStep(now - last)
             last = now
             if (step != 0f) {
-                // In kleinen Schritten je Bild: Ein Platzwechsel hält die Liste fest und bräche ein laufendes Scrollen ab.
+                // In small steps per frame: a swap pins the list and would cancel a scroll in progress.
                 val scrolled = listState.scrollBy(step)
-                // Die Zeile bleibt unter dem Finger, während die Liste unter ihr weiterläuft.
+                // The row stays under the finger while the list keeps moving beneath it.
                 dragOffset += scrolled
             }
-            // Auch ohne Scrollen: Nach einem großen Fingersprung rückt die Zeile Bild für Bild um je einen Platz nach.
+            // Even without scrolling: after a large finger jump the row catches up frame by frame, one place at a time.
             moveIfPastNeighbour()
         }
     }
@@ -178,27 +178,27 @@ fun rememberReorderState(listState: LazyListState): ReorderState {
     val density = LocalDensity.current
     return remember(listState, density) {
         with(density) {
-            // Am Rand höchstens etwa eine Zeile alle 70 ms.
+            // At the edge at most about one row every 70 ms.
             ReorderState(listState, scope, edgePx = 48.dp.toPx(), maxScrollPxPerMs = 1.dp.toPx())
         }
     }
 }
 
 /**
- * Für die ganze Zeile [key]: Die angehobene Zeile liegt über den anderen und folgt dem Finger; alle anderen gleiten an ihren
- * neuen Platz, wenn sich die Reihenfolge ändert (auch über [reorderActions] oder beim Entfernen).
+ * For the whole row [key]: the lifted row lies above the others and follows the finger; all others glide to their
+ * new place when the order changes (also via [reorderActions] or on removal).
  */
 fun Modifier.reorderableItem(itemScope: LazyItemScope, state: ReorderState, key: Any): Modifier =
     if (state.isLifted(key)) {
         zIndex(1f).graphicsLayer { translationY = state.offsetOf(key) }
     } else {
-        // Ohne Ein- und Ausblenden: Die Warteschlange der Musik vergibt beim Neuaufbau frische Kennungen.
+        // Without fade in/out: the music queue assigns fresh keys when it is rebuilt.
         with(itemScope) { animateItem(fadeInSpec = null, fadeOutSpec = null) }
     }
 
 /**
- * Für den Ziehgriff der Zeile [key]. [index] liefert ihre aktuelle Stelle, [onMove] verschiebt sie um eine Stelle;
- * [onDragEnd] meldet nach dem Loslassen, ob sie jetzt woanders steht als zu Beginn.
+ * For the drag handle of row [key]. [index] returns its current position, [onMove] moves it by one position;
+ * [onDragEnd] reports after release whether it is now somewhere other than at the start.
  */
 @Composable
 fun Modifier.reorderHandle(

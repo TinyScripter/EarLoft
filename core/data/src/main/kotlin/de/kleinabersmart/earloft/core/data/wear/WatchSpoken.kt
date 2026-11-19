@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.transform
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Ein Abo, wie die Uhr es braucht (Wear-Konzept 16.1). */
+/** A subscription as the watch needs it (Wear concept 16.1). */
 data class WatchFeedContent(
     val feedId: String,
     val url: String,
@@ -36,22 +36,22 @@ data class WatchFeedContent(
     val imageUrl: String?,
     val newestFirst: Boolean,
     val continuous: Boolean,
-    /** Tempo und Effekte des Abos (Konzept 12.4); `null` = Vorgabe des Bereichs. */
+    /** Speed and effects of the subscription (concept 12.4); `null` = section default. */
     val effects: EffectOverrides = EffectOverrides(),
     val skipIntroS: Int = 0,
     val skipOutroS: Int = 0,
 )
 
-/** Eine Folge für die Uhr mit allem, was sie zum Laden und Abspielen braucht. */
+/** An episode for the watch with everything it needs for downloading and playback. */
 data class WatchEpisodeContent(
-    /** ID am Handy (für die Auswahl in den Einstellungen); geht nicht an die Uhr. */
+    /** ID on the phone (for the selection in the settings); isn't sent to the watch. */
     val bookId: Long,
     val feedId: String,
     val guid: String,
     val title: String,
     val publishedAt: Long,
     val durationMs: Long,
-    /** Adresse im Feed; `null` bei Folgen vom Gerät (die gibt es nur über den Datei-Kanal). */
+    /** Address in the feed; `null` for episodes from the device (those only exist via the file channel). */
     val audioUrl: String?,
     val mimeType: String?,
     val coverUrl: String?,
@@ -60,9 +60,9 @@ data class WatchEpisodeContent(
     val chaptersUrl: String? = null,
 )
 
-/** Ein Hörbuch für die Uhr (Wear-Konzept 16.2). */
+/** An audiobook for the watch (Wear concept 16.2). */
 data class WatchBookContent(
-    /** ID am Handy (für die Auswahl in den Einstellungen); geht nicht an die Uhr. */
+    /** ID on the phone (for the selection in the settings); isn't sent to the watch. */
     val bookId: Long,
     val serverId: String,
     val remoteId: String,
@@ -75,14 +75,14 @@ data class WatchBookContent(
     val chapters: List<BookChapter> = emptyList(),
 )
 
-/** Eine Datei des Buchs; [fileId] ist die Kennung bei Audiobookshelf, `null` bei Büchern vom Gerät (nur über den Datei-Kanal). */
+/** A file of the book; [fileId] is the identifier at Audiobookshelf, `null` for books from the device (only via the file channel). */
 data class WatchBookTrackContent(
     val index: Int,
     val fileId: String?,
     val startMs: Long,
     val durationMs: Long,
     val mimeType: String?,
-    /** Am Handy nicht geladen und an der Quelle nicht mehr abrufbar: Die Uhr lädt sie nicht und überspringt sie. */
+    /** Not downloaded on the phone and no longer available at the source: the watch doesn't download it and skips it. */
     val unavailable: Boolean = false,
 )
 
@@ -93,9 +93,9 @@ data class WatchSpokenContent(
 )
 
 /**
- * Folgen und Hörbücher für die Uhr (Wear-Konzept 16.1/16.2): einzeln am Handy gewählt (Uhr-Symbol auf der Seite der Folge
- * bzw. des Buchs, Langklick-Menü), in der Reihenfolge des Wählens, mit den Abos der Folgen und dem Fortschritt des Handys.
- * Zu Ende Gehörtes fällt aus der Auswahl. Die App bildet daraus das Folgen-Manifest für den Data Layer.
+ * Episodes and audiobooks for the watch (Wear concept 16.1/16.2): individually selected on the phone (watch icon on the episode's
+ * or book's page, long-press menu), in the order of selection, with the episodes' subscriptions and the phone's progress.
+ * Items listened to the end drop out of the selection. The app builds the episode manifest for the Data Layer from it.
  */
 @Singleton
 class WatchSpoken @Inject constructor(
@@ -115,29 +115,29 @@ class WatchSpoken @Inject constructor(
             return
         }
         val book = bookDao.book(bookId) ?: return
-        // Wie „In Warteschlange einfügen“: Gehörtes gilt wieder als offen, sonst fiele es sofort wieder heraus.
+        // Like "Add to queue": played items count as open again, otherwise they would drop out again immediately.
         if (book.kind == BookKind.EPISODE) {
             podcasts.reopenIfFinished(bookId)
-            // Damit die Uhr die Kapitel mitbekommt, ohne sie selbst aus dem Feed holen zu müssen.
+            // So the watch gets the chapters without having to fetch them from the feed itself.
             podcasts.ensureChapters(bookId)
         } else {
             if (bookDao.progress(bookId)?.finished == true) progressSync.record(bookId, 0, book.durationMs, finished = false, force = true)
-            // Die Dateiliste kommt erst mit den Details; ohne Verbindung holt sie das nächste Öffnen des Buchs nach.
+            // The file list only comes with the details; without a connection the next opening of the book catches up.
             bookSyncer.ensureDetails(bookId)
         }
         wearDao.insertBook(WearBookEntity(bookId, addedAt = System.currentTimeMillis()))
     }
 
-    /** Wie [setSelected], die Folge bzw. das Buch über Server bzw. Abo und Kennung (Speicher-Ansicht der Uhr). */
+    /** Like [setSelected], the episode or book by server or subscription and identifier (watch's storage view). */
     suspend fun setSelected(serverId: String, remoteId: String, selected: Boolean) {
         val book = bookDao.bookByRemote(serverId, remoteId) ?: return
         setSelected(book.bookId, selected)
     }
 
-    /** Leert die Auswahl, mit [kind] nur die Folgen bzw. nur die Bücher. */
+    /** Clears the selection, with [kind] only the episodes or only the books. */
     suspend fun clear(kind: BookKind? = null) = if (kind == null) wearDao.deleteAllBooks() else wearDao.deleteBooksOfKind(kind)
 
-    /** [load], neu bei jeder Änderung der beteiligten Tabellen; gedrosselt wie [WearSelectionRepository.content]. */
+    /** [load], emitted anew on every change of the involved tables; throttled like [WearSelectionRepository.content]. */
     fun content(): Flow<WatchSpokenContent> =
         database.invalidationTracker.createFlow(*OBSERVED_TABLES)
             .conflate()
@@ -175,7 +175,7 @@ class WatchSpoken @Inject constructor(
 
     private suspend fun episodeContent(book: BookEntity, feed: PodcastFeedEntity): WatchEpisodeContent? {
         val track = podcastDao.trackOf(book.bookId) ?: return null
-        // Folgen vom Gerät: Die Dateikennung ist eine `content://`-Adresse, die nur das Handy öffnen kann.
+        // Episodes from the device: the file identifier is a `content://` address that only the phone can open.
         val local = isLocalSource(book.serverId)
         return WatchEpisodeContent(
             bookId = book.bookId,
@@ -186,7 +186,7 @@ class WatchSpoken @Inject constructor(
             durationMs = book.durationMs.takeIf { it > 0 } ?: track.durationMs,
             audioUrl = track.remoteFileId.takeUnless { local },
             mimeType = track.mimeType,
-            // Bilder der Folgen vom Gerät sind `earloft://`-Adressen dieses Handys; die Uhr kann damit nichts anfangen.
+            // Images of episodes from the device are `earloft://` addresses of this phone; the watch can't do anything with them.
             coverUrl = (book.coverUrl ?: feed.imageUrl)?.takeIf { it.startsWith("http") },
             progress = bookDao.progress(book.bookId)?.toModel(),
             chapters = bookDao.chapters(book.bookId).map { it.toModel() },
@@ -194,10 +194,10 @@ class WatchSpoken @Inject constructor(
         )
     }
 
-    /** `null`, solange die Dateiliste fehlt (Details noch nicht geladen). */
+    /** `null` as long as the file list is missing (details not loaded yet). */
     private suspend fun bookContent(book: BookEntity): WatchBookContent? {
         val tracks = bookDao.tracks(book.bookId).takeIf { it.isNotEmpty() } ?: return null
-        // Bücher vom Gerät: Die Dateikennung ist eine Adresse auf diesem Handy.
+        // Books from the device: the file identifier is an address on this phone.
         val local = isLocalSource(book.serverId)
         return WatchBookContent(
             bookId = book.bookId,
@@ -218,7 +218,7 @@ class WatchSpoken @Inject constructor(
     private companion object {
         const val THROTTLE_MS = 2_000L
 
-        /** Alles, wovon Auswahl, Angaben der Folgen und Bücher und Fortschritt abhängen. */
+        /** Everything the selection, the details of episodes and books, and progress depend on. */
         val OBSERVED_TABLES = arrayOf("wear_books", "books", "book_tracks", "book_chapters", "book_progress", "podcast_feeds", "spoken_servers")
     }
 }

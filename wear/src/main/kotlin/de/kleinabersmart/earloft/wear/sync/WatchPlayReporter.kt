@@ -19,9 +19,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Schickt jede Wiedergabe als eigenes DataItem `/earloft/plays/<uuid>` ans Handy (Wear-Konzept 10). Die Play-Dienste
- * halten es, bis das Handy erreichbar ist; das Handy importiert es und löscht es wieder. Pakete mit mehreren
- * Wiedergaben gibt es noch nicht – ein Titel pro Paket hält den Verlust bei einem Absturz auf null.
+ * Sends every play to the phone as a separate DataItem `/earloft/plays/<uuid>` (Wear concept 10). Play services
+ * keep it until the phone is reachable; the phone imports it and deletes it again. Packages with several
+ * plays do not exist yet – one track per package keeps the loss on a crash at zero.
  */
 @Singleton
 class WatchPlayReporter @Inject constructor(
@@ -31,8 +31,8 @@ class WatchPlayReporter @Inject constructor(
 
     override suspend fun report(songId: Long, playedAt: Long, listenedMs: Long, live: Boolean) {
         val sources = libraryDao.getPlayableSources(songId)
-        // Die uid eines Server-Songs ist auf Handy und Uhr gleich. Bei der Pseudo-Quelle `phone` ist die
-        // `remoteId` die uid am Handy (`local:39`, Wear-Konzept 7.1); `phone:local:39` kennt das Handy nicht.
+        // The uid of a server song is the same on phone and watch. For the pseudo source `phone` the
+        // `remoteId` is the uid on the phone (`local:39`, Wear concept 7.1); the phone does not know `phone:local:39`.
         val songUid = sources.filter { it.sourceType.isServer }.minWithOrNull(SourcePreference)?.uid
             ?: sources.firstOrNull { it.sourceType == SourceType.PHONE }?.remoteId
             ?: return

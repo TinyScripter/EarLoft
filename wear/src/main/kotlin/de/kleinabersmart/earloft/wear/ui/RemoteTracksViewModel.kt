@@ -19,8 +19,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Titelliste eines Albums, einer Playlist oder der Favoriten auf dem Handy (Wear-Konzept 15) – zugleich die kleine Seite,
- * auf der man sie am Handy abspielt oder auf die Uhr holt (17).
+ * Track list of an album, a playlist or the favorites on the phone (Wear concept 15) – at the same time the small page
+ * on which you play it on the phone or bring it to the watch (17).
  */
 @HiltViewModel(assistedFactory = RemoteTracksViewModel.Factory::class)
 class RemoteTracksViewModel @AssistedInject constructor(
@@ -36,7 +36,7 @@ class RemoteTracksViewModel @AssistedInject constructor(
 
     private var tracks: List<WearRemoteTrackDto> = emptyList()
 
-    /** Was die Uhr als Auswahl führt; nur Alben, Playlists und Favoriten lassen sich auf die Uhr holen. */
+    /** What the watch keeps as a selection; only albums, playlists and favorites can be brought to the watch. */
     private val selectionKind: WearSelectionKind? = when (kind) {
         WearRemoteListKind.ALBUM -> WearSelectionKind.ALBUM
         WearRemoteListKind.PLAYLIST -> WearSelectionKind.PLAYLIST
@@ -45,7 +45,7 @@ class RemoteTracksViewModel @AssistedInject constructor(
     }
     private val selection = selectionKind?.let { SelectionOnWatch(it, refId, storage, phoneSelections, viewModelScope) }
 
-    /** Knopf „Download“; `null` für Listen, die sich nicht auf die Uhr holen lassen. */
+    /** "Download" button; `null` for lists that cannot be brought to the watch. */
     val onWatch: StateFlow<OnWatchState?> = selection?.state ?: MutableStateFlow(null)
 
     init {
@@ -60,7 +60,7 @@ class RemoteTracksViewModel @AssistedInject constructor(
                         title = result.title,
                         songCount = result.tracks.size,
                         loadedCount = null,
-                        // Die Position ist der Schlüssel: Ein Titel kann in einer Playlist mehrfach vorkommen.
+                        // The position is the key: a track can occur several times in a playlist.
                         items = result.tracks.mapIndexed { index, track -> TrackItem(index.toLong(), track.title, track.artist) },
                         truncated = result.truncated,
                     )
@@ -69,7 +69,7 @@ class RemoteTracksViewModel @AssistedInject constructor(
         }
     }
 
-    /** Das Handy spielt ab dem Titel an Position [index] bzw. von vorn. @return `false`, wenn es nicht erreichbar war. */
+    /** The phone plays from the track at position [index] or from the start. @return `false` if it was unreachable. */
     suspend fun play(index: Int?, shuffle: Boolean): Boolean = remote.play(
         WearRemotePlayRequest(
             kind = kind,
@@ -80,7 +80,7 @@ class RemoteTracksViewModel @AssistedInject constructor(
         ),
     )
 
-    /** Holt die Liste auf die Uhr bzw. nimmt sie herunter; das Handy wählt aus und schickt ein neues Manifest. */
+    /** Brings the list to the watch or removes it; the phone selects and sends a new manifest. */
     fun setOnWatch(selected: Boolean) {
         selection?.set(selected)
     }

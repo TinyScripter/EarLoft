@@ -62,7 +62,7 @@ class UserDataBackupTest {
         user.close()
     }
 
-    /** Ein Gerät: Hauptdatenbank [db] und dieselbe [user]-Datenbank (die beim Gerätewechsel mitkommt). */
+    /** A device: main database [db] and the same [user] database (which comes along when switching devices). */
     private fun backupFor(db: EarLoftDatabase, ard: ArdBooks? = null) = UserDataBackup(
         context = context,
         database = db,
@@ -166,7 +166,7 @@ class UserDataBackupTest {
 
         val dao = user.userDataDao()
         assertEquals(90_000L, dao.listeningStats().single().listenedMs)
-        // Die Abos wurden nicht neu gelesen; das holt die nächste Änderung an ihnen bzw. der nächste volle Abgleich nach.
+        // The subscriptions weren't re-read; the next change to them or the next full sync catches up.
         assertEquals(listOf("feed-1"), dao.podcasts().map { it.feedId })
         backup.mirror(setOf("podcast_feeds"))
         assertTrue(dao.podcasts().isEmpty())
@@ -230,7 +230,7 @@ class UserDataBackupTest {
 
         assertEquals("Neu benannt", main.sourceDao().get("nav")!!.name)
         assertEquals(5_000L, main.statsDao().all().single().listenedMs)
-        // Der Tag aus der Sicherung fehlte und kommt dazu; der neue bleibt.
+        // The day from the backup was missing and is added; the new one stays.
         assertEquals(setOf(20_000L, 20_001L), main.statsDao().allDays().map { it.day }.toSet())
     }
 
@@ -252,7 +252,7 @@ class UserDataBackupTest {
             server.enqueue(ardAnswer())
             val backup = backupFor(newDevice, testArdBooks(context, newDevice, server.url("/graphql")))
             val saved = dao.snapshot()
-            // Das Buch fehlt noch: Es wartet samt Fortschritt.
+            // The book is still missing: it waits along with its progress.
             assertEquals(1, backup.applyArdBooks(saved.ardBooks.values).size)
             assertEquals(1, backup.applyProgress(saved.progress.values).size)
 
@@ -284,7 +284,7 @@ class UserDataBackupTest {
         val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         val server = MockWebServer().apply { start() }
         try {
-            // Unter der alten Gruppe nichts; der gesicherte Titel steht jetzt in einer anderen.
+            // Nothing under the old group; the backed-up title is now in a different one.
             server.enqueue(MockResponse.Builder().body("""{"data":{"items":{"nodes":[]}}}""").build())
             server.enqueue(ardAnswer(group = "urn:ard:show:neu"))
             server.enqueue(ardAnswer(group = "urn:ard:show:neu"))
@@ -321,7 +321,7 @@ class UserDataBackupTest {
             withContext(Dispatchers.Default) {
                 val restoring = launch { backup.restoreArdBooks { saved } }
                 delay(300)
-                // Aus: ARD Sounds wird nicht gefragt, das Zurückholen wartet.
+                // Off: ARD Sounds isn't queried, the restore waits.
                 assertEquals(0, server.requestCount)
                 assertTrue(restoring.isActive)
 
@@ -354,7 +354,7 @@ class UserDataBackupTest {
 
             assertEquals(1, backup.applyArdBooks(saved.ardBooks.values).size)
             assertTrue(newDevice.bookDao().keyedBooksOf(ARD_BOOK_SERVER_ID).isEmpty())
-            // Fehlende Verbindung heißt nicht „es gibt das Buch nicht mehr“: Beim nächsten Mal wird wieder gefragt.
+            // A missing connection doesn't mean "the book no longer exists": it is queried again next time.
             assertTrue(SpokenSettings(context).ardGoneChecks().isEmpty())
         } finally {
             newDevice.close()
@@ -376,12 +376,12 @@ class UserDataBackupTest {
             val empty = MockResponse.Builder().body("""{"data":{"items":{"nodes":[]}}}""").build()
             server.enqueue(empty)
 
-            // Eine leere Antwort allein kann ein Aussetzer sein: Beim nächsten Start wird wieder gefragt (Review F6).
+            // An empty response alone can be a hiccup: it is queried again on the next start (review F6).
             assertTrue(backup.fetchArdBooks(saved))
             assertTrue(server.requestCount > 0)
             assertTrue(settings.ardGoneChecks().isEmpty())
             assertTrue(ardKey in settings.ardMissing())
-            // Bestätigt sie eine spätere, gilt das Buch als weg.
+            // If a later one confirms it, the book counts as gone.
             settings.setArdMissing(ardKey, System.currentTimeMillis() - 7 * 60 * 60 * 1000L)
             server.enqueue(empty)
             assertTrue(backup.fetchArdBooks(saved))
@@ -389,12 +389,12 @@ class UserDataBackupTest {
             assertTrue(ardKey in settings.ardGoneChecks())
             assertTrue(settings.ardMissing().isEmpty())
 
-            // Nächster Start: keine Anfrage, das Buch bleibt gesichert.
+            // Next start: no query, the book stays backed up.
             assertTrue(backup.fetchArdBooks(saved))
             assertEquals(asked, server.requestCount)
             assertEquals(1, backup.applyArdBooks(saved).size)
 
-            // Nach einer Woche wird wieder gefragt; ist das Buch zurück, kommt es und der Merker verschwindet.
+            // After a week it's queried again; if the book is back, it comes and the marker disappears.
             settings.setArdGoneCheck(ardKey, 0L)
             server.enqueue(ardAnswer())
             assertTrue(backup.fetchArdBooks(saved))
@@ -448,7 +448,7 @@ class UserDataBackupTest {
             saved,
         )
 
-        // Gemeldet: Der Server hat ihn, die Sicherung braucht ihn nicht mehr.
+        // Reported: the server has it, the backup no longer needs it.
         main.bookDao().markClean(unreported, updatedAt = 40)
         backup.mirror()
         assertFalse(user.userDataDao().progress().any { it.remoteId == "item-2" })
@@ -472,12 +472,12 @@ class UserDataBackupTest {
                 user.userDataDao().listeningStats(),
                 user.userDataDao().listeningDays(),
             ))
-            // Vor dem ersten Abgleich gibt es keine Folgen: Nichts wird angewendet, und der Spiegel löscht nichts.
+            // Before the first sync there are no episodes: nothing is applied, and the mirror deletes nothing.
             assertEquals(3, backup.applyProgress(user.userDataDao().progress()).size)
             backup.mirror()
             assertEquals(3, user.userDataDao().progress().size)
 
-            // Der Abgleich legt die Folgen mit neuen Ids an; eine davon wurde hier schon weiter gehört.
+            // The sync creates the episodes with new ids; one of them was already played further here.
             book(newDevice, "feed-0", "andere")
             val first = book(newDevice, "feed-1", "guid-1")
             val second = book(newDevice, "feed-1", "guid-2")
@@ -488,7 +488,7 @@ class UserDataBackupTest {
             assertEquals(100L, newDevice.bookDao().progress(first)!!.positionMs)
             assertEquals(999L, newDevice.bookDao().progress(second)!!.positionMs)
 
-            // Der Audiobookshelf-Stand war noch nicht gemeldet und bleibt es auch nach dem Anwenden.
+            // The Audiobookshelf state wasn't reported yet and stays so even after applying.
             val absBook = book(newDevice, "abs", "item-1", BookKind.BOOK)
             assertTrue(backup.applyProgress(pending).isEmpty())
             assertTrue(newDevice.bookDao().progress(absBook)!!.dirty)
@@ -521,7 +521,7 @@ class UserDataBackupTest {
         val backup = backupFor(main)
         main.bookDao().upsertProgress(progress(book(main, "feed-1", "guid-1"), 100, updatedAt = 10))
         backup.mirror()
-        // Die Folge fällt aus dem Feed: Ihr Fortschritt bleibt gesichert, falls sie wiederkommt.
+        // The episode drops out of the feed: its progress stays backed up in case it comes back.
         main.podcastDao().deleteEpisodesOf("feed-1")
         backup.mirror()
         assertEquals(1, user.userDataDao().progress().size)
@@ -542,7 +542,7 @@ class UserDataBackupTest {
         backup.mirror()
         assertEquals(mapOf("guid-1" to 100L, "guid-2" to 200L), user.userDataDao().episodeStars().associate { it.remoteId to it.starredAt })
 
-        // Nicht mehr gemerkt: fällt aus der Sicherung (nur Teil `books` gelesen).
+        // No longer remembered: drops out of the backup (only the `books` part read).
         main.podcastDao().setStarred(listOf(second), null)
         backup.mirror(setOf("books"))
         assertEquals(listOf("guid-1"), user.userDataDao().episodeStars().map { it.remoteId })
@@ -551,7 +551,7 @@ class UserDataBackupTest {
         try {
             val restoring = backupFor(newDevice)
             val saved = user.userDataDao().episodeStars()
-            // Noch ohne Folge: wartet.
+            // No episode yet: waits.
             assertEquals(saved, restoring.applyEpisodeStars(saved))
             val again = book(newDevice, "feed-1", "guid-1")
             assertTrue(restoring.applyEpisodeStars(saved).isEmpty())
@@ -603,7 +603,7 @@ class UserDataBackupTest {
         )
         assertEquals("Notiz", user.userDataDao().bookmarks().single { it.remoteId == "guid-1" }.note)
 
-        // Hier gelöscht: auch aus der Sicherung. Bekommt das bekannte eine Notiz, kommt es dazu.
+        // Deleted here: also from the backup. If the known one gets a note, it's added.
         main.bookDao().deleteBookmark(main.bookDao().bookmarksOf(listOf(episode)).single { it.positionMs == 10_000L }.bookmarkId)
         main.bookDao().updateBookmark(main.bookDao().bookmark(known)!!.copy(note = "später"))
         backup.mirror(setOf("bookmarks"))
@@ -611,7 +611,7 @@ class UserDataBackupTest {
         assertFalse(BookmarkKey("feed-1", "guid-1", 10_000) in saved)
         assertTrue(BookmarkKey("abs", "item-1", 40_000) in saved)
 
-        // Mit dem Server fallen seine Lesezeichen aus der Sicherung.
+        // With the server, its bookmarks drop out of the backup.
         main.bookDao().deleteServer("abs")
         backup.mirror()
         assertTrue(user.userDataDao().bookmarks().none { it.serverId == "abs" })
@@ -632,12 +632,12 @@ class UserDataBackupTest {
             val backup = backupFor(newDevice)
             val saved = user.userDataDao().snapshot()
             backup.restore(saved)
-            // Vor dem Abgleich gibt es die Bücher nicht: Alles wartet, und der Spiegel löscht nichts.
+            // Before the sync the books don't exist: everything waits, and the mirror deletes nothing.
             assertEquals(3, backup.applyBookmarks(saved.bookmarks.values).size)
             backup.mirror()
             assertEquals(3, user.userDataDao().bookmarks().size)
 
-            // Die Bücher kommen mit neuen Ids; der Abgleich hat das Lesezeichen mit Notiz schon geholt, ohne Notiz.
+            // The books come with new ids; the sync already fetched the bookmark with a note, without the note.
             book(newDevice, "feed-0", "andere")
             val newEpisode = book(newDevice, "feed-1", "guid-1")
             val newAbsBook = book(newDevice, "abs", "item-1", BookKind.BOOK)
@@ -649,15 +649,15 @@ class UserDataBackupTest {
             assertFalse(episodeMarks.single().dirty)
             val absMarks = newDevice.bookDao().bookmarksOf(listOf(newAbsBook)).associateBy { it.positionMs }
             assertEquals(2, absMarks.size)
-            // Noch nicht beim Server: wird wieder gemeldet.
+            // Not yet on the server: gets reported again.
             assertTrue(absMarks.getValue(30_000).dirty)
             assertNull(absMarks.getValue(30_000).remoteTime)
-            // Schon beim Server: bleibt, bekommt nur die Notiz.
+            // Already on the server: stays, only gets the note.
             assertEquals("Vom Server", absMarks.getValue(50_000).title)
             assertEquals("nur hier", absMarks.getValue(50_000).note)
             assertFalse(absMarks.getValue(50_000).dirty)
 
-            // Ein zweites Anwenden legt nichts doppelt an.
+            // Applying a second time creates nothing twice.
             assertTrue(backup.applyBookmarks(saved.bookmarks.values).isEmpty())
             assertEquals(3, newDevice.bookDao().bookmarksOf(listOf(newEpisode, newAbsBook)).size)
         } finally {

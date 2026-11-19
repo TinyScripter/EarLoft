@@ -16,9 +16,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Was ein Backup-Import getan hat: neu angelegte Podcasts (auch archivierte), übernommene Fortschritte, Fortschritte, die in der App neuer
- * waren ([progressKept]) oder deren Folge nicht (mehr) im Feed steht ([progressMissing]), die Zahl der Statistik-Einträge und der
- * neu gemerkten Folgen.
+ * What a backup import did: newly created podcasts (including archived ones), adopted progress, progress that was newer in the app
+ * ([progressKept]) or whose episode is not (or no longer) in the feed ([progressMissing]), the number of statistics entries and of
+ * newly saved episodes.
  */
 data class DatabaseImportResult(
     val feedsAdded: Int,
@@ -30,15 +30,15 @@ data class DatabaseImportResult(
 )
 
 /**
- * Übernimmt aus einer Datenbank-Datei die Abos, den Hörfortschritt und die gehörte Zeit.
+ * Imports subscriptions, listening progress and listened time from a database file.
  *
- * - Abos, die es noch nicht gibt, werden angelegt und abgeglichen; archivierte als archivierte Abos (ein Abo der App bleibt,
- *   wie es ist). Steht eine Sendung aus ARD Sounds als `ardsounds:` darin, ist sie ein Abo: So schreibt der Export sie ohne
- *   RSS-Bridge (und ältere Exporte immer) als archiviert, weil andere Apps sie nicht abonnieren können.
- * - Fortschritt wird über Feed-Adresse und guid zugeordnet und nur übernommen, wenn er neuer ist als der in der App.
- * - Gemerkte Folgen (`Favorites`) werden ebenso zugeordnet und gemerkt; ein Stern der App bleibt, keiner wird entfernt.
- * - Die gehörte Zeit wandert für **alle** Folgen (auch archivierter Abos und nicht mehr im Feed stehender Folgen) in die
- *   Statistik ([ListeningStatEntity]); ein erneuter Import ersetzt seine eigenen Zeilen.
+ * - Subscriptions that don't exist yet are created and synced; archived ones as archived subscriptions (an existing subscription in the app stays
+ *   as it is). If a show from ARD Sounds is in it as `ardsounds:`, it is a subscription: that's how the export writes it without an
+ *   RSS bridge (and older exports always) as archived, because other apps can't subscribe to it.
+ * - Progress is matched by feed URL and guid and only adopted if it is newer than the one in the app.
+ * - Saved episodes (`Favorites`) are matched the same way and saved; a star in the app stays, none is removed.
+ * - The listened time for **all** episodes (including archived subscriptions and episodes no longer in the feed) goes into the
+ *   statistics ([ListeningStatEntity]); a repeated import replaces its own rows.
  */
 @Singleton
 class DatabaseImporter @Inject constructor(
@@ -49,23 +49,23 @@ class DatabaseImporter @Inject constructor(
 ) {
     suspend fun import(backup: ImportData): DatabaseImportResult {
         val known = podcastDao.feeds().mapTo(HashSet()) { it.url }
-        // Steht eine Adresse aktiv und archiviert in der Datei, gilt sie als aktiv.
+        // If an address is in the file as both active and archived, it counts as active.
         val wanted = backup.feeds
             .mapNotNull { f -> key(f.url)?.let { url -> WantedFeed(url, f.title.ifBlank { url }, f.active || ardSoundsShowId(f.url) != null, f) } }
             .groupBy { it.url }
             .map { (_, same) -> same.firstOrNull { it.active } ?: same.first() }
-        // Die Adresse aus der Datei: Zugangsdaten darin löst der Import heraus und speichert sie (Review D6).
+        // The address from the file: the import extracts credentials in it and stores them (review D6).
         repository.importOpml(wanted.map { OpmlFeed(it.title, it.source.url) }, replace = false)
         val added = wanted.filter { it.url !in known }.mapNotNull { wish ->
             podcastDao.feedByUrl(wish.url)?.also {
                 if (!wish.active) podcastDao.setArchived(it.feedId, true)
-                // Tempo und Effekte nur für neue Abos; ein Abo der App behält seine Einstellungen.
+                // Speed and effects only for new subscriptions; an existing subscription keeps its settings.
                 val source = wish.source
                 podcastDao.setEffects(it.feedId, source.speed, source.skipSilence, source.volumeBoostDb)
                 podcastDao.setSkipIntroOutro(it.feedId, source.skipIntroS, source.skipOutroS)
             }
         }
-        // Ohne Folgen gibt es nichts, dem sich ein Fortschritt zuordnen ließe.
+        // Without episodes there is nothing progress could be matched to.
         added.forEach { repository.refresh(it.feedId) }
 
         val feedByUrl = (podcastDao.feeds() + added).associateBy { it.url }
@@ -109,7 +109,7 @@ class DatabaseImporter @Inject constructor(
         return DatabaseImportResult(added.size, applied, kept, missing, stats.size, starred)
     }
 
-    /** `false`, wenn die App einen neueren Stand hat und er bleibt. */
+    /** `false` if the app has a newer state and it stays. */
     private suspend fun applyProgress(book: BookEntity, episode: ImportEpisode): Boolean {
         val existing = bookDao.progress(book.bookId)
         if (existing != null && existing.updatedAt > episode.lastPlayedAt) return false
@@ -137,8 +137,8 @@ class DatabaseImporter @Inject constructor(
     private data class WantedFeed(val url: String, val title: String, val active: Boolean, val source: ImportFeed)
 
     /**
-     * Abo-Adresse wie in der App: Sendungen aus ARD Sounds (auch über die RSS-Bridge) als `ardsounds:<Kennung>`, sonst der Feed
-     * ohne Zugangsdaten.
+     * Subscription URL as in the app: shows from ARD Sounds (also via the RSS bridge) as `ardsounds:<id>`, otherwise the feed
+     * without credentials.
      */
     private fun key(url: String): String? = parseArdSoundsInput(url) ?: normalizeFeedUrl(url)?.splitCredentials()?.first?.toString()
 }

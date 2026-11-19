@@ -8,7 +8,7 @@ import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.api.provider.Provider
 import org.gradle.kotlin.dsl.getByType
 
-/** Gemeinsame SDK- und Java-Level für alle Module. */
+/** Shared SDK and Java levels for all modules. */
 object BuildConfig {
     const val COMPILE_SDK = 37
     const val TARGET_SDK = 37
@@ -16,7 +16,7 @@ object BuildConfig {
     const val MIN_SDK_WEAR = 30
     val JAVA_VERSION = JavaVersion.VERSION_17
 
-    /** Robolectric braucht auf JDK 25 Zugriff auf interne JDK-Klassen. */
+    /** Robolectric needs access to internal JDK classes on JDK 25. */
     const val ROBOLECTRIC_JVM_ARGS = "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED"
 }
 

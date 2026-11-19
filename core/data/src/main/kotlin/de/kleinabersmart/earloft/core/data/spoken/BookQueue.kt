@@ -8,9 +8,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Die Warteschlange der Bücher ist die Zeile „Weiterhören“ ohne Begrenzung: angefangene, nicht beendete Bücher. Die
- * Reihenfolge teilen sie sich mit den Podcasts ([EpisodeQueue]); herausgenommen wird wie mit „Aus Weiterhören entfernen“
- * (Stand bleibt, bei Audiobookshelf auf allen Geräten), bis das Buch wieder läuft.
+ * The book queue is the "Continue listening" row without a limit: started, unfinished books. They share the
+ * order with the podcasts ([EpisodeQueue]); removing works like "Remove from Continue listening"
+ * (state stays, with Audiobookshelf on all devices) until the book plays again.
  */
 @Singleton
 class BookQueue @Inject constructor(
@@ -20,12 +20,12 @@ class BookQueue @Inject constructor(
 ) {
     val books: Flow<List<BookWithProgress>> = books.continueListening(limit = Int.MAX_VALUE, startOrder = queue.order)
 
-    /** Die Warteschlange wurde umsortiert: [bookIds] ist die neue Reihenfolge der ganzen Zeile, [movedId] das bewegte Buch. */
+    /** The queue was reordered: [bookIds] is the new order of the whole row, [movedId] the moved book. */
     suspend fun reorder(bookIds: List<Long>, movedId: Long) = queue.move(bookIds, movedId)
 
     suspend fun remove(bookId: Long) = progressSync.hideFromContinueListening(bookId)
 
-    /** „Warteschlange leeren“: alle Bücher der Zeile außer [keepId] (dem geladenen) heraus, wie einzeln entfernt. */
+    /** "Clear queue": all books of the row except [keepId] (the loaded one) out, as if removed individually. */
     suspend fun clear(keepId: Long?) {
         progressSync.hideFromContinueListening(books.first().map { it.book.id }.filter { it != keepId })
     }

@@ -68,15 +68,15 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var listCovers: ListCovers
 
     /**
-     * Bildschirm, den der Start-Intent direkt öffnen soll: die Wiedergabe-Ansicht (Chip der laufenden Musik auf dem
-     * Zifferblatt) oder Speicher & Downloads (Symbol der laufenden Downloads, [EXTRA_OPEN_STORAGE]).
+     * Screen the launch intent should open directly: the now playing view (chip of the running music on the
+     * watch face) or Storage & downloads (icon of the running downloads, [EXTRA_OPEN_STORAGE]).
      */
     private var openRoute by mutableStateOf<NavKey?>(null)
 
     /**
-     * Ohne eigene Ambient-Ansicht: Beim Display-Timeout geht die App in den Hintergrund und das Zifferblatt erscheint.
-     * Die Musik läuft im Dienst weiter, der Chip der laufenden Musik führt zurück zur Wiedergabe-Ansicht.
-     * Ohne Beobachter hält Wear OS eine App mit laufender Medien-Benachrichtigung nur abgedunkelt im Vordergrund.
+     * Without a dedicated ambient view: on display timeout the app goes to the background and the watch face appears.
+     * The music keeps playing in the service; the chip of the running music leads back to the now playing view.
+     * Without an observer, Wear OS only keeps an app with a running media notification dimmed in the foreground.
      */
     private val ambientCallback = object : AmbientLifecycleObserver.AmbientLifecycleCallback {
         override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
@@ -88,8 +88,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         lifecycle.addObserver(AmbientLifecycleObserver(this, ambientCallback))
         requestPermissions()
-        // Nur beim frischen Start: Nach einer Neuerstellung (Drehung, Prozess) steht der Intent noch an der Activity. Ein Start aus
-        // dem Verlauf stellt den alten Intent (z. B. vom Download-Symbol) erneut zu, er gilt nicht noch einmal (Review V19).
+        // Only on a fresh start: after a recreation (rotation, process) the intent is still on the activity. A start from
+        // recents redelivers the old intent (e.g. from the download icon); it does not apply again (Review V19).
         if (savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0) openRoute = routeOf(intent)
         setContent {
             CompositionLocalProvider(LocalListCovers provides listCovers) {
@@ -111,7 +111,7 @@ class MainActivity : ComponentActivity() {
 
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
 
-    /** Heimnetz (Downloads vom Server) und Benachrichtigungen (Symbol der laufenden Downloads); das System fragt nacheinander. */
+    /** Home network (downloads from the server) and notifications (icon of running downloads); the system asks one after the other. */
     private fun requestPermissions() {
         val missing = buildList {
             if (Build.VERSION.SDK_INT >= 37) add(LOCAL_NETWORK_PERMISSION)
@@ -124,96 +124,96 @@ class MainActivity : ComponentActivity() {
 @Serializable
 data object StartRoute : NavKey
 
-/** Extra am Start-Intent: direkt Speicher & Downloads öffnen (Tipp auf das Symbol der laufenden Downloads). */
+/** Extra on the launch intent: open Storage & downloads directly (tap on the icon of the running downloads). */
 const val EXTRA_OPEN_STORAGE = "de.kleinabersmart.earloft.wear.OPEN_STORAGE"
 
 /**
- * Die Uhr lädt direkt vom Server im Heimnetz. Ab Android 17 geht das nur mit `ACCESS_LOCAL_NETWORK`; ohne sie laufen
- * Verbindungen ins LAN in einen Timeout.
+ * The watch downloads directly from the server on the home network. From Android 17 on this only works with `ACCESS_LOCAL_NETWORK`; without it
+ * connections into the LAN run into a timeout.
  */
 private const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
 
-/** Eine Auswahl vom Handy; [playlistId] ist ihre Geräte-Playlist auf der Uhr (Wear-Konzept 7.2). */
+/** A selection from the phone; [playlistId] is its device playlist on the watch (Wear concept 7.2). */
 @Serializable
 data class SelectionRoute(val playlistId: Long) : NavKey
 
-/** Speicher & Downloads (Wear-Konzept 11). */
+/** Storage & downloads (Wear concept 11). */
 @Serializable
 data object StorageRoute : NavKey
 
-/** Wiedergabe-Ansicht der Uhr oder, mit [remote], die des Handys (Fernsteuerung, Wear-Konzept 15). */
+/** Now playing view of the watch or, with [remote], that of the phone (remote control, Wear concept 15). */
 @Serializable
 data class NowPlayingRoute(val remote: Boolean = false) : NavKey
 
-/** Menü Musik der Uhr: Alben, Künstler, Favoriten, Playlists. */
+/** The watch's music menu: albums, artists, favorites, playlists. */
 @Serializable
 data object MusicRoute : NavKey
 
-/** Menü Musik des Handys (Wear-Konzept 17), gegliedert wie [MusicRoute]. */
+/** The phone's music menu (Wear concept 17), structured like [MusicRoute]. */
 @Serializable
 data object PhoneMusicRoute : NavKey
 
-/** Favoriten des Handys mit Alben und Künstlern: Songs, Alben, Künstler. */
+/** The phone's favorites with albums and artists: songs, albums, artists. */
 @Serializable
 data object PhoneFavoritesRoute : NavKey
 
-/** Die Künstler der geladenen Alben bzw., mit [remote], alle des Handys (mit [favorites] die favorisierten). */
+/** The artists of the downloaded albums or, with [remote], all of the phone's (with [favorites] the favorited ones). */
 @Serializable
 data class ArtistsRoute(val remote: Boolean, val favorites: Boolean = false) : NavKey
 
-/** Die (geladenen bzw., mit [remote], alle) Alben eines Künstlers; [name] steht oben. */
+/** The (downloaded or, with [remote], all) albums of an artist; [name] is shown at the top. */
 @Serializable
 data class ArtistRoute(val artistId: Long, val name: String, val remote: Boolean) : NavKey
 
-/** Podcasts ([BookKind.EPISODE]) bzw. Bücher auf der Uhr (Wear-Konzept 16.1/16.2). */
+/** Podcasts ([BookKind.EPISODE]) or books on the watch (Wear concept 16.1/16.2). */
 @Serializable
 data class SpokenRoute(val kind: BookKind) : NavKey
 
-/** Geladene Alben der Uhr bzw., mit [remote], alle Alben des Handys (mit [favorites] die favorisierten). */
+/** Downloaded albums of the watch or, with [remote], all albums of the phone (with [favorites] the favorited ones). */
 @Serializable
 data class AlbumsRoute(val remote: Boolean, val favorites: Boolean = false) : NavKey
 
-/** Playlists der Uhr bzw., mit [remote], alle Playlists des Handys. */
+/** Playlists of the watch or, with [remote], all playlists of the phone. */
 @Serializable
 data class PlaylistsRoute(val remote: Boolean) : NavKey
 
-/** Ein geladenes Album der Uhr. */
+/** A downloaded album of the watch. */
 @Serializable
 data class AlbumRoute(val albumId: Long) : NavKey
 
-/** Die Abos des Handys (Wear-Konzept 17). */
+/** The phone's subscriptions (Wear concept 17). */
 @Serializable
 data object PhonePodcastsRoute : NavKey
 
-/** Die Folgen eines Abos am Handy; [title] ist der Name des Abos. */
+/** The episodes of a subscription on the phone; [title] is the subscription's name. */
 @Serializable
 data class PhoneEpisodesRoute(val feedId: String, val title: String) : NavKey
 
-/** Die Hörbücher des Handys. */
+/** The phone's audiobooks. */
 @Serializable
 data object PhoneBooksRoute : NavKey
 
-/** Eine Folge bzw. ein Buch des Handys: am Handy abspielen, „Auf der Uhr“. */
+/** An episode or book of the phone: play on the phone, "On the watch". */
 @Serializable
 data class PhoneSpokenRoute(val item: WearRemoteBookDto) : NavKey
 
-/** Eine Titelliste des Handys: Album, Playlist oder Favoriten ([refId] fehlt bei Favoriten). */
+/** A track list of the phone: album, playlist or favorites ([refId] is missing for favorites). */
 @Serializable
 data class RemoteTracksRoute(val kind: WearRemoteListKind, val refId: Long? = null, val selectable: Boolean = true) : NavKey
 
-/** Sleep-Timer wählen (aus der Wiedergabe-Ansicht); mit [remote] den des Handys. */
+/** Choose the sleep timer (from the now playing view); with [remote] the phone's. */
 @Serializable
 data class SleepTimerRoute(val remote: Boolean = false) : NavKey
 
-/** Eigene Dauer des Sleep-Timers; mit [remote] den des Handys. */
+/** Custom duration of the sleep timer; with [remote] the phone's. */
 @Serializable
 data class SleepTimerCustomRoute(val remote: Boolean = false) : NavKey
 
-/** Kapitel des laufenden Buchs bzw. der Folge (aus der Wiedergabe-Ansicht); mit [remote] die des Handys. */
+/** Chapters of the current book or episode (from the now playing view); with [remote] the phone's. */
 @Serializable
 data class ChaptersRoute(val remote: Boolean = false) : NavKey
 
-/** Öffnet [route] höchstens einmal; sonst stapeln sich Kopien, wenn man mehrfach etwas startet. */
+/** Opens [route] at most once; otherwise copies pile up when starting something several times. */
 private fun MutableList<NavKey>.openOnce(route: NavKey) {
     if (lastOrNull() != route) add(route)
 }
@@ -278,7 +278,7 @@ fun WearApp(openRoute: NavKey? = null, onRouteOpened: () -> Unit = {}) {
                     }
                     entry<PhoneFavoritesRoute> {
                         PhoneFavoritesScreen(
-                            // „Download“ steht im Menü selbst: Es lädt Songs und Lieblingsalben, die Songs-Seite zeigt nur die Songs.
+                            // "Download" is in the menu itself: it downloads songs and favorite albums, the songs page only shows the songs.
                             onSongsClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.FAVORITES, selectable = false)) },
                             onAlbumsClick = { backStack.add(AlbumsRoute(remote = true, favorites = true)) },
                             onArtistsClick = { backStack.add(ArtistsRoute(remote = true, favorites = true)) },
@@ -343,7 +343,7 @@ fun WearApp(openRoute: NavKey? = null, onRouteOpened: () -> Unit = {}) {
                         if (route.remote) RemoteSleepTimerScreen(onCustom, onDone) else SleepTimerScreen(onCustom, onDone)
                     }
                     entry<SleepTimerCustomRoute> { route ->
-                        // Zurück zur Wiedergabe: erst die eigene Dauer, dann die Auswahl davor schließen.
+                        // Back to playback: close the custom duration first, then the selection before it.
                         val onDone: () -> Unit = { repeat(2) { backStack.removeLastOrNull() } }
                         if (route.remote) RemoteSleepTimerCustomScreen(onDone) else SleepTimerCustomScreen(onDone)
                     }

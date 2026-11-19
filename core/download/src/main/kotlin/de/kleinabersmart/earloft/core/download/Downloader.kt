@@ -24,33 +24,33 @@ import okhttp3.Request
 import java.io.IOException
 import javax.inject.Inject
 
-/** Ergebnis eines einzelnen Downloads. */
+/** Result of a single download. */
 sealed interface DownloadOutcome {
     data object Done : DownloadOutcome
 
     /**
-     * Dauerhaft fehlgeschlagen (z. B. Datei auf dem Server weg, Speicher voll). [sourceUnavailable]: Dieses Gerät kennt die
-     * Quelle gar nicht, das trifft alle Titel von ihr.
+     * Failed permanently (e.g. file gone from the server, storage full). [sourceUnavailable]: this device doesn't know the
+     * source at all, which affects all of its tracks.
      */
     data class Failed(val reason: String, val sourceUnavailable: Boolean = false) : DownloadOutcome
 
-    /** Vorübergehender Fehler (Netz, abgelehnte Anmeldung); der Eintrag steht noch auf `RUNNING`. */
+    /** Temporary error (network, rejected login); the entry is still `RUNNING`. */
     data class Retry(val cause: Exception) : DownloadOutcome {
-        /** Der Server hat die Zugangsdaten abgelehnt: Mit neuen klappt es (die Uhr fragt dann beim Handy nach). */
+        /** The server rejected the credentials: new ones will work (the watch then asks the phone). */
         val isAuthRejection: Boolean get() = cause.isAuthRejection
     }
 
-    /** Der Eintrag wurde während des Ladens entfernt. */
+    /** The entry was removed during the download. */
     data object Cancelled : DownloadOutcome
 }
 
 /**
- * Lädt eine Song-Quelle vollständig in den App-Speicher (Konzept 5.3). Die Datei entsteht als
- * `.part` und wird erst nach vollständigem Empfang umbenannt; abgebrochene Downloads hinterlassen
- * so nie eine halbe Datei, die als fertig gilt.
+ * Downloads a song source completely into app storage (concept 5.3). The file is created as
+ * `.part` and only renamed once fully received; aborted downloads therefore
+ * never leave behind a half file that counts as finished.
  *
- * Auth übernimmt der gemeinsame OkHttpClient anhand der Stream-URL. `no-store` hält die Datei
- * aus dem HTTP-Cache heraus.
+ * Auth is handled by the shared OkHttpClient based on the stream URL. `no-store` keeps the file
+ * out of the HTTP cache.
  */
 class Downloader @Inject constructor(
     private val downloadDao: DownloadDao,
@@ -59,11 +59,11 @@ class Downloader @Inject constructor(
     private val storage: DownloadStorage,
 ) {
     /**
-     * Lädt [download] herunter. Bei [DownloadOutcome.Retry] bleibt der Eintrag auf `RUNNING` – der
-     * Aufrufer entscheidet, ob er ihn neu einreiht oder als fehlgeschlagen markiert.
+     * Downloads [download]. On [DownloadOutcome.Retry] the entry stays `RUNNING` – the
+     * caller decides whether to re-enqueue it or mark it as failed.
      *
-     * Mit [network] läuft die Verbindung über genau dieses Netz (die Uhr lädt über WLAN, nie über den
-     * Bluetooth-Proxy des Handys).
+     * With [network] the connection runs over exactly this network (the watch downloads over Wi-Fi, never over the
+     * phone's Bluetooth proxy).
      */
     suspend fun download(
         download: DownloadEntity,
@@ -90,8 +90,8 @@ class Downloader @Inject constructor(
     }
 
     /**
-     * Ob die Quelle von [uid] hier bekannt ist (ohne Netz). Wenn nicht, endete [download] mit `Failed(sourceUnavailable)`:
-     * Die Uhr fragt dann gleich das Handy, statt erst WLAN anzufordern (Review V4). Ohne Eintrag `true`.
+     * Whether the source of [uid] is known here (without network). If not, [download] ended with `Failed(sourceUnavailable)`:
+     * the watch then asks the phone right away instead of first requesting Wi-Fi (review V4). Without an entry `true`.
      */
     suspend fun knowsSource(uid: String): Boolean {
         val songSource = downloadDao.getSongSource(uid) ?: return true
@@ -126,10 +126,10 @@ class Downloader @Inject constructor(
                     val contentType = response.header("Content-Type").orEmpty()
                     when {
                         response.code in 500..599 -> throw IOException("HTTP ${response.code}")
-                        // Abgelehnte Zugangsdaten sind vorübergehend: Passwort bzw. Token können sich geändert haben.
+                        // Rejected credentials are temporary: the password or token may have changed.
                         response.code == HTTP_UNAUTHORIZED -> throw HttpStatusException(response.code)
                         !response.isSuccessful -> return@withContext DownloadOutcome.Failed("HTTP ${response.code}")
-                        // Subsonic meldet Fehler (z. B. Auth) als JSON/XML mit HTTP 200, andere Server per Status.
+                        // Subsonic reports errors (e.g. auth) as JSON/XML with HTTP 200, other servers via status.
                         contentType.startsWith("application/json") || contentType.contains("xml") -> {
                             val error = subsonicErrorIn(response.peekBody(MAX_ERROR_BODY_BYTES).string())
                             if (error?.isRejectedCredentials == true) throw error
@@ -142,7 +142,7 @@ class Downloader @Inject constructor(
                     }
                     writeToPart(uid, response.body.byteStream(), total, onProgress)
                         ?: return@withContext DownloadOutcome.Cancelled
-                    // Die Endung folgt der Antwort: Eine transkodierte Datei hat einen anderen Typ als die Quelle.
+                    // The extension follows the response: a transcoded file has a different type than the source.
                     val responseType = contentType.substringBefore(';').trim().lowercase()
                     val mimeType = responseType.takeIf { it.startsWith("audio/") }
                         ?: songSource.mimeType
@@ -155,7 +155,7 @@ class Downloader @Inject constructor(
         }
     }
 
-    /** Loopback (z. B. `adb reverse` im Emulator) verlässt das Gerät nie und lässt sich an kein Netz binden. */
+    /** Loopback (e.g. `adb reverse` in the emulator) never leaves the device and can't be bound to a network. */
     private fun clientFor(network: Network?, host: String): OkHttpClient =
         if (network == null || host == "localhost" || host == "127.0.0.1" || host == "[::1]") {
             client
@@ -166,7 +166,7 @@ class Downloader @Inject constructor(
                 .build()
         }
 
-    /** @return geschriebene Bytes oder `null`, wenn der Download zwischendurch entfernt wurde. */
+    /** @return bytes written, or `null` if the download was removed in the meantime. */
     private suspend fun writeToPart(
         uid: String,
         input: java.io.InputStream,
@@ -217,7 +217,7 @@ class Downloader @Inject constructor(
         const val FREE_SPACE_RESERVE_BYTES = 100L * 1024 * 1024
         const val HTTP_UNAUTHORIZED = 401
 
-        /** Fehlerantworten sind klein; mehr wird nie gelesen. */
+        /** Error responses are small; never read more than this. */
         const val MAX_ERROR_BODY_BYTES = 16L * 1024
     }
 }

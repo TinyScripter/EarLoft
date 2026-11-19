@@ -67,7 +67,7 @@ class ReplayGainProcessorTest {
         val queue = QueueTimeline(song(1, albumId = 7, track = 1), song(2, albumId = 7, track = 2))
         val processor = pcm16Processor()
         processor.onSourceResolved(1, ReplayGain(trackGainDb = -6.0206f, albumGainDb = -12.0412f))
-        // Song 2 hat keine Werte in der Datenbank, aber Tags in der Datei.
+        // Song 2 has no values in the database, but tags in the file.
         processor.onFormat(queue.getUidOfPeriod(1), Metadata(VorbisComment("REPLAYGAIN_TRACK_GAIN", "6 dB"), VorbisComment("REPLAYGAIN_TRACK_PEAK", "0.25")))
 
         processor.setSettings(ReplayGainMode.TRACK, preAmpDb = 0f)
@@ -77,7 +77,7 @@ class ReplayGainProcessorTest {
         processor.flushTo(queue, 1)
         assertEquals(listOf<Short>(1995, Short.MAX_VALUE), processor.process(1000, 20000))
 
-        // AUTO: beide Titel desselben Albums in Reihenfolge → Album-Gain.
+        // AUTO: both titles of the same album in order → album gain.
         processor.setSettings(ReplayGainMode.AUTO, preAmpDb = 0f)
         processor.flushTo(queue, 0)
         assertEquals(listOf<Short>(250), processor.process(1000))
@@ -126,7 +126,7 @@ class ReplayGainProcessorTest {
             )
             .build()
 
-    /** Ein Fenster und eine Periode je Titel, wie bei einer Playlist im Player. */
+    /** One window and one period per title, as with a playlist in the player. */
     private class QueueTimeline(private vararg val items: MediaItem) : Timeline() {
         override fun getWindowCount() = items.size
         override fun getWindow(windowIndex: Int, window: Window, defaultPositionProjectionUs: Long): Window =

@@ -25,10 +25,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Lesezeichen in Büchern und Folgen (Konzept 12.6): lokal sofort, bei Büchern eines Audiobookshelf-Servers auch dort –
- * gemeldet wie der Fortschritt, offline nachgeholt von [BookProgressWorker], übernommen beim Abgleich
- * ([BookProgressSync.pullAll] → [pull]). Folgen und Bücher vom Gerät bleiben auf dem Gerät. Audiobookshelf kennt
- * keine Notizen; sie bleiben lokal.
+ * Bookmarks in books and episodes (concept 12.6): locally immediately, for books of an Audiobookshelf server also there –
+ * reported like progress, caught up offline by [BookProgressWorker], adopted during sync
+ * ([BookProgressSync.pullAll] → [pull]). Episodes and books from the device stay on the device. Audiobookshelf has
+ * no notes; they stay local.
  */
 @Singleton
 class Bookmarks @Inject constructor(
@@ -39,22 +39,22 @@ class Bookmarks @Inject constructor(
     private val policy: PlaybackPolicy,
 ) {
     /**
-     * Meldungen ([push]) und Übernahme ([pull]) laufen nacheinander: Sonst arbeitete die Übernahme mit einem Stand des Servers
-     * von vor einer gleichzeitigen Meldung, löschte ein gerade gemeldetes Lesezeichen (samt Notiz) bzw. holte ein gerade
-     * gelöschtes zurück.
+     * Reports ([push]) and adoption ([pull]) run one after the other: otherwise the adoption would work with a server state
+     * from before a concurrent report, deleting a bookmark that was just reported (including its note) or bringing
+     * back one that was just deleted.
      */
     private val serverMutex = Mutex()
 
     fun of(bookId: Long): Flow<List<Bookmark>> = dao.observeBookmarks(bookId).map { list -> list.map { it.toModel() } }
 
-    /** Alle Lesezeichen in Büchern bzw. Folgen ([kind]), neueste zuerst. */
+    /** All bookmarks in books or episodes ([kind]), newest first. */
     fun all(kind: BookKind): Flow<List<BookmarkEntry>> = dao.observeAllBookmarks(kind).map { list -> list.map { it.toEntry() } }
 
-    /** Setzt ein Lesezeichen bei [positionMs]; `null`, wenn es das Buch nicht mehr gibt. */
+    /** Sets a bookmark at [positionMs]; `null` if the book no longer exists. */
     suspend fun add(bookId: Long, positionMs: Long, title: String, note: String = ""): Long? {
         val book = dao.book(bookId) ?: return null
         val synced = syncsWithServer(book)
-        // Audiobookshelf erkennt Lesezeichen an der Zeit; ganze Sekunden vergleichen sich sicher.
+        // Audiobookshelf identifies bookmarks by time; whole seconds compare reliably.
         val position = positionMs.coerceAtLeast(0).let { if (synced) it / 1000 * 1000 else it }
         val now = System.currentTimeMillis()
         val id = dao.insertBookmark(
@@ -64,7 +64,7 @@ class Bookmarks @Inject constructor(
         return id
     }
 
-    /** Titel und Notiz ändern; nur ein neuer Titel geht an den Server. */
+    /** Change title and note; only a new title goes to the server. */
     suspend fun edit(bookmarkId: Long, title: String, note: String) {
         val bookmark = dao.bookmark(bookmarkId) ?: return
         if (bookmark.title == title && bookmark.note == note) return
@@ -75,7 +75,7 @@ class Bookmarks @Inject constructor(
         if (titleChanged) push(bookmarkId)
     }
 
-    /** Löscht; was der Server schon kennt, bleibt bis zur Meldung als gelöscht stehen. */
+    /** Deletes; what the server already knows stays marked as deleted until it's reported. */
     suspend fun delete(bookmarkId: Long) {
         val bookmark = dao.bookmark(bookmarkId) ?: return
         if (bookmark.remoteTime == null) {
@@ -86,7 +86,7 @@ class Bookmarks @Inject constructor(
         push(bookmarkId)
     }
 
-    /** Rückgängig nach [delete]: steht es noch (nicht gemeldet), gilt es wieder; sonst neu angelegt. */
+    /** Undo after [delete]: if it's still there (not reported), it's valid again; otherwise it's created anew. */
     suspend fun restore(bookmark: Bookmark) {
         val stored = dao.bookmark(bookmark.id)
         if (stored != null) {
@@ -97,13 +97,13 @@ class Bookmarks @Inject constructor(
         }
     }
 
-    /** `true`, wenn nichts mehr aussteht. */
+    /** `true` if nothing is pending anymore. */
     suspend fun push(bookmarkId: Long): Boolean = serverMutex.withLock { pushLocked(bookmarkId) }
 
     private suspend fun pushLocked(bookmarkId: Long): Boolean {
         val bookmark = dao.bookmark(bookmarkId) ?: return true
         if (!bookmark.dirty) return true
-        // Uhr: keine Verbindung zu Audiobookshelf (Wear-Konzept 16.2).
+        // Watch: no connection to Audiobookshelf (Wear concept 16.2).
         if (!policy.syncsWithBookServers) return true
         val book = dao.book(bookmark.bookId) ?: return true
         val server = servers.server(book.serverId) ?: return false
@@ -120,7 +120,7 @@ class Bookmarks @Inject constructor(
                 else -> try {
                     api.updateBookmark(server, book.remoteId, AbsBookmarkUpdate(time, bookmark.title))
                 } catch (e: AbsException) {
-                    // Auf einem anderen Gerät gelöscht: wieder anlegen, die Änderung hier ist neuer.
+                    // Deleted on another device: recreate it, the change here is newer.
                     if (e.code != 404) throw e
                     api.createBookmark(server, book.remoteId, AbsBookmarkUpdate(time, bookmark.title))
                 }
@@ -134,20 +134,20 @@ class Bookmarks @Inject constructor(
         }
     }
 
-    /** Meldet alles, was aussteht. `true`, wenn nichts mehr offen ist. */
+    /** Reports everything pending. `true` if nothing is open anymore. */
     suspend fun pushPending(): Boolean = dao.dirtyBookmarks().map { push(it.bookmarkId) }.all { it }
 
     /**
-     * Holt die Lesezeichen des Kontos mit [fetch] (aus `/api/me`) und übernimmt sie für die Bücher von [serverId]: neue kommen
-     * hinzu, Titel gleichen sich an, und was der Server nicht mehr kennt, fällt weg – außer es hat hier noch ungemeldete
-     * Änderungen. Lesezeichen von Büchern, die es hier (noch) nicht gibt, bleiben außen vor. Abruf und Übernahme laufen nicht
-     * gleichzeitig mit einer Meldung ([serverMutex]); [fetch] darf deshalb selbst keine Lesezeichen melden.
+     * Fetches the account's bookmarks with [fetch] (from `/api/me`) and adopts them for the books of [serverId]: new ones are
+     * added, titles are aligned, and what the server no longer knows is dropped – unless it still has unreported changes
+     * here. Bookmarks of books that don't exist here (yet) are left out. Fetching and adopting don't run
+     * concurrently with a report ([serverMutex]); [fetch] must therefore not report any bookmarks itself.
      */
     suspend fun pull(serverId: String, fetch: suspend () -> List<AbsBookmarkDto>) = serverMutex.withLock {
         applyRemoteLocked(serverId, fetch())
     }
 
-    /** Wie [pull] mit einem schon geholten Stand. */
+    /** Like [pull] with an already fetched state. */
     suspend fun applyRemote(serverId: String, remote: List<AbsBookmarkDto>) = pull(serverId) { remote }
 
     private suspend fun applyRemoteLocked(serverId: String, remote: List<AbsBookmarkDto>) {
@@ -161,7 +161,7 @@ class Bookmarks @Inject constructor(
             val theirs = remoteByBook[book.bookId].orEmpty()
             for (dto in theirs) {
                 val match = mine.firstOrNull { it.remoteTime == dto.time }
-                    // Hier angelegt, Meldung ging durch, Antwort nicht: dieselbe Stelle.
+                    // Created here, the report went through, the response didn't: the same position.
                     ?: mine.firstOrNull { it.remoteTime == null && it.positionMs == (dto.time * 1000).roundToLong() }
                 when {
                     match == null -> {
@@ -196,7 +196,7 @@ class Bookmarks @Inject constructor(
     }
 }
 
-/** Ein Lesezeichen samt Titel und Autor (bei Folgen dem Podcast) seines Buchs bzw. seiner Folge (gesammelte Liste). */
+/** A bookmark along with title and author (for episodes the podcast) of its book or episode (collected list). */
 data class BookmarkEntry(val bookmark: Bookmark, val bookTitle: String, val bookAuthor: String, val kind: BookKind)
 
 internal fun BookmarkEntity.toModel() = Bookmark(bookmarkId, bookId, positionMs, title, note, createdAt)

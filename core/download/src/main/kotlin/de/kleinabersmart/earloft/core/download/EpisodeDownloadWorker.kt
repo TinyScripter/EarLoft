@@ -28,9 +28,9 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Arbeitet die Warteschlange der Folgen-Downloads ab, neueste Folge zuerst und [PARALLEL] zugleich. Aufbau wie beim
- * [DownloadWorker]: Vordergrund-Worker mit Fortschritt, Netzfehler stellen zurück und versuchen es mit Backoff erneut,
- * dann an der Stelle, an der die Teildatei endet.
+ * Works through the queue of episode downloads, newest episode first and [PARALLEL] at a time. Structured like the
+ * [DownloadWorker]: foreground worker with progress, network errors put the entry back and retry with backoff,
+ * then from the point where the partial file ends.
  */
 class EpisodeDownloadWorker(
     context: Context,
@@ -46,15 +46,15 @@ class EpisodeDownloadWorker(
     private val episodeDownloads = entryPoint.episodeDownloads()
     private val transcripts = entryPoint.podcastTranscripts()
 
-    /** Folgen, die einer der parallelen Läufe gerade genommen hat (bis der Downloader sie auf `RUNNING` setzt, stehen sie noch auf `QUEUED`). */
+    /** Episodes one of the parallel runs has just taken (until the downloader sets them to `RUNNING`, they are still `QUEUED`). */
     private val active = HashSet<Long>()
     private val pick = Mutex()
 
-    /** Fortschritt der laufenden Folgen (Bytes, Größe) für eine gemeinsame Anzeige in der Benachrichtigung. */
+    /** Progress of the running episodes (bytes, size) for a combined display in the notification. */
     private val running = ConcurrentHashMap<Long, Pair<Long, Long?>>()
     private val throttle = ProgressThrottle()
 
-    /** Beide Läufe melden aus dem IO-Thread ihres Downloads; [throttle] und die Benachrichtigung nur nacheinander. */
+    /** Both runs report from their download's IO thread; [throttle] and the notification only one at a time. */
     private val report = Mutex()
 
     private val budget by lazy { RetryBudget(runAttemptCount, MAX_ATTEMPTS) }
@@ -64,7 +64,7 @@ class EpisodeDownloadWorker(
         if (dao.countPendingDownloads() == 0) return finish()
         startForeground(progress = null)
 
-        // Ein Netzfehler beendet den Lauf: Keiner nimmt danach eine neue Folge, der Worker versucht es mit Backoff erneut.
+        // A network error ends the run: nobody takes a new episode afterwards, the worker retries with backoff.
         val retry = AtomicBoolean(false)
         coroutineScope {
             repeat(PARALLEL) {
@@ -87,7 +87,7 @@ class EpisodeDownloadWorker(
         dao.nextQueuedDownloads(PARALLEL + 1).firstOrNull { it.bookId !in active }?.also { active += it.bookId }
     }
 
-    /** @return `false`, wenn der Lauf mit Backoff wiederholt werden soll. */
+    /** @return `false` if the run should be retried with backoff. */
     private suspend fun load(next: BookTrackEntity): Boolean {
         progress.report(next.bookId, 0, null)
         val outcome = try {
@@ -111,10 +111,10 @@ class EpisodeDownloadWorker(
                 storage.deletePart(next.bookId, 0)
             }
             is DownloadOutcome.Failed -> Log.w(TAG, "Folge ${next.bookId} fehlgeschlagen: ${outcome.reason}")
-            // Nennt der Feed keine Kapitel, stehen sie vielleicht in der Datei (Konzept 12.5 „Kapitelquellen“).
+            // If the feed lists no chapters, they may be in the file (concept 12.5 "chapter sources").
             DownloadOutcome.Done -> {
                 podcasts.chaptersFromFile(next.bookId)
-                // Das Transkript gleich mit, damit es offline da ist (Konzept 12.5 „Transkripte“).
+                // Fetch the transcript too, so it's available offline (concept 12.5 "transcripts").
                 transcripts.prefetch(next.bookId)
                 episodeDownloads.onDownloaded(next.bookId)
             }
@@ -123,7 +123,7 @@ class EpisodeDownloadWorker(
         return true
     }
 
-    /** Ein Prozentwert über die laufenden Folgen mit bekannter Größe; ist keine bekannt, unbestimmt. */
+    /** A percentage across the running episodes with known size; if none is known, indeterminate. */
     private suspend fun reportOverall() = report.withLock {
         val known = running.values.mapNotNull { (done, total) -> total?.let { done to it } }
         val total = known.sumOf { it.second }.takeIf { known.isNotEmpty() }
@@ -132,8 +132,8 @@ class EpisodeDownloadWorker(
     }
 
     /**
-     * Räumt Dateien weg, zu denen es keinen Eintrag mehr gibt (Abo beendet, Folge aus dem Feed gefallen). Teildateien
-     * wartender Folgen bleiben für den nächsten Lauf.
+     * Removes files that no longer have an entry (subscription ended, episode dropped from the feed). Partial files
+     * of waiting episodes are kept for the next run.
      */
     private suspend fun finish(): Result {
         storage.deleteOrphans(dao.downloadedTracks().mapNotNull { it.filePath }, dao.pendingTracks().map { it.bookId })
@@ -143,8 +143,8 @@ class EpisodeDownloadWorker(
     override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo(buildNotification(pending = 0, progress = null))
 
     /**
-     * Aus dem Hintergrund (z. B. Wiederholung nach Backoff) verweigert das System den Vordergrunddienst; dann wird normal
-     * weitergeladen und in diesem Lauf nicht erneut gefragt (sonst bei jedem Prozent eine Ausnahme samt Stacktrace).
+     * From the background (e.g. retry after backoff) the system refuses the foreground service; then downloading
+     * continues normally and this run doesn't ask again (otherwise an exception plus stack trace at every percent).
      */
     @Volatile private var foregroundDenied = false
 
@@ -153,7 +153,7 @@ class EpisodeDownloadWorker(
         try {
             setForeground(foregroundInfo(buildNotification(dao.countPendingDownloads(), progress)))
         } catch (e: CancellationException) {
-            // Unterklasse von IllegalStateException: Der Worker wurde gestoppt, nicht der Vordergrund verweigert (Review V28).
+            // Subclass of IllegalStateException: the worker was stopped, the foreground was not refused (review V28).
             throw e
         } catch (e: IllegalStateException) {
             foregroundDenied = true
@@ -208,12 +208,12 @@ class EpisodeDownloadWorker(
     private companion object {
         const val TAG = "EpisodeDownloadWorker"
 
-        /** Derselbe Kanal wie bei den Musik-Downloads. */
+        /** The same channel as for the music downloads. */
         const val CHANNEL_ID = "downloads"
         const val NOTIFICATION_ID = 2002
         const val MAX_ATTEMPTS = 5
 
-        /** Folgen liegen auf vielen Hosts; zwei zugleich nutzen die Leitung besser, ohne einen Server zu überlasten. */
+        /** Episodes live on many hosts; two at a time use the connection better without overloading a server. */
         const val PARALLEL = 2
     }
 }

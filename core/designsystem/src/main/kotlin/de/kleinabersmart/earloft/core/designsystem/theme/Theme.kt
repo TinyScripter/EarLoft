@@ -16,12 +16,12 @@ import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
 import com.materialkolor.rememberDynamicColorScheme
 
-/** Ob [EarLoftTheme] dunkel ist – kann per Einstellung vom System abweichen. */
+/** Whether [EarLoftTheme] is dark – may differ from the system via a setting. */
 val LocalDarkTheme = staticCompositionLocalOf { false }
 
 /**
- * Farbschema der App: aus dem Logo-Orange ([BrandOrange]) oder, mit [systemColors] ab Android 12, aus den Systemfarben
- * (Material You, vom Hintergrundbild abgeleitet).
+ * App color scheme: from the logo orange ([BrandOrange]) or, with [systemColors] on Android 12+, from the system colors
+ * (Material You, derived from the wallpaper).
  */
 @Composable
 fun EarLoftTheme(
@@ -46,9 +46,9 @@ fun EarLoftTheme(
 }
 
 /**
- * Die App-Farben aus dem Logo, ohne Systemfarben; auch für das Widget. „Vibrant“ statt des gedeckten Standards: Akzente
- * tragen sichtbar Farbe. Die Flächen bekommen ein eigenes, schwächeres Orange, sonst werden sie kräftig pfirsich- bzw.
- * braunstichig.
+ * The app colors from the logo, without system colors; also used for the widget. "Vibrant" instead of the muted default:
+ * accents visibly carry color. The surfaces get their own, weaker orange, otherwise they turn strongly peach- or
+ * brown-tinted.
  */
 fun appColorScheme(isDark: Boolean): ColorScheme = dynamicColorScheme(
     seedColor = BrandOrange,
@@ -60,8 +60,8 @@ fun appColorScheme(isDark: Boolean): ColorScheme = dynamicColorScheme(
 )
 
 /**
- * Färbt [content] nach der Grundfarbe eines Albums (ARGB, siehe `albums.seedColor`) um.
- * Ohne Farbe bleibt das umgebende Theme unverändert.
+ * Recolors [content] based on an album's seed color (ARGB, see `albums.seedColor`).
+ * Without a color the surrounding theme stays unchanged.
  */
 @Composable
 fun AlbumColorTheme(

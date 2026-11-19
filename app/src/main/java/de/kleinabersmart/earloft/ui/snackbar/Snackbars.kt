@@ -11,9 +11,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Ein Hinweis an den Nutzer. Mit [actionLabel] und [onAction] trägt die Snackbar eine Aktion (zum Beispiel „Rückgängig“);
- * [onAction] läuft auf dem Main-Thread, wenn die Aktion getippt wurde. [keep]: Ein neuer Hinweis ersetzt diesen nicht, sondern
- * wartet, bis er abgelaufen ist (für Hinweise, die der Nutzer nicht verpassen soll).
+ * A message to the user. With [actionLabel] and [onAction] the snackbar carries an action (for example "Undo");
+ * [onAction] runs on the main thread when the action was tapped. [keep]: a new message doesn't replace this one but
+ * waits until it has expired (for messages the user shouldn't miss).
  */
 data class SnackbarMessage(
     val text: String,
@@ -24,9 +24,9 @@ data class SnackbarMessage(
 )
 
 /**
- * Der eine Weg für Hinweise in der ganzen App (statt Toast): Oberfläche wie Hintergrunddienste rufen [show], die Wurzel der
- * Oberfläche zeigt sie in ihrer Snackbar. Ein neuer Hinweis ersetzt den gerade sichtbaren (außer [SnackbarMessage.keep]); ist die
- * App nicht sichtbar, geht er verloren.
+ * The single path for messages across the whole app (instead of Toast): UI and background services call [show], the UI
+ * root shows them in its snackbar. A new message replaces the currently visible one (except [SnackbarMessage.keep]); if the
+ * app isn't visible, it is lost.
  */
 @Singleton
 class Snackbars @Inject constructor() {
@@ -48,5 +48,5 @@ class Snackbars @Inject constructor() {
 @HiltViewModel
 class SnackbarViewModel @Inject constructor(val snackbars: Snackbars) : ViewModel()
 
-/** Aus der Oberfläche heraus: `LocalSnackbars.current.show("…")`. Ohne Wurzel (Vorschau) geht der Hinweis ins Leere. */
+/** From within the UI: `LocalSnackbars.current.show("…")`. Without a root (preview) the message goes nowhere. */
 val LocalSnackbars = staticCompositionLocalOf { Snackbars() }

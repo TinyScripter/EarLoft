@@ -11,8 +11,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Meldet der Uhr, dass die Handy-App installiert ist und welches Protokoll sie spricht
- * (Wear-Konzept 4, [WearPaths.PHONE_INFO]). Ohne Uhr bzw. Data Layer passiert nichts.
+ * Tells the watch that the phone app is installed and which protocol it speaks
+ * (Wear concept 4, [WearPaths.PHONE_INFO]). Without a watch or Data Layer nothing happens.
  */
 @Singleton
 class PhoneInfoPublisher @Inject constructor(

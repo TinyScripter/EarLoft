@@ -15,17 +15,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Hängt die App nach einem Neustart wieder an eine Cast-Sitzung, die beim Ende des Prozesses noch lief. Die Cast-Bibliothek
- * kann das nicht: Mit der Ausgabeauswahl des Systems beendet Play-Dienste die Sitzung beim Tod des Prozesses, der Empfänger
- * spielt aber weiter (am Gerät gesehen, 2026-11-13).
+ * After a restart, rejoins the app to a cast session that was still running when the process ended. The Cast library
+ * can't do that: with the system output switcher, Play services end the session when the process dies, but the receiver
+ * keeps playing (seen on the device, 2026-11-13).
  *
- * Dazu merkt sich [remember] Gerät und Sitzung, solange gecastet wird, und [keepUntil], bis wann der Empfänger mit seiner
- * Warteschlange voraussichtlich noch spielt; ein reguläres Ende ([forget]) löscht beides. Beim Start des Players sucht
- * [select] das Gerät (höchstens [DISCOVERY_MS]), aber nur bis zu diesem Zeitpunkt, und wählt es nur aus, wenn dort noch die
- * gemerkte Sitzung läuft ([CastReceiverStatus]): Das Auswählen startet unsere App auf dem Empfänger und verdrängt dort eine
- * andere, die inzwischen läuft; beim Lösen danach endete auch der Empfänger. [CastSessionPlayerFactory] prüft nach dem
- * Verbinden trotzdem mit [isOurs], ob es die gemerkte Sitzung ist, und löst sich sonst wieder (eine selbst gestartete wird
- * dabei beendet).
+ * For this, [remember] stores device and session while casting, and [keepUntil] until when the receiver will probably
+ * still be playing its queue; a regular end ([forget]) clears both. When the player starts,
+ * [select] looks for the device (at most [DISCOVERY_MS]), but only up to that point in time, and selects it only if the
+ * remembered session is still running there ([CastReceiverStatus]): selecting launches our app on the receiver and displaces
+ * another one that may be running there by now; detaching afterwards would end the receiver too. [CastSessionPlayerFactory] still
+ * checks with [isOurs] after connecting whether it is the remembered session, and detaches otherwise (one it started itself
+ * is ended in the process).
  */
 @Singleton
 internal class CastRejoin @Inject constructor(@param:ApplicationContext private val context: Context) {
@@ -34,7 +34,7 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
     private var attempted = false
     private var writtenUntil = 0L
 
-    /** Die beim letzten Ende des Prozesses offene Sitzung, solange [select] sie sucht oder die App sich gerade anhängt. */
+    /** The session open when the process last ended, while [select] is looking for it or the app is rejoining. */
     var pending: Saved? = null
         private set
 
@@ -45,13 +45,13 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
     }
 
     /**
-     * Main-Thread. Der Empfänger spielt voraussichtlich bis [playingUntilMs] (Wanduhr; `null`: pausiert oder ohne
-     * Warteschlange). Danach lohnt das Anhängen noch [IDLE_GRACE_MS], dann beendet er sich von selbst.
+     * Main thread. The receiver will probably play until [playingUntilMs] (wall clock; `null`: paused or without
+     * a queue). After that, rejoining is still worthwhile for [IDLE_GRACE_MS], then it shuts down by itself.
      */
     fun keepUntil(playingUntilMs: Long?) {
         if (!prefs.contains(KEY_SESSION)) return
         val until = (playingUntilMs ?: System.currentTimeMillis()) + IDLE_GRACE_MS
-        // Höchstens etwa einmal je Minute schreiben; der Wert verschiebt sich beim Abspielen kaum.
+        // Write at most about once per minute; the value barely shifts during playback.
         if (kotlin.math.abs(until - writtenUntil) < WRITE_STEP_MS) return
         writtenUntil = until
         prefs.edit { putLong(KEY_UNTIL, until) }
@@ -59,7 +59,7 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
 
     fun forget() = prefs.edit { clear() }
 
-    /** Main-Thread. Ob [sessionId] die gemerkte Sitzung ist; beendet den Versuch. */
+    /** Main thread. Whether [sessionId] is the remembered session; ends the attempt. */
     fun isOurs(sessionId: String): Boolean {
         val saved = pending ?: return false
         pending = null
@@ -67,8 +67,8 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
     }
 
     /**
-     * Main-Thread. Ob die gerade startende [session] das Anhängen ist (zwischen [select] und dem Ergebnis). Wählt jemand
-     * inzwischen selbst ein anderes Gerät, ist der Versuch vorbei.
+     * Main thread. Whether the [session] currently starting is the rejoin (between [select] and the result). If someone
+     * picks a different device themselves in the meantime, the attempt is over.
      */
     fun isRejoining(session: CastSession): Boolean {
         val saved = pending ?: return false
@@ -77,7 +77,7 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         return false
     }
 
-    /** Main-Thread. Einmal je Prozess: sucht das gemerkte Gerät und wählt es aus, wenn dort noch die gemerkte Sitzung läuft. */
+    /** Main thread. Once per process: looks for the remembered device and selects it if the remembered session is still running there. */
     suspend fun select() {
         if (attempted) return
         attempted = true
@@ -91,7 +91,7 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         val castContext = awaitCastContext() ?: return
         val selector = castContext.mergedSelector ?: return
         val router = MediaRouter.getInstance(context)
-        // Läuft schon eine Sitzung oder hat jemand selbst ein Gerät gewählt, bleibt es dabei.
+        // If a session is already running or someone has picked a device themselves, leave it at that.
         fun busy() = castContext.sessionManager.currentCastSession != null || router.selectedRoute.matchesSelector(selector)
         fun isSaved(route: MediaRouter.RouteInfo) = CastDevice.getFromBundle(route.extras)?.deviceId == deviceId &&
             route.isEnabled && route.matchesSelector(selector)
@@ -127,13 +127,13 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         val selected = Saved(deviceId, sessionId)
         pending = selected
         router.selectRoute(route)
-        // Kommt auf das Auswählen keine Sitzung zustande (Route abgelehnt, ohne Rückmeldung), endet der Versuch hier;
-        // sonst hielte er jede spätere, selbst gewählte Sitzung für das Anhängen.
+        // If selecting doesn't result in a session (route rejected without feedback), the attempt ends here;
+        // otherwise it would take any later, user-chosen session for the rejoin.
         delay(JOIN_MS)
         if (pending === selected) pending = null
     }
 
-    /** Main-Thread. Der Versuch ist gescheitert (Verbinden misslungen) oder die Sitzung ist zu Ende. */
+    /** Main thread. The attempt failed (connecting failed) or the session has ended. */
     fun failed() {
         pending = null
     }
@@ -156,7 +156,7 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         const val DISCOVERY_MS = 15_000L
         const val JOIN_MS = 30_000L
 
-        /** Etwa so lange bleibt ein Empfänger ohne Wiedergabe in der App, bevor er sich beendet. */
+        /** Roughly how long a receiver stays in the app without playback before it shuts down. */
         const val IDLE_GRACE_MS = 10 * 60_000L
         const val WRITE_STEP_MS = 60_000L
         const val CONTEXT_TRIES = 20

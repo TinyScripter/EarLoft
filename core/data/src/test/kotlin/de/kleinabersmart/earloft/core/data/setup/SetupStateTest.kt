@@ -69,7 +69,7 @@ class SetupStateTest {
         runCurrent()
         assertFalse(pending.isCompleted)
 
-        // Das Zurückspielen bringt einen Server mit.
+        // The restore brings a server along.
         content = true
         restored.complete(Unit)
 

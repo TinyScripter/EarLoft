@@ -14,9 +14,9 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Aktionen „Als Nächstes“ und „Laden“ der Benachrichtigung über genau eine neue Folge (`podcast_improvements.md` S13);
- * beide ohne die App zu öffnen. „Abspielen“ öffnet die App ([AppNewContentNotifier.ACTION_PLAY_EPISODE]), damit die
- * Rückfrage zu mobilen Daten erscheinen kann.
+ * "Play next" and "Download" actions of the notification about exactly one new episode (`podcast_improvements.md` S13);
+ * both without opening the app. "Play" opens the app ([AppNewContentNotifier.ACTION_PLAY_EPISODE]) so the
+ * mobile data prompt can appear.
  */
 @AndroidEntryPoint
 class NewEpisodeActionReceiver : BroadcastReceiver() {

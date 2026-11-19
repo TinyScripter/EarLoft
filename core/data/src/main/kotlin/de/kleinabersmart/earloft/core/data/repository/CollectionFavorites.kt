@@ -7,9 +7,9 @@ import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.SyncActionType
 
 /*
- * Favoriten von Alben und Künstlern ([FavoriteKind.ALBUM], [FavoriteKind.ARTIST]) nach denselben Regeln wie bei Songs
- * (Konzept 6.4), nur mit eigenen Tabellen (`album_sources`, `artist_sources`). `targetKey` der Sync-Aktion ist die
- * `remoteId` auf dem Server der Aktion. Alles innerhalb einer Transaktion aufrufen.
+ * Favorites of albums and artists ([FavoriteKind.ALBUM], [FavoriteKind.ARTIST]) following the same rules as for songs
+ * (concept 6.4), just with their own tables (`album_sources`, `artist_sources`). The sync action's `targetKey` is the
+ * `remoteId` on the action's server. Call everything within a transaction.
  */
 
 internal val FavoriteKind.actionType: SyncActionType
@@ -65,8 +65,8 @@ private suspend fun SyncDao.hasPendingCollectionFavorite(kind: FavoriteKind, id:
 }
 
 /**
- * Wie [pushFavoriteToServers]: bringt alle Server-Quellen des Albums bzw. Künstlers [id] auf [favorite].
- * @return `true`, wenn danach Aktionen ausstehen.
+ * Like [pushFavoriteToServers]: brings all server sources of the album or artist [id] to [favorite].
+ * @return `true` if actions are pending afterwards.
  */
 internal suspend fun SyncDao.pushCollectionFavoriteToServers(
     kind: FavoriteKind,
@@ -88,9 +88,9 @@ internal suspend fun SyncDao.pushCollectionFavoriteToServers(
 }
 
 /**
- * Wie `MergeResolver.mergeFavorite`: Ein Server, der (ent)sternt hat, setzt den Favoriten, die anderen Server folgen;
- * eine neue Server-Quelle für einen schon favorisierten Eintrag bekommt den Stern. Ungesendete lokale Änderungen gewinnen
- * und gehen auch an neue Quellen.
+ * Like `MergeResolver.mergeFavorite`: a server that (un)starred sets the favorite, the other servers follow;
+ * a new server source for an already favorited entry gets the star. Unsent local changes win
+ * and also go to new sources.
  */
 internal suspend fun SyncDao.mergeCollectionFavorite(
     kind: FavoriteKind,
@@ -103,7 +103,7 @@ internal suspend fun SyncDao.mergeCollectionFavorite(
 ) {
     val isFavorite = isCollectionFavorite(kind, id) ?: return
     if (hasPendingCollectionFavorite(kind, id)) {
-        // Der lokale Stand gilt; eine neue Quelle (z. B. neue ID auf dem Server) soll ihn auch bekommen.
+        // The local state applies; a new source (e.g. a new ID on the server) should get it too.
         if (isNewSource) pushCollectionFavoriteToServers(kind, id, isFavorite)
         return
     }
@@ -119,8 +119,8 @@ internal suspend fun SyncDao.mergeCollectionFavorite(
 }
 
 /**
- * Übernimmt den Stand der Alben bzw. Künstler eines Servers ([starred]: `remoteId` → Zeitpunkt). Was er nicht nennt,
- * gilt als entsternt; wie bei Songs zählt nur, was sich gegenüber dem zuletzt bekannten Stand geändert hat.
+ * Adopts the state of a server's albums or artists ([starred]: `remoteId` → timestamp). Whatever it doesn't name
+ * counts as unstarred; as with songs, only what changed compared to the last known state counts.
  */
 internal suspend fun SyncDao.mergeCollectionStars(kind: FavoriteKind, sourceId: String, starred: Map<String, Long>) {
     for (state in collectionStarStates(kind, sourceId)) {

@@ -161,7 +161,7 @@ class ArdSoundsApiTest {
             bridged,
         )
         assertEquals("ardsounds:urn:ard:show:5fa94a3212aa9829", parseArdSoundsInput(bridged!!))
-        // Adressen anderer Instanzen und mit dem ganzen Link der Sendungsseite als Pfad, wie die Bridge sie selbst baut.
+        // Addresses of other instances and with the full link of the show page as path, as the bridge builds them itself.
         assertEquals(
             "ardsounds:urn:ard:show:5fa94a3212aa9829",
             parseArdSoundsInput(
@@ -170,7 +170,7 @@ class ArdSoundsApiTest {
             ),
         )
         assertNull(parseArdSoundsInput("https://rss.example/?action=display&bridge=OtherBridge&path=urn:ard:show:5fa9"))
-        // Nur Sendungen mit urn lassen sich über die Bridge auflösen; keine Bridge ohne gültige Adresse.
+        // Only shows with a urn can be resolved via the bridge; no bridge without a valid address.
         assertNull(ardSoundsBridgeUrl(DEFAULT_RSS_BRIDGE, "12345"))
         assertNull(ardSoundsBridgeUrl("", "urn:ard:show:5fa9"))
     }

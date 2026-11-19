@@ -6,7 +6,7 @@ import de.kleinabersmart.earloft.core.network.podcast.FeedAuthRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 
-/** Geheimnisse im Speicher statt im Keystore. */
+/** Secrets in memory instead of in the keystore. */
 internal class MemorySecretStore : SecretStore {
     val values = java.util.concurrent.ConcurrentHashMap<String, String>()
 
@@ -21,7 +21,7 @@ internal class MemorySecretStore : SecretStore {
     }
 }
 
-/** Zugangsdaten geschützter Feeds für Tests; ohne [FeedCredentials.start] beobachtet niemand die Abos. */
+/** Credentials of protected feeds for tests; without [FeedCredentials.start] nobody observes the subscriptions. */
 internal fun testFeedCredentials(
     db: EarLoftDatabase,
     secrets: SecretStore = MemorySecretStore(),

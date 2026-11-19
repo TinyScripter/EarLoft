@@ -1,9 +1,9 @@
 package de.kleinabersmart.earloft.core.network.podcast
 
-/** `&name;`, `&#123;` oder `&#x7B;`. */
+/** `&name;`, `&#123;` or `&#x7B;`. */
 private val ENTITY = Regex("&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z][a-zA-Z0-9]{1,31});")
 
-/** Die benannten Entities, die in Titeln von Feeds vorkommen; unbekannte bleiben stehen. */
+/** The named entities that occur in feed titles; unknown ones are left as is. */
 private val NAMED = mapOf(
     "amp" to "&", "lt" to "<", "gt" to ">", "quot" to "\"", "apos" to "'", "nbsp" to " ",
     "ndash" to "–", "mdash" to "—", "hellip" to "…", "bull" to "•", "middot" to "·",
@@ -15,8 +15,8 @@ private val NAMED = mapOf(
 )
 
 /**
- * Löst HTML-Entities in Klartext genau einmal auf (aus `&amp;amp;` wird `&amp;`, nicht `&`). Für Titel und Namen aus
- * Feeds, die nach dem XML-Parser noch kodiert sind; HTML-Beschreibungen setzt die Oberfläche selbst um.
+ * Resolves HTML entities in plain text exactly once (`&amp;amp;` becomes `&amp;`, not `&`). For titles and names from
+ * feeds that are still encoded after the XML parser; HTML descriptions are rendered by the UI itself.
  */
 fun decodeHtmlEntities(text: String): String {
     if ('&' !in text) return text

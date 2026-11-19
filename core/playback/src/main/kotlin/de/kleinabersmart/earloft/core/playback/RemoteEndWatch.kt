@@ -1,14 +1,14 @@
 package de.kleinabersmart.earloft.core.playback
 
 /**
- * Cast meldet das Ende nicht als `STATE_ENDED`: Der Empfänger geht in den Leerlauf (`STATE_IDLE`), entlädt die Datei,
- * und danach liest der Player nur noch Position 0. Die Wache merkt sich deshalb, wo das Buch beim letzten Blick lief,
- * und rechnet beim Stillstand hoch, wie weit es inzwischen sein müsste. Steht der Empfänger mitten im Buch still
- * (Sitzung beendet, von anderswo gestoppt), ist es nicht zu Ende. Nicht threadsicher; der Aufrufer ist der Player-Thread.
+ * Cast doesn't report the end as `STATE_ENDED`: the receiver goes idle (`STATE_IDLE`), unloads the file,
+ * and afterwards the player only reads position 0. The watchdog therefore remembers where the book was at the last look,
+ * and on standstill extrapolates how far it should have got by now. If the receiver stops in the middle of the book
+ * (session ended, stopped from elsewhere), it isn't finished. Not thread-safe; the caller is the player thread.
  */
 internal class RemoteEndWatch(private val clock: () -> Long = System::currentTimeMillis) {
 
-    /** Das Buch, das beim Stillstand zu Ende gelaufen ist. */
+    /** The book that played to the end at the standstill. */
     data class Ended(val bookId: Long, val isEpisode: Boolean, val durationMs: Long)
 
     private data class Sample(
@@ -22,17 +22,17 @@ internal class RemoteEndWatch(private val clock: () -> Long = System::currentTim
 
     private var sample: Sample? = null
 
-    /** Es läuft gerade [bookId] an [positionMs] (im ganzen Buch) von [durationMs] mit [speed]. */
+    /** [bookId] is currently playing at [positionMs] (across the whole book) of [durationMs] with [speed]. */
     fun playing(bookId: Long, isEpisode: Boolean, positionMs: Long, durationMs: Long, speed: Float) {
         sample = Sample(bookId, isEpisode, positionMs, durationMs, speed, clock())
     }
 
-    /** Die Wiedergabe steht (Pause, anderes Buch): Die bisherige Beobachtung gilt nicht mehr. */
+    /** Playback is stopped (pause, another book): the previous observation no longer applies. */
     fun reset() {
         sample = null
     }
 
-    /** Der Empfänger ist von selbst stehen geblieben: das Buch, das dabei zu Ende gelaufen ist, sonst `null`. */
+    /** The receiver stopped on its own: the book that played to the end, otherwise `null`. */
     fun ended(): Ended? {
         val last = sample ?: return null
         sample = null
@@ -42,7 +42,7 @@ internal class RemoteEndWatch(private val clock: () -> Long = System::currentTim
     }
 
     private companion object {
-        /** So weit darf die hochgerechnete Stelle vor dem Ende liegen (Abspann, verzögerte Meldung des Empfängers). */
+        /** The extrapolated position may be this far before the end (credits, delayed report from the receiver). */
         const val END_SLACK_MS = 10_000L
     }
 }

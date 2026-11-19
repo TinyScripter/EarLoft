@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Aktionen des Album-Menüs (Langklick auf eine Album-Kachel oder -Zeile); die Songs werden erst bei Bedarf geladen. */
+/** Actions of the album menu (long press on an album tile or row); the songs are only loaded when needed. */
 @HiltViewModel
 class AlbumMenuViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
@@ -21,14 +21,14 @@ class AlbumMenuViewModel @Inject constructor(
     private val playbackConnection: PlaybackConnection,
 ) : ViewModel() {
 
-    /** Download-Zustand des Albums; nur beobachten, solange das Menü offen ist. */
+    /** Download state of the album; only observe while the menu is open. */
     fun offline(albumId: Long): Flow<AlbumOfflineStatus> = downloadRepository.albumStatus(albumId)
 
     fun playNext(albumId: Long) = withSongs(albumId, playbackConnection::playNext)
 
     fun addToQueue(albumId: Long) = withSongs(albumId, playbackConnection::addToQueue)
 
-    /** Die Songs des Albums für „Zur Playlist hinzufügen“. */
+    /** The album's songs for "Add to playlist". */
     suspend fun songIds(albumId: Long): List<Long> = songs(albumId).map { it.id }
 
     fun download(albumId: Long) {
@@ -39,7 +39,7 @@ class AlbumMenuViewModel @Inject constructor(
         viewModelScope.launch { downloadRepository.removeAlbum(albumId) }
     }
 
-    // viewModelScope läuft auf dem Main-Thread, wie es PlaybackConnection verlangt.
+    // viewModelScope runs on the main thread, as PlaybackConnection requires.
     private fun withSongs(albumId: Long, action: (List<Song>) -> Unit) {
         viewModelScope.launch { songs(albumId).takeIf { it.isNotEmpty() }?.let(action) }
     }

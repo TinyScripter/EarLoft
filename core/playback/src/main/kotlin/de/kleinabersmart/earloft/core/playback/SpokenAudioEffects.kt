@@ -9,9 +9,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 
 /**
- * Stille kürzen und Lautstärke anheben (Konzept 12.4) am lokalen Player; nur für Bücher und Folgen, Musik spielt ohne.
- * Ein Cast-Empfänger bekommt beides nicht (er spielt die Datei selbst). Die Lautstärke hebt ein [LoudnessEnhancer] an der
- * Audio-Session an; er begrenzt selbst, statt zu übersteuern, und folgt einer neuen Session.
+ * Skip silence and volume boost (concept 12.4) on the local player; only for books and episodes, music plays without.
+ * A cast receiver gets neither (it plays the file itself). The volume is boosted by a [LoudnessEnhancer] on the
+ * audio session; it limits itself instead of clipping, and follows a new session.
  */
 @OptIn(UnstableApi::class)
 internal class SpokenAudioEffects(private val player: ExoPlayer) {
@@ -52,9 +52,9 @@ internal class SpokenAudioEffects(private val player: ExoPlayer) {
             current.setTargetGain(boostDb * MILLIBEL_PER_DB)
             current.enabled = true
         } catch (e: RuntimeException) {
-            // Manche Geräte bieten den Effekt nicht an; dann bleibt es leise statt abzubrechen.
+            // Some devices don't offer the effect; then it stays quiet instead of failing.
             Log.w(TAG, "LoudnessEnhancer nicht verfügbar", e)
-            // Ein halb eingerichteter Effekt (etwa bei setTargetGain) hält sonst seine native Ressource.
+            // A half-configured effect (e.g. at setTargetGain) would otherwise hold on to its native resource.
             runCatching { enhancer?.release() }
             enhancer = null
             enhancerSession = C.AUDIO_SESSION_ID_UNSET

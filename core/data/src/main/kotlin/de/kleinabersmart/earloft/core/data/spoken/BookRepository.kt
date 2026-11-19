@@ -28,13 +28,13 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Lesezugriff auf Bücher, Kapitel und Fortschritt für die UI und den Player (Konzept 12). */
+/** Read access to books, chapters and progress for the UI and the player (concept 12). */
 @Singleton
 class BookRepository @Inject constructor(
     private val dao: BookDao,
     private val syncer: BookSyncer,
 ) {
-    /** Alle Bücher alphabetisch, jeweils mit ihrem Fortschritt. */
+    /** All books alphabetically, each with its progress. */
     fun books(): Flow<List<BookWithProgress>> =
         combine(dao.observeBooks(), dao.observeAllProgress()) { books, progress ->
             val byBook = progress.associateBy { it.bookId }
@@ -42,14 +42,14 @@ class BookRepository @Inject constructor(
         }
 
     /**
-     * Gestartete, noch nicht beendete Bücher, zuletzt gestartete oder gehörte zuerst. Ein Buch zählt ab dem Start, auch
-     * bei Position 0 (siehe [touchProgress]); herausgenommene ([BookProgressEntity.hidden]) fehlen, bis sie wieder laufen.
+     * Started, not yet finished books, most recently started or played first. A book counts from the start, even
+     * at position 0 (see [touchProgress]); removed ones ([BookProgressEntity.hidden]) are missing until they play again.
      */
     fun continueListening(limit: Int = 12, startOrder: Flow<List<Long>> = flowOf(emptyList())): Flow<List<BookWithProgress>> =
         combine(dao.observeBooks(), dao.observeAllProgress(), startOrder) { books, progress, order ->
             val byId = books.associateBy { it.bookId }
-            // Der Player schreibt den Stand des vorigen Buchs erst beim Wechsel (mit neuerem Zeitstempel); darum
-            // gilt zuerst die Startreihenfolge und erst dahinter der Zeitpunkt der letzten Änderung.
+            // The player only writes the previous book's state on switching (with a newer timestamp); that's why
+            // the start order applies first and only after that the time of the last change.
             val rank = order.withIndex().associate { it.value to it.index }
             progress
                 .filter { !it.finished && !it.hidden }
@@ -58,19 +58,19 @@ class BookRepository @Inject constructor(
                 .take(limit)
         }
 
-    /** Zuletzt hinzugefügte Bücher, die noch nicht angefangen sind. */
+    /** Most recently added books that haven't been started yet. */
     fun recentlyAdded(limit: Int = 12): Flow<List<BookWithProgress>> =
         books().map { list ->
-            // Gestartete Bücher stehen in „Weiterhören“, nicht hier. Zurückgesetzte („ungehört“, Position 0) zählen wieder
-            // als nicht angefangen; nur herausgenommene mit Stand bleiben in keiner der beiden Zeilen.
+            // Started books are in "Continue listening", not here. Reset ones ("unplayed", position 0) count again
+            // as not started; only removed ones with a state stay in neither of the two rows.
             list.filter { item -> item.progress.let { it == null || (it.hidden && it.positionMs == 0L && !it.finished) } }
                 .sortedByDescending { it.book.addedAt }
                 .take(limit)
         }
 
     /**
-     * Das Buch wird gestartet: Es steht sofort ganz vorn in „Weiterhören“. Position, Tempo und Effekte bleiben, wie sie
-     * nach dem Abgleich mit dem Server sind; der Zeitpunkt wird auf jetzt gesetzt.
+     * The book is started: it immediately appears at the very front of "Continue listening". Position, speed and effects stay
+     * as they are after reconciling with the server; the timestamp is set to now.
      */
     suspend fun touchProgress(bookId: Long, startPositionMs: Long, durationMs: Long) {
         val old = dao.progress(bookId)
@@ -89,35 +89,35 @@ class BookRepository @Inject constructor(
         combine(dao.observeChapters(bookId), dao.observeTracks(bookId)) { chapters, tracks -> chaptersOf(chapters, tracks) }
             .distinctUntilChanged()
 
-    /** Mitwirkende einer Folge aus dem Feed (`podcast:person`), in dessen Reihenfolge. */
+    /** Contributors of an episode from the feed (`podcast:person`), in its order. */
     fun persons(bookId: Long): Flow<List<EpisodePerson>> = dao.observePersons(bookId).map { list -> list.map { it.toModel() } }
 
     suspend fun bookNow(bookId: Long): Book? = dao.book(bookId)?.toModel()
 
-    /** Die öffentliche Bild-Adresse des Buchs bzw. der Folge (ARD Sounds, Feeds); `null` ohne eine. */
+    /** The public image address of the book or episode (ARD Sounds, feeds); `null` without one. */
     suspend fun coverUrlOf(bookId: Long): String? = dao.book(bookId)?.coverUrl?.takeIf { it.startsWith("http") }
 
     /**
-     * Beschreibung des Autors [name] von Audiobookshelf (`books_improvements.md` M8); steht er auf mehreren Servern, die erste
-     * vorhandene. `null`, wenn kein Server eine hat.
+     * Description of the author [name] from Audiobookshelf (`books_improvements.md` M8); if they are on several servers, the first
+     * existing one. `null` if no server has one.
      */
     fun authorDescription(name: String): Flow<String?> =
         dao.observeAuthors(name.normalizeForMerge())
             .map { authors -> authors.firstNotNullOfOrNull { it.description?.takeIf(String::isNotBlank) } }
             .distinctUntilChanged()
 
-    /** Buch oder Folge nach Server bzw. Abo und Kennung dort (das Handy nennt der Uhr nur diese, Wear-Konzept 17). */
+    /** Book or episode by server or subscription and its identifier there (the phone only tells the watch these, Wear concept 17). */
     suspend fun idByRemote(serverId: String, remoteId: String): Long? = dao.bookByRemote(serverId, remoteId)?.bookId
 
-    /** Wie [idByRemote], beobachtet; `null`, solange es das Buch bzw. die Folge hier nicht gibt. */
+    /** Like [idByRemote], observed; `null` as long as the book or episode doesn't exist here. */
     fun observeIdByRemote(serverId: String, remoteId: String): Flow<Long?> =
         dao.observeBookIdByRemote(serverId, remoteId).distinctUntilChanged()
 
-    /** Download-Stand aller Bücher; Bücher ohne geladene Dateiliste fehlen (= [TrackDownload.NONE]). */
+    /** Download state of all books; books without a loaded file list are missing (= [TrackDownload.NONE]). */
     fun downloads(): Flow<Map<Long, BookDownload>> =
         dao.observeBookDownloads().map { rows -> rows.associate { it.bookId to it.toDownload() } }
 
-    /** Download-Stand des Buchs; ohne geladene Dateiliste [TrackDownload.NONE]. */
+    /** Download state of the book; [TrackDownload.NONE] without a loaded file list. */
     fun download(bookId: Long): Flow<BookDownload> =
         dao.observeBookDownloads().map { rows ->
             rows.firstOrNull { it.bookId == bookId }?.toDownload() ?: BookDownload(TrackDownload.NONE, 0)
@@ -126,9 +126,9 @@ class BookRepository @Inject constructor(
     suspend fun progressNow(bookId: Long): BookProgress? = dao.progress(bookId)?.toModel()
 
     /**
-     * Zeitachse mit Dateien und Kapiteln; lädt sie vom Server, falls sie noch fehlt oder veraltet ist. Ist der Server
-     * nicht erreichbar, gilt die vorhandene (ein geladenes Buch bleibt offline abspielbar). `null` ohne Dateien.
-     * [fetch] `false`: nur die Datenbank lesen, ohne den Server zu fragen (für Aufrufer auf dem Main-Thread).
+     * Timeline with files and chapters; loads it from the server if it's still missing or outdated. If the server is
+     * unreachable, the existing one applies (a downloaded book stays playable offline). `null` without files.
+     * [fetch] `false`: only read the database, without asking the server (for callers on the main thread).
      */
     suspend fun timeline(bookId: Long, fetch: Boolean = true): BookTimeline? {
         val book = dao.book(bookId) ?: return null
@@ -138,28 +138,28 @@ class BookRepository @Inject constructor(
         return BookTimeline(book.durationMs, files.map { it.toModel() }, chaptersOf(dao.chapters(bookId), files))
     }
 
-    /** Dateien des Buchs mit ihren Server-IDs, für die Medien-URLs. */
+    /** Files of the book with their server IDs, for the media URLs. */
     suspend fun trackFiles(bookId: Long): List<BookTrack> = dao.tracks(bookId).map { it.toModel() }
 
-    /** Sucht Bücher ([BookKind.BOOK]) bzw. Podcast-Folgen ([BookKind.EPISODE]) nach Titel, Autor und Sprecher. */
+    /** Searches books ([BookKind.BOOK]) or podcast episodes ([BookKind.EPISODE]) by title, author and narrator. */
     suspend fun search(query: String, kind: BookKind = BookKind.BOOK, limit: Int = 20): List<BookWithProgress> {
         val pattern = likePattern(query) ?: return emptyList()
         return dao.search(kind, pattern, limit).map { BookWithProgress(it.toModel(), dao.progress(it.bookId)?.toModel()) }
     }
 
-    /** Sucht Autoren von Büchern nach dem Namen; mehrere Autoren eines Buchs zählen einzeln, Übersetzer u. Ä. nicht. */
+    /** Searches book authors by name; several authors of a book count individually, translators etc. don't. */
     suspend fun searchAuthors(query: String, limit: Int = 20): List<AuthorHit> {
         val pattern = likePattern(query) ?: return emptyList()
         return peopleHits(dao.searchAuthorRows(pattern).map { it.bookId to it.names }, query, limit, ::bookAuthors)
     }
 
-    /** Sucht Sprecher von Büchern nach dem Namen; mehrere Sprecher eines Buchs zählen einzeln. */
+    /** Searches book narrators by name; several narrators of a book count individually. */
     suspend fun searchNarrators(query: String, limit: Int = 20): List<AuthorHit> {
         val pattern = likePattern(query) ?: return emptyList()
         return peopleHits(dao.searchNarratorRows(pattern).map { it.bookId to it.names }, query, limit, ::parsePeople)
     }
 
-    /** Sucht Serien nach dem Namen. */
+    /** Searches series by name. */
     suspend fun searchSeries(query: String, limit: Int = 20): List<SeriesHit> {
         val pattern = likePattern(query) ?: return emptyList()
         return seriesHits(dao.searchSeriesRows(pattern).map { it.toModel() }, query.normalizeForMerge(), limit)
@@ -172,8 +172,8 @@ class BookRepository @Inject constructor(
     }
 
     /**
-     * Folgen: Der Feed nennt die Dauer nicht immer oder falsch; die Datei kennt sie. Übernimmt die vom Player gelernte
-     * Dauer, wenn sie spürbar abweicht. `true`, wenn sich etwas geändert hat.
+     * Episodes: the feed doesn't always state the duration, or states it wrongly; the file knows it. Adopts the duration
+     * learned by the player if it differs noticeably. `true` if something changed.
      */
     suspend fun learnEpisodeDuration(bookId: Long, durationMs: Long): Boolean {
         val book = dao.book(bookId) ?: return false
@@ -227,10 +227,10 @@ internal fun BookTrackEntity.toModel() = BookTrack(
     unavailable = isUnavailable,
 )
 
-/** Nicht geladen und an der Quelle nicht mehr abrufbar. */
+/** Not downloaded and no longer available at the source. */
 internal val BookTrackEntity.isUnavailable: Boolean get() = unavailableSince != null && downloadState != TrackDownload.DONE
 
-/** Die Kapitel, die in einer nicht mehr abrufbaren Datei ([isUnavailable]) beginnen, als [BookChapter.unavailable]. */
+/** The chapters starting in a file that is no longer available ([isUnavailable]), as [BookChapter.unavailable]. */
 internal fun chaptersOf(chapters: List<BookChapterEntity>, tracks: List<BookTrackEntity>): List<BookChapter> {
     val gone = tracks.filter { it.isUnavailable }
     return chapters.map { chapter ->

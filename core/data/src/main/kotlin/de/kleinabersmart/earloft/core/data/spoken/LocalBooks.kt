@@ -23,9 +23,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Bücher aus dem Ordner „Audiobooks“ auf dem Gerät (Konzept 12.1). Sie liegen wie die Bücher eines Servers in `books`
- * (`serverId = `[LOCAL_BOOK_SERVER_ID], `remoteId` = Pfad ab „Audiobooks/“); die Dateien stehen mit ihrer
- * `content://`-Adresse in `book_tracks.remoteFileId`. Fortschritt bleibt lokal, es gibt keinen Server dazu.
+ * Books from the "Audiobooks" folder on the device (concept 12.1). Like a server's books they live in `books`
+ * (`serverId = `[LOCAL_BOOK_SERVER_ID], `remoteId` = path below "Audiobooks/"); the files are stored with their
+ * `content://` address in `book_tracks.remoteFileId`. Progress stays local; there is no server for it.
  */
 @Singleton
 class LocalBooks @Inject constructor(
@@ -37,9 +37,9 @@ class LocalBooks @Inject constructor(
     private val mutex = Mutex()
 
     /**
-     * Gleicht die Bücher auf dem Gerät mit der Datenbank ab: Neues anlegen, Geändertes neu einlesen, Verschwundenes
-     * löschen. Unveränderte Bücher kosten nur die MediaStore-Abfrage. `false`, wenn der Abgleich nicht möglich war
-     * (dann bleibt alles, wie es ist).
+     * Syncs the books on the device with the database: create new ones, re-read changed ones, delete ones that
+     * disappeared. Unchanged books only cost the MediaStore query. `false` if the sync wasn't possible
+     * (then everything stays as it is).
      */
     suspend fun sync(): Boolean = mutex.withLock {
         if (!settings.useLocalBooks.first()) return@withLock true
@@ -63,28 +63,28 @@ class LocalBooks @Inject constructor(
                 store(book, details, generation)
             }
         }
-        // Ein abgebrochener oder fehlgeschlagener Abgleich kommt nie bis hierher und löscht deshalb nichts.
+        // An aborted or failed sync never gets this far and therefore deletes nothing.
         dao.deleteUnseen(LOCAL_BOOK_SERVER_ID, generation)
         true
     }
 
-    /** Ausgeschaltet: die Bücher verschwinden samt Fortschritt (wie die lokale Musik). */
+    /** Disabled: the books disappear along with their progress (like local music). */
     suspend fun remove() = mutex.withLock { dao.deleteBooksOf(LOCAL_BOOK_SERVER_ID) }
 
     private val folderSharedState by lazy { MutableStateFlow(scanner.folders.isShared()) }
 
     /**
-     * Der Ordner „Audiobooks“ ist freigegeben: Cover, `desc.txt`, `reader.txt` und `metadata.opf` der Buchordner zählen mit
-     * (`books_improvements.md` M7).
+     * The "Audiobooks" folder is shared: cover, `desc.txt`, `reader.txt` and `metadata.opf` of the book folders are taken into
+     * account (`books_improvements.md` M7).
      */
     val folderShared: StateFlow<Boolean> get() = folderSharedState
 
-    /** Hier beginnt die Ordnerauswahl. */
+    /** The folder picker starts here. */
     val folderPickerStart: Uri get() = scanner.folders.initialUri
 
     /**
-     * Übernimmt die gewählte Freigabe und liest die Bücher neu (geänderte Begleitdateien ändern den Fingerabdruck). `false`,
-     * wenn sie nicht „Audiobooks“ ist.
+     * Adopts the chosen folder access and re-reads the books (changed companion files change the fingerprint). `false`
+     * if it isn't "Audiobooks".
      */
     suspend fun shareFolder(tree: Uri): Boolean {
         val shared = scanner.folders.share(tree)
@@ -93,7 +93,7 @@ class LocalBooks @Inject constructor(
         return shared
     }
 
-    /** Nimmt die Freigabe zurück; die Bücher verlieren beim neuen Einlesen, was aus den Begleitdateien kam. */
+    /** Revokes the folder access; on re-reading, the books lose what came from the companion files. */
     suspend fun unshareFolder() {
         scanner.folders.unshare()
         folderSharedState.value = false
@@ -122,7 +122,7 @@ class LocalBooks @Inject constructor(
                 language = details.language,
                 isbn = details.isbn,
                 genres = parseGenres(details.genres).joinToString(", ").ifEmpty { null },
-                // Cover aus dem Buchordner (Ordnerfreigabe), sonst das eingebettete der ersten Datei (`BookCovers`).
+                // Cover from the book folder (folder access), otherwise the embedded one of the first file (`BookCovers`).
                 coverUrl = details.coverUri,
             ),
         )
@@ -133,7 +133,7 @@ class LocalBooks @Inject constructor(
             BookChapterEntity(bookId, index, chapter.title, chapter.startMs, chapter.endMs)
         }
         dao.replaceDetails(bookId, tracks, chapters)
-        // Das Cover steckt in der Datei oder im Ordner; hat sich etwas geändert, gilt das zwischengespeicherte nicht mehr.
+        // The cover is in the file or the folder; if something changed, the cached one is no longer valid.
         covers.invalidate(bookId)
     }
 

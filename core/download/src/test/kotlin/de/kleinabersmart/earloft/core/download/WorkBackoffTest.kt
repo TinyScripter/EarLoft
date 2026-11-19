@@ -46,7 +46,7 @@ class WorkBackoffTest {
 
     @Test
     fun `a manual download replaces a job that waits in backoff after a failed run`() = runTest {
-        // Ohne Bedingungen läuft er im Test sofort, scheitert und wartet dann mit Backoff.
+        // Without constraints it runs immediately in the test, fails and then waits with backoff.
         workManager.enqueueUniqueWork(NAME, ExistingWorkPolicy.KEEP, OneTimeWorkRequestBuilder<RetryWorker>().build())
 
         assertTrue(workManager.waitsInBackoff(NAME))

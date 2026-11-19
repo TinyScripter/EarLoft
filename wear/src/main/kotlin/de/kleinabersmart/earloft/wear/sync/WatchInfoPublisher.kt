@@ -11,8 +11,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Meldet dem Handy, dass die Uhr-App installiert ist ([WearPaths.WATCH_INFO]) – zusätzlich zur
- * Capability, die zwischen manchen Geräten nicht ankommt (Wear-Konzept 4).
+ * Tells the phone that the watch app is installed ([WearPaths.WATCH_INFO]) – in addition to the
+ * capability, which does not arrive between some devices (Wear concept 4).
  */
 @Singleton
 class WatchInfoPublisher @Inject constructor(

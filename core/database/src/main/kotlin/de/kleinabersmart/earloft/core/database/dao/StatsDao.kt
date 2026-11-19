@@ -11,7 +11,7 @@ import de.kleinabersmart.earloft.core.database.entity.ServerStatsCacheEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import kotlinx.coroutines.flow.Flow
 
-/** Gehörte Zeit je Gruppe (Podcast bzw. Server), summiert über alle Einträge. */
+/** Listening time per group (podcast or server), summed over all entries. */
 data class GroupListeningRow(
     val groupKey: String,
     val groupTitle: String,
@@ -20,13 +20,13 @@ data class GroupListeningRow(
     val lastListenedAt: Long,
 )
 
-/** Gehörte Zeit eines Eintrags (Buch bzw. Folge), summiert über alle Quellen. */
+/** Listening time of an entry (book or episode), summed over all sources. */
 data class ItemListeningRow(val groupKey: String, val itemKey: String, val itemTitle: String, val listenedMs: Long)
 
-/** Gehörte Zeit an einem Tag, summiert über alle Gruppen; [savedMs] durch „Stille kürzen“ gespart. */
+/** Listening time on one day, summed over all groups; [savedMs] saved by "Trim silence". */
 data class DayListeningRow(val day: Long, val listenedMs: Long, val savedMs: Long = 0)
 
-/** Gehörte Zeit einer Gruppe in einem Zeitraum (aus den Tageswerten). */
+/** Listening time of a group in a period (from the daily values). */
 data class GroupDayRow(val groupKey: String, val listenedMs: Long)
 
 @Dao
@@ -35,18 +35,18 @@ abstract class StatsDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertAll(stats: List<ListeningStatEntity>)
 
-    /** Legt fehlende Einträge an; vorhandene (gleiches `source`, `groupKey`, `itemKey`) bleiben, wie sie sind. */
+    /** Inserts missing entries; existing ones (same `source`, `groupKey`, `itemKey`) stay as they are. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     abstract suspend fun insertAllIfAbsent(stats: List<ListeningStatEntity>)
 
-    /** Wie [insertAllIfAbsent], für die Tage. */
+    /** Like [insertAllIfAbsent], for the days. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     abstract suspend fun insertDaysIfAbsent(days: List<ListeningDayEntity>)
 
     @Query("SELECT COALESCE(SUM(listenedMs), 0) FROM listening_stats WHERE kind = :kind")
     abstract fun observeTotalListenedMs(kind: BookKind): Flow<Long>
 
-    /** Pro Gruppe die Summe, die meistgehörte zuerst. Der Titel ist der der zuletzt gehörten Zeile. */
+    /** The total per group, most listened first. The title is that of the most recently listened row. */
     @Query(
         "SELECT groupKey, " +
             "(SELECT s2.groupTitle FROM listening_stats s2 WHERE s2.groupKey = s.groupKey AND s2.kind = :kind " +
@@ -56,35 +56,35 @@ abstract class StatsDao {
     )
     abstract fun observeByGroup(kind: BookKind): Flow<List<GroupListeningRow>>
 
-    /** Die meistgehörten Einträge der Art [kind], die meistgehörten zuerst. */
+    /** The most listened entries of kind [kind], most listened first. */
     @Query(
         "SELECT groupKey, itemKey, MAX(itemTitle) AS itemTitle, SUM(listenedMs) AS listenedMs FROM listening_stats " +
             "WHERE kind = :kind GROUP BY groupKey, itemKey ORDER BY listenedMs DESC LIMIT :limit",
     )
     abstract fun observeTopItems(kind: BookKind, limit: Int): Flow<List<ItemListeningRow>>
 
-    /** Zu Ende gehörte Bücher (alle Server und vom Gerät). */
+    /** Books listened to the end (all servers and from the device). */
     @Query(
         "SELECT COUNT(*) FROM book_progress p JOIN books b ON b.bookId = p.bookId " +
             "WHERE b.kind = 'BOOK' AND p.finished = 1",
     )
     abstract fun observeFinishedBooks(): Flow<Int>
 
-    /** Zu Ende gehörte Folgen (alle Abos, auch die vom Gerät). */
+    /** Episodes listened to the end (all subscriptions, including those from the device). */
     @Query(
         "SELECT COUNT(*) FROM book_progress p JOIN books b ON b.bookId = p.bookId " +
             "WHERE b.kind = 'EPISODE' AND p.finished = 1",
     )
     abstract fun observeFinishedEpisodes(): Flow<Int>
 
-    /** Wie [observeFinishedEpisodes], nur Einträge der Art [kind], deren Fortschritt in [fromMs] (einschließlich) bis [toMs] (ausschließlich) zuletzt geändert wurde. */
+    /** Like [observeFinishedEpisodes], only entries of kind [kind] whose progress was last changed between [fromMs] (inclusive) and [toMs] (exclusive). */
     @Query(
         "SELECT COUNT(*) FROM book_progress p JOIN books b ON b.bookId = p.bookId " +
             "WHERE b.kind = :kind AND p.finished = 1 AND p.updatedAt >= :fromMs AND p.updatedAt < :toMs",
     )
     abstract fun observeFinishedBetween(kind: BookKind, fromMs: Long, toMs: Long): Flow<Int>
 
-    /** Pro Gruppe die Summe der Tage [fromDay] bis [toDay] (jeweils einschließlich), die meistgehörte zuerst. */
+    /** The total per group for the days [fromDay] to [toDay] (both inclusive), most listened first. */
     @Query(
         "SELECT groupKey, SUM(listenedMs) AS listenedMs FROM listening_days " +
             "WHERE kind = :kind AND day BETWEEN :fromDay AND :toDay GROUP BY groupKey ORDER BY listenedMs DESC",
@@ -130,8 +130,8 @@ abstract class StatsDao {
     protected abstract suspend fun insertDay(day: ListeningDayEntity): Long
 
     /**
-     * Zählt [stat] zur Summe seines Eintrags (wird bei Bedarf angelegt) und zur Summe seines Tages [day] hinzu.
-     * [ListeningStatEntity.listenedMs] ist der Zuwachs, [savedMs] die dabei durch „Stille kürzen“ gesparte Zeit.
+     * Adds [stat] to the total of its entry (created if needed) and to the total of its day [day].
+     * [ListeningStatEntity.listenedMs] is the increment, [savedMs] the time saved by "Trim silence" in the process.
      */
     @Transaction
     open suspend fun addListening(stat: ListeningStatEntity, day: Long, savedMs: Long = 0) {
@@ -159,7 +159,7 @@ abstract class StatsDao {
     @Query("DELETE FROM listening_days WHERE kind = :kind")
     protected abstract suspend fun deleteDays(kind: BookKind)
 
-    /** Löscht alle Zahlen der Art [kind] (gezählte und importierte). */
+    /** Deletes all numbers of kind [kind] (counted and imported). */
     @Transaction
     open suspend fun clear(kind: BookKind) {
         deleteStats(kind)
@@ -178,7 +178,7 @@ abstract class StatsDao {
     @Query("DELETE FROM listening_days WHERE groupKey IN (:groupKeys)")
     protected abstract suspend fun deleteDaysOfGroups(groupKeys: List<String>)
 
-    /** Ersetzt alle Zahlen der Gruppen [groupKeys] durch [stats] und [days] (Quelle eines Abos wechseln, Konzept 12.10). */
+    /** Replaces all numbers of the groups [groupKeys] with [stats] and [days] (switching a subscription's source, concept 12.10). */
     @Transaction
     open suspend fun replaceGroups(groupKeys: List<String>, stats: List<ListeningStatEntity>, days: List<ListeningDayEntity>) {
         deleteStatsOfGroups(groupKeys)

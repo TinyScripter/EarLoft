@@ -13,7 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
 
-/** Ein angefordertes WLAN; [close] gibt die Anforderung wieder frei. */
+/** A requested Wi-Fi network; [close] releases the request again. */
 class WifiLease internal constructor(
     val network: Network,
     private val close: () -> Unit,
@@ -22,26 +22,26 @@ class WifiLease internal constructor(
 }
 
 /**
- * Fordert ausdrücklich WLAN an (Wear-Konzept 8.2). Die Bluetooth-Verbindung zum Handy gilt für WorkManager
- * ebenfalls als Netz, soll aber für große Dateien nicht genutzt werden. Ist das WLAN der Uhr ausgeschaltet, schaltet das
- * System es auf diese Anforderung hin **nicht** ein (Pixel Watch 3, 2026-10-30): Nach [DEFAULT_TIMEOUT_MS] kommt `null`,
- * und die Uhr zeigt „Wartet auf WLAN“ (`WatchState.waitingForWifi`), bis der Nutzer es selbst einschaltet.
+ * Explicitly requests Wi-Fi (Wear concept 8.2). The Bluetooth connection to the phone also counts as a network
+ * for WorkManager, but should not be used for large files. If the watch's Wi-Fi is turned off, the
+ * system does **not** turn it on in response to this request (Pixel Watch 3, 2026-10-30): after [DEFAULT_TIMEOUT_MS] `null` is returned,
+ * and the watch shows "Waiting for Wi-Fi" (`WatchState.waitingForWifi`) until the user turns it on themselves.
  */
 @Singleton
 class WifiNetwork @Inject constructor(@ApplicationContext private val context: Context) {
 
     private val connectivity = context.getSystemService(ConnectivityManager::class.java)
 
-    /** @return `null`, wenn innerhalb von [timeoutMs] kein WLAN verfügbar wurde. */
+    /** @return `null` if no Wi-Fi became available within [timeoutMs]. */
     suspend fun acquire(timeoutMs: Int = DEFAULT_TIMEOUT_MS): WifiLease? {
         debugNetwork()?.let { return it }
         return requestWifi(timeoutMs)
     }
 
     /**
-     * Nur für Entwicklung: Der Wear-Emulator bekommt kein WLAN. In einem debuggable Build nimmt die Uhr dann das
-     * aktive Netz, wenn in `watch_state` der Schalter [DEBUG_ANY_NETWORK] gesetzt ist
-     * (`adb shell run-as de.kleinabersmart.earloft`, Preferences bearbeiten). Release-Builds ignorieren ihn.
+     * Development only: the Wear emulator gets no Wi-Fi. In a debuggable build the watch then takes the
+     * active network if the switch [DEBUG_ANY_NETWORK] is set in `watch_state`
+     * (`adb shell run-as de.kleinabersmart.earloft`, edit preferences). Release builds ignore it.
      */
     private fun debugNetwork(): WifiLease? {
         val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
@@ -81,7 +81,7 @@ class WifiNetwork @Inject constructor(@ApplicationContext private val context: C
         try {
             connectivity.unregisterNetworkCallback(callback)
         } catch (_: IllegalArgumentException) {
-            // Schon freigegeben (Zeitüberschreitung oder doppelt aufgerufen).
+            // Already released (timeout or called twice).
         }
     }
 

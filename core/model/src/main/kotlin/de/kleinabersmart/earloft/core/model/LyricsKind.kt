@@ -4,6 +4,6 @@ enum class LyricsKind {
     SYNCED,
     PLAIN,
 
-    /** Negativ-Cache: Es wurden keine Lyrics gefunden. */
+    /** Negative cache: no lyrics were found. */
     NONE,
 }

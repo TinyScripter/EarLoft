@@ -31,7 +31,7 @@ import de.kleinabersmart.earloft.ui.components.LoadFailedHint
 import de.kleinabersmart.earloft.ui.components.LoadingIndicator
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Die Alben eines Genres, darüber „Abspielen“ und „Zufällig“ für alle seine Songs. */
+/** The albums of a genre, above them "Play" and "Shuffle" for all its songs. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GenreScreen(
@@ -65,7 +65,7 @@ fun GenreScreen(
     }
 }
 
-/** „Abspielen“ und „Zufällig“ nebeneinander, wie auf der Albumseite. */
+/** "Play" and "Shuffle" side by side, as on the album page. */
 @Composable
 internal fun PlayShuffleRow(onPlay: () -> Unit, onShuffle: () -> Unit, modifier: Modifier = Modifier) {
     Row(

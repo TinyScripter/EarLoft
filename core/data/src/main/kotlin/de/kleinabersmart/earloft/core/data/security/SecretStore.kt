@@ -25,9 +25,9 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Verschlüsselt abgelegte Geheimnisse (Server-Passwörter). */
+/** Secrets stored encrypted (server passwords). */
 interface SecretStore {
-    /** `null`, wenn nichts gespeichert ist oder es sich nicht mehr entschlüsseln lässt. */
+    /** `null` if nothing is stored or it can no longer be decrypted. */
     suspend fun get(key: String): String?
 
     suspend fun put(key: String, value: String)
@@ -38,9 +38,9 @@ interface SecretStore {
 private val Context.secretsDataStore: DataStore<Preferences> by preferencesDataStore(name = "secrets")
 
 /**
- * AES-GCM mit einem Schlüssel im Android Keystore; der Geheimtext liegt im DataStore `secrets`
- * (Konzept 3, Sicherheit). Der Schlüssel ist an dieses Gerät gebunden – die Datei ist deshalb vom
- * Backup ausgeschlossen.
+ * AES-GCM with a key in the Android Keystore; the ciphertext lives in the `secrets` DataStore
+ * (concept 3, security). The key is bound to this device – the file is therefore excluded from
+ * backup.
  */
 @Singleton
 class KeystoreSecretStore @Inject constructor(

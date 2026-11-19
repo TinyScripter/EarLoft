@@ -26,10 +26,10 @@ class RestoreNoticeViewModel @Inject constructor(notice: RestoreNotice) : ViewMo
 }
 
 /**
- * Nach einem Gerätewechsel (Review K9) oder einer Komplett-Sicherung: Server kamen ohne Passwort bzw. API-Key zurück. Einmal
- * je Wiederherstellen weist eine Snackbar darauf hin, nach einer Komplett-Sicherung hinter ihrem Ergebnis (ein neuer Hinweis
- * ersetzte sonst den anderen). „Eingeben“ öffnet die Einstellungen der betroffenen Server ([onEnter]); `null` (im
- * Einrichtungsassistenten, der die Server selbst listet) ohne Aktion.
+ * After a device change (review K9) or a full backup: servers came back without password or API key. Once
+ * per restore a snackbar points this out, after a full backup behind its result (otherwise a new hint
+ * would replace the other). "Enter" opens the settings of the affected servers ([onEnter]); `null` (in the
+ * setup wizard, which lists the servers itself) without an action.
  */
 @Composable
 fun RestoreNoticeEffect(onEnter: ((MissingCredentials) -> Unit)?, viewModel: RestoreNoticeViewModel = hiltViewModel()) {
@@ -45,7 +45,7 @@ fun RestoreNoticeEffect(onEnter: ((MissingCredentials) -> Unit)?, viewModel: Res
                     text = restoreText(resources, report),
                     actionLabel = action?.let { resources.getString(R.string.restore_missing_credentials_action) },
                     onAction = action?.let { { it(missing) } },
-                    // Fehlt etwas, bleibt der Hinweis, bis der Nutzer „Eingeben“ oder „Schließen“ tippt.
+                    // If something is missing, the hint stays until the user taps "Enter" or "Close".
                     duration = if (missing.total > 0) SnackbarDuration.Indefinite else SnackbarDuration.Long,
                     keep = missing.total > 0,
                 ),

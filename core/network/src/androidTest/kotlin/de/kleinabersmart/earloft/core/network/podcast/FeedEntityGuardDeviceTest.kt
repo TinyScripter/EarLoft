@@ -10,9 +10,9 @@ import org.xmlpull.v1.XmlPullParserException
 import org.xmlpull.v1.XmlPullParserFactory
 
 /**
- * Eigene XML-Entities mit dem Parser von Android statt kxml2 der JVM-Tests (Review D24). Ohne Schutz expandiert er sie nicht,
- * sondern bricht ab (geprüft 2026-11-15, Android 16); [PodcastFeedParser] lehnt solche Feeds trotzdem vorher ab, in UTF-8,
- * UTF-16 und hinter einem langen Prolog: falls eine andere Android-Version oder ein anderer Parser doch expandiert.
+ * Custom XML entities with Android's parser instead of the JVM tests' kxml2 (review D24). Without protection it doesn't expand them
+ * but aborts (checked 2026-11-15, Android 16); [PodcastFeedParser] rejects such feeds beforehand anyway, in UTF-8,
+ * UTF-16 and behind a long prolog: in case another Android version or another parser does expand them.
  */
 @RunWith(AndroidJUnit4::class)
 class FeedEntityGuardDeviceTest {

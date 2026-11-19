@@ -16,7 +16,7 @@ class DownloadPlanTest {
         val plan = planWithinBudget(listOf(planned(1, 400), planned(2, 400), planned(3, 400), planned(4, 100)), budgetBytes = 1_000)
 
         assertEquals(listOf(1L, 2L), plan.toQueue.map { it.songId })
-        // Der kleine vierte Titel wird nicht vorgezogen: Die Reihenfolge der Auswahlen bleibt erhalten.
+        // The small fourth track is not moved ahead: the order of the selections is kept.
         assertEquals(2, plan.missing)
     }
 
@@ -46,9 +46,9 @@ class DownloadPlanTest {
     fun `fixed limit counts finished downloads`() {
         val settings = WearSettingsDto(storageLimitBytes = 2_000_000_000, minFreeBytes = 0)
 
-        // Frei ist reichlich, aber 1,5 GB sind schon belegt: nur noch 0,5 GB bis zur Grenze.
+        // Plenty is free, but 1.5 GB are already used: only 0.5 GB left until the limit.
         assertEquals(500_000_000, downloadBudget(settings, freeBytes = 10_000_000_000, doneBytes = 1_500_000_000, reservedBytes = 0))
-        // Der kleinere Wert gewinnt.
+        // The smaller value wins.
         assertEquals(100_000_000, downloadBudget(settings, freeBytes = 100_000_000, doneBytes = 0, reservedBytes = 0))
     }
 
@@ -64,7 +64,7 @@ class DownloadPlanTest {
     fun `opus estimate is duration times 128 kbit plus overhead`() {
         val candidate = WearCandidateRow("nd:1", 1, SourceType.SUBSONIC, 0, bitRate = 900, sizeBytes = 30_000_000, durationMs = 200_000)
 
-        // 200 s * 16 000 B/s = 3,2 MB, +3 %
+        // 200 s * 16,000 B/s = 3.2 MB, +3 %
         assertEquals(3_296_000, estimateBytes(candidate, WearQuality.OPUS_128))
         assertEquals(30_000_000, estimateBytes(candidate, WearQuality.ORIGINAL))
     }
@@ -97,7 +97,7 @@ class DownloadPlanTest {
     fun `episodes are estimated at 128 kbit per second, an hour without duration`() {
         assertEquals(57_600_000, estimateEpisodeBytes(3_600_000))
         assertEquals(57_600_000, estimateEpisodeBytes(0))
-        // Zwei Folgen von je einer Stunde passen in 120 MB, die dritte nicht mehr.
+        // Two episodes of one hour each fit into 120 MB, the third no longer does.
         assertEquals(listOf(1, 2), takeWithinBudget(listOf(1, 2, 3), 120_000_000) { estimateEpisodeBytes(3_600_000) })
     }
 }

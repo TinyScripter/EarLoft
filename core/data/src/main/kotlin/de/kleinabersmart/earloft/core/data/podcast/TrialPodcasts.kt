@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Folge eines Probeabos aus der Vorschau, mit dem, was beim Aufräumen zählt (Konzept 12.10). */
+/** Episode of a trial subscription from the preview, with what matters during cleanup (concept 12.10). */
 data class TrialEpisode(
     val bookId: Long,
     val feedId: String,
@@ -16,16 +16,16 @@ data class TrialEpisode(
     val downloaded: Boolean,
 )
 
-/** Was beim Aufräumen der Probeabos wegfällt: Stelle und Download einzelner Folgen, ganze Probeabos. */
+/** What is dropped when cleaning up trial subscriptions: position and download of individual episodes, entire trial subscriptions. */
 data class TrialCleanup(val episodes: List<Long>, val feeds: List<String>) {
     val isEmpty: Boolean get() = episodes.isEmpty() && feeds.isEmpty()
 }
 
 /**
- * Entscheidet, was von den Probeabos bleibt (Konzept 12.10). Eine Folge hat *Bezug*, solange sie in der Warteschlange
- * ([queue] ohne [hidden]) steht und nicht zu Ende gehört ist, oder solange sie im Player geladen ist ([loadedBookId]).
- * Ohne Bezug verliert sie Stelle und Download; ein Probeabo ohne Folge mit Bezug und ohne offene Seite ([openFeeds])
- * verschwindet ganz (dann zählen seine Folgen nicht einzeln).
+ * Decides what remains of the trial subscriptions (concept 12.10). An episode has a *reference* as long as it is in the queue
+ * ([queue] without [hidden]) and not played to the end, or as long as it is loaded in the player ([loadedBookId]).
+ * Without a reference it loses its position and download; a trial subscription without an episode with a reference and without an open page ([openFeeds])
+ * disappears entirely (then its episodes don't count individually).
  */
 fun planTrialCleanup(
     feedIds: Collection<String>,
@@ -44,13 +44,13 @@ fun planTrialCleanup(
     return TrialCleanup(forget, goneFeeds)
 }
 
-/** Datei liegt vor, wird geladen oder wartet darauf (auch ein abgebrochener Rest zählt). */
+/** The file exists, is downloading or waiting to download (an aborted partial file counts too). */
 internal fun TrackDownload?.isDownloadPresent(): Boolean =
     this != null && this != TrackDownload.NONE && this != TrackDownload.REMOVED
 
 /**
- * Welche Probeabos gerade eine offene Seite haben (Podcast-Seite, Info, Suche): Solange eine offen ist, bleibt das
- * Probeabo, auch ohne Folge in der Warteschlange. Die Seiten zählen sich beim Öffnen hinzu und beim Schließen ab.
+ * Which trial subscriptions currently have an open page (podcast page, info, search): as long as one is open, the
+ * trial subscription stays, even without an episode in the queue. The pages register when opened and unregister when closed.
  */
 @Singleton
 class TrialPodcastPages @Inject constructor() {

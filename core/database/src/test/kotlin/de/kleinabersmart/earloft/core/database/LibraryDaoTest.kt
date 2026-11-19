@@ -89,7 +89,7 @@ class LibraryDaoTest {
         assertEquals(listOf("$NAVIDROME:a"), db.syncDao().getServerSources(songId).map { it.uid })
         assertEquals(listOf("$NAVIDROME:a"), db.lyricsDao().getServerSources(songId).map { it.uid })
 
-        // Ein ausgeschalteter Server wird nicht nach Songtexten gefragt.
+        // A disabled server is not asked for lyrics.
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
         assertTrue(db.lyricsDao().getServerSources(songId).isEmpty())
     }
@@ -166,12 +166,12 @@ class LibraryDaoTest {
             insertSong(song(takk, "Glósóli", track = 2).copy(genre = "Post-Rock")),
             insertSong(song(takk, "Hoppípolla", track = 3).copy(genre = "post-rock")),
             insertSong(song(agaetis, "Svefn-g-englar", track = 1).copy(genre = "Post-Rock")),
-            // Zwei Genres: zählt bei beiden.
+            // Two genres: counts for both.
             insertSong(song(agaetis, "Starálfur", track = 2).copy(genre = "Ambient|post-rock")),
             insertSong(song(agaetis, "Flugufrelsarinn", track = 3).copy(genre = " ")),
         )
         songs.forEachIndexed { index, songId -> libraryDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
-        // Nur auf einem ausgeschalteten Server: zählt nicht.
+        // Only on a disabled server: doesn't count.
         val hiddenSong = insertSong(song(hidden, "Brennisteinn", track = 1).copy(genre = "Post-Rock"))
         libraryDao.insertSongSource(songSource(hiddenSong, NAVIDROME, "k"))
 
@@ -192,7 +192,7 @@ class LibraryDaoTest {
 
         val albums = libraryDao.observeAlbumRowsOfGenre(Genre.key("POST-ROCK")).first()
         assertEquals(listOf("Takk...", "Ágætis byrjun").sorted(), albums.map { it.title }.sorted())
-        // Die Zahl der Songs gilt dem ganzen Album, nicht nur dem Genre.
+        // The song count applies to the whole album, not just the genre.
         assertEquals(3, albums.single { it.albumId == agaetis }.songCount)
         assertEquals(
             listOf("Glósóli", "Hoppípolla", "Svefn-g-englar", "Starálfur").sorted(),
@@ -213,7 +213,7 @@ class LibraryDaoTest {
             val songId = insertSong(song(albumId, "Song $index", track = 1))
             libraryDao.insertSongSource(songSource(songId, LOCAL, "$index"))
         }
-        // Nur auf einem ausgeschalteten Server: zählt nicht.
+        // Only on a disabled server: doesn't count.
         val hiddenSong = insertSong(song(hidden, "Brennisteinn", track = 1))
         libraryDao.insertSongSource(songSource(hiddenSong, NAVIDROME, "k"))
 
@@ -246,7 +246,7 @@ class LibraryDaoTest {
 
         suspend fun albums(sort: String) = libraryDao.observeAlbumRowsSorted(sort).first().map { it.title }
         assertEquals(listOf("Abbey Road", "Arrival", "Help!"), albums("TITLE"))
-        // „The Beatles“ steht unter B, darin nach Jahr.
+        // "The Beatles" is under B, within that by year.
         assertEquals(listOf("Arrival", "Help!", "Abbey Road"), albums("ARTIST"))
         assertEquals(listOf("Arrival", "Abbey Road", "Help!"), albums("YEAR"))
         assertEquals(listOf("Help!", "Abbey Road", "Arrival"), albums("RECENTLY_ADDED"))
@@ -275,7 +275,7 @@ class LibraryDaoTest {
         val svefn = insertSong(song(agaetis, "Svefn-g-englar", track = 1))
         listOf(glosoli, hoppipolla, svefn).forEachIndexed { index, songId -> libraryDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
         val playback = db.playbackDao()
-        // Takk: drei Wiedergaben im Zeitraum, eine davor; Ágætis: vier, aber nur zwei im Zeitraum.
+        // Takk: three plays in the period, one before; Ágætis: four, but only two in the period.
         listOf(glosoli to 1_000L, hoppipolla to 1_100L, glosoli to 1_200L, glosoli to 10L, svefn to 1_300L, svefn to 1_400L, svefn to 5L, svefn to 6L)
             .forEach { (songId, at) -> playback.insertPlayEventIfSongExists(PlayEventEntity(songId = songId, playedAt = at, listenedMs = 1)) }
 
@@ -322,11 +322,11 @@ class LibraryDaoTest {
         libraryDao.insertSongArtist(SongArtistCrossRef(goDo, jonsi, 0))
         libraryDao.insertSongArtist(SongArtistCrossRef(boyLilikoi, jonsi, 0))
         libraryDao.insertSongArtist(SongArtistCrossRef(glosoli, sigur, 0))
-        // Jónsi singt auch auf „Takk...“ mit (nur dieser eine Song).
+        // Jónsi also sings on "Takk..." (only this one song).
         libraryDao.insertSongArtist(SongArtistCrossRef(hoppipolla, sigur, 0))
         libraryDao.insertSongArtist(SongArtistCrossRef(hoppipolla, jonsi, 1))
 
-        // Nach Jahr: erst „Takk...“ (2005) mit nur Hoppípolla, dann „Go“ in Albumreihenfolge.
+        // By year: first "Takk..." (2005) with only Hoppípolla, then "Go" in album order.
         assertEquals(listOf("Hoppípolla", "Go Do", "Boy Lilikoi"), libraryDao.getSongRowsOfArtist(jonsi).map { it.title })
         assertEquals(listOf("Takk..."), libraryDao.observeAppearsOnAlbumRows(jonsi).first().map { it.title })
         assertTrue(libraryDao.observeAppearsOnAlbumRows(sigur).first().isEmpty())
@@ -365,7 +365,7 @@ class LibraryDaoTest {
 
         val seed = libraryDao.getMixRows(listOf(goDo, glosoli)).associateBy { it.songId }
         assertEquals(jonsi, seed.getValue(goDo).artistId)
-        // Ohne Song-Künstler zählt der Album-Künstler, ohne Song-Jahr das des Albums.
+        // Without a song artist the album artist counts, without a song year the album's.
         assertEquals(sigur, seed.getValue(glosoli).artistId)
         assertEquals(2005, seed.getValue(glosoli).year)
         assertEquals(2, seed.getValue(goDo).playCount)
@@ -373,11 +373,11 @@ class LibraryDaoTest {
 
         suspend fun ids(genres: List<String>, artists: List<Long>, from: Int, to: Int) =
             libraryDao.getMixCandidates(genres, artists, from, to, limit = 10).map { it.songId }.toSet()
-        // Genre als Schlüssel (Schreibweisen zusammen); der Song des ausgeschalteten Servers fehlt.
+        // Genre as key (spellings merged); the song of the disabled server is missing.
         assertEquals(setOf(goDo, glosoli), ids(listOf(Genre.key("POST-ROCK")), emptyList(), 1, 0))
         assertEquals("Post-Rock", seed.getValue(goDo).genres)
         assertEquals(setOf(glosoli, hoppipolla), ids(emptyList(), listOf(sigur), 1, 0))
-        // Das Song-Jahr geht vor: „Old Song“ (2008) passt, obwohl sein Album von 1970 ist.
+        // The song year takes precedence: "Old Song" (2008) matches although its album is from 1970.
         assertEquals(setOf(goDo, oldSong), ids(emptyList(), emptyList(), 2007, 2012))
         assertEquals(4, libraryDao.getRandomMixCandidates(10).size)
 
@@ -421,10 +421,10 @@ class LibraryDaoTest {
         val hidden = insertSong(song(takk, "Hidden", track = 4).copy(genre = "Jazz"))
         listOf(goDo, glosoli, hoppipolla).forEachIndexed { index, songId -> libraryDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
         libraryDao.insertSongSource(songSource(hidden, NAVIDROME, "h"))
-        // Hoppípolla: Song-Künstler Jónsi statt Album-Künstler.
+        // Hoppípolla: song artist Jónsi instead of album artist.
         libraryDao.insertSongArtist(SongArtistCrossRef(hoppipolla, jonsi, 0))
         val playback = db.playbackDao()
-        // Im Zeitraum [100, 200): Glósóli 3×, Go Do 2×, Hoppípolla 1×; davor Hoppípolla 5×, Hidden ist ausgeblendet.
+        // In the period [100, 200): Glósóli 3×, Go Do 2×, Hoppípolla 1×; before that Hoppípolla 5×, Hidden is hidden.
         (listOf(glosoli to 100L, glosoli to 110L, glosoli to 120L, goDo to 130L, goDo to 140L, hoppipolla to 150L, hidden to 160L, hidden to 170L) +
             List(5) { hoppipolla to it.toLong() })
             .forEach { (songId, at) -> playback.insertPlayEventIfSongExists(PlayEventEntity(songId = songId, playedAt = at, listenedMs = 10)) }
@@ -434,16 +434,16 @@ class LibraryDaoTest {
         assertEquals(30L, songs.first().listenedMs)
         assertEquals(takk, songs.first().albumId)
         assertEquals(listOf("Takk..." to 4, "Go" to 2), libraryDao.observeTopAlbums(100, 200, 10).first().map { it.title to it.plays })
-        // Gleichstand: zuletzt gehört zuerst (Hoppípolla zählt für Jónsi).
+        // Tie: most recently played first (Hoppípolla counts for Jónsi).
         assertEquals(listOf("Jónsi" to 3, "Sigur Rós" to 3), libraryDao.observeTopArtists(100, 200, 10).first().map { it.title to it.plays })
-        // Schreibweisen zusammen; Songs ohne Genre fehlen.
+        // Spellings merged; songs without a genre are missing.
         assertEquals(listOf(5), libraryDao.observeTopGenres(100, 200, 10).first().map { it.plays })
         assertEquals(listOf("Hoppípolla"), libraryDao.observeTopSongs(0, 100, 1).first().map { it.title })
-        // Alle Wiedergaben sichtbarer Songs, ohne den ausgeschalteten Server.
+        // All plays of visible songs, without the disabled server.
         assertEquals(11, libraryDao.observeMusicPlays().first().size)
     }
 
-    /** Legt den Song an und, wie der Abgleich, seine Genres (`|` trennt mehrere). */
+    /** Creates the song and, like the sync, its genres (`|` separates several). */
     private suspend fun insertSong(song: SongEntity): Long {
         val songId = libraryDao.insertSong(song)
         val genres = song.genre?.split('|')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()

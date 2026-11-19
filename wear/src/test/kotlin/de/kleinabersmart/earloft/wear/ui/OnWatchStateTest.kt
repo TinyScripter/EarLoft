@@ -10,7 +10,7 @@ class OnWatchStateTest {
     fun `download, then progress, then remove`() {
         assertEquals(OnWatchStatus.NOT_ON_WATCH, onWatchState(confirmed = false, wanted = null, progress = null, failed = false).status)
 
-        // Getippt, das Manifest ist noch unterwegs: lädt, ohne Prozent.
+        // Tapped, the manifest is still on its way: downloading, without percent.
         val requested = onWatchState(confirmed = false, wanted = true, progress = null, failed = false)
         assertEquals(OnWatchStatus.DOWNLOADING, requested.status)
         assertNull(requested.progress)

@@ -9,9 +9,9 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 
 /**
- * Für horizontal scrollende Zeilen (Karussells, Chip-Reihen) in einem Pager: Wischt man über ihr Ende hinaus, bleibt
- * der Rest der Geste bei der Zeile, statt Reiter oder Bereich zu wechseln. Passt die Zeile ganz auf den Bildschirm,
- * lässt sie die Geste durch; dann wischt man dort wie daneben.
+ * For horizontally scrolling rows (carousels, chip rows) inside a pager: swiping past their end keeps
+ * the rest of the gesture with the row instead of switching tab or area. If the row fits entirely on screen,
+ * it lets the gesture through; then swiping there behaves like next to it.
  */
 fun Modifier.keepHorizontalScroll(state: ScrollableState): Modifier = nestedScroll(KeepHorizontalScroll(state))
 

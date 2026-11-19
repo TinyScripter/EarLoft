@@ -38,7 +38,7 @@ class ArdSoundsBooksTest {
         assertEquals(ArdTitle("Alexandre Dumas", "Die Kameliendame", ""), parseArdTitle("Alexandre Dumas: Die Kameliendame - WDR 5 Hörbuch"))
         assertEquals(ArdTitle("Freya Marske", "A Marvellous Light", ""), parseArdTitle("“A Marvellous Light” von Freya Marske"))
         assertEquals(ArdTitle("Edgar Allan Poe", "Gruselgeschichten als Hörbücher", ""), parseArdTitle("Edgar Allan Poe: Gruselgeschichten als Hörbücher | WDR"))
-        // Kein Name vor dem Doppelpunkt: alles ist Titel.
+        // No name before the colon: everything is the title.
         assertEquals(ArdTitle("", "1938: The War of the Worlds", ""), parseArdTitle("1938: The War of the Worlds"))
         assertEquals(ArdTitle("", "Tatort: Kunst", ""), parseArdTitle("Tatort: Kunst"))
     }
@@ -65,7 +65,7 @@ class ArdSoundsBooksTest {
         fun key(title: String, groupId: String? = null, type: String? = null) =
             ardBookKey(ArdKeyInput("urn:ard:publication:1", title, groupId, type, 7263856))
         assertEquals("group:12976955", key("Späte Rache, Folge 8", "12976955", "MULTIPART"))
-        // Staffeln sind Sammlungen: jeder Titel ein Buch.
+        // Seasons are collections: each title is a book.
         assertEquals("item:urn:ard:publication:1", key("Erich Loest: Haare | Gelesen von Gert Haucke", "99", "SEASON"))
         assertEquals("title:7263856:Tyll", key("Tyll (3/8): Minnesänger"))
         assertEquals("item:urn:ard:publication:1", key("Bram Stoker: Dracula"))
@@ -151,7 +151,7 @@ class ArdSoundsBooksTest {
 
     @Test
     fun `a numbered series whose titles are published again is found by its title`() = runTest {
-        // Die alten Titel gibt es nicht mehr; die neu veröffentlichten stehen jetzt in einer Gruppe.
+        // The old titles are gone; the newly published ones are now in a group.
         mockServer.enqueue(MockResponse.Builder().body("""{"data":{"items":{"nodes":[]}}}""").build())
         mockServer.enqueue(
             MockResponse.Builder().body(

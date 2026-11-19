@@ -3,23 +3,23 @@ package de.kleinabersmart.earloft.core.data.repository
 import android.net.Uri
 
 /**
- * Liefert Dateien des Handys an einen Cast-Empfänger aus (Konzept 7.5, Chromecast Etappe 2): ein kleiner HTTP-Server im
- * WLAN, der nur während einer Cast-Sitzung läuft. Die Adressen enthalten ein Geheimnis der Sitzung – nicht speichern, nicht
- * loggen. Gebunden in der App.
+ * Serves the phone's files to a cast receiver (concept 7.5, Chromecast stage 2): a small HTTP server on the
+ * Wi-Fi that only runs during a cast session. The URLs contain a session secret – don't store, don't
+ * log. Bound in the app.
  */
 interface PhoneCastServer {
 
-    /** Adresse für [uri] (`content://` oder `file://`); `null`, wenn das Handy gerade keine Adresse im WLAN hat. */
+    /** URL for [uri] (`content://` or `file://`); `null` if the phone currently has no address on the Wi-Fi. */
     fun fileUrl(uri: Uri, mimeType: String): String?
 
-    /** Adresse für das Cover eines Albums, geladen erst beim Abruf; `null` wie bei [fileUrl]. */
+    /** URL for the cover of an album, loaded only when requested; `null` as with [fileUrl]. */
     fun albumCoverUrl(albumId: Long): String?
 
-    /** Adresse für das Cover eines Buchs bzw. einer Folge; `null` wie bei [fileUrl]. */
+    /** URL for the cover of a book or episode; `null` as with [fileUrl]. */
     fun bookCoverUrl(bookId: Long): String?
 
     companion object {
-        /** [CastMedia.sourceId] für Dateien vom Handy; wie ein Server, den der Empfänger nicht erreicht, ausschließbar. */
+        /** [CastMedia.sourceId] for files from the phone; can be excluded like a server the receiver can't reach. */
         const val SOURCE_ID = "phone"
     }
 }

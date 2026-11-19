@@ -16,9 +16,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Wählt beim Abspielen die beste Quelle eines Songs (Konzept 6.5): lokale Datei, dann fertiger
- * Download, dann Stream – Streams nach [SourcePreference]. Über mobile Daten mit eingestellter Qualität kommen zuerst die
- * vom Server umgewandelten Streams (Konzept 7.4).
+ * Picks the best source of a song for playback (concept 6.5): local file, then finished
+ * download, then stream – streams by [SourcePreference]. Over mobile data with a configured quality, the
+ * streams transcoded by the server come first (concept 7.4).
  */
 @Singleton
 class PlaybackSourceResolver @Inject constructor(
@@ -29,8 +29,8 @@ class PlaybackSourceResolver @Inject constructor(
     private val mobileStreaming: MobileStreaming,
 ) {
     /**
-     * Alle abspielbaren Orte eines Songs, der beste zuerst. Ist einer nicht erreichbar, nimmt die
-     * Wiedergabe den nächsten (Konzept 6.5). Umgewandelte Streams stehen vor den Originalen, die als Rückfall bleiben.
+     * All playable locations of a song, the best first. If one is unreachable,
+     * playback takes the next one (concept 6.5). Transcoded streams come before the originals, which remain as a fallback.
      */
     suspend fun candidates(songId: Long): List<ResolvedPlayback> {
         val (local, remote) = libraryDao.getPlayableSources(songId)
@@ -39,7 +39,7 @@ class PlaybackSourceResolver @Inject constructor(
         val result = mutableListOf<ResolvedPlayback>()
         local.mapNotNullTo(result) { resolveSource(it) }
         if (remote.isNotEmpty()) {
-            // Ein Download ist eine Kopie der Server-Datei, die Werte der Quelle gelten also auch für ihn.
+            // A download is a copy of the server file, so the source's values apply to it as well.
             downloadedFile(songId)?.let {
                 result += ResolvedPlayback(PlaybackLocation.LocalFile(Uri.fromFile(it)), replayGain(remote.first().uid), sourceId = null)
             }
@@ -53,8 +53,8 @@ class PlaybackSourceResolver @Inject constructor(
     }
 
     /**
-     * Nur, wenn der Server umwandeln kann und es spürbar spart: Die Quelle hat mehr als das [MIN_SAVING]-fache der Ziel-Bitrate
-     * (oder keine bekannte). Opus 135 kbit/s noch einmal in Opus 128 umzuwandeln, kostet nur Klang.
+     * Only if the server can transcode and it noticeably saves: the source has more than [MIN_SAVING] times the target bitrate
+     * (or none known). Transcoding Opus 135 kbit/s again into Opus 128 only costs sound quality.
      */
     private suspend fun transcoded(row: PlayableSourceRow, transcodeTo: Pair<String, Int>): ResolvedPlayback? {
         val (codec, kbps) = transcodeTo
@@ -80,7 +80,7 @@ class PlaybackSourceResolver @Inject constructor(
             ?.let { ReplayGain(it.rgTrackGainDb, it.rgTrackPeak, it.rgAlbumGainDb, it.rgAlbumPeak) }
             ?.takeUnless { it.isEmpty }
 
-    /** Fehlt die Datei (z. B. vom System gelöscht), wird gestreamt. */
+    /** If the file is missing (e.g. deleted by the system), it is streamed. */
     private suspend fun downloadedFile(songId: Long): File? =
         downloadDao.getDoneFilePaths(songId).map(::File).firstOrNull { it.isFile }
 
@@ -91,9 +91,9 @@ class PlaybackSourceResolver @Inject constructor(
 }
 
 /**
- * Wo ein Song gespielt wird; [replayGain] ist `null`, wenn die Quelle keine Werte kennt.
- * [sourceId] ist `null` für Downloads (liegen auf dem Gerät, unabhängig von der Erreichbarkeit).
- * [transcodedTo] sind Format und Bitrate (kbit/s), in die der Server umwandelt; `null` für das Original.
+ * Where a song is played; [replayGain] is `null` if the source has no values.
+ * [sourceId] is `null` for downloads (they are on the device, independent of reachability).
+ * [transcodedTo] are the format and bitrate (kbit/s) the server transcodes to; `null` for the original.
  */
 data class ResolvedPlayback(
     val location: PlaybackLocation,
@@ -109,11 +109,11 @@ private val LOSSLESS_MIME_TYPES = setOf(
 
 internal fun isLossless(mimeType: String?): Boolean = mimeType?.lowercase() in LOSSLESS_MIME_TYPES
 
-/** Qualität einer Datei zum Vergleichen: verlustfrei vor verlustbehaftet, dann die höhere Bitrate (unbekannt = 0). */
+/** Quality of a file for comparison: lossless before lossy, then the higher bitrate (unknown = 0). */
 internal fun audioQuality(mimeType: String?, bitRate: Int?): Long =
     (if (isLossless(mimeType)) 1L shl 32 else 0L) + (bitRate ?: 0).coerceAtLeast(0)
 
-/** Reihenfolge der Quellen eines Songs: lokal, Server-Priorität, verlustfrei, Bitrate. */
+/** Order of a song's sources: local, server priority, lossless, bitrate. */
 object SourcePreference : Comparator<PlayableSourceRow> {
     private val comparator =
         compareBy<PlayableSourceRow> { if (it.sourceType == SourceType.LOCAL) 0 else 1 }

@@ -19,15 +19,15 @@ import javax.inject.Singleton
 private val Context.widgetStateDataStore: DataStore<Preferences> by preferencesDataStore(name = "widget_state")
 
 /**
- * Was die Widgets für einen Bereich zuletzt zeigten, pausiert; Position und Länge (0 = unbekannt) nur bei Büchern und
- * Folgen. [lastActiveAt] (Wanduhr): wann der Bereich zuletzt im Player war.
+ * What the widgets last showed for a section, paused; position and duration (0 = unknown) only for books and
+ * episodes. [lastActiveAt] (wall clock): when the section was last in the player.
  */
 data class SavedWidget(val nowPlaying: NowPlaying, val positionMs: Long?, val durationMs: Long?, val lastActiveAt: Long)
 
 /**
- * Letzter Stand je Bereich über das Ende des Prozesses hinaus, damit die Widgets nach langer Pause nicht leer werden und
- * ein Widget, dessen Bereiche gerade nicht laufen, ihr zuletzt Gehörtes zeigt. Cover und Farben werden daraus neu geladen.
- * Vom Backup ausgeschlossen (IDs der Hauptdatenbank).
+ * Last state per section beyond the end of the process, so the widgets don't go blank after a long pause and
+ * a widget whose sections aren't currently playing shows what was last heard. Cover and colors are reloaded from it.
+ * Excluded from backup (IDs of the main database).
  */
 @Singleton
 class WidgetStateStore @Inject constructor(
@@ -37,7 +37,7 @@ class WidgetStateStore @Inject constructor(
         val prefs = context.widgetStateDataStore.data.first()
         val saved = SpokenMode.entries.mapNotNull { area -> prefs.load(Keys(area.name.lowercase() + "_"))?.let { area to it } }.toMap()
         if (saved.isNotEmpty()) return saved
-        // Frühere Versionen merkten sich nur einen Stand, ohne Bereich.
+        // Earlier versions remembered only one state, without a section.
         val legacy = prefs.load(Keys("")) ?: return emptyMap()
         return mapOf(legacy.nowPlaying.area to legacy)
     }
@@ -84,7 +84,7 @@ class WidgetStateStore @Inject constructor(
         if (value == null) remove(key) else this[key] = value
     }
 
-    /** Schlüssel eines Bereichs („music_title“ …); ohne [prefix] die einer früheren Version. */
+    /** Keys of a section ("music_title" …); without [prefix] those of an earlier version. */
     private class Keys(prefix: String) {
         val title = stringPreferencesKey("${prefix}title")
         val artist = stringPreferencesKey("${prefix}artist")

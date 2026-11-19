@@ -77,7 +77,7 @@ class MusicBackupTest {
         AlbumEntity(title = title, sortTitle = title, normTitle = title, albumArtistDisplay = artist, normAlbumArtist = artist),
     )
 
-    /** Ein Song mit einer Quelle; [sourceId] `local` = Datei, `nav` = Server. */
+    /** A song with one source; [sourceId] `local` = file, `nav` = server. */
     private suspend fun song(db: EarLoftDatabase, albumId: Long, track: Int, title: String, sourceId: String = "local", favorite: Boolean = false): Long {
         val songId = db.mergeDao().insertSong(
             SongEntity(
@@ -115,7 +115,7 @@ class MusicBackupTest {
             listOf("kaffee und karin", "damals hinterm mond", "kaffee und karin"),
             dao.playlistEntries().sortedBy { it.position }.map { it.song.title },
         )
-        // Der Favorit mit Server-Quelle kommt mit dem Abgleich zurück.
+        // The favorite with a server source comes back with the sync.
         assertEquals(listOf("damals hinterm mond"), dao.favorites().map { it.song.title })
         assertEquals(2, dao.playEvents().size)
         assertEquals(setOf(WearSelectionKind.ALBUM, WearSelectionKind.PLAYLIST), dao.wearSelections().map { it.kind }.toSet())
@@ -136,7 +136,7 @@ class MusicBackupTest {
         try {
             val backup = backupFor(newDevice)
             backup.restore(saved)
-            // Vor dem Scan: Die Playlist steht leer da, alles andere wartet; der Spiegel verliert nichts.
+            // Before the scan: the playlist stands empty, everything else waits; the mirror loses nothing.
             val waiting = backup.applySaved(saved, Pending.of(saved))
             assertEquals(1, waiting.playlists.size)
             assertEquals(1, waiting.favorites.size)
@@ -147,7 +147,7 @@ class MusicBackupTest {
             assertEquals(1, user.userDataDao().favorites().size)
             assertEquals(2, user.userDataDao().playEvents().size)
 
-            // Der Scan legt die Songs in anderer Reihenfolge an, also mit anderen Ids.
+            // The scan creates the songs in a different order, i.e. with different ids.
             sources(newDevice)
             album(newDevice, "andere", "platte")
             val album = album(newDevice, "element of crime", "damals hinterm mond")
@@ -162,11 +162,11 @@ class MusicBackupTest {
             assertEquals(listOf(1_000L), newDevice.backupDao().playedAt(a))
             val selections = newDevice.wearDao().getSelections().map { it.kind to it.refId }.toSet()
             assertEquals(setOf(WearSelectionKind.ALBUM to album, WearSelectionKind.PLAYLIST to playlist.playlistId), selections)
-            // Nur der Server-Song fehlt noch.
+            // Only the server song is still missing.
             assertTrue(rest.playlists.isEmpty())
             assertEquals(listOf("nimm mich mit"), rest.playEvents.map { it.song.title })
 
-            // Noch einmal anwenden ändert nichts (keine doppelten Einträge).
+            // Applying again changes nothing (no duplicate entries).
             backup.applySaved(saved, Pending.of(saved))
             assertEquals(listOf(1_000L), newDevice.backupDao().playedAt(a))
             assertEquals(3, newDevice.playlistDao().getSongIds(playlist.playlistId).size)
@@ -189,7 +189,7 @@ class MusicBackupTest {
         main.syncDao().setArtistFavorite(artist, true, 302)
         backupFor(main).mirror()
 
-        // Das Album vom Server hält der Server.
+        // The album from the server is held by the server.
         val saved = user.userDataDao().snapshot()
         assertEquals(
             setOf(CollectionKey(FavoriteKind.ALBUM, "element of crime", "damals hinterm mond"), CollectionKey(FavoriteKind.ARTIST, "element of crime", "")),
@@ -202,7 +202,7 @@ class MusicBackupTest {
             backup.restore(saved)
             val waiting = backup.applySaved(saved, Pending.of(saved))
             assertEquals(2, waiting.collectionFavorites.size)
-            // Der Spiegel löscht nicht, was noch auf sein Album bzw. seinen Künstler wartet.
+            // The mirror doesn't delete what is still waiting for its album or artist.
             backup.mirror()
             assertEquals(2, user.userDataDao().collectionFavorites().size)
 
@@ -225,13 +225,13 @@ class MusicBackupTest {
         fillOldDevice()
         val backup = backupFor(main)
         backup.mirror()
-        // Der Song verschwindet aus der Bibliothek (Datei gelöscht): Die Sicherung behält ihn.
+        // The song disappears from the library (file deleted): the backup keeps it.
         val kaffee = main.backupDao().songsOfAlbum("element of crime", "damals hinterm mond").first { it.track == 2 }.songId
         main.openHelper.writableDatabase.execSQL("DELETE FROM songs WHERE songId = $kaffee")
         backup.mirror()
         assertEquals(3, user.userDataDao().playlistEntries().size)
 
-        // Erst eine Änderung der Playlist hier ersetzt die gesicherte Fassung.
+        // Only a change of the playlist here replaces the backed-up version.
         val playlistId = main.backupDao().localPlaylists().single().playlistId
         main.playlistDao().touch(playlistId, 200)
         backup.mirror()

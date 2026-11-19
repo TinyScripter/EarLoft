@@ -15,7 +15,7 @@ data object LibraryRoute : NavKey
 @Serializable
 data object DownloadsRoute : NavKey
 
-/** Ziele der Bottom-Bar; jedes hat einen eigenen Back Stack. */
+/** Bottom bar destinations; each has its own back stack. */
 enum class TopLevelDestination(
     val route: NavKey,
     @param:DrawableRes val icon: Int,

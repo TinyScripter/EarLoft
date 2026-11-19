@@ -39,9 +39,9 @@ import kotlinx.coroutines.flow.map
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Reiter „Gemerkt“ der Podcast-Bibliothek: alle gemerkten Folgen, zuletzt gemerkte zuerst, als [EpisodeSummaryRow] wie im
- * Reiter „Neu“ (mit dem Podcast in der zweiten Zeile und Mehrfachauswahl über [selection]). Ohne Wischen auf den Zeilen: Der Reiter sitzt im Pager der
- * Bibliothek, und waagerechtes Wischen wechselt dort den Reiter (sonst nahm die Zeile die Geste, Review Abschnitt 5).
+ * "Starred" tab of the podcast library: all starred episodes, most recently starred first, as [EpisodeSummaryRow] as in the
+ * "New" tab (with the podcast in the second line and multi-selection via [selection]). Without swiping on the rows: the tab sits in the
+ * library's pager, and horizontal swiping switches the tab there (otherwise the row took the gesture, review section 5).
  */
 @Composable
 fun StarredEpisodes(
@@ -86,15 +86,15 @@ fun StarredEpisodes(
     }
 }
 
-/** Schlüssel einer Zeile: Folgen, die es nicht mehr gibt, haben keine `bookId`. */
+/** Key of a row: episodes that no longer exist have no `bookId`. */
 private val EpisodeHistoryEntry.key: String get() = "$feedId|$bookId|$podcast|$title|$lastListenedAt"
 
-/** So viele zuletzt gehörte Folgen zeigt die Statistik; der Rest steht auf der eigenen Seite „Zuletzt gehört“. */
+/** This many recently played episodes are shown in the statistics; the rest is on its own "Recently played" page. */
 private const val HISTORY_PREVIEW = 3
 
 /**
- * Abschnitt „Zuletzt gehört“ im Reiter „Statistik“ (unter dem Diagramm „Verlauf“): die letzten [HISTORY_PREVIEW] Folgen und
- * darunter „Alle zeigen“; ohne gehörte Folgen nichts.
+ * "Recently played" section in the "Statistics" tab (below the "History" chart): the last [HISTORY_PREVIEW] episodes and
+ * below them "Show all"; nothing without played episodes.
  */
 internal fun LazyListScope.recentHistory(
     history: List<EpisodeHistoryEntry>,
@@ -119,8 +119,8 @@ internal fun LazyListScope.recentHistory(
 }
 
 /**
- * Seite „Zuletzt gehört“ (der Verlauf gehörter Folgen): die zuletzt gehörten Folgen, neueste zuerst, auch solche, die nicht mehr im Feed stehen oder deren Abo
- * beendet ist (dann ohne Tipp).
+ * "Recently played" page (the history of played episodes): the most recently played episodes, newest first, including ones no longer in the feed or whose subscription
+ * has ended (then without tap).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -145,8 +145,8 @@ fun PodcastHistoryScreen(
 }
 
 /**
- * Eine gehörte Folge: Bild, Titel, Podcast, wann zuletzt gehört und wie lange. Ein Tipp öffnet die Folge; gibt es sie nicht
- * mehr, das Abo; ist auch das beendet, nichts.
+ * A played episode: image, title, podcast, when last played and for how long. A tap opens the episode; if it no longer
+ * exists, the subscription; if that has ended too, nothing.
  */
 @Composable
 private fun HistoryRow(entry: EpisodeHistoryEntry, onEpisodeClick: (Long) -> Unit, onFeedClick: (String) -> Unit) {

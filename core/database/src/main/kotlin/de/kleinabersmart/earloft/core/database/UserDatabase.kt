@@ -28,15 +28,15 @@ import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
 import java.io.File
 
 /**
- * Die gesicherten Nutzerdaten (`user.db`, Review K9). Die große [EarLoftDatabase] ist vom Backup ausgeschlossen und
- * wird aus den Quellen neu aufgebaut; was keine Quelle kennt, steht zusätzlich hier und kommt so beim Gerätewechsel mit.
- * Die Hauptdatenbank bleibt die Arbeitskopie: Änderungen werden hierher gespiegelt und nach einem Neuaufbau zurückgespielt.
+ * The backed-up user data (`user.db`, review K9). The large [EarLoftDatabase] is excluded from backup and
+ * rebuilt from the sources; what no source knows is additionally stored here and thus comes along when switching devices.
+ * The main database remains the working copy: changes are mirrored here and played back after a rebuild.
  *
- * Versionen: 1 Server, Abos, Statistik; 2 Fortschritt; 3 lokale Playlists, Favoriten, Hörverlauf, Auswahl für die Uhr;
- * 5 archivierte Abos; 6 ohne Cast-Adresse je Server; 7 OpenID je Audiobookshelf-Server; 8 Downloads der Folgen; 9 Favoriten
- * von Alben und Künstlern; 10 „aus Weiterhören genommen“ am Fortschritt; 11 Tempo und Effekte je Abo und Buch, Tempo nullbar; 12 gesparte Zeit je Tag;
- * 13 Folgenliste und „Weiterhören“ je Abo; 14 Lesezeichen; 15 Bereithalten je Abo; 16 gemerkte Folgen; 17 abgewählte Buch-Bibliotheken;
- * 18 Bücher aus ARD Sounds.
+ * Versions: 1 servers, subscriptions, statistics; 2 progress; 3 local playlists, favorites, listening history, selection for the watch;
+ * 5 archived subscriptions; 6 without cast address per server; 7 OpenID per Audiobookshelf server; 8 episode downloads; 9 favorites
+ * of albums and artists; 10 "removed from Continue listening" on progress; 11 speed and effects per subscription and book, speed nullable; 12 saved time per day;
+ * 13 episode list and "Continue listening" per subscription; 14 bookmarks; 15 keep ready per subscription; 16 starred episodes; 17 deselected book libraries;
+ * 18 books from ARD Sounds.
  */
 @Database(
     entities = [
@@ -86,7 +86,7 @@ abstract class UserDatabase : RoomDatabase() {
     @DeleteColumn(tableName = "servers", columnName = "castBaseUrl")
     class DropCastBaseUrl : AutoMigrationSpec
 
-    /** Wie [EarLoftDatabase.InheritSpeed]: 1,0 folgt jetzt der Vorgabe von Abo bzw. Bereich. */
+    /** Like [EarLoftDatabase.InheritSpeed]: 1.0 now follows the default of the subscription or section. */
     class InheritSpeed : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
             db.execSQL("UPDATE book_progress SET speed = NULL WHERE speed = 1.0")
@@ -94,15 +94,15 @@ abstract class UserDatabase : RoomDatabase() {
     }
 
     companion object {
-        /** Dateiname; die Backup-Regeln der App schließen nur die Hauptdatenbank aus, diese Datei nicht. */
+        /** File name; the app's backup rules only exclude the main database, not this file. */
         const val NAME = "user.db"
 
-        /** Schemaversion; die Komplett-Sicherung lehnt Dateien einer neueren ab. */
+        /** Schema version; the full backup rejects files of a newer one. */
         const val VERSION = 19
 
         /**
-         * Eine Kopie außerhalb der App-Datenbanken (Komplett-Sicherung, `FullBackup`): ältere Fassungen werden beim Öffnen
-         * migriert. Ohne WAL, damit nach [close] alles in [file] steht.
+         * A copy outside the app databases (full backup, `FullBackup`): older versions are migrated when
+         * opened. Without WAL, so that everything is in [file] after [close].
          */
         fun openFile(context: Context, file: File): UserDatabase =
             Room.databaseBuilder(context, UserDatabase::class.java, file.absolutePath)

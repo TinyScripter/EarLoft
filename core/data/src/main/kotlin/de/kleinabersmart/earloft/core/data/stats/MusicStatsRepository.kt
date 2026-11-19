@@ -24,16 +24,16 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Statistik der Musik (Konzept 8 „Musik-Statistik“): rein aus dem Hörverlauf (`play_events`), also nur Wiedergaben, die
- * die App gezählt hat (Hälfte bzw. 30 s), auch die der Uhr. Songs ausgeschalteter Server zählen nicht mit.
+ * Music statistics (concept 8 "Music statistics"): purely from the listening history (`play_events`), i.e. only plays that
+ * the app counted (half or 30 s), including those of the watch. Songs of disabled servers don't count.
  */
 @Singleton
 class MusicStatsRepository @Inject constructor(private val libraryDao: LibraryDao) {
 
     /**
-     * Mit [year] nur die Wiedergaben dieses Jahres, sonst alle; [MusicStats.months] wie bei [StatsRepository.podcastStats]. Gerechnet
-     * wird abseits des Main-Threads und nur, wenn sich der Hörverlauf wirklich geändert hat: Ein Abgleich schreibt die Song-Tabellen
-     * in vielen Schritten (Review D26).
+     * With [year] only the plays of that year, otherwise all; [MusicStats.months] as with [StatsRepository.podcastStats]. Computed
+     * off the main thread and only when the listening history has actually changed: a sync writes the song tables
+     * in many steps (review D26).
      */
     fun musicStats(
         year: Int? = null,
@@ -72,12 +72,12 @@ class MusicStatsRepository @Inject constructor(private val libraryDao: LibraryDa
     internal companion object {
         const val TOP = 10
 
-        /** Gehörte Zeit je Kalendertag in [zone]. */
+        /** Listening time per calendar day in [zone]. */
         fun List<MusicPlayRow>.byDay(zone: ZoneId): List<DayListeningRow> =
             groupBy { Instant.ofEpochMilli(it.playedAt).atZone(zone).toLocalDate().toEpochDay() }
                 .map { (day, rows) -> DayListeningRow(day, rows.sumOf { it.listenedMs }) }
 
-        /** Gehörte Zeit je Wochentag, Montag zuerst, ohne Lücken. */
+        /** Listening time per weekday, Monday first, without gaps. */
         fun weekdaysOf(plays: List<MusicPlayRow>, zone: ZoneId): List<WeekdayListening> {
             val sums = plays.groupBy { Instant.ofEpochMilli(it.playedAt).atZone(zone).dayOfWeek }
                 .mapValues { (_, rows) -> rows.sumOf { it.listenedMs } }

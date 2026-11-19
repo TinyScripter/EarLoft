@@ -18,15 +18,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import de.kleinabersmart.earloft.R
 
-// Bausteine der Statistik-Seiten (Podcasts, Bücher).
+// Building blocks of the statistics pages (podcasts, books).
 
 const val HOUR_MS = 60 * 60 * 1000L
 private const val CHART_HEIGHT_DP = 100
 
-/** Ein Balken: [label] darunter, [valueMs] bestimmt die Höhe und die Stunden darüber. */
+/** One bar: [label] below it, [valueMs] determines the height and the hours above it. */
 data class StatBar(val label: String, val valueMs: Long)
 
-/** Balkendiagramm; die Stunden stehen über den Balken, Balken ohne Wert bleiben leer. */
+/** Bar chart; the hours are above the bars, bars without a value stay empty. */
 @Composable
 fun BarChart(bars: List<StatBar>, caption: String, modifier: Modifier = Modifier) {
     val max = bars.maxOfOrNull { it.valueMs }?.coerceAtLeast(1) ?: 1
@@ -65,7 +65,7 @@ fun BarChart(bars: List<StatBar>, caption: String, modifier: Modifier = Modifier
     }
 }
 
-/** „913 h“ ab einer Stunde, „45 min“ ab einer Minute, sonst „20 s“. */
+/** "913 h" from one hour, "45 min" from one minute, otherwise "20 s". */
 @Composable
 fun formatListened(ms: Long): String =
     when {

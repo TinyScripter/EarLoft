@@ -20,12 +20,12 @@ import de.kleinabersmart.earloft.ui.settings.resumeSecondsLabel
 import de.kleinabersmart.earloft.ui.settings.speedLabel
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Welche Auswahl der Abo-Einstellungen gerade offen ist. */
+/** Which choice of the subscription settings is currently open. */
 private enum class FeedChoice { SPEED, SILENCE, BOOST, INTRO, OUTRO }
 
 /**
- * Abschnitt „Wiedergabe“ der Abo-Einstellungen (Konzept 12.4): Tempo, Stille kürzen und Lautstärke anheben – jeweils mit
- * „Standard (…)“ = Vorgabe des Bereichs –, dazu Intro und Outro überspringen (nur je Abo).
+ * "Playback" section of the subscription settings (concept 12.4): speed, trim silence and volume boost – each with
+ * "Default (…)" = the area's default –, plus skipping intro and outro (per subscription only).
  */
 @Composable
 internal fun FeedPlaybackRows(
@@ -139,7 +139,7 @@ internal fun FeedPlaybackRows(
 
 private enum class QueueChoice { MODE, KEEP }
 
-/** Was von selbst in „Weiterhören“ kommt und wie viele Folgen die Listen zeigen (Abo-Einstellungen). */
+/** What gets into "Continue listening" automatically and how many episodes the lists show (subscription settings). */
 @Composable
 internal fun FeedQueueRows(feed: PodcastFeed, onQueueMode: (FeedQueueMode) -> Unit, onKeep: (Int) -> Unit) {
     var choosing by rememberSaveable { mutableStateOf<QueueChoice?>(null) }
@@ -191,8 +191,8 @@ internal fun FeedQueueRows(feed: PodcastFeed, onQueueMode: (FeedQueueMode) -> Un
 }
 
 /**
- * Wie viele neue Folgen die Automatik dieses Abos bereithält: die Vorgabe aus Einstellungen → Podcasts ([defaultCount])
- * oder eine eigene Anzahl. Bei „Nur die neueste“ ist es immer eine, die Zeile entfällt dann.
+ * How many new episodes this subscription's automation keeps ready: the default from Settings → Podcasts ([defaultCount])
+ * or a custom count. With "Only the newest" it is always one, and the row is omitted.
  */
 @Composable
 internal fun FeedAutoCountRow(feed: PodcastFeed, defaultCount: Int, onSelect: (Int?) -> Unit) {
@@ -235,10 +235,10 @@ private val FeedQueueMode.label: Int
         FeedQueueMode.MANUAL -> R.string.podcast_queue_mode_manual
     }
 
-/** „Folgen behalten“: 0 = alle. */
+/** "Keep episodes": 0 = all. */
 private val KEEP_CHOICES = listOf(0, 1, 3, 5, 10, 25, 50)
 
-/** Der Wert des Abos, ohne eigenen „Standard (Wert des Bereichs)“. */
+/** The subscription's value, without its own "Default (value of the area)". */
 @Composable
 private fun <T : Any> withDefault(value: T?, area: T, label: @Composable (T) -> String): String =
     if (value != null) label(value) else stringResource(R.string.playback_default_value, label(area))

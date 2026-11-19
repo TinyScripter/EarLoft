@@ -1,13 +1,13 @@
 package de.kleinabersmart.earloft.core.model
 
-/** Was als Ganzes auf die Uhr geladen wird (Wear-Konzept 5). */
+/** What is loaded onto the watch as a whole (Wear concept 5). */
 enum class WearSelectionKind {
     ALBUM,
     PLAYLIST,
     FAVORITES,
     ;
 
-    /** Schlüssel der Auswahl, z. B. `album:12` oder `favorites`; [refId] ist die ID am Handy. */
+    /** Key of the selection, e.g. `album:12` or `favorites`; [refId] is the ID on the phone. */
     fun key(refId: Long?): String = when (this) {
         ALBUM -> "album:${requireNotNull(refId)}"
         PLAYLIST -> "playlist:${requireNotNull(refId)}"

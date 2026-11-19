@@ -202,7 +202,7 @@ class DownloadRepositoryTest {
         assertEquals(1, library.db.downloadDao().getAll().size)
         assertEquals(1, scheduler.calls)
 
-        // Unverändert: nichts Neues, kein erneuter Auftrag.
+        // Unchanged: nothing new, no new job.
         repository.reconcileFavoriteDownloads(enabled = true)
         assertEquals(1, scheduler.calls)
 
@@ -242,7 +242,7 @@ class DownloadRepositoryTest {
         repository.reconcileFavoriteDownloads(enabled = true, withArtists = true)
         assertEquals(listOf("home:a"), library.db.downloadDao().getAll().map { it.sourceUid })
 
-        // Wieder aus: Was nur wegen des Künstlers geladen war, fällt weg.
+        // Off again: what was only downloaded because of the artist goes away.
         repository.reconcileFavoriteDownloads(enabled = true, withArtists = false)
         assertTrue(library.db.downloadDao().getAll().isEmpty())
     }
@@ -301,7 +301,7 @@ class DownloadRepositoryTest {
         assertEquals("server:home", library.db.downloadDao().get("home:a")!!.pinnedBy)
         assertEquals(1, scheduler.calls)
 
-        // Neuer Song nach einem Abgleich kommt dazu, Vorhandenes löst keinen weiteren Auftrag aus.
+        // A new song after a sync is added, existing ones don't trigger another job.
         library.song(albumId, "D", "home" to "d")
         repository.reconcileServerDownloads(setOf("home"))
         assertEquals(setOf("home:a", "home:d"), library.db.downloadDao().getAll().map { it.sourceUid }.toSet())
@@ -341,7 +341,7 @@ class DownloadRepositoryTest {
         library.song(old, "A", "home" to "a", dateAdded = 1)
         val middle = library.album("Middle")
         library.song(middle, "B", "home" to "b", dateAdded = 2)
-        // Liegt schon auf dem Gerät: zählt nicht zu den neuesten Alben zum Laden.
+        // Already on the device: doesn't count among the newest albums to download.
         val onDevice = library.album("On device")
         library.song(onDevice, "C", "local" to "c", "home" to "c", dateAdded = 3)
 
@@ -375,7 +375,7 @@ class DownloadRepositoryTest {
         assertEquals(setOf("home:a", "office:b"), library.db.downloadDao().getAll().map { it.sourceUid }.toSet())
         assertEquals("auto-albums", library.db.downloadDao().get("home:a")!!.pinnedBy)
 
-        // Wieder eingeschaltet und inzwischen aus der Auswahl gefallen: Dann geht der Download wie sonst auch.
+        // Switched on again and dropped out of the selection in the meantime: then the download goes as usual.
         library.db.sourceDao().setEnabled("home", true)
         repository.reconcileAlbumDownloads(listOf(officeAlbum), keepFavorites = false)
         assertEquals(listOf("office:b"), library.db.downloadDao().getAll().map { it.sourceUid })
@@ -443,7 +443,7 @@ class DownloadRepositoryTest {
         val file = storage.fileFor("home:e", "audio/flac").apply {
             parentFile!!.mkdirs()
             writeBytes(ByteArray(10))
-            // Eine eben fertige Datei bliebe (ihr Pfad steht vielleicht noch nicht in der Datenbank).
+            // A just-finished file would stay (its path may not be in the database yet).
             setLastModified(System.currentTimeMillis() - 2 * DownloadStorage.FRESH_FILE_MS)
         }
         val fresh = storage.fileFor("home:f", "audio/flac").apply { writeBytes(ByteArray(10)) }

@@ -24,9 +24,9 @@ import javax.inject.Singleton
 import kotlin.math.roundToLong
 
 /**
- * Die Hörstatistik der Audiobookshelf-Konten (Konzept 12.2, Statistik): vom Server abrufen, unverändert zwischenspeichern
- * (die Seite zeigt offline den letzten Stand) und für die Oberfläche aufbereiten. Getrennt von den Zahlen der App
- * (`listening_stats`): das sind die des Servers.
+ * The listening statistics of the Audiobookshelf accounts (concept 12.2, statistics): fetch from the server, cache unchanged
+ * (the page shows the last state offline) and prepare for the UI. Separate from the app's numbers
+ * (`listening_stats`): these are the server's.
  */
 @Singleton
 class ServerStatsRepository @Inject constructor(
@@ -35,7 +35,7 @@ class ServerStatsRepository @Inject constructor(
     private val servers: AudiobookshelfServers,
     private val api: AbsApi,
 ) {
-    /** Letzter Stand des Servers; `null`, solange noch nie abgerufen. */
+    /** Last state from the server; `null` as long as it has never been fetched. */
     fun stats(serverId: String, year: Int? = null, today: () -> LocalDate = LocalDate::now): Flow<ServerBookStats?> =
         statsDao.observeServerStats(serverId, KIND).map { cache ->
             cache?.let {
@@ -48,7 +48,7 @@ class ServerStatsRepository @Inject constructor(
             }
         }
 
-    /** Ruft die Statistik des Servers ab, wenn der Stand älter als [maxAgeMs] ist (eigene Sitzungen sollen bald sichtbar werden). `true`, wenn der Stand aktuell ist. */
+    /** Fetches the server's statistics if the state is older than [maxAgeMs] (own sessions should become visible soon). `true` if the state is current. */
     suspend fun refresh(serverId: String, maxAgeMs: Long = STALE_MS, now: Long = System.currentTimeMillis()): Boolean {
         val cached = statsDao.serverStats(serverId, KIND)
         if (cached != null && now - cached.fetchedAt < maxAgeMs) return true
@@ -104,7 +104,7 @@ class ServerStatsRepository @Inject constructor(
         const val STALE_MS = 5 * 60_000L
         private const val TAG = "ServerStatsRepository"
 
-        /** Tage in Folge bis heute; hat heute noch nichts gezählt, beginnt die Zählung gestern. */
+        /** Consecutive days up to today; if nothing has been counted today yet, counting starts yesterday. */
         fun streak(listenedDays: Set<Long>, today: LocalDate): Int {
             var day = today.toEpochDay()
             if (day !in listenedDays) day--

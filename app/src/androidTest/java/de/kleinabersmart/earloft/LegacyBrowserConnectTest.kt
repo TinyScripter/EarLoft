@@ -14,8 +14,8 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * Android Auto verbindet sich über den alten [MediaBrowser]. Media3 beantwortet dessen `onGetRoot` auf dem Main-Thread und
- * wartet dort ohne Zeitlimit auf `onGetLibraryRoot`; ein Future, das selbst den Main-Thread braucht, hängt die App auf (ANR).
+ * Android Auto connects via the legacy [MediaBrowser]. Media3 answers its `onGetRoot` on the main thread and
+ * waits there without a timeout for `onGetLibraryRoot`; a future that itself needs the main thread hangs the app (ANR).
  */
 @RunWith(AndroidJUnit4::class)
 class LegacyBrowserConnectTest {
@@ -40,7 +40,7 @@ class LegacyBrowserConnectTest {
             assertTrue("Keine Verbindung innerhalb von 10 s", connected.await(10, TimeUnit.SECONDS))
             assertEquals("root", browser!!.root)
         } finally {
-            // Nicht runOnMainSync: Hängt der Main-Thread, bliebe der Test sonst selbst stehen.
+            // Not runOnMainSync: if the main thread hangs, the test itself would otherwise get stuck.
             Handler(Looper.getMainLooper()).post { browser?.disconnect() }
         }
     }

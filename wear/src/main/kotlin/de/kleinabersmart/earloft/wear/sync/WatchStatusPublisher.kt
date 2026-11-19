@@ -21,8 +21,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Meldet dem Handy Speicher (Songs, Folgen und Bücher) und Fortschritt je Auswahl ([WearPaths.WATCH_STATUS], Wear-Konzept 4). Die
- * Meldung wird gedrosselt (höchstens alle [THROTTLE_MS]): Beim Laden ändert sich der Fortschritt mit jedem Song.
+ * Reports storage (songs, episodes and books) and progress per selection to the phone ([WearPaths.WATCH_STATUS], Wear concept 4). The
+ * report is throttled (at most every [THROTTLE_MS]): while downloading, the progress changes with every song.
  */
 @Singleton
 class WatchStatusPublisher @Inject constructor(

@@ -6,7 +6,7 @@
     android:viewportWidth="512"
     android:viewportHeight="512">
 
-    <!-- Subtile äußere Welle (Resonanz) -->
+    <!-- Subtle outer wave (resonance) -->
     <path
         android:pathData="M 225,85 C 310,85 365,145 365,225 C 365,305 310,365 225,365 C 140,365 85,305 85,225 C 85,145 140,85 225,85 Z"
         android:strokeWidth="4"
@@ -19,7 +19,7 @@
         </aapt:attr>
     </path>
 
-    <!-- Innere Welle im Linsenglas -->
+    <!-- Inner wave in the lens glass -->
     <path
         android:pathData="M 225,145 C 275,140 295,175 295,225 C 295,275 265,295 225,295 C 175,295 155,265 155,225 C 155,175 185,150 225,145 Z"
         android:strokeWidth="5"
@@ -32,7 +32,7 @@
         </aapt:attr>
     </path>
 
-    <!-- Haupt-Linsenring -->
+    <!-- Main lens ring -->
     <path
         android:pathData="M 225,115 A 110,110 0 1,0 225,335 A 110,110 0 1,0 225,115 Z"
         android:strokeWidth="14">
@@ -45,7 +45,7 @@
         </aapt:attr>
     </path>
 
-    <!-- Doppelstieliger Lupengriff mit abgerundeter Endkappe -->
+    <!-- Double-stemmed magnifier handle with rounded end cap -->
     <path
         android:pathData="M 305,305 L 405,405 A 12,12 0 0,0 422,388 L 322,288"
         android:strokeWidth="10"
@@ -59,7 +59,7 @@
         </aapt:attr>
     </path>
 
-    <!-- Zentrums-Impuls ("klein") -->
+    <!-- Center pulse ("small") -->
     <path
         android:pathData="M 225,213 A 12,12 0 1,0 225,237 A 12,12 0 1,0 225,213 Z"
         android:fillColor="#FFFFFFFF" />

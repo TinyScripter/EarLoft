@@ -13,20 +13,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * Ab dieser Höhe für Kopf und Liste steht eine Chip-Leiste fest über der Liste; darunter (kleines Handy quer) scrollt sie mit.
- * Kleiner als bei der Podcast-Seite (560 dp), denn die Chips sind nur eine bis zwei Zeilen hoch und über den Bibliothekslisten
- * stehen schon Bereich und Reiter (Pixel 10 Pro hochkant: rund 475 dp).
+ * From this height for header and list on, a chip bar stays pinned above the list; below it (small phone in landscape) it scrolls along.
+ * Smaller than on the podcast page (560 dp), because the chips are only one or two lines high and area and tabs already sit
+ * above the library lists (Pixel 10 Pro in portrait: about 475 dp).
  */
 private val PINNED_CHIPS_MIN_HEIGHT = 320.dp
 
-/** Innenabstand der Bibliotheksraster; steht der Kopf fest darüber ([pinnedHeader]), oben nur der Zeilenabstand. */
+/** Inner padding of the library grids; if the header is pinned above them ([pinnedHeader]), only the row spacing at the top. */
 fun gridContentPadding(pinnedHeader: Boolean): PaddingValues =
     PaddingValues(start = 12.dp, top = if (pinnedHeader) 8.dp else 12.dp, end = 12.dp, bottom = 12.dp)
 
 /**
- * Rahmen für eine Liste mit Kopf (Chip-Leiste): Mit [pin] und genug Höhe steht der Kopf fest über der Liste wie auf der
- * Podcast-Seite, sonst gibt [content] ihn als `inlineHeader` zurück und zeichnet ihn als ersten Eintrag selbst. [headerPadding]
- * ersetzt den Innenabstand, den der Kopf in der Liste hätte.
+ * Frame for a list with a header (chip bar): with [pin] and enough height, the header stays pinned above the list as on the
+ * podcast page; otherwise [content] gets it back as `inlineHeader` and draws it itself as the first entry. [headerPadding]
+ * replaces the inner padding the header would have in the list.
  */
 @Composable
 fun PinnableHeaderBox(

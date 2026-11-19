@@ -5,8 +5,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Bekannte Server, damit [SubsonicAuthInterceptor] auch Anfragen authentifizieren kann, die nicht
- * von [SubsonicApi] stammen (Media3-Streams, Cover).
+ * Known servers, so that [SubsonicAuthInterceptor] can also authenticate requests that do not
+ * come from [SubsonicApi] (Media3 streams, covers).
  */
 @Singleton
 class SubsonicServerRegistry @Inject constructor() {

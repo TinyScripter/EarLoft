@@ -22,8 +22,8 @@ import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Hinweis, dass ein Podcast nur zur Probe da ist (Konzept 12.10): auf seiner Seite mit „Abonnieren“ ([action]), auf der
- * Seite einer Folge antippbar ([onClick]) als Weg zum Podcast. Mit [error] als Fehler gefärbt (kaputter Feed).
+ * Notice that a podcast is only there on trial (concept 12.10): on its page with "Subscribe" ([action]), on the
+ * page of an episode tappable ([onClick]) as a way to the podcast. With [error] colored as an error (broken feed).
  */
 @Composable
 fun TrialNotice(
@@ -53,7 +53,7 @@ fun TrialNotice(
     }
 }
 
-/** „Abgleich fehlgeschlagen seit 12.11.2026: Feed nicht mehr vorhanden (404)“ für ein Abo mit [PodcastFeed.hasProblem]. */
+/** "Sync failing since 12.11.2026: feed no longer exists (404)" for a subscription with [PodcastFeed.hasProblem]. */
 @Composable
 fun feedProblemText(feed: PodcastFeed): String =
     stringResource(

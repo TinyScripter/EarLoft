@@ -5,23 +5,23 @@ data class LyricLine(
     val text: String,
 )
 
-/** Songtext eines Songs. */
+/** Lyrics of a song. */
 sealed interface Lyrics {
-    /** Zeilen mit Zeitstempel, aufsteigend sortiert. */
+    /** Lines with timestamps, sorted ascending. */
     data class Synced(val lines: List<LyricLine>) : Lyrics
 
     data class Plain(val text: String) : Lyrics
 
-    /** Die Quellen haben keinen Text. */
+    /** The sources have no lyrics. */
     data object None : Lyrics
 
-    /** Keine Quelle erreichbar – nichts gespeichert, ein späterer Versuch kann klappen. */
+    /** No source reachable – nothing stored, a later attempt may succeed. */
     data object Unavailable : Lyrics
 }
 
 /**
- * Speicherform in `lyrics.content`: synchronisierte Lyrics als `startMs<TAB>Text` je Zeile,
- * statische Lyrics als Text.
+ * Storage format in `lyrics.content`: synced lyrics as `startMs<TAB>text` per line,
+ * static lyrics as text.
  */
 object LyricsCodec {
     fun encode(lyrics: Lyrics): Pair<LyricsKind, String> = when (lyrics) {

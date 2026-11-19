@@ -1,14 +1,14 @@
 package de.kleinabersmart.earloft.core.model
 
-/** Ein eingerichteter Musikserver (Navidrome/Subsonic oder Jellyfin). */
+/** A configured music server (Navidrome/Subsonic or Jellyfin). */
 data class ServerInfo(
     val sourceId: String,
     val name: String,
     val baseUrl: String,
     val username: String?,
-    /** Epoch-Millis des letzten vollständigen Abgleichs, 0 = noch nie. */
+    /** Epoch millis of the last full sync, 0 = never. */
     val lastFullSyncAt: Long,
-    /** Ausgeschaltet: kein Abgleich, Inhalte ausgeblendet, nichts gelöscht. */
+    /** Switched off: no sync, content hidden, nothing deleted. */
     val enabled: Boolean = true,
     val type: SourceType = SourceType.SUBSONIC,
 )

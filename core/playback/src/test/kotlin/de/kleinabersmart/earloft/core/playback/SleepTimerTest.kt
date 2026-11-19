@@ -16,7 +16,7 @@ class SleepTimerTest {
 
     private val scope = TestScope()
 
-    /** Ein Buch, das mit der Testuhr läuft: Position = Start + vergangene Zeit × Tempo, solange es spielt. */
+    /** A book that runs with the test clock: position = start + elapsed time × speed, while it plays. */
     private inner class FakeTarget : SleepTimerTarget {
         override var volume = 1f
         var pauseCount = 0
@@ -52,7 +52,7 @@ class SleepTimerTest {
             playCount++
         }
 
-        /** Übergabe ans Cast-Gerät: die Warteschlange ist kurz leer, `isSpoken` bleibt (wie `asSleepTimerTarget`). */
+        /** Handover to the cast device: the queue is briefly empty, `isSpoken` stays (like `asSleepTimerTarget`). */
         var awaitsRemoteQueue = false
 
         override fun spokenSpot(): SpokenSpot? = if (spoken && !awaitsRemoteQueue) SpokenSpot(bookId, position, speed, ends) else null
@@ -65,7 +65,7 @@ class SleepTimerTest {
 
     private val target = FakeTarget()
 
-    /** Tiefschlaf: Die Echtzeit läuft weiter, `delay` (Uptime) steht. */
+    /** Deep sleep: real time keeps running, `delay` (uptime) stands still. */
     private var deepSleepMs = 0L
     private val timer = SleepTimer(now = { scope.currentTime + deepSleepMs }, scope = scope).apply { attach(target) }
 
@@ -100,7 +100,7 @@ class SleepTimerTest {
         scope.advanceTimeBy(30_000)
         assertEquals(1f, target.volume, 0f)
         advance(20_000)
-        // 10 s vor Ablauf: halbe Lautstärke.
+        // 10 s before expiry: half volume.
         assertEquals(0.5f, target.volume, 0.02f)
     }
 
@@ -143,7 +143,7 @@ class SleepTimerTest {
         assertEquals(0, target.pauseCount)
         advance(1_000)
         assertEquals(1, target.pauseCount)
-        // Noch im Kapitel, nicht schon im nächsten.
+        // Still in the chapter, not already in the next one.
         assertTrue(target.position in 59_000..59_999)
         assertNull(timer.state.value)
     }
@@ -164,11 +164,11 @@ class SleepTimerTest {
         target.position = 10_000
         timer.startToEnd()
         advance(5_000)
-        // Ins dritte Kapitel (120 s bis 300 s).
+        // Into the third chapter (120 s to 300 s).
         target.position = 200_000
         advance(1_000)
         assertEquals(99_000L, timer.state.value?.remainingMs)
-        // Zurück ins erste: wieder dessen Ende.
+        // Back into the first: its end again.
         target.position = 1_000
         advance(1_000)
         assertEquals(58_000L, timer.state.value?.remainingMs)
@@ -179,12 +179,12 @@ class SleepTimerTest {
         target.position = 10_000
         timer.startToEnd()
         advance(1_000)
-        // Ein anderes Buch, mitten im dritten Kapitel (120 s bis 300 s), ohne die Grenze zu überlaufen.
+        // A different book, in the middle of the third chapter (120 s to 300 s), without running past the boundary.
         target.bookId = 2
         target.position = 130_000
         advance(1_000)
         assertEquals(169_000L, timer.state.value?.remainingMs)
-        // Zurück ins erste Kapitel dieses Buchs: Dessen Ende gilt, nicht das des dritten.
+        // Back into the first chapter of this book: its end applies, not that of the third.
         target.position = 50_000
         advance(1_000)
         assertEquals(9_000L, timer.state.value?.remainingMs)
@@ -236,7 +236,7 @@ class SleepTimerTest {
         target.position = 9_000
         timer.startToEnd()
         scope.runCurrent()
-        // Die nächste Folge ist schon geladen, bevor der Timer wieder nachsieht.
+        // The next episode is already loaded before the timer checks again.
         target.bookId = 2
         target.position = 0
         advance(1_000)
@@ -264,7 +264,7 @@ class SleepTimerTest {
         assertFalse(timer.shakeWindow.value)
         assertFalse(timer.extend())
         assertEquals(0L, target.rewound)
-        // Wieder abgespielt: Das Fenster ist wieder offen.
+        // Played again: the window is open again.
         target.play()
         advance(1_000)
         assertTrue(timer.shakeWindow.value)
@@ -323,7 +323,7 @@ class SleepTimerTest {
         timer.start(60_000)
         advance(60_000)
         advance(30_000)
-        // Bildschirm aus, das Gerät schläft drei Stunden: Das Fenster zu schließen kam nicht dran.
+        // Screen off, the device sleeps for three hours: closing the window never got its turn.
         deepSleepMs += 3 * 60 * 60_000L
         assertTrue(timer.shakeWindow.value)
         assertFalse(timer.extend())
@@ -340,7 +340,7 @@ class SleepTimerTest {
         assertEquals(1, target.pauseCount)
         assertTrue(timer.extend())
         scope.runCurrent()
-        // 20 s zurück und dann bis 120 s.
+        // 20 s back and then up to 120 s.
         val remaining = timer.state.value?.remainingMs ?: 0
         assertTrue("$remaining", remaining in 79_000..81_000)
     }

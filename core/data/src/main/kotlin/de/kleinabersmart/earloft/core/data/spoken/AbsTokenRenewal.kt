@@ -25,21 +25,21 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Namen der Geheimnisse eines Audiobookshelf-Servers im [SecretStore]. */
+/** Names of an Audiobookshelf server's secrets in the [SecretStore]. */
 internal object AbsSecrets {
-    /** API-Key oder Access-Token. */
+    /** API key or access token. */
     fun token(serverId: String) = "abs:$serverId:token"
 
-    /** Nur bei Anmeldung per OpenID mit Server ab 2.26; verlässt das Handy nie (auch nicht zur Uhr). */
+    /** Only for login via OpenID with server 2.26 or later; never leaves the phone (not even to the watch). */
     fun refresh(serverId: String) = "abs:$serverId:refresh"
 
-    /** Zufällig je Anmeldung per OpenID: Grundlage des Stempels für die Uhr, der sich nicht mit jedem Access-Token ändert. */
+    /** Random per OpenID login: basis of the stamp for the watch, which doesn't change with every access token. */
     fun login(serverId: String) = "abs:$serverId:login"
 }
 
 /**
- * Erneuert Access-Tokens per Refresh-Token (Konzept 12.11). Je Server läuft höchstens eine Erneuerung, denn der Refresh-Token
- * rotiert: Zwei gleichzeitige Erneuerungen mit demselben würden nach der Gnadenfrist die Anmeldung kosten.
+ * Renews access tokens via refresh token (concept 12.11). At most one renewal runs per server, because the refresh token
+ * rotates: two simultaneous renewals with the same one would cost the login after the grace period.
  */
 @Singleton
 class AbsTokenRenewal @Inject constructor(
@@ -50,12 +50,12 @@ class AbsTokenRenewal @Inject constructor(
 
     private val locks = ConcurrentHashMap<String, Mutex>()
 
-    /** Abgelöste Access-Tokens je Server: Anfragen, die noch mit einem davon liefen, wiederholen mit dem aktuellen. */
+    /** Superseded access tokens per server: requests still running with one of them retry with the current one. */
     private val retired = ConcurrentHashMap<String, List<String>>()
 
     private val _expired = MutableStateFlow(0)
 
-    /** Zählt hoch, wenn eine Anmeldung abgelaufen ist und ihre Tokens verworfen sind. */
+    /** Increments when a login has expired and its tokens have been discarded. */
     val expired: StateFlow<Int> = _expired.asStateFlow()
 
     override fun renewBlocking(serverId: String, rejected: String): String? = runBlocking { renew(serverId, rejected) }
@@ -70,8 +70,8 @@ class AbsTokenRenewal @Inject constructor(
     }
 
     /**
-     * Der aktuelle Token, beim Access-Token noch mindestens [minValiditySeconds] gültig; wenn nötig, vorher erneuert. Für
-     * Empfänger, die selbst nicht erneuern können (Cast, Uhr). `null`, wenn der Server nicht eingerichtet ist.
+     * The current token, for an access token still valid for at least [minValiditySeconds]; renewed beforehand if necessary. For
+     * recipients that can't renew themselves (cast, watch). `null` if the server isn't configured.
      */
     suspend fun fresh(serverId: String, minValiditySeconds: Long): String? = lock(serverId).withLock {
         val current = registry[serverId] ?: return null
@@ -80,14 +80,14 @@ class AbsTokenRenewal @Inject constructor(
         refreshLocked(current) ?: registry[serverId]?.token
     }
 
-    /** Nach neuer Anmeldung oder Entfernen: alte Tokens gelten nicht mehr als die dieses Servers. */
+    /** After a new login or removal: old tokens no longer count as this server's. */
     fun forget(serverId: String) {
         retired.remove(serverId)
     }
 
     /**
-     * Nicht abbrechbar (Review D32): Hat der Server den Refresh-Token einmal rotiert, gilt der alte nur noch kurz. Bräche der
-     * Aufrufer währenddessen ab und die neuen Tokens blieben ungespeichert, kostete das später die Anmeldung.
+     * Not cancellable (review D32): once the server has rotated the refresh token, the old one only remains valid briefly. If the
+     * caller cancelled in the meantime and the new tokens stayed unstored, that would later cost the login.
      */
     private suspend fun refreshLocked(server: AbsServer): String? = withContext(NonCancellable) { refreshNow(server) }
 
@@ -115,7 +115,7 @@ class AbsTokenRenewal @Inject constructor(
         return tokens.accessToken
     }
 
-    /** Wie ein fehlender API-Key: Der Server bleibt eingerichtet, die Liste bittet um neue Anmeldung. */
+    /** Like a missing API key: the server stays configured, the list asks for a new login. */
     private suspend fun expire(serverId: String) {
         secretStore.remove(AbsSecrets.token(serverId))
         secretStore.remove(AbsSecrets.refresh(serverId))

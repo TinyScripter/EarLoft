@@ -73,7 +73,7 @@ import javax.inject.Singleton
 import kotlin.math.abs
 
 /**
- * Spielzeit eines Buchs bzw. einer Folge: Position und Länge in Buchzeit (Länge 0 = unbekannt) und das Tempo, gemessen zu
+ * Playing time of a book or episode: position and length in book time (length 0 = unknown) and the speed, measured at
  * [measuredAtMs] ([SystemClock.elapsedRealtime]).
  */
 data class BookClock(
@@ -84,20 +84,20 @@ data class BookClock(
     val running: Boolean,
     val measuredAtMs: Long,
 ) {
-    /** Zählt das Widget selbst (Chronometer im Launcher)? Nur bei 1×, denn der Chronometer läuft in Echtzeit. */
+    /** Does the widget count by itself (chronometer in the launcher)? Only at 1×, because the chronometer runs in real time. */
     val ticksItself: Boolean get() = running && abs(speed - 1f) < SPEED_TOLERANCE
 
-    /** Stand zum Zeitpunkt [nowMs]: Läuft sie, ist seit der Messung Buchzeit vergangen (Echtzeit mal Tempo). */
+    /** State at time [nowMs]: if it is running, book time has elapsed since the measurement (real time times speed). */
     fun at(nowMs: Long): BookClock {
         if (!running) return this
         val position = positionMs + ((nowMs - measuredAtMs) * speed).toLong()
         return copy(positionMs = if (durationMs > 0) position.coerceAtMost(durationMs) else position, measuredAtMs = nowMs)
     }
 
-    /** Angehalten zum Zeitpunkt [nowMs]. */
+    /** Stopped at time [nowMs]. */
     fun stoppedAt(nowMs: Long): BookClock = if (running) at(nowMs).copy(running = false) else this
 
-    /** Echtzeit, bis die Stunden eine Stelle dazubekommen und der Chronometer einen anderen Vorsatz braucht; `null` = nie. */
+    /** Real time until the hours gain a digit and the chronometer needs a different prefix; `null` = never. */
     fun msUntilPrefixChange(): Long? {
         val next = PREFIX_CHANGES_MS.firstOrNull { it > positionMs } ?: return null
         return untilBookTime(next - positionMs)
@@ -106,38 +106,38 @@ data class BookClock(
     private fun untilBookTime(bookMs: Long): Long = (bookMs / speed.coerceAtLeast(MIN_SPEED)).toLong() + TICK_SLACK_MS
 }
 
-/** Was die Widgets für einen Bereich zeigen: das Laufende bzw. das zuletzt Gehörte daraus. */
+/** What the widgets show for an area: what is playing or what was last played from it. */
 data class WidgetEntry(
     val nowPlaying: NowPlaying,
     /**
-     * Cover über den [CoverProvider]; `null` = keins. Der Launcher lädt es selbst, statt es mit jeder Aktualisierung als
-     * Bild zu bekommen (bei Tempo ≠ 1× alle 10 s).
+     * Cover via the [CoverProvider]; `null` = none. The launcher loads it itself instead of receiving it as an
+     * image with every update (at speed ≠ 1× every 10 s).
      */
     val coverUri: Uri? = null,
-    /** Breite durch Höhe des Covers (Album quadratisch, Buch meist hochkant). */
+    /** Width divided by height of the cover (album square, book mostly portrait). */
     val coverAspectRatio: Float = 1f,
-    /** Grundfarbe des Covers (ARGB) für die Widget-Farben; `null` = App-Farben. */
+    /** Base color of the cover (ARGB) for the widget colors; `null` = app colors. */
     val seedColor: Int? = null,
-    /** Spielzeit bei Büchern und Folgen (angehalten); für den Bereich im Player gilt [WidgetState.clock]. */
+    /** Playing time for books and episodes (stopped); for the area in the player, [WidgetState.clock] applies. */
     val clock: BookClock? = null,
-    /** Wann der Bereich zuletzt im Player war (Wanduhr). */
+    /** When the area was last in the player (wall clock). */
     val lastActiveAt: Long = 0,
 )
 
 data class WidgetState(
-    /** Je Bereich das Laufende bzw. zuletzt Gehörte. */
+    /** Per area what is playing or was last played. */
     val entries: Map<SpokenMode, WidgetEntry> = emptyMap(),
-    /** Der Bereich dessen, was im Player steht bzw. zuletzt stand. */
+    /** The area of what is or was last in the player. */
     val currentArea: SpokenMode? = null,
-    /** Spielzeit des Buchs bzw. der Folge im Player; `null` bei Musik oder solange sie nicht feststeht. */
+    /** Playing time of the book or episode in the player; `null` for music or as long as it isn't known. */
     val clock: BookClock? = null,
-    /** Sprungweiten aus den Einstellungen, für Bücher bzw. Folgen. */
+    /** Skip intervals from the settings, for books and episodes. */
     val bookSeek: SeekSteps = SeekSteps.DEFAULT,
     val podcastSeek: SeekSteps = SeekSteps.DEFAULT,
 ) {
     /**
-     * Was ein Widget für [areas] zeigt: das, was im Player steht, wenn es dazugehört, sonst das zuletzt Gehörte daraus
-     * (pausiert); `null`, wenn aus diesen Bereichen noch nie etwas lief.
+     * What a widget shows for [areas]: what is in the player if it belongs to them, otherwise what was last played from them
+     * (paused); `null` if nothing from these areas has ever played.
      */
     fun entryFor(areas: Set<SpokenMode>): WidgetEntry? {
         val current = currentArea?.takeIf { it in areas }?.let(entries::get)
@@ -146,8 +146,8 @@ data class WidgetState(
     }
 
     /**
-     * Neue Spielzeit im Player. Gehörte die bisherige zu einem anderen Buch bzw. einer Folge (der Takt meldet den Wechsel
-     * vor dem neuen Eintrag), bleibt sie dort angehalten zum Zeitpunkt [nowMs] stehen.
+     * New playing time in the player. If the previous one belonged to another book or episode (the tick reports the change
+     * before the new entry), it stays there, stopped at time [nowMs].
      */
     fun withClock(clock: BookClock?, nowMs: Long): WidgetState {
         val previous = this.clock?.takeIf { it.bookId != clock?.bookId } ?: return copy(clock = clock)
@@ -158,17 +158,17 @@ data class WidgetState(
         )
     }
 
-    /** Steht [entry] im Player? Sonst setzt „Abspielen“ ihn erst wieder fort. */
+    /** Is [entry] in the player? Otherwise "Play" resumes it first. */
     fun isCurrent(entry: WidgetEntry): Boolean = entry.nowPlaying.area == currentArea
 
-    /** Sprungweiten für ein Buch bzw. eine Folge. */
+    /** Skip intervals for a book or episode. */
     fun seekOf(nowPlaying: NowPlaying): SeekSteps = if (nowPlaying.isEpisode) podcastSeek else bookSeek
 }
 
 /**
- * Hält den Zustand für das Widget und aktualisiert es gedrosselt. Der letzte Stand bleibt stehen, auch wenn der Service
- * endet, und überdauert den Prozess ([WidgetStateStore]). Wird vom PlaybackService auch dann benachrichtigt, wenn die
- * App-UI nicht läuft.
+ * Holds the state for the widget and updates it with throttling. The last state stays even when the service
+ * ends, and survives the process ([WidgetStateStore]). The PlaybackService notifies it even when the
+ * app UI isn't running.
  */
 @Singleton
 class NowPlayingWidgetUpdater @Inject constructor(
@@ -191,7 +191,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
     private val _state = MutableStateFlow(WidgetState())
     val state: StateFlow<WidgetState> = _state.asStateFlow()
 
-    /** Ist mindestens ein Widget platziert? Ohne Widget wird keine Spielzeit gemessen. */
+    /** Is at least one widget placed? Without a widget no playing time is measured. */
     private val widgetsPlaced = MutableStateFlow(false)
 
     init {
@@ -201,8 +201,8 @@ class NowPlayingWidgetUpdater @Inject constructor(
         scope.launch { configureLegacyWidgets(themeSettings) }
         scope.launch {
             restore()
-            // Erst nach dem Laden speichern, sonst überschriebe der leere Anfangszustand den gemerkten. Nur mit angehaltener
-            // Uhr, damit der Takt bei Tempo ≠ 1× nicht alle 10 s schreibt; Pause und Ende des Service halten sie an.
+            // Save only after loading, otherwise the empty initial state would overwrite the remembered one. Only with a stopped
+            // clock, so the tick doesn't write every 10 s at speed ≠ 1×; pause and end of the service stop it.
             _state
                 .filter { it.clock?.running != true }
                 .map { state -> state.entries.values.map { state.saved(it) } }
@@ -231,19 +231,19 @@ class NowPlayingWidgetUpdater @Inject constructor(
             .launchIn(scope)
     }
 
-    /** Ein Widget wird angezeigt (Glance baut es auf). */
+    /** A widget is displayed (Glance builds it). */
     fun onWidgetShown() {
         widgetsPlaced.value = true
     }
 
-    /** Das letzte Widget wurde entfernt. */
+    /** The last widget was removed. */
     fun onAllWidgetsRemoved() {
         widgetsPlaced.value = false
     }
 
     /**
-     * Widgets aus der Zeit vor den Einstellungen je Widget (oder von einem Launcher, der den Dialog beim Anlegen übergeht):
-     * alle Bereiche, Farben wie der frühere Schalter „Coverfarben im Widget“.
+     * Widgets from before the per-widget settings (or from a launcher that skips the dialog when adding):
+     * all areas, colors like the former "Cover colors in widget" switch.
      */
     private suspend fun configureLegacyWidgets(themeSettings: ThemeSettings) {
         val manager = GlanceAppWidgetManager(context)
@@ -265,8 +265,8 @@ class NowPlayingWidgetUpdater @Inject constructor(
     }
 
     /**
-     * Nach dem Prozessstart den gemerkten Stand je Bereich zeigen; was der Service inzwischen gemeldet hat, geht vor. Im
-     * Player steht danach der zuletzt gehörte Bereich.
+     * After process start, show the remembered state per area; whatever the service has reported in the meantime takes precedence. The
+     * player then holds the most recently played area.
      */
     private suspend fun restore() {
         val saved = store.load()
@@ -288,15 +288,15 @@ class NowPlayingWidgetUpdater @Inject constructor(
         if (!nowPlaying.compareAndSet(null, latest.nowPlaying)) NowPlayingWidget().updateAll(context)
     }
 
-    /** Was für den Bereich von [entry] gespeichert wird: pausiert, mit der Spielzeit, wo sie gerade steht. */
+    /** What is stored for the area of [entry]: paused, with the playing time where it currently is. */
     private fun WidgetState.saved(entry: WidgetEntry): SavedWidget {
         val clock = if (isCurrent(entry)) clock?.takeIf { it.bookId == entry.nowPlaying.bookId } ?: entry.clock else entry.clock
         return SavedWidget(entry.nowPlaying.copy(isPlaying = false), clock?.positionMs, clock?.durationMs, entry.lastActiveAt)
     }
 
     /**
-     * Die Spielzeit eines Buchs bzw. einer Folge: gemessen beim Start, bei Pause, beim Spulen und bei Tempowechseln
-     * ([measured]); dazwischen läuft sie im Sekundentakt weiter.
+     * The playing time of a book or episode: measured at start, on pause, on seeking and on speed changes
+     * ([measured]); in between it keeps running every second.
      */
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     private fun clockUpdates(nowPlaying: NowPlaying?): Flow<BookClock?> {
@@ -309,10 +309,10 @@ class NowPlayingWidgetUpdater @Inject constructor(
     }
 
     /**
-     * Eine Messung und, solange es läuft, der Takt danach. Bei 1× zählt der Chronometer im Launcher selbst, und zwar nur,
-     * solange das Widget zu sehen ist; neu gemessen wird nur, wenn die Stunden eine Stelle dazubekommen. Bei anderem Tempo
-     * kann er nicht mitzählen (er läuft in Echtzeit): Dann setzt die App die Zeit alle 10 s neu, solange das Widget zu
-     * sehen sein kann ([widgetMaybeVisible]).
+     * A measurement and, while playing, the tick afterwards. At 1× the chronometer in the launcher counts by itself, and only
+     * while the widget is visible; it is re-measured only when the hours gain a digit. At other speeds
+     * it can't keep count (it runs in real time): then the app resets the time every 10 s, as long as the widget may
+     * be visible ([widgetMaybeVisible]).
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun measured(bookId: Long, timeline: BookTimeline?, playing: Boolean): Flow<BookClock?> = flow {
@@ -331,9 +331,9 @@ class NowPlayingWidgetUpdater @Inject constructor(
     }
 
     /**
-     * Die Spielzeit alle [TICK_INTERVAL_MS] Echtzeit, bei 1,5× springt sie also um 15 Sekunden. Hochgerechnet aus der
-     * letzten Messung, denn der Player meldet seine Position in Sprüngen von einigen hundert Millisekunden. Nachgemessen
-     * wird jede Minute.
+     * The playing time every [TICK_INTERVAL_MS] of real time, so at 1.5× it jumps by 15 seconds. Extrapolated from the
+     * last measurement, because the player reports its position in jumps of a few hundred milliseconds. It is re-measured
+     * every minute.
      */
     private fun periodicTicks(bookId: Long, timeline: BookTimeline?): Flow<BookClock?> = flow {
         var measured = currentClock(bookId, timeline, running = true)
@@ -351,8 +351,8 @@ class NowPlayingWidgetUpdater @Inject constructor(
     }
 
     /**
-     * Kann das Widget gerade zu sehen sein? Bildschirm an und entsperrt, und die App ist nicht selbst im Vordergrund. Ob
-     * der Startbildschirm vorn ist, erfährt eine App nicht. Die Empfänger sind nur registriert, solange der Takt läuft.
+     * Can the widget be visible right now? Screen on and unlocked, and the app itself isn't in the foreground. Whether
+     * the home screen is in front, an app can't find out. The receivers are only registered while the tick is running.
      */
     private fun widgetMaybeVisible(): Flow<Boolean> =
         combine(screenUnlocked(), ProcessLifecycleOwner.get().lifecycle.currentStateFlow) { unlocked, appState ->
@@ -377,7 +377,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
 
     private fun isScreenUnlocked(): Boolean = powerManager.isInteractive && !keyguardManager.isKeyguardLocked
 
-    /** Ohne geladenes Buch (Service beendet, Prozess neu) bleibt die letzte Spielzeit stehen. */
+    /** Without a loaded book (service ended, new process), the last playing time stays. */
     private suspend fun currentClock(bookId: Long, timeline: BookTimeline?, running: Boolean): BookClock? = withContext(Dispatchers.Main.immediate) {
         val now = SystemClock.elapsedRealtime()
         val position = servicePlayer.bookPosition(bookId)
@@ -389,21 +389,21 @@ class NowPlayingWidgetUpdater @Inject constructor(
 
 
     override fun onNowPlayingChanged(nowPlaying: NowPlaying?) {
-        // Endet der Service oder leert sich die Warteschlange, bleibt der letzte Stand stehen, nur eben pausiert.
+        // If the service ends or the queue empties, the last state stays, just paused.
         this.nowPlaying.value = nowPlaying ?: this.nowPlaying.value?.copy(isPlaying = false)
     }
 
     private suspend fun update(nowPlaying: NowPlaying?) {
-        // Ohne Meldung und gemerkten Stand gibt es nichts zu zeigen.
+        // Without a report or remembered state there is nothing to show.
         nowPlaying ?: return
         val area = nowPlaying.area
         val entry = entry(nowPlaying, _state.value.entries[area])
-        // Bei jeder Aktualisierung: Freigaben überdauern keinen Neustart des Geräts.
+        // On every update: grants don't survive a device restart.
         entry.coverUri?.let(::grantCoverAccess)
         _state.update { state ->
             val now = System.currentTimeMillis()
             val entries = state.entries.toMutableMap()
-            // Kommt ein anderer Bereich in den Player, bleibt der bisherige pausiert mit angehaltener Spielzeit stehen.
+            // If another area comes into the player, the previous one stays paused with its playing time stopped.
             val left = state.currentArea?.takeIf { it != area }
             left?.let(entries::get)?.let { old ->
                 val clock = state.clock?.takeIf { it.bookId == old.nowPlaying.bookId } ?: old.clock
@@ -414,8 +414,8 @@ class NowPlayingWidgetUpdater @Inject constructor(
                 )
             }
             entries[area] = entry.copy(lastActiveAt = now)
-            // Die Spielzeit kommt vom eigenen Takt; sie bleibt, bis der nächste Wert da ist. Der aktuelle Stand wird erst
-            // jetzt gelesen, weil sie sich während des Ladens oben ändern kann.
+            // The playing time comes from the own tick; it stays until the next value is there. The current state is only
+            // read now, because it can change above during loading.
             val bookId = nowPlaying.bookId
             state.copy(
                 entries = entries,
@@ -427,8 +427,8 @@ class NowPlayingWidgetUpdater @Inject constructor(
     }
 
     /**
-     * Eintrag für [nowPlaying] samt Cover; [previous] ist der bisherige des Bereichs (bei gleichem Album bzw. Buch bleibt
-     * dessen Cover).
+     * Entry for [nowPlaying] including cover; [previous] is the area's previous one (with the same album or book its
+     * cover stays).
      */
     private suspend fun entry(nowPlaying: NowPlaying, previous: WidgetEntry?): WidgetEntry {
         val albumId = nowPlaying.albumId
@@ -438,7 +438,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
             albumId != null -> albumId == previous.nowPlaying.albumId
             else -> false
         }
-        // Das Bild selbst wird nur noch für Seitenverhältnis und Farbe geladen; anzeigen lädt es der Launcher.
+        // The image itself is only loaded for aspect ratio and color; the launcher loads it for display.
         val cover = when {
             sameCover -> null
             bookId != null -> bookCovers.cover(bookId)?.scaledToWidget()
@@ -458,20 +458,20 @@ class NowPlayingWidgetUpdater @Inject constructor(
             albumId != null -> albumColorRepository.seedColorNow(albumId)
             else -> null
         }
-        // Die angehaltene Spielzeit des Bereichs, bis der Takt eine neue meldet.
+        // The area's stopped playing time, until the tick reports a new one.
         val clock = previous?.clock?.takeIf { bookId != null && it.bookId == bookId }
         return WidgetEntry(nowPlaying, coverUri, aspectRatio, seedColor, clock, previous?.lastActiveAt ?: 0)
     }
 
     /**
-     * Der [CoverProvider] ist nicht exportiert: Die Startbildschirm-App, die das Widget zeigt, bekommt Leserecht auf genau
-     * dieses Cover (keine Präfix-Freigabe wie für Android Auto). Andere Widget-Hosts sieht die App nicht; dort bliebe das
-     * Cover leer.
+     * The [CoverProvider] isn't exported: the home screen app that shows the widget gets read permission for exactly
+     * this cover (no prefix grant as for Android Auto). The app can't see other widget hosts; there the
+     * cover would stay empty.
      */
     private fun grantCoverAccess(uri: Uri) {
         val home = context.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY)
             ?.activityInfo?.packageName
-            ?.takeIf { it != "android" } // Auswahldialog, keine Standard-App
+            ?.takeIf { it != "android" } // Chooser dialog, no default app
             ?: return
         try {
             context.grantUriPermission(home, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -481,13 +481,13 @@ class NowPlayingWidgetUpdater @Inject constructor(
     }
 
     /**
-     * Je Prozess eine eigene URI (der Provider liest nur den Pfad): Ein `ImageView` lädt dieselbe URI nicht noch einmal. Nach
-     * einem Neustart des Geräts zeigt der Launcher das Widget, bevor die App die Freigabe erneuert hat; ohne neue URI bliebe
-     * das Cover dann leer.
+     * A separate URI per process (the provider only reads the path): an `ImageView` doesn't load the same URI again. After
+     * a device restart the launcher shows the widget before the app has renewed the grant; without a new URI the
+     * cover would then stay empty.
      */
     private fun Uri.versioned(): Uri = buildUpon().appendQueryParameter("v", coverVersion).build()
 
-    /** Buchcover kommen mit 800 px; für Seitenverhältnis und Farbe reicht [COVER_SIZE_PX]. */
+    /** Book covers come at 800 px; [COVER_SIZE_PX] is enough for aspect ratio and color. */
     private fun Bitmap.scaledToWidget(): Bitmap {
         val longest = maxOf(width, height)
         if (longest <= COVER_SIZE_PX) return this
@@ -507,27 +507,27 @@ class NowPlayingWidgetUpdater @Inject constructor(
 private const val SECOND_MS = 1_000L
 private const val HOUR_MS = 3_600_000L
 
-/** Ab hier zeigt der Chronometer eine Stundenstelle mehr und braucht einen anderen [chronometerPrefix]. */
+/** From here the chronometer shows one more hour digit and needs a different [chronometerPrefix]. */
 private val PREFIX_CHANGES_MS = listOf(HOUR_MS, 10 * HOUR_MS)
 
-/** Etwas nach dem Wechsel aufwachen, damit er sicher erreicht ist. */
+/** Wake up a little after the change, so it has definitely been reached. */
 private const val TICK_SLACK_MS = 20L
 private const val MIN_SPEED = 0.1f
 private const val SPEED_TOLERANCE = 0.001f
 
-/** „00:45:12“: Stunden mindestens zweistellig, angefangene Sekunden abgeschnitten. */
+/** "00:45:12": hours at least two digits, started seconds truncated. */
 internal fun clockText(ms: Long): String {
     val seconds = (ms / SECOND_MS).coerceAtLeast(0)
     return "%02d:%02d:%02d".format(seconds / 3600, seconds % 3600 / 60, seconds % 60)
 }
 
-/** „00:45:12 / 03:12:01“; ist die Länge unbekannt (0), nur die Position. */
+/** "00:45:12 / 03:12:01"; if the length is unknown (0), only the position. */
 internal fun bookClockText(positionMs: Long, durationMs: Long): String =
     if (durationMs > 0) "${clockText(positionMs)} / ${clockText(durationMs)}" else clockText(positionMs)
 
 /**
- * Vorsatz vor den Text des Chronometers, damit er wie [clockText] aussieht: Der zeigt „45:12“ unter einer Stunde und
- * „3:12:01“ ab einer Stunde (`DateUtils.formatElapsedTime`). Wechselt der Vorsatz, misst der Updater neu.
+ * Prefix before the chronometer's text so it looks like [clockText]: that shows "45:12" below one hour and
+ * "3:12:01" from one hour (`DateUtils.formatElapsedTime`). If the prefix changes, the updater re-measures.
  */
 internal fun chronometerPrefix(positionMs: Long): String = when {
     positionMs < HOUR_MS -> "00:"

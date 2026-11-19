@@ -15,8 +15,8 @@ import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 
 /**
- * Bilder von Abos über ihre Adresse (`PodcastArt`): Liegt das Bild schon auf dem Gerät ([BookCovers], für offline vorab
- * geladen), kommt es von dort, sonst übernimmt der Netz-Fetcher von Coil. So zeigen die Abos ihre Bilder auch ohne Netz.
+ * Subscription images via their address (`PodcastArt`): if the image is already on the device ([BookCovers], downloaded in advance
+ * for offline use), it comes from there, otherwise Coil's network fetcher takes over. That way subscriptions show their images even offline.
  */
 class StoredPodcastImageFetcher(
     private val url: String,

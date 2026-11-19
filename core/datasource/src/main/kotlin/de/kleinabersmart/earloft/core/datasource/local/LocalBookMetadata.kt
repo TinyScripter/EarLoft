@@ -6,14 +6,14 @@ import org.xmlpull.v1.XmlPullParserFactory
 import java.io.IOException
 import java.io.StringReader
 
-/** Eine Datei neben den Audiodateien eines Buchs (Bild, Text), gelesen über die Ordnerfreigabe ([LocalBookFolders]). */
+/** A file next to a book's audio files (image, text), read via the folder grant ([LocalBookFolders]). */
 data class SideFile(val name: String, val uri: String, val sizeBytes: Long, val modifiedMs: Long)
 
 /**
- * Was die Ordner über ein Buch sagen, nach dem Aufbau, den Audiobookshelf erwartet (`books_improvements.md` M7):
- * `Audiobooks/Autor/Titel/` bzw. `Audiobooks/Autor/Serie/1 – Titel/`. Der Ordner des Buchs kann außerdem ein Jahr
- * („1994 – Titel“) und den Sprecher in geschweiften Klammern („Titel {Sprecher}“) tragen. Ein Band steht nur im Namen, wenn
- * es einen Serienordner gibt („1984“ allein ist ein Titel).
+ * What the folders say about a book, following the layout Audiobookshelf expects (`books_improvements.md` M7):
+ * `Audiobooks/Autor/Titel/` or `Audiobooks/Autor/Serie/1 – Titel/`. The book's folder can also carry a year
+ * ("1994 – Titel") and the narrator in curly braces ("Titel {Sprecher}"). A volume is only in the name if
+ * there is a series folder ("1984" alone is a title).
  */
 internal data class FolderMetadata(
     val author: String? = null,
@@ -23,11 +23,11 @@ internal data class FolderMetadata(
     val narrator: String? = null,
     val year: Int? = null,
 ) {
-    /** Serie im Format von Audiobookshelf („Name #2“), wie `books.series` sie hält. */
+    /** Series in Audiobookshelf's format ("Name #2"), as `books.series` holds it. */
     val seriesEntry: String? get() = series?.let { name -> sequence?.let { "$name #$it" } ?: name }
 
     companion object {
-        // ICU (Android) verlangt auch die schließende Klammer escaped.
+        // ICU (Android) also requires the closing brace to be escaped.
         private val NARRATOR = Regex("""\s*\{([^\{\}]+)\}\s*$""")
         private val SEQUENCE = Regex(
             """^(?:(?:vol(?:ume)?|band|book|buch|teil|folge|part|nr|no)\.?\s*)?(\d{1,4}(?:[.,]\d+)?[a-z]?)\s*(?:[-–—.:]\s+|\s+[-–—]\s*)(.+)$""",
@@ -35,7 +35,7 @@ internal data class FolderMetadata(
         )
         private val YEAR = Regex("""^((?:1[5-9]|20)\d\d)\s*[-–—]\s+(.+)$""")
 
-        /** Aus dem Schlüssel eines Ordnerbuchs („Audiobooks/A/S/1 – T/“); eine Datei direkt in „Audiobooks“ hat keinen Ordner. */
+        /** From the key of a folder book ("Audiobooks/A/S/1 – T/"); a file directly in "Audiobooks" has no folder. */
         fun parse(key: String): FolderMetadata {
             if (!key.endsWith('/')) return FolderMetadata()
             val segments = key.trimEnd('/').split('/').drop(1).map { it.trim() }.filter { it.isNotEmpty() }
@@ -63,8 +63,8 @@ internal data class FolderMetadata(
 }
 
 /**
- * Die Begleitdateien eines Buchordners: Cover (`cover.*`, `folder.*`, sonst das erste Bild), `desc.txt` (Beschreibung),
- * `reader.txt` (Sprecher) und `metadata.opf` (sonst die einzige `.opf`-Datei).
+ * The companion files of a book folder: cover (`cover.*`, `folder.*`, otherwise the first image), `desc.txt` (description),
+ * `reader.txt` (narrator) and `metadata.opf` (otherwise the only `.opf` file).
  */
 internal data class BookSidecars(
     val cover: SideFile? = null,
@@ -72,7 +72,7 @@ internal data class BookSidecars(
     val reader: SideFile? = null,
     val opf: SideFile? = null,
 ) {
-    /** Ändert sich, wenn eine der Dateien hinzukommt, wegfällt oder sich ändert. */
+    /** Changes when one of the files is added, removed or changed. */
     val fingerprint: Long
         get() = listOfNotNull(cover, description, reader, opf).fold(17L) { hash, file ->
             31 * hash + "${file.name}|${file.sizeBytes}|${file.modifiedMs}".hashCode()
@@ -98,7 +98,7 @@ internal data class BookSidecars(
     }
 }
 
-/** Was eine `metadata.opf` (Calibre, Audiobookshelf, EPUB 3) über ein Buch sagt; Leeres fehlt. */
+/** What a `metadata.opf` (Calibre, Audiobookshelf, EPUB 3) says about a book; empty values are missing. */
 internal data class OpfMetadata(
     val title: String? = null,
     val subtitle: String? = null,
@@ -110,17 +110,17 @@ internal data class OpfMetadata(
     val language: String? = null,
     val genres: List<String> = emptyList(),
     val isbn: String? = null,
-    /** Serien mit Band (`null` = ohne). */
+    /** Series with volume (`null` = none). */
     val series: List<Pair<String, String?>> = emptyList(),
 ) {
-    /** Serien im Format von Audiobookshelf („Name #2, Andere #1“). */
+    /** Series in Audiobookshelf's format ("Name #2, Andere #1"). */
     val seriesEntry: String? get() = series.joinToString(", ") { (name, seq) -> seq?.let { "$name #$it" } ?: name }.ifEmpty { null }
 
     companion object {
         private val YEAR = Regex("""^\d{4}""")
         private val ISBN = Regex("""^(?:97[89])?\d{9}[\dXx]$""")
 
-        /** `null`, wenn [text] kein lesbares XML mit `metadata` ist. */
+        /** `null` if [text] is not readable XML with `metadata`. */
         fun parse(text: String): OpfMetadata? = try {
             read(text)
         } catch (_: XmlPullParserException) {
@@ -133,7 +133,7 @@ internal data class OpfMetadata(
 
         private fun read(text: String): OpfMetadata? {
             val parser = XmlPullParserFactory.newInstance().newPullParser()
-            // Ohne Namensräume: Calibre schreibt `dc:`/`opf:`, andere setzen den Namensraum als Standard.
+            // Without namespaces: Calibre writes `dc:`/`opf:`, others set the namespace as default.
             parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
             parser.setInput(StringReader(text.removePrefix("\uFEFF")))
             val values = mutableMapOf<String, String>()
@@ -185,7 +185,7 @@ internal data class OpfMetadata(
                 event = parser.next()
             }
             if (!hasMetadata) return null
-            // EPUB 3: Rollen und Bandnummern stehen in eigenen `meta refines="#id"`.
+            // EPUB 3: roles and volume numbers are in separate `meta refines="#id"`.
             val positions = mutableMapOf<String, String>()
             val subtitleIds = mutableSetOf<String>()
             for ((id, property, value) in refines) {
@@ -218,7 +218,7 @@ internal data class OpfMetadata(
             )
         }
 
-        /** „2.0“ → „2“, „1.5“ bleibt. */
+        /** "2.0" → "2", "1.5" stays. */
         private fun sequence(raw: String): String? {
             val value = raw.trim().replace(',', '.').ifEmpty { return null }
             return value.toDoubleOrNull()?.let { if (it == Math.floor(it)) it.toLong().toString() else value } ?: value

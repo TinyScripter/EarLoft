@@ -40,10 +40,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Hält Hörbücher (und die Podcast-Dateien vom Gerät) aktuell: beim Öffnen der App (höchstens alle 10 min) die Dateien vom
- * Gerät und je Server ein Vollabgleich (> 6 h) bzw. der Fortschritt des Kontos, im Hintergrund per [BookRefreshWorker]
- * (nur WLAN), auf Anforderung alles. Der bloße Start des Prozesses gleicht nichts ab: Er kommt auch für Hintergrund-Jobs
- * und Nachrichten der Uhr.
+ * Keeps audiobooks (and the podcast files from the device) up to date: when opening the app (at most every 10 min) the files from
+ * the device and per server a full sync (> 6 h) or the account's progress, in the background via [BookRefreshWorker]
+ * (Wi-Fi only), everything on request. Merely starting the process syncs nothing: it also happens for background jobs
+ * and messages from the watch.
  */
 @Singleton
 class SpokenRefresher @Inject constructor(
@@ -65,13 +65,13 @@ class SpokenRefresher @Inject constructor(
     private val lastArd = AtomicLong(0)
     private val _refreshing = MutableStateFlow(false)
 
-    /** `true`, solange ein Abgleich läuft, den der Nutzer angestoßen hat (für Pull-to-refresh). */
+    /** `true` while a sync triggered by the user is running (for pull-to-refresh). */
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
 
     fun start() {
         if (!started.compareAndSet(false, true)) return
-        // Bücher vom Gerät: jedes Mal, wenn der Schalter wechselt (aus = entfernen). Den Stand beim Start gleicht
-        // [refreshQuick] ab, sobald die App sichtbar wird.
+        // Books from the device: every time the switch changes (off = remove). The state at startup is synced by
+        // [refreshQuick] as soon as the app becomes visible.
         scope.launch {
             settings.useLocalBooks.distinctUntilChanged().drop(1).collect { enabled -> if (enabled) localBooks.sync() else localBooks.remove() }
         }
@@ -81,13 +81,13 @@ class SpokenRefresher @Inject constructor(
         scope.launch { schedule() }
     }
 
-    /** Hält die Bibliothek auch ohne geöffnete App aktuell (nur im WLAN), damit neue Bücher gemeldet werden können. */
+    /** Keeps the library up to date even without the app open (Wi-Fi only), so new books can be announced. */
     private suspend fun schedule() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.UNMETERED)
             .setRequiresBatteryNotLow(true)
             .build()
-        // Geänderte Bedingungen gelten auch für einen schon geplanten Auftrag (der Takt bleibt); gleiche lassen ihn unberührt.
+        // Changed constraints also apply to an already scheduled job (the interval stays); identical ones leave it untouched.
         WorkManager.getInstance(context).ensurePeriodicWork(
             WORK_NAME, BookRefreshWorker::class.java, BACKGROUND_INTERVAL_HOURS, TimeUnit.HOURS, constraints,
         ) {
@@ -96,9 +96,9 @@ class SpokenRefresher @Inject constructor(
     }
 
     /**
-     * Beim Öffnen der App: ausstehenden Fortschritt senden, dann je Server ein Vollabgleich, wenn der letzte länger als
-     * [FULL_SYNC_INTERVAL_MS] her ist, sonst nur den Fortschritt anderer Geräte übernehmen; die Dateien vom Gerät nebenher.
-     * Ohne [books] bzw. [podcasts] (Bereich ausgeblendet) bleibt der jeweilige Teil aus.
+     * When opening the app: send pending progress, then per server a full sync if the last one was more than
+     * [FULL_SYNC_INTERVAL_MS] ago, otherwise only adopt the progress of other devices; the files from the device alongside.
+     * Without [books] or [podcasts] (section hidden) the respective part is skipped.
      */
     fun refreshQuick(books: Boolean = true, podcasts: Boolean = true) {
         if (!books && !podcasts) return
@@ -106,21 +106,21 @@ class SpokenRefresher @Inject constructor(
         val last = lastQuick.get()
         if (now - last < QUICK_INTERVAL_MS || !lastQuick.compareAndSet(last, now)) return
         scope.launch {
-            // Neue Dateien in „Audiobooks“ nebenher: Mit Ordnerfreigabe fragt der Ordner je Buchordner einmal den Provider, die
-            // Server warten nicht darauf (wie `BookSyncer.syncAll`).
+            // New files in "Audiobooks" alongside: with folder access, the folder queries the provider once per book folder; the
+            // servers don't wait for it (like `BookSyncer.syncAll`).
             alongside({ if (books) localBooks.sync() }, { if (podcasts) localPodcasts.sync() }) { syncServersQuick(books, now) }
         }
     }
 
     private suspend fun syncServersQuick(books: Boolean, now: Long) {
-        // Ausgeblendete Bücher (Allgemein → Bereiche): kein Kontakt zu Audiobookshelf.
+        // Hidden books (General → Sections): no contact with Audiobookshelf.
         if (!books) return
         progressSync.pushPending()
         bookmarks.pushPending()
         var fresh = 0
         servers.all().forEach { server ->
             if (now - (dao.server(server.serverId)?.lastFullSyncAt ?: 0) > FULL_SYNC_INTERVAL_MS) {
-                // Der Vollabgleich übernimmt den Fortschritt des Kontos mit.
+                // The full sync also adopts the account's progress.
                 fresh += syncer.syncSafely(server).newBooks.size
                 return@forEach
             }
@@ -132,13 +132,13 @@ class SpokenRefresher @Inject constructor(
                 Log.w(TAG, "Fortschritt von ${server.baseUrl} nicht abrufbar", e)
             }
         }
-        // Die Bücher aus ARD Sounds gehören nicht zu einem Server: Sie werden auch ohne Audiobookshelf abgeglichen.
+        // The books from ARD Sounds don't belong to a server: they are synced even without Audiobookshelf.
         val lastArdAt = lastArd.get()
         if (now - lastArdAt > FULL_SYNC_INTERVAL_MS && lastArd.compareAndSet(lastArdAt, now)) fresh += ardBooks.refresh().newBooks.size
         if (fresh > 0) events.emit(RefreshEvent.Finished(RefreshKind.BOOKS, fresh, failed = false))
     }
 
-    /** Auf Anforderung: meldet Start und Ende (mit Zahl der neuen Bücher) an die Oberfläche. */
+    /** On request: reports start and end (with the number of new books) to the UI. */
     fun refreshAll() {
         scope.launch {
             _refreshing.value = true
@@ -162,8 +162,8 @@ class SpokenRefresher @Inject constructor(
 }
 
 /**
- * Führt [main] aus, während [side] nebenher läuft, und endet, wenn beides fertig ist. So wartet [main] nicht auf das Langsamere
- * nebenher (beim Öffnen der App: die Server nicht auf die Dateien vom Gerät, Review F23).
+ * Runs [main] while [side] runs alongside, and ends when both are done. That way [main] doesn't wait for the slower part
+ * alongside (when opening the app: the servers don't wait for the files from the device, review F23).
  */
 internal suspend fun alongside(vararg side: suspend () -> Unit, main: suspend () -> Unit) = coroutineScope {
     side.forEach { launch { it() } }
@@ -177,19 +177,19 @@ class BookRefreshWorker(
 
     override suspend fun doWork(): Result {
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, RefreshEntryPoint::class.java)
-        // Ausgeblendete Bücher (Allgemein → Bereiche): kein Abgleich mit Audiobookshelf.
+        // Hidden books (General → Sections): no sync with Audiobookshelf.
         if (SpokenMode.BOOKS !in entryPoint.spokenSettings().areas.first()) return Result.success()
         val servers = entryPoint.bookServers().all()
         val ardBooks = entryPoint.ardBooks()
         val ardOn = ardBooks.enabled.first()
         if (servers.isEmpty() && !ardOn) return Result.success()
         val results = servers.map { entryPoint.bookSyncer().syncSafely(it) }
-        // Auch ohne Server: Bücher aus ARD Sounds (Ablauf, neue Bücher abonnierter Sendungen).
+        // Even without a server: books from ARD Sounds (expiry, new books of subscribed shows).
         val ard = ardBooks.refresh()
         val fresh = results.flatMap { it.newBooks } + ard.newBooks
         if (fresh.isNotEmpty()) entryPoint.notifier().show(NewContent.Books(fresh))
-        // Wie bei Podcasts: Ein Server, der hier nicht erreichbar ist (nur im Heimnetz), glich sonst alle paar Minuten
-        // alle Server neu ab; wiederholt wird nur, wenn keiner ging.
+        // As with podcasts: a server that isn't reachable here (home network only) would otherwise re-sync all servers every
+        // few minutes; it retries only if none succeeded.
         val reached = results.any { it.ok } || (servers.isEmpty() && ard.ok)
         return if (!reached && runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()
     }

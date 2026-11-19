@@ -19,10 +19,10 @@ import de.kleinabersmart.earloft.wear.R
 enum class OnWatchStatus { NOT_ON_WATCH, DOWNLOADING, ON_WATCH, REMOVING }
 
 /**
- * Knopf „Download“ einer Liste, Folge oder eines Buchs des Handys (Wear-Konzept 17). [progress]: geladener Anteil 0–1 bei
- * [OnWatchStatus.DOWNLOADING], `null`, solange die Auswahl noch nicht auf der Uhr angekommen ist; [failed]: Das Handy war
- * beim letzten Tipp nicht erreichbar; [downloadFailed]: Etwas ließ sich nicht laden (der Knopf bliebe sonst ohne Erklärung
- * unter 100 %).
+ * "Download" button of a phone list, episode or book (Wear concept 17). [progress]: downloaded share 0–1 for
+ * [OnWatchStatus.DOWNLOADING], `null` as long as the selection has not yet arrived on the watch; [failed]: the phone was
+ * unreachable on the last tap; [downloadFailed]: something could not be downloaded (otherwise the button would stay below
+ * 100 % without explanation).
  */
 data class OnWatchState(
     val status: OnWatchStatus,
@@ -32,8 +32,8 @@ data class OnWatchState(
 )
 
 /**
- * Stand des Knopfs aus der Auswahl der Uhr ([confirmed]: laut Manifest auf der Uhr), dem gewünschten Stand nach einem Tipp
- * ([wanted], bis das Manifest ihn bestätigt) und dem geladenen Anteil.
+ * State of the button from the watch's selection ([confirmed]: on the watch according to the manifest), the desired state after a tap
+ * ([wanted], until the manifest confirms it) and the downloaded share.
  */
 internal fun onWatchState(
     confirmed: Boolean,
@@ -53,8 +53,8 @@ internal fun onWatchState(
 }
 
 /**
- * „Download“, solange es nicht auf der Uhr ist; beim Laden „Downloading 23 %“; danach „Remove“. Auch während des Ladens
- * führt ein Tipp zu [onRemove] (Abbrechen); die Rückfrage stellt der Aufrufer ([RemoveConfirmDialog]).
+ * "Download" as long as it is not on the watch; while downloading "Downloading 23 %"; afterwards "Remove". Even while downloading
+ * a tap leads to [onRemove] (cancel); the caller asks for confirmation ([RemoveConfirmDialog]).
  */
 internal fun TransformingLazyColumnScope.onWatchButton(
     state: OnWatchState,
@@ -77,14 +77,14 @@ internal fun TransformingLazyColumnScope.onWatchButton(
 @Composable
 private fun OnWatchState.label(): String = when (status) {
     OnWatchStatus.NOT_ON_WATCH -> stringResource(R.string.remote_download)
-    // Höchstens 99 %, solange noch etwas fehlt.
+    // At most 99 % as long as something is still missing.
     OnWatchStatus.DOWNLOADING -> progress?.let { stringResource(R.string.remote_downloading_percent, (it * 100).toInt().coerceAtMost(99)) }
         ?: stringResource(R.string.remote_downloading)
     OnWatchStatus.ON_WATCH -> stringResource(R.string.remote_remove)
     OnWatchStatus.REMOVING -> stringResource(R.string.storage_removing)
 }
 
-/** Unter dem Knopf: Handy beim Tippen nicht erreichbar bzw. Download fehlgeschlagen. */
+/** Below the button: phone unreachable when tapping, or download failed. */
 @Composable
 private fun OnWatchState.secondaryText(): String? = when {
     failed -> stringResource(R.string.remote_on_watch_failed)
@@ -92,7 +92,7 @@ private fun OnWatchState.secondaryText(): String? = when {
     else -> null
 }
 
-/** Rückfrage vor dem Entfernen von der Uhr („‚[name]‘ entfernen?“), wie in der Speicher-Ansicht. */
+/** Confirmation before removing from the watch ("Remove '[name]'?"), as in the storage view. */
 @Composable
 internal fun RemoveConfirmDialog(visible: Boolean, name: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(

@@ -33,7 +33,7 @@ import javax.inject.Singleton
 
 private val Context.playbackDataStore: DataStore<Preferences> by preferencesDataStore(name = "playback_state")
 
-/** Gespeicherte Warteschlange samt Position, z. B. für das Fortsetzen nach einem Neustart. */
+/** Saved queue including position, e.g. for resuming after a restart. */
 data class RestoredQueue(
     val items: List<MediaItem>,
     val startIndex: Int,
@@ -43,8 +43,8 @@ data class RestoredQueue(
 )
 
 /**
- * Die gespeicherte Musik-Warteschlange [saved] mit [songIds] darin: bei [next] direkt hinter dem gespeicherten Titel
- * ([savedIndex]), sonst am Ende; ist sie leer, nur [songIds].
+ * The saved music queue [saved] with [songIds] in it: with [next] right after the saved title
+ * ([savedIndex]), otherwise at the end; if it is empty, just [songIds].
  */
 internal fun insertIntoSavedQueue(saved: List<Long>, savedIndex: Int, songIds: List<Long>, next: Boolean): List<Long> {
     if (saved.isEmpty()) return songIds
@@ -53,7 +53,7 @@ internal fun insertIntoSavedQueue(saved: List<Long>, savedIndex: Int, songIds: L
     return saved.take(at) + songIds + saved.drop(at)
 }
 
-/** Die gespeicherte Warteschlange aus [songs] mit dem Titel an [savedIndex] (wie [QueuePersistence.restore] begrenzt); leer `null`. */
+/** The saved queue from [songs] with the title at [savedIndex] (limited like [QueuePersistence.restore]); `null` if empty. */
 internal fun savedMusicQueueOf(songs: List<Song>, savedIndex: Int): SavedMusicQueue? {
     if (songs.isEmpty()) return null
     val entries = songs.map { QueueEntry(songId = it.id, title = it.title, artist = it.artist, albumId = it.albumId, albumTitle = it.albumTitle) }
@@ -61,9 +61,9 @@ internal fun savedMusicQueueOf(songs: List<Song>, savedIndex: Int): SavedMusicQu
 }
 
 /**
- * Stelle von [songId] in der gespeicherten Warteschlange [songIds]: das erste Vorkommen ab [near] (dem bisher gespeicherten
- * Titel), sonst das nächste davor; `null`, wenn der Song nicht darin steht. So trifft ein doppelt eingereihter Song die
- * Stelle, an der die Wiedergabe gerade ist.
+ * Position of [songId] in the saved queue [songIds]: the first occurrence from [near] (the previously saved
+ * title), otherwise the closest one before it; `null` if the song isn't in it. That way a song enqueued twice hits the
+ * position where playback currently is.
  */
 internal fun indexOfSong(songIds: List<Long>, songId: Long, near: Int): Int? {
     val from = near.coerceIn(0, (songIds.size - 1).coerceAtLeast(0))
@@ -72,7 +72,7 @@ internal fun indexOfSong(songIds: List<Long>, songId: Long, near: Int): Int? {
     return null
 }
 
-/** Speichert Warteschlange (Room) und Position/Modi (DataStore) – Konzept 5.5. */
+/** Saves the queue (Room) and position/modes (DataStore) – concept 5.5. */
 @Singleton
 class QueuePersistence @Inject constructor(
     @param:ApplicationContext private val context: Context,
@@ -82,7 +82,7 @@ class QueuePersistence @Inject constructor(
 ) : BookKeyRenamer {
     private var queueSaveJob: Job? = null
 
-    /** Muss auf dem Player-Thread aufgerufen werden; liest den Zustand dort und speichert asynchron. */
+    /** Must be called on the player thread; reads the state there and saves asynchronously. */
     fun saveQueueDebounced(player: Player, scope: CoroutineScope) {
         val songIds = (0 until player.mediaItemCount).mapNotNull { player.getMediaItemAt(it).songId }
         queueSaveJob?.cancel()
@@ -93,16 +93,16 @@ class QueuePersistence @Inject constructor(
     }
 
     fun savePosition(player: Player, scope: CoroutineScope) {
-        // Zu Ende gespielt: Am Titelende wiederhergestellt würde „Abspielen“ sofort wieder enden.
+        // Played to the end: restored at the title's end, "Play" would end again immediately.
         val position = if (player.playbackState == Player.STATE_ENDED) 0L else player.currentPosition
         saveMusicPosition(player.currentMediaItemIndex, position, player.shuffleModeEnabled, player.repeatMode, scope)
     }
 
     /**
-     * Beim Casten: Der Cast-Player hält nur ein Fenster der Warteschlange (Reserve, entfernte gespielte Titel) und kennt
-     * keinen Zufall. Gespeichert bleiben deshalb Warteschlange und Modi vom Handy; nur der laufende Song ([songId], in der
-     * gespeicherten Warteschlange gesucht) und seine Stelle werden übernommen. Steht er nicht darin (beim Casten
-     * eingereiht), bleibt alles, wie es ist.
+     * While casting: the cast player only holds a window of the queue (reserve, removed played titles) and knows
+     * no shuffle. That's why the queue and modes from the phone stay saved; only the current song ([songId], looked up in the
+     * saved queue) and its position are taken over. If it isn't in it (enqueued while
+     * casting), everything stays as it is.
      */
     fun saveRemotePosition(songId: Long, position: Long, scope: CoroutineScope) {
         scope.launch {
@@ -116,10 +116,10 @@ class QueuePersistence @Inject constructor(
         }
     }
 
-    /** Der gespeicherte Zufall der Musik (etwa nach dem Wiederanhängen an eine Cast-Sitzung, wenn der Player ihn nicht kennt). */
+    /** The music's saved shuffle (e.g. after reattaching to a cast session, when the player doesn't know it). */
     suspend fun savedShuffle(): Boolean = context.playbackDataStore.data.first()[KEY_SHUFFLE] ?: false
 
-    /** Stelle und Modi der Musik-Warteschlange, auch wenn der Player schon etwas anderes hält (Wechsel zu einem Buch). */
+    /** Position and modes of the music queue, even if the player already holds something else (switch to a book). */
     fun saveMusicPosition(index: Int, position: Long, shuffle: Boolean, repeat: Int, scope: CoroutineScope) {
         scope.launch {
             context.playbackDataStore.edit {
@@ -132,8 +132,8 @@ class QueuePersistence @Inject constructor(
     }
 
     /**
-     * Merkt, ob zuletzt ein Buch/eine Folge ([bookId]) oder Musik (`null`) lief; so wird beim Start genau das geladen.
-     * Gespeichert wird der Schlüssel des Buchs ([BookKeys]), damit die Datei mit dem Backup auf ein neues Gerät passt.
+     * Remembers whether a book/episode ([bookId]) or music (`null`) played last; exactly that is loaded on start.
+     * The book's key ([BookKeys]) is stored so that the file matches on a new device restored from backup.
      */
     fun saveLastBook(bookId: Long?, scope: CoroutineScope) {
         scope.launch {
@@ -145,7 +145,7 @@ class QueuePersistence @Inject constructor(
         }
     }
 
-    /** Das Buch bzw. die Folge, die zuletzt lief; `null`, wenn zuletzt Musik lief oder es das Buch hier (noch) nicht gibt. */
+    /** The book or episode that played last; `null` if music played last or the book doesn't exist here (yet). */
     suspend fun lastBookId(): Long? {
         val prefs = context.playbackDataStore.data.first()
         val key = prefs[KEY_LAST_BOOK] ?: migrateLegacyLastBook(prefs) ?: return null
@@ -153,8 +153,8 @@ class QueuePersistence @Inject constructor(
     }
 
     /**
-     * Das Buch bzw. die Folge, die im Player geladen ist oder beim nächsten Start geladen wird, bei jeder Änderung; ohne
-     * Verbindung zum Player (die hält den Wiedergabe-Dienst wach). Frühere `bookId`-Einträge zählen hier nicht.
+     * The book or episode loaded in the player or to be loaded on the next start, on every change; without a
+     * connection to the player (which keeps the playback service awake). Earlier `bookId` entries don't count here.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val lastBookIds: Flow<Long?> = context.playbackDataStore.data
@@ -168,7 +168,7 @@ class QueuePersistence @Inject constructor(
         }
     }
 
-    /** Frühere Versionen speicherten die `bookId`; sie wird einmal in den Schlüssel umgeschrieben. */
+    /** Earlier versions stored the `bookId`; it is rewritten into the key once. */
     private suspend fun migrateLegacyLastBook(prefs: Preferences): String? {
         val legacy = prefs[LEGACY_LAST_BOOK] ?: return null
         val key = legacy.takeIf { it != LEGACY_NO_BOOK }?.let { bookKeys.keyOfLegacyId(it) }.orEmpty()
@@ -180,9 +180,9 @@ class QueuePersistence @Inject constructor(
     }
 
     /**
-     * Songs für die Musik, solange der Player ein Buch bzw. eine Folge hält: Sie gehen in die gespeicherte Musik-Warteschlange,
-     * die „Musik fortsetzen“ ([restore]) lädt, statt hinter das Gesprochene. Bei [next] hinter den gespeicherten Titel, sonst
-     * ans Ende. Position und Modi bleiben; nur eine leere Warteschlange beginnt beim ersten neuen Song.
+     * Songs for the music while the player holds a book or episode: they go into the saved music queue
+     * that "Resume music" ([restore]) loads, instead of after the spoken content. With [next] after the saved title, otherwise
+     * at the end. Position and modes stay; only an empty queue starts at the first new song.
      */
     suspend fun addToSavedQueue(songIds: List<Long>, next: Boolean) {
         if (songIds.isEmpty()) return
@@ -198,8 +198,8 @@ class QueuePersistence @Inject constructor(
     }
 
     /**
-     * Die gespeicherte Musik-Warteschlange bei jeder Änderung, so wie [restore] sie lädt; `null`, solange sie leer ist. Nur
-     * beobachten, während Gesprochenes geladen ist: Bei Musik ändert sich der gespeicherte Titel mit jedem Titelwechsel.
+     * The saved music queue on every change, as [restore] loads it; `null` while it is empty. Only
+     * observe while spoken content is loaded: with music, the saved title changes with every title change.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val savedQueue: Flow<SavedMusicQueue?> = combine(
@@ -228,7 +228,7 @@ class QueuePersistence @Inject constructor(
         val KEY_POSITION = longPreferencesKey("position_ms")
         val KEY_SHUFFLE = booleanPreferencesKey("shuffle")
         val KEY_REPEAT = intPreferencesKey("repeat_mode")
-        /** Schlüssel des Buchs ([BookKeys]); leer, wenn zuletzt Musik lief. */
+        /** Key of the book ([BookKeys]); empty if music played last. */
         val KEY_LAST_BOOK = stringPreferencesKey("last_book_key")
         val LEGACY_LAST_BOOK = longPreferencesKey("last_book_id")
         const val LEGACY_NO_BOOK = -1L

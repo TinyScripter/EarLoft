@@ -18,21 +18,21 @@ import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Ergebnis von [PodcastTranscripts.load]. */
+/** Result of [PodcastTranscripts.load]. */
 sealed interface TranscriptResult {
-    /** Die Folge hat kein (lesbares) Transkript. */
+    /** The episode has no (readable) transcript. */
     data object None : TranscriptResult
 
-    /** Es gibt eins, aber es ließ sich nicht laden (offline, Serverfehler, unlesbar). */
+    /** There is one, but it could not be loaded (offline, server error, unreadable). */
     data object Unavailable : TranscriptResult
 
     data class Ready(val transcript: Transcript) : TranscriptResult
 }
 
 /**
- * Transkripte der Folgen (`podcast:transcript`, Konzept 12.5 „Transkripte“). Geladen wird beim ersten Anzeigen und gleich
- * nach dem Download einer Folge; der Text liegt danach im Cache des Geräts (je Adresse eine Datei), damit er auch offline da
- * ist. Erzeugt wird nichts (keine Spracherkennung).
+ * Episode transcripts (`podcast:transcript`, concept 12.5 "Transcripts"). They are loaded on first display and right
+ * after an episode is downloaded; the text then lives in the device cache (one file per URL), so it is available offline
+ * too. Nothing is generated (no speech recognition).
  */
 @Singleton
 class PodcastTranscripts @Inject constructor(
@@ -47,7 +47,7 @@ class PodcastTranscripts @Inject constructor(
         cached(url)?.let { text ->
             val result = parse(text, declared)
             if (result is TranscriptResult.Ready) return result
-            // Im Cache liegt nur Lesbares; was nicht (mehr) zu lesen ist, fällt weg und wird neu geladen.
+            // The cache only holds readable content; whatever can't be read (anymore) is dropped and loaded again.
             drop(url)
         }
         val text = try {
@@ -58,11 +58,11 @@ class PodcastTranscripts @Inject constructor(
             Log.w(TAG, "Transkript von ${book.title} nicht abrufbar", e)
             return TranscriptResult.Unavailable
         }
-        // Erst lesen, dann speichern: Ein kaputtes Transkript bliebe sonst im Cache, und „Erneut versuchen“ läse es wieder.
+        // Parse first, then store: otherwise a broken transcript would stay in the cache, and "Try again" would read it again.
         return parse(text, declared).also { if (it is TranscriptResult.Ready) store(url, text) }
     }
 
-    /** Nach dem Download einer Folge: Transkript gleich mitnehmen, damit es offline da ist. Fehler sind unkritisch. */
+    /** After an episode is downloaded: fetch the transcript too, so it is available offline. Errors are non-critical. */
     suspend fun prefetch(bookId: Long) {
         val book = bookDao.book(bookId) ?: return
         val url = book.transcriptUrl ?: return
@@ -94,7 +94,7 @@ class PodcastTranscripts @Inject constructor(
     private suspend fun store(url: String, text: String) = withContext(Dispatchers.IO) {
         val file = fileFor(url)
         file.parentFile?.mkdirs()
-        // Erst ganz schreiben, dann umbenennen: Ein abgebrochener Schreibvorgang hinterlässt kein halbes Transkript.
+        // Write completely first, then rename: an aborted write doesn't leave a half transcript behind.
         val temp = File(file.parentFile, file.name + ".tmp")
         temp.writeText(text)
         if (!temp.renameTo(file)) temp.delete()

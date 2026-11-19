@@ -14,8 +14,8 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
 
 /**
- * Übernimmt Server und Manifest vom Handy ([PhoneLibrarySync]). Als Worker, weil der
- * `WatchListenerService` nur kurz läuft und ein großes Manifest länger braucht.
+ * Applies server and manifest from the phone ([PhoneLibrarySync]). As a worker because the
+ * `WatchListenerService` only runs briefly and a large manifest takes longer.
  */
 class PhoneSyncWorker(
     context: Context,
@@ -46,7 +46,7 @@ class PhoneSyncWorker(
         private const val WORK_NAME = "phone-sync"
         private const val MAX_ATTEMPTS = 3
 
-        /** Läuft gerade einer, folgt ein weiterer – er liest dann den neuesten Stand. */
+        /** If one is currently running, another follows – it then reads the latest state. */
         fun enqueue(context: Context) {
             WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME,

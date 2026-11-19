@@ -17,10 +17,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Server-Zugang der Uhr (Wear-Konzept 6). Das Handy liefert die Server ohne Passwort ([servers]) und
- * das Passwort einzeln auf Anfrage ([password]); die Uhr spiegelt beides ([apply], [storePassword]).
- * Die `sourceId` ist auf beiden Geräten dieselbe. Bei Jellyfin ist das „Passwort“ das [JellyfinSecret] des Handys:
- * Die Uhr nutzt dessen Token mit (Konzept 14), angemeldet ist nur das Handy.
+ * The watch's server access (Wear concept 6). The phone provides the servers without password ([servers]) and
+ * the password separately on request ([password]); the watch mirrors both ([apply], [storePassword]).
+ * The `sourceId` is the same on both devices. For Jellyfin the "password" is the phone's [JellyfinSecret]:
+ * the watch shares its token (concept 14); only the phone is signed in.
  */
 @Singleton
 class WearServerMirror @Inject constructor(
@@ -32,26 +32,26 @@ class WearServerMirror @Inject constructor(
     private val stamps: CredentialsStamps,
     private val changeListeners: Set<@JvmSuppressWildcards LibraryChangeListener>,
 ) {
-    // --- Handy ---
+    // --- Phone ---
 
-    /** Neue Zugangsdaten schreiben auch den Server neu (`ServerRepository`); damit kommt ein neuer [MirroredServer.credentialsStamp]. */
+    /** New credentials also rewrite the server (`ServerRepository`); that brings a new [MirroredServer.credentialsStamp]. */
     fun servers(): Flow<List<MirroredServer>> =
         sourceDao.observeServers().map { sources -> sources.mapNotNull { it.toMirrored(stamps.stamp(it.sourceId)) } }
 
     suspend fun password(sourceId: String): String? =
         if (sourceDao.get(sourceId)?.type?.isServer == true) secretStore.get(DataSourceRegistry.passwordKey(sourceId)) else null
 
-    /** Jellyfin und Emby: das Gerät, zu dem der Token aus [password] gehört; `null` bei Anmeldungen von vorher. */
+    /** Jellyfin and Emby: the device the token from [password] belongs to; `null` for sign-ins from before. */
     suspend fun deviceId(sourceId: String): String? =
         if (sourceDao.get(sourceId)?.type?.isServer == true) secretStore.get(DataSourceRegistry.deviceIdKey(sourceId)) else null
 
-    // --- Uhr ---
+    // --- Watch ---
 
     /**
-     * Übernimmt die Server des Handys. Server, die dort fehlen, verschwinden mit ihren Songs, Downloads und
-     * Passwörtern; Sync-Zustand und Songs der übrigen bleiben (gleiche `sourceId`, z. B. nach dem Bearbeiten).
-     * @return die Server, deren Zugangsdaten verworfen sind, weil sie sich am Handy geändert haben oder der Zugang (Host,
-     * Benutzer) ein anderer ist: Die Uhr fragt sie gleich neu an.
+     * Adopts the phone's servers. Servers missing there disappear along with their songs, downloads and
+     * passwords; sync state and songs of the others stay (same `sourceId`, e.g. after editing).
+     * @return the servers whose credentials were discarded because they changed on the phone or the access (host,
+     * user) is a different one: the watch requests them again right away.
      */
     suspend fun apply(servers: List<MirroredServer>): Set<String> {
         val renewed = stamps.renewChanged(servers)
@@ -59,7 +59,7 @@ class WearServerMirror @Inject constructor(
         return renewed + applyServers(servers)
     }
 
-    /** @return die Server mit anderem Zugang. */
+    /** @return the servers with different access. */
     private suspend fun applyServers(servers: List<MirroredServer>): List<String> {
         val existing = sourceDao.getServers().associateBy { it.sourceId }
         val updated = servers.map { server ->
@@ -69,14 +69,14 @@ class WearServerMirror @Inject constructor(
                 baseUrl = server.baseUrl,
                 username = server.username,
                 priority = server.priority,
-                // Wie am Handy eine JSON-Liste der Extensions; mehr als `formPost` braucht die Uhr nicht.
+                // As on the phone, a JSON list of the extensions; the watch needs no more than `formPost`.
                 serverCapabilities = if (server.formPost) FORM_POST_CAPABILITIES else null,
             )
         }
         val removed = existing.keys - servers.mapTo(HashSet()) { it.sourceId }
         if (updated.all { it == existing[it.sourceId] } && removed.isEmpty()) return emptyList()
-        // Anderer Host oder Benutzer: Das Geheimnis gehört zum alten Zugang und ginge sonst an den neuen Host
-        // (Zugangsdaten bleiben auf ihrem Host); die nächste Runde fragt es beim Handy neu an.
+        // Different host or user: the secret belongs to the old access and would otherwise go to the new host
+        // (credentials stay on their host); the next round requests it again from the phone.
         val moved = updated.filter { new -> existing[new.sourceId]?.let { old -> !sameAccess(old, new) } == true }.map { it.sourceId }
 
         database.withTransaction {
@@ -100,13 +100,13 @@ class WearServerMirror @Inject constructor(
         return new.baseUrl?.toHttpUrlOrNull()?.acceptsCredentialsOf(oldUrl) == true
     }
 
-    /** Server, für die die Uhr noch kein (lesbares) Passwort hat. */
+    /** Servers for which the watch doesn't have a (readable) password yet. */
     suspend fun serversWithoutPassword(): List<String> =
         sourceDao.getServers()
             .map { it.sourceId }
             .filter { secretStore.get(DataSourceRegistry.passwordKey(it)) == null }
 
-    /** [deviceId] siehe [deviceId]. @return `false`, wenn der Server (noch) nicht gespiegelt ist. */
+    /** [deviceId] see [deviceId]. @return `false` if the server is not mirrored (yet). */
     suspend fun storePassword(sourceId: String, password: String, deviceId: String? = null): Boolean {
         if (sourceDao.get(sourceId)?.type?.isServer != true) return false
         secretStore.put(DataSourceRegistry.passwordKey(sourceId), password)

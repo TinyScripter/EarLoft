@@ -34,8 +34,8 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
 /**
- * Der Browse-Tree, wie Android Auto ihn sieht (alter [MediaBrowser]): Tabs, Suche und Abspielen folgen den eingeschalteten
- * Bereichen (Konzept 7.1). Stellt die Bereiche danach wieder her.
+ * The browse tree as Android Auto sees it (legacy [MediaBrowser]): tabs, search and playback follow the enabled
+ * areas (concept 7.1). Restores the areas afterwards.
  */
 @RunWith(AndroidJUnit4::class)
 class AutoBrowseTest {
@@ -78,8 +78,8 @@ class AutoBrowseTest {
     }
 
     /**
-     * Android Auto lädt das Cover der Medienkarte über die Art-URI der Plattform-Session; `earloft://cover/…` kann es nicht lesen
-     * (Glide: „Load failed“), die Cover-Provider-Adresse schon.
+     * Android Auto loads the media card's cover via the art URI of the platform session; it can't read `earloft://cover/…`
+     * (Glide: "Load failed"), but it can read the cover provider address.
      */
     @Test
     fun currentItemCoverIsALoadableUri() {
@@ -103,12 +103,12 @@ class AutoBrowseTest {
             )
             read()
         }
-        if (!gotMetadata.await(10, TimeUnit.SECONDS)) return // Nichts geladen: es gibt kein Cover zu prüfen.
+        if (!gotMetadata.await(10, TimeUnit.SECONDS)) return // Nothing loaded: there is no cover to check.
         android.util.Log.i("AutoBrowseTest", "hasItem=$hasItem artUri=$artUri")
         assertTrue("Art-URI: $artUri", artUri == null || artUri!!.startsWith("content://"))
     }
 
-    /** Die Bücher-Ordner liefern etwas, wenn es Bücher gibt; zeigt, wie viele (Logcat `AutoBrowseTest`). */
+    /** The book folders return something if there are books; shows how many (logcat `AutoBrowseTest`). */
     @Test
     fun bookFoldersListTheBooks() {
         val sizes = listOf("books:continue", "books:recent", "books:all", "books:authors", "books:series")
@@ -119,22 +119,22 @@ class AutoBrowseTest {
         if (sizes.getValue("books:authors") ?: 0 > 0) assertTrue("Autoren da, aber keine Bücher", all!! > 0)
     }
 
-    /** Bibliothek → Genres listet die Genres; jedes Genre ist ein Ordner mit Alben (Logcat `AutoBrowseTest`). */
+    /** Library → Genres lists the genres; each genre is a folder of albums (logcat `AutoBrowseTest`). */
     @Test
     fun genreFolderListsAlbums() {
         assertEquals(listOf("albums", "artists", "genres"), children("library")!!.map { it.mediaId })
         val genres = children("genres")
         assertNotNull("Genres nicht abrufbar", genres)
         android.util.Log.i("AutoBrowseTest", "genres=${genres!!.map { it.mediaId }}")
-        val first = genres.firstOrNull() ?: return // Keine Musik mit Genre-Angaben.
+        val first = genres.firstOrNull() ?: return // No music with genre tags.
         val albums = children(first.mediaId!!)
         assertTrue("Genre ${first.mediaId} ohne Alben", !albums.isNullOrEmpty())
         assertTrue(albums!!.all { it.mediaId!!.startsWith("album:") })
     }
 
     /**
-     * Favoriten: oben die Ordner der favorisierten Alben und Künstler (nur, wenn es welche gibt), darunter die Songs; die Ordner
-     * enthalten Alben bzw. Künstler (Logcat `AutoBrowseTest`).
+     * Favorites: at the top the folders of favorited albums and artists (only if there are any), below them the songs; the folders
+     * contain albums and artists respectively (logcat `AutoBrowseTest`).
      */
     @Test
     fun favoritesListAlbumAndArtistFoldersAboveTheSongs() {
@@ -148,7 +148,7 @@ class AutoBrowseTest {
         if ("favorites:artists" in folders) assertTrue(children("favorites:artists")!!.all { it.mediaId!!.startsWith("artist:") })
     }
 
-    /** „Zuletzt“ liefert, was „Weiterhören“ der Podcasts liefert (so sieht es Android Auto). */
+    /** "Recent" returns what the podcasts' "Continue listening" returns (that's how Android Auto sees it). */
     @Test
     fun homeListsWhatContinueListeningHas() {
         val continueEpisodes = children("podcasts:continue").orEmpty().map { it.mediaId }
@@ -161,9 +161,9 @@ class AutoBrowseTest {
     }
 
     /**
-     * Umschalten meldet die Session selbst (notifyChildrenChanged) an alle, die die Wurzel abonniert haben. Der alte
-     * [MediaBrowser] des Frameworks abonniert nicht bei der Session (nur die Compat-Fassung von Android Auto); daher hier ein
-     * Media3-Browser, dessen Abo über denselben Weg (`onSubscribe`) läuft.
+     * The session itself announces a toggle (notifyChildrenChanged) to everyone subscribed to the root. The framework's
+     * legacy [MediaBrowser] doesn't subscribe at the session (only Android Auto's compat version does); hence a
+     * Media3 browser here, whose subscription goes the same way (`onSubscribe`).
      */
     @Test
     fun tabsFollowTheAreas() {
@@ -204,7 +204,7 @@ class AutoBrowseTest {
 
     private fun token() = SessionToken(context, ComponentName(context.packageName, "de.kleinabersmart.earloft.core.playback.PlaybackService"))
 
-    /** Wartet auf diese Tabs; Zwischenstände (jeder Schalter meldet sich einzeln) zählen nicht. */
+    /** Waits for these tabs; intermediate states (each switch reports separately) don't count. */
     private fun LinkedBlockingQueue<List<String>>.awaitLoad(expected: List<String>) {
         val deadline = System.currentTimeMillis() + 10_000
         var last: List<String>? = null
@@ -241,7 +241,7 @@ class AutoBrowseTest {
     fun spokenItemPlaysFromBrowsing() {
         val item = (children("podcasts:continue").orEmpty() + children("books:continue").orEmpty())
             .firstOrNull { it.isPlayable }
-            ?: return // Ohne Folgen und Bücher auf dem Gerät gibt es nichts zu spielen.
+            ?: return // Without episodes and books on the device there is nothing to play.
         val bookId = item.mediaId!!.removePrefix("spoken:")
         val playing = CountDownLatch(1)
         var controller: MediaController? = null
@@ -274,7 +274,7 @@ class AutoBrowseTest {
         const val GROUP_TITLE = "android.media.browse.CONTENT_STYLE_GROUP_TITLE_HINT"
     }
 
-    /** Inhalt eines Ordners; `null` bei einem Fehler. */
+    /** Contents of a folder; `null` on error. */
     private fun children(parentId: String): List<MediaBrowser.MediaItem>? {
         val result = LinkedBlockingQueue<Result<List<MediaBrowser.MediaItem>?>>()
         val callback = object : MediaBrowser.SubscriptionCallback() {
@@ -296,8 +296,8 @@ class AutoBrowseTest {
     private class Hit(val mediaId: String, val group: String?)
 
     /**
-     * Der alte [MediaBrowser] des Frameworks kann nicht suchen (Android Auto nutzt die Compat-Fassung, die Media3 auf
-     * dieselben Callbacks abbildet); daher hier ein Media3-Browser.
+     * The framework's legacy [MediaBrowser] can't search (Android Auto uses the compat version, which Media3 maps to
+     * the same callbacks); hence a Media3 browser here.
      */
     private fun search(query: String): List<Hit> {
         val token = token()
@@ -319,7 +319,7 @@ class AutoBrowseTest {
     }
 
     private fun setAreas(areas: List<SpokenMode>) = runBlocking {
-        // Erst einschalten, dann ausschalten: Der letzte eingeschaltete Bereich lässt sich nicht ausschalten.
+        // Enable first, then disable: the last enabled area can't be disabled.
         areas.forEach { settings.setAreaEnabled(it, true) }
         (SpokenMode.entries - areas.toSet()).forEach { settings.setAreaEnabled(it, false) }
     }

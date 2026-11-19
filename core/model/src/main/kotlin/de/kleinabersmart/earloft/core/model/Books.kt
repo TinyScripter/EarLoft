@@ -1,46 +1,46 @@
 package de.kleinabersmart.earloft.core.model
 
-/** Gesprochenes (Konzept 12): ein Hörbuch oder eine Podcast-Folge. */
+/** Spoken content (concept 12): an audiobook or a podcast episode. */
 enum class BookKind { BOOK, EPISODE }
 
 /**
- * Zustand des Downloads einer Datei (Konzept 12). [REMOVED]: vom Nutzer entfernt – die Automatik lädt sie nicht
- * wieder, von Hand geht es weiterhin.
+ * Download state of a file (concept 12). [REMOVED]: removed by the user – the automation doesn't download it
+ * again, manually it still works.
  */
 enum class TrackDownload { NONE, QUEUED, RUNNING, DONE, FAILED, REMOVED }
 
 /**
- * Woher die Kapitel einer Folge stammen, in aufsteigendem Rang (Konzept 12.5 „Kapitelquellen“): aus der geladenen Datei
- * (ID3 `CHAP`, MP4), aus dem Feed (Podlove Simple Chapters) oder aus der Kapitelliste des Feeds (`podcast:chapters`, JSON).
- * Eine Quelle ersetzt nur Kapitel gleichen oder niedrigeren Rangs.
+ * Where an episode's chapters come from, in ascending rank (concept 12.5 "chapter sources"): from the downloaded file
+ * (ID3 `CHAP`, MP4), from the feed (Podlove Simple Chapters) or from the feed's chapter list (`podcast:chapters`, JSON).
+ * A source only replaces chapters of the same or lower rank.
  */
 enum class ChapterSource { FILE, FEED, JSON }
 
-/** `serverId` der Bücher aus dem Ordner „Audiobooks“ auf diesem Gerät (Konzept 12.1); es gibt dazu keinen Server. */
+/** `serverId` of the books from the "Audiobooks" folder on this device (concept 12.1); there is no server for them. */
 const val LOCAL_BOOK_SERVER_ID = "local"
 
 /**
- * Anfang der `feedId` der Podcasts aus dem Ordner „Podcasts“ auf diesem Gerät (Konzept 12.1): Je Podcast ein Abo ohne
- * Feed-Adresse, dessen Folgen die Dateien sind.
+ * Prefix of the `feedId` of the podcasts from the "Podcasts" folder on this device (concept 12.1): one subscription per
+ * podcast without a feed URL, whose episodes are the files.
  */
 const val LOCAL_PODCAST_PREFIX = "local:"
 
-/** Bücher und Folgen vom Gerät haben keinen Server: kein Download, kein Cast, Fortschritt nur lokal. */
+/** Books and episodes from the device have no server: no download, no cast, progress only local. */
 fun isLocalSource(serverId: String): Boolean = serverId == LOCAL_BOOK_SERVER_ID || serverId.startsWith(LOCAL_PODCAST_PREFIX)
 
 /**
- * `serverId` der Hörbücher und Hörspiele aus ARD Sounds (`books_improvements.md` M9). Es gibt keinen Server wie bei Audiobookshelf:
- * Die Dateikennung ist die Adresse der Datei (wie bei Folgen), Fortschritt und Lesezeichen bleiben auf dem Gerät; laden und casten
- * geht.
+ * `serverId` of the audiobooks and radio plays from ARD Sounds (`books_improvements.md` M9). There is no server as with Audiobookshelf:
+ * the file ID is the file's URL (as with episodes), progress and bookmarks stay on the device; downloading and casting
+ * work.
  */
 const val ARD_BOOK_SERVER_ID = "ardsounds"
 
 fun isArdSoundsBook(serverId: String): Boolean = serverId == ARD_BOOK_SERVER_ID
 
-/** Bücher ohne Audiobookshelf-Server (vom Gerät, aus ARD Sounds): Fortschritt, Lesezeichen und Sitzungen bleiben hier. */
+/** Books without an Audiobookshelf server (from the device, from ARD Sounds): progress, bookmarks and sessions stay here. */
 fun hasNoBookServer(serverId: String): Boolean = isLocalSource(serverId) || isArdSoundsBook(serverId)
 
-/** Schalter in der oberen Leiste von Start und Bibliothek (Konzept 12.5). */
+/** Switch in the top bar of Home and Library (concept 12.5). */
 enum class SpokenMode { MUSIC, PODCASTS, BOOKS }
 
 data class Book(
@@ -53,50 +53,50 @@ data class Book(
     val series: String = "",
     val description: String = "",
     val durationMs: Long,
-    /** Eintrag auf dem Server (bei Audiobookshelf die Item-ID); `null` bei lokalen Büchern. */
+    /** Entry on the server (for Audiobookshelf the item ID); `null` for local books. */
     val remoteId: String,
     val addedAt: Long = 0,
-    /** Angaben von Audiobookshelf für die Buchseite; das Jahr als Text, wie der Server es führt (meist „2014“). */
+    /** Details from Audiobookshelf for the book page; the year as text, as the server stores it (usually "2014"). */
     val subtitle: String? = null,
     val publishedYear: String? = null,
     val publisher: String? = null,
     val language: String? = null,
-    /** Folgen: seit wann gemerkt (Stern); `null` = nicht gemerkt. */
+    /** Episodes: since when bookmarked (star); `null` = not bookmarked. */
     val starredAt: Long? = null,
-    /** Folgen: Staffel, Nummer und Art aus dem Feed (`null` = keine Angabe bzw. normale Folge). */
+    /** Episodes: season, number and type from the feed (`null` = not specified or a regular episode). */
     val season: Int? = null,
     val episodeNumber: Int? = null,
     val episodeType: EpisodeType? = null,
-    /** Folgen: Adresse des Transkripts (`podcast:transcript`); `null` = keins. */
+    /** Episodes: URL of the transcript (`podcast:transcript`); `null` = none. */
     val transcriptUrl: String? = null,
-    /** Bücher: Genres von Audiobookshelf, einzeln ([parseGenres]). */
+    /** Books: genres from Audiobookshelf, split individually ([parseGenres]). */
     val genres: List<String> = emptyList(),
-    /** Bücher eines Audiobookshelf-Servers: die Bibliothek dort. */
+    /** Books of an Audiobookshelf server: the library there. */
     val libraryId: String? = null,
-    /** Bücher aus ARD Sounds: bis wann alle Teile abrufbar sind (Unix-ms); `null` = unbefristet bzw. unbekannt. */
+    /** Books from ARD Sounds: until when all parts are available (Unix ms); `null` = unlimited or unknown. */
     val availableUntil: Long? = null,
-    /** Webseite des Buchs bzw. der Folge (ARD Sounds, Feed). */
+    /** Web page of the book or episode (ARD Sounds, feed). */
     val webUrl: String? = null,
 ) {
-    /** Liegt auf diesem Gerät: kein Server, kein Download, kein Cast. */
+    /** Lives on this device: no server, no download, no cast. */
     val isLocal: Boolean get() = isLocalSource(serverId)
 
-    /** Aus ARD Sounds (`books_improvements.md` M9). */
+    /** From ARD Sounds (`books_improvements.md` M9). */
     val isArdSounds: Boolean get() = isArdSoundsBook(serverId)
 
     val starred: Boolean get() = starredAt != null
 }
 
 /**
- * Eine Serie eines Buchs, mit Band, falls bekannt: [volume] so, wie er dasteht („2“, „2a“, „1-3“, „1,5“), [sequence] die
- * Reihenfolge daraus ([volumeSequence]); `null`, wenn der Band nicht mit einer Zahl beginnt.
+ * One series of a book, with volume if known: [volume] as written ("2", "2a", "1-3", "1,5"), [sequence] the
+ * order derived from it ([volumeSequence]); `null` if the volume doesn't start with a number.
  */
 data class SeriesRef(val name: String, val sequence: Double?, val volume: String? = null)
 
 /**
- * Audiobookshelf liefert den Serienamen samt Band („Carl Mørck #10“, mehrere Serien durch „, “ getrennt, nach dem
- * Band). Hier wird beides getrennt; alles hinter „ #“ ist der Band (Audiobookshelf erlaubt dort beliebigen Text), ein „#“
- * ohne etwas dahinter gehört zum Namen.
+ * Audiobookshelf delivers the series name together with the volume ("Carl Mørck #10", multiple series separated by ", ", after the
+ * volume). Here both are split; everything after " #" is the volume (Audiobookshelf allows arbitrary text there), a "#"
+ * with nothing after it belongs to the name.
  */
 fun parseSeries(raw: String): List<SeriesRef> =
     raw.split(SERIES_SEPARATOR)
@@ -110,8 +110,8 @@ fun parseSeries(raw: String): List<SeriesRef> =
         }
 
 /**
- * Reihenfolge eines Bands: die führende Zahl („1,5“ wie „1.5“). Steht danach noch etwas („2a“, „1-3“), kommt er gleich
- * nach dem Band mit der bloßen Zahl, also „2“, „2a“, „3“. `null` ohne führende Zahl („IV“).
+ * Order of a volume: the leading number ("1,5" like "1.5"). If something follows ("2a", "1-3"), it comes right
+ * after the volume with the bare number, i.e. "2", "2a", "3". `null` without a leading number ("IV").
  */
 fun volumeSequence(volume: String): Double? {
     val match = VOLUME_NUMBER.find(volume.trim()) ?: return null
@@ -121,29 +121,29 @@ fun volumeSequence(volume: String): Double? {
 
 private val SERIES_PART = Regex("""^(.*)\s+#\s*(\S.*?)\s*$""")
 
-/** Zwischen zwei Serien steht „, “ nach dem Band; „1,5“ ohne Leerzeichen bleibt ein Band. */
+/** Between two series there is ", " after the volume; "1,5" without a space stays one volume. */
 private val SERIES_SEPARATOR = Regex("""(?<=#[^\s#]{1,20}),\s+""")
 private val VOLUME_NUMBER = Regex("""^(\d+(?:[.,]\d+)?)(.*)$""")
 private const val VOLUME_SUFFIX_STEP = 0.001
 
 /**
- * Die einzelnen Namen eines Autoren- bzw. Sprechereintrags: Audiobookshelf verbindet mehrere mit „, “ (`authorName`,
- * `narratorName`), Tags lokaler Dateien auch mit „;“. „A & B“ bleibt beisammen (oft ein Duo). Leere und doppelte
- * Namen entfallen, die Reihenfolge bleibt.
+ * The individual names of an author or narrator entry: Audiobookshelf joins several with ", " (`authorName`,
+ * `narratorName`), tags of local files also with ";". "A & B" stays together (often a duo). Empty and duplicate
+ * names are dropped, the order is kept.
  */
 fun parsePeople(raw: String): List<String> =
     raw.split(',', ';').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
 
 /**
- * Die einzelnen Genres eines Buchs: Audiobookshelf führt eine Liste, aus Metadaten übernommene Einträge stecken aber oft
- * mehrere in einen („Polizei, Thriller“). Getrennt wie [parsePeople]; „Politik & Regierungen“ bleibt eines.
+ * The individual genres of a book: Audiobookshelf keeps a list, but entries taken from metadata often contain
+ * several in one ("Polizei, Thriller"). Split like [parsePeople]; "Politik & Regierungen" stays one.
  */
 fun parseGenres(raw: List<String>): List<String> = raw.flatMap(::parsePeople).distinct()
 
 /**
- * Ob [name] eine Rolle nennt („Günther Frauenlob - Übersetzer“, „Ruggero Leò - translator“, „Anna Muster (Hrsg.)“, „translated
- * by …“): Audiobookshelf führt Übersetzer, Herausgeber u. Ä. als Autoren mit der Rolle im Namen. Geprüft wird nur, was
- * hinter „ - “ oder in Klammern steht, damit ein Nachname wie „Sprecher“ keine Rolle ist.
+ * Whether [name] names a role ("Günther Frauenlob - Übersetzer", "Ruggero Leò - translator", "Anna Muster (Hrsg.)", "translated
+ * by …"): Audiobookshelf lists translators, editors etc. as authors with the role in the name. Only what follows
+ * " - " or is in parentheses is checked, so that a surname like "Sprecher" isn't a role.
  */
 fun hasContributorRole(name: String): Boolean {
     if (ROLE_PREFIX.containsMatchIn(name.trim())) return true
@@ -157,8 +157,8 @@ fun hasContributorRole(name: String): Boolean {
 }
 
 /**
- * Die Autoren, unter denen ein Buch in Bibliothek, Suche und Android Auto steht: die Namen aus [author] ohne Rolle
- * ([hasContributorRole]); nennt das Buch nur Mitwirkende mit Rolle (Herausgeber einer Sammlung), diese.
+ * The authors under which a book is listed in library, search and Android Auto: the names from [author] without a role
+ * ([hasContributorRole]); if the book only names contributors with a role (editor of a collection), those.
  */
 fun bookAuthors(author: String): List<String> {
     val all = parsePeople(author)
@@ -166,12 +166,12 @@ fun bookAuthors(author: String): List<String> {
 }
 
 /**
- * Autorenzeile eines Buchs für Kacheln, Player, Benachrichtigung und Android Auto: die [bookAuthors], damit Übersetzer u. Ä.
- * nicht vorn stehen. Die Buchseite zeigt weiter alle Namen samt Rolle.
+ * Author line of a book for tiles, player, notification and Android Auto: the [bookAuthors], so that translators etc.
+ * don't come first. The book page still shows all names including their role.
  */
 fun bookAuthorLine(author: String): String = bookAuthors(author).joinToString(", ").ifEmpty { author.trim() }
 
-/** Autorenzeile in Listen: bei Büchern [bookAuthorLine], bei Folgen der Eintrag des Feeds unverändert. */
+/** Author line in lists: for books [bookAuthorLine], for episodes the feed's entry unchanged. */
 val Book.authorLine: String get() = if (kind == BookKind.BOOK) bookAuthorLine(author) else author
 
 private val ROLE_DASH = Regex("""\s[-–—]\s""")
@@ -187,19 +187,19 @@ private val CONTRIBUTOR_STEMS = listOf(
 data class BookChapter(
     val index: Int,
     val title: String,
-    /** Beginn und Ende als Position im ganzen Buch. */
+    /** Start and end as a position in the whole book. */
     val startMs: Long,
     val endMs: Long,
-    /** Bild und Webseite des Kapitels (Kapitelliste oder Podlove einer Folge). */
+    /** Image and web page of the chapter (chapter list or Podlove of an episode). */
     val imageUrl: String? = null,
     val url: String? = null,
-    /** Liegt in einer Datei, die nicht mehr abrufbar ist ([BookTrack.unavailable]). */
+    /** Lies in a file that is no longer available ([BookTrack.unavailable]). */
     val unavailable: Boolean = false,
 ) {
     val durationMs: Long get() = endMs - startMs
 }
 
-/** Lesezeichen in einem Buch oder einer Folge (Konzept 12.6); [positionMs] ist die Position im ganzen Buch. */
+/** Bookmark in a book or episode (concept 12.6); [positionMs] is the position in the whole book. */
 data class Bookmark(
     val id: Long,
     val bookId: Long,
@@ -209,17 +209,17 @@ data class Bookmark(
     val createdAt: Long,
 )
 
-/** Eine Audiodatei des Buchs. Ein m4b ist ein Titel, ein MP3-Ordner hat viele. */
+/** One audio file of the book. An m4b is one track, an MP3 folder has many. */
 data class BookTrack(
     val index: Int,
     val remoteFileId: String,
-    /** Beginn der Datei als Position im ganzen Buch. */
+    /** Start of the file as a position in the whole book. */
     val startMs: Long,
     val durationMs: Long,
     val mimeType: String? = null,
-    /** Heruntergeladene Datei; nur gesetzt, wenn der Download fertig ist. */
+    /** Downloaded file; only set once the download is finished. */
     val localPath: String? = null,
-    /** Nicht geladen und an der Quelle nicht mehr abrufbar (ein abgelaufener Teil eines Buchs aus ARD Sounds); die Wiedergabe überspringt sie. */
+    /** Not downloaded and no longer available at the source (an expired part of a book from ARD Sounds); playback skips it. */
     val unavailable: Boolean = false,
 )
 
@@ -227,15 +227,15 @@ data class BookProgress(
     val positionMs: Long,
     val durationMs: Long,
     val finished: Boolean,
-    /** Eigenes Tempo des Buchs bzw. der Folge; `null` = das des Abos bzw. Bereichs (siehe [EffectLayers]). */
+    /** The book's or episode's own speed; `null` = that of the subscription or section (see [EffectLayers]). */
     val speed: Float? = null,
-    /** Zeitpunkt der letzten Änderung (Unix-ms) – die neuere Seite gewinnt (Konzept 12.3). */
+    /** Time of the last change (Unix ms) – the newer side wins (concept 12.3). */
     val updatedAt: Long,
-    /** Noch nicht an den Server gemeldet. */
+    /** Not yet reported to the server. */
     val dirty: Boolean = false,
-    /** Aus „Weiterhören“ genommen, ohne den Stand zu verlieren (Audiobookshelf: `hideFromContinueListening`). */
+    /** Removed from "Continue listening" without losing the state (Audiobookshelf: `hideFromContinueListening`). */
     val hidden: Boolean = false,
-    /** Eigene Effekte; `null` = die des Abos bzw. Bereichs. */
+    /** Own effects; `null` = those of the subscription or section. */
     val skipSilence: Boolean? = null,
     val volumeBoostDb: Int? = null,
 ) {
@@ -244,30 +244,30 @@ data class BookProgress(
 
 data class BookWithProgress(val book: Book, val progress: BookProgress?)
 
-/** Ein eingerichteter Audiobookshelf-Server (ohne Zugangsdaten). */
+/** A configured Audiobookshelf server (without credentials). */
 data class SpokenServer(
     val serverId: String,
     val name: String,
     val baseUrl: String,
     val lastFullSyncAt: Long,
-    /** Ausgeschaltet: kein Abgleich, Bücher ausgeblendet, nichts gelöscht. */
+    /** Switched off: no sync, books hidden, nothing deleted. */
     val enabled: Boolean = true,
-    /** Angemeldet per OpenID statt API-Key. */
+    /** Signed in via OpenID instead of an API key. */
     val openId: Boolean = false,
-    /** Die Buch-Bibliotheken des Servers in seiner Reihenfolge; mit mehr als einer lässt sich wählen (`books_improvements.md` M3). */
+    /** The server's book libraries in its order; with more than one you can choose (`books_improvements.md` M3). */
     val libraries: List<SpokenLibrary> = emptyList(),
 )
 
-/** Eine Buch-Bibliothek eines Audiobookshelf-Servers; [shown] = wird abgeglichen und gezeigt. */
+/** A book library of an Audiobookshelf server; [shown] = is synced and shown. */
 data class SpokenLibrary(val serverId: String, val libraryId: String, val name: String, val shown: Boolean)
 
-/** Ein Autor aus der Suche: sein Name, ein Buch für das Cover und die Anzahl seiner Bücher. */
+/** An author from the search: their name, a book for the cover and the number of their books. */
 data class AuthorHit(val name: String, val firstBookId: Long, val bookCount: Int)
 
-/** Eine Serie aus der Suche: ihr Name, ein Buch für das Cover (der kleinste Band) und die Anzahl ihrer Bücher. */
+/** A series from the search: its name, a book for the cover (the lowest volume) and the number of its books. */
 data class SeriesHit(val name: String, val firstBookId: Long, val bookCount: Int)
 
-/** Ein abonnierter Podcast (Konzept 12.1); seine Folgen sind [Book]s mit `kind = EPISODE` und `serverId = id`. */
+/** A subscribed podcast (concept 12.1); its episodes are [Book]s with `kind = EPISODE` and `serverId = id`. */
 data class PodcastFeed(
     val id: String,
     val url: String,
@@ -277,75 +277,75 @@ data class PodcastFeed(
     val imageUrl: String?,
     val autoDownload: Boolean,
     val lastRefreshAt: Long,
-    /** Reihenfolge für „Alle abspielen“ und das Weiterspielen: neueste zuerst statt älteste zuerst. */
+    /** Order for "Play all" and continuing playback: newest first instead of oldest first. */
     val newestFirst: Boolean = false,
-    /** Nach einer Folge von selbst die nächste spielen. */
+    /** Play the next episode automatically after one ends. */
     val continuous: Boolean = true,
-    /** Bei neuen Folgen im Hintergrund benachrichtigen. */
+    /** Notify about new episodes in the background. */
     val notifyNew: Boolean = true,
-    /** `false`: Probeabo aus der Vorschau (Konzept 12.10) – Folgen hörbar, aber kein Abo, keine Statistik. */
+    /** `false`: trial subscription from the preview (concept 12.10) – episodes playable, but no subscription, no statistics. */
     val subscribed: Boolean = true,
-    /** Archiviert: nirgends gelistet, nicht abgeglichen; Folgen, Fortschritt und Statistik bleiben bis zum Reaktivieren. */
+    /** Archived: not listed anywhere, not synced; episodes, progress and statistics stay until reactivated. */
     val archived: Boolean = false,
-    /** Tempo und Effekte für die Folgen (Konzept 12.4); `null` = Vorgabe des Bereichs. */
+    /** Speed and effects for the episodes (concept 12.4); `null` = the section's default. */
     val effects: EffectOverrides = EffectOverrides(),
-    /** Sekunden, die am Anfang bzw. Ende jeder Folge übersprungen werden (0 = aus). */
+    /** Seconds skipped at the start or end of every episode (0 = off). */
     val skipIntroS: Int = 0,
     val skipOutroS: Int = 0,
-    /** Filter und Reihenfolge der Folgen auf der Seite des Abos (nur die Anzeige). */
+    /** Filter and order of the episodes on the subscription's page (display only). */
     val episodeFilter: EpisodeFilter = EpisodeFilter.ALL,
     val listOldestFirst: Boolean = false,
-    /** Was von selbst in „Weiterhören“ kommt. */
+    /** What goes into "Continue listening" automatically. */
     val queueMode: FeedQueueMode = FeedQueueMode.ALL_NEW,
-    /** Nur die neuesten so vielen Folgen zeigen, ältere nie angefangene ausblenden ([keepNewest]); 0 = alle. */
+    /** Only show the newest this many episodes, hide older never-started ones ([keepNewest]); 0 = all. */
     val keepEpisodes: Int = 0,
-    /** Wie viele neue Folgen die Automatik bereithält; `null` = Vorgabe aus den Einstellungen. */
+    /** How many new episodes the automation keeps ready; `null` = default from the settings. */
     val autoDownloadCount: Int? = null,
-    /** Fehlgeschlagene Abgleiche in Folge, der Grund des letzten und seit wann es scheitert (0 = klappt). */
+    /** Consecutive failed syncs, the reason for the last one and since when it has been failing (0 = works). */
     val failedRefreshes: Int = 0,
     val refreshError: FeedError? = null,
     val failingSince: Long = 0,
-    /** Seite zum Unterstützen (`podcast:funding`) und ihr Text aus dem Feed (kann leer sein). */
+    /** Page for supporting the podcast (`podcast:funding`) and its text from the feed (may be empty). */
     val fundingUrl: String? = null,
     val fundingLabel: String = "",
 ) {
-    /** Aus dem Ordner „Podcasts“: keine Feed-Adresse, kein Abgleich, kein Download, kein Abo zu beenden. */
+    /** From the "Podcasts" folder: no feed URL, no sync, no download, no subscription to end. */
     val isLocal: Boolean get() = id.startsWith(LOCAL_PODCAST_PREFIX)
 
-    /** Scheitert der Abgleich seit [FEED_PROBLEM_AFTER] Versuchen, zeigt die App es an (Konzept 12.10). */
+    /** If the sync has been failing for [FEED_PROBLEM_AFTER] attempts, the app shows it (concept 12.10). */
     val hasProblem: Boolean get() = failedRefreshes >= FEED_PROBLEM_AFTER
 }
 
-/** Ab so vielen fehlgeschlagenen Abgleichen in Folge gilt ein Abo als kaputt; ein einzelner Ausfall ist normal. */
+/** From this many consecutive failed syncs on, a subscription counts as broken; a single failure is normal. */
 const val FEED_PROBLEM_AFTER = 3
 
-/** Warum der Abgleich eines Feeds scheiterte. */
+/** Why a feed's sync failed. */
 enum class FeedError {
-    /** 404/410: Den Feed gibt es unter der Adresse nicht mehr. */
+    /** 404/410: the feed no longer exists at that URL. */
     GONE,
 
-    /** 401/403: Der Server verlangt eine Anmeldung oder verweigert den Abruf. */
+    /** 401/403: the server requires a login or refuses the request. */
     DENIED,
 
-    /** Andere HTTP-Fehler (meist 5xx). */
+    /** Other HTTP errors (usually 5xx). */
     SERVER,
 
-    /** Die Antwort ist kein RSS- oder Atom-Feed. */
+    /** The response is not an RSS or Atom feed. */
     NOT_A_FEED,
 
-    /** Zertifikat oder TLS-Verbindung abgelehnt. */
+    /** Certificate or TLS connection rejected. */
     TLS,
 
-    /** Server nicht erreichbar (Name unbekannt, Zeitüberschreitung, Verbindung abgelehnt). */
+    /** Server not reachable (unknown host, timeout, connection refused). */
     UNREACHABLE,
 }
 
-/** Stelle in einer Datei des Buchs. */
+/** Position within one of the book's files. */
 data class TrackPosition(val trackIndex: Int, val offsetMs: Long)
 
 /**
- * Rechnet zwischen der Position im ganzen Buch und (Datei, Position in der Datei) um und liefert Kapitel und
- * Restzeiten. Die UI zeigt nur Buchpositionen (Konzept 12.2).
+ * Converts between the position in the whole book and (file, position in the file) and provides chapters and
+ * remaining times. The UI only shows book positions (concept 12.2).
  */
 class BookTimeline(
     val durationMs: Long,
@@ -377,8 +377,8 @@ class BookTimeline(
     fun nextChapter(positionMs: Long): BookChapter? = chapters.firstOrNull { it.startMs > positionMs }
 
     /**
-     * Beginn des Kapitels, zu dem „zurück“ springt: Ist man schon mehr als [restartThresholdMs] im Kapitel,
-     * wird es neu gestartet, sonst geht es ins vorherige.
+     * Start of the chapter "previous" jumps to: if you're already more than [restartThresholdMs] into the chapter,
+     * it is restarted, otherwise it goes to the previous one.
      */
     fun previousChapterStart(positionMs: Long, restartThresholdMs: Long = 3_000): Long? {
         val current = chapterAt(positionMs) ?: return null
@@ -386,11 +386,11 @@ class BookTimeline(
         return chapters.lastOrNull { it.startMs < current.startMs }?.startMs ?: current.startMs
     }
 
-    /** Restzeit des Buchs in Wiedergabezeit, also durch die Geschwindigkeit geteilt. */
+    /** Remaining time of the book in playback time, i.e. divided by the speed. */
     fun remainingBookMs(positionMs: Long, speed: Float = 1f): Long =
         ((durationMs - positionMs).coerceAtLeast(0) / speed.coerceAtLeast(MIN_SPEED)).toLong()
 
-    /** Restzeit im aktuellen Kapitel; `null`, wenn das Buch keine Kapitel hat. */
+    /** Remaining time in the current chapter; `null` if the book has no chapters. */
     fun remainingChapterMs(positionMs: Long, speed: Float = 1f): Long? {
         val chapter = chapterAt(positionMs) ?: return null
         return ((chapter.endMs - positionMs).coerceAtLeast(0) / speed.coerceAtLeast(MIN_SPEED)).toLong()

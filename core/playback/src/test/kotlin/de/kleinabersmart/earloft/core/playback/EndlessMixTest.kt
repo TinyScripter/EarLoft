@@ -45,7 +45,7 @@ class EndlessMixTest {
 
         assertEquals(listOf(3L), seeds)
         assertEquals(listOf(1L, 2, 3, 7, 8), player.songIds())
-        // Das Angehängte löst keinen weiteren Mix aus.
+        // What was appended doesn't trigger another mix.
         assertEquals(listOf(3L), seeds)
     }
 
@@ -78,7 +78,7 @@ class EndlessMixTest {
         endlessMix(mix = emptyList())
         player.update(listOf(1, 2), current = 0)
         player.update(current = 1)
-        // Wiederholen an und wieder aus: kein zweiter Versuch beim selben Song.
+        // Repeat on and off again: no second attempt for the same song.
         player.update(current = 1, repeatMode = Player.REPEAT_MODE_ALL)
         player.update(current = 1)
 
@@ -91,12 +91,12 @@ class EndlessMixTest {
         player.update(listOf(3, 4, 5), current = 1)
         player.update(current = 0)
 
-        // „Warteschlange leeren“: nur der laufende Song bleibt.
+        // "Clear queue": only the current song stays.
         player.update(listOf(3), current = 0)
         assertEquals(emptyList<Long>(), seeds)
         assertEquals(listOf(3L), player.songIds())
 
-        // Der nächste Song (hier neu angehängt und angesprungen) bekommt wieder seinen Mix.
+        // The next song (newly appended and jumped to here) gets its mix again.
         player.update(listOf(3, 6), current = 1)
         assertEquals(listOf(6L), seeds)
         assertEquals(listOf(3L, 6, 1, 2, 7, 8), player.songIds())
@@ -119,7 +119,7 @@ class EndlessMixTest {
         player.update(listOf(1, 2, 3), current = 0)
         player.update(current = 2)
 
-        // Während der Mix zu 3 noch sucht, kommt eine neue Warteschlange mit nur einem Song.
+        // While the mix for 3 is still searching, a new queue with only one song arrives.
         player.update(listOf(5), current = 0)
         slow.complete(Unit)
         shadowOf(Looper.getMainLooper()).idle()
@@ -131,8 +131,8 @@ class EndlessMixTest {
     private fun song(id: Long) = Song(id, "Song $id", "Künstler", albumId = 1, albumTitle = "Album", durationMs = 1000, discNumber = 1, trackNumber = id.toInt(), isFavorite = false)
 
     /**
-     * Spielt eine Liste von Songs (`song:<id>`) und nimmt angehängte Titel auf. Den ersten Stand liest [SimpleBasePlayer] erst beim
-     * ersten [update], ohne Ereignisse: Tests beginnen deshalb vor dem Stand, auf den es ankommt.
+     * Plays a list of songs (`song:<id>`) and records appended titles. [SimpleBasePlayer] only reads the first state on the
+     * first [update], without events: tests therefore start before the state that matters.
      */
     private class QueuePlayer : SimpleBasePlayer(Looper.getMainLooper()) {
         private var items: List<MediaItem> = emptyList()

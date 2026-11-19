@@ -9,7 +9,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Trailer in Listen und die Kennung beim Feed-Umzug (Konzept 12.5/12.10 „Podcasting 2.0“). */
+/** Trailers in lists and the identifier on a feed move (concept 12.5/12.10 "Podcasting 2.0"). */
 class Podcasting20Test {
 
     private fun episode(id: Long, feed: String, type: EpisodeType? = null, starred: Boolean = false) = BookEntity(
@@ -35,7 +35,7 @@ class Podcasting20Test {
             episode(5, "b", EpisodeType.TRAILER),
             episode(6, "c", EpisodeType.BONUS),
         )
-        // Ein angefangener Trailer bleibt, ebenso ein gemerkter; ein Abo nur mit Trailer zeigt ihn.
+        // A started trailer stays, as does a remembered one; a subscription with only a trailer shows it.
         val progress = mapOf(3L to BookProgressEntity(3, 500, 1000, finished = false, updatedAt = 1))
         assertEquals(listOf(1L, 3L, 4L, 5L, 6L), list.withoutTrailers(progress).map { it.bookId })
     }

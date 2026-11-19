@@ -30,18 +30,18 @@ import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
 import de.kleinabersmart.earloft.wear.R
 
-/** Ein Titel der Liste; [key] ist bei Playlists der Eintrag (Duplikate bleiben unterscheidbar), beim Handy die Position. */
+/** A track of the list; [key] is the entry for playlists (duplicates stay distinguishable), the position for the phone. */
 data class TrackItem(val key: Long, val title: String, val artist: String, val enabled: Boolean = true)
 
-/** `Loading` vor dem ersten Wert; `Message`, wenn es nichts zu zeigen gibt (Liste entfernt, Handy antwortet nicht). */
+/** `Loading` before the first value; `Message` if there is nothing to show (list removed, phone does not answer). */
 sealed interface TrackListState {
     data object Loading : TrackListState
 
     data class Message(@StringRes val textRes: Int) : TrackListState
 
     /**
-     * [loadedCount] = geladene Titel auf der Uhr; `null` bei der Liste des Handys (dort ist alles abspielbar).
-     * [truncated]: Das Handy hat nur die ersten Titel geschickt.
+     * [loadedCount] = downloaded tracks on the watch; `null` for the phone's list (everything is playable there).
+     * [truncated]: the phone sent only the first tracks.
      */
     data class Ready(
         val title: String,
@@ -55,9 +55,9 @@ sealed interface TrackListState {
 }
 
 /**
- * Titelliste (Wear-Konzept 11, 14): Abspielen ([playLabel]), Zufällig, bei Listen des Handys der Knopf „Download“
- * ([onWatch], Wear-Konzept 17; Entfernen mit Rückfrage) und die Titel. Nicht abspielbare Titel sind ausgegraut; [onPlay] bekommt den Schlüssel des
- * angetippten Titels bzw. `null` für „von vorn“.
+ * Track list (Wear concept 11, 14): play ([playLabel]), shuffle, for phone lists the "Download" button
+ * ([onWatch], Wear concept 17; removal with confirmation) and the tracks. Unplayable tracks are grayed out; [onPlay] gets the key of the
+ * tapped track or `null` for "from the start".
  */
 @Composable
 fun TrackListContent(
@@ -81,7 +81,7 @@ fun TrackListContent(
     )
     ScreenScaffold(scrollState = columnState) { contentPadding ->
         if (state !is TrackListState.Ready) {
-            // Ladeanzeige und Meldung stehen in der Mitte des Bildschirms, nicht am Listenanfang.
+            // Loading indicator and message are in the center of the screen, not at the start of the list.
             Box(Modifier.fillMaxSize().padding(contentPadding), contentAlignment = Alignment.Center) {
                 when (state) {
                     is TrackListState.Message -> Text(stringResource(state.textRes), textAlign = TextAlign.Center)

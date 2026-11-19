@@ -10,9 +10,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Ob der Nutzer den Mini-Player weggewischt hat (nur pausiert möglich). Bleibt über einen Neustart der App erhalten, bis wieder
- * etwas abgespielt wird ([PlayerViewModel] ruft dann [show]). Bewusst keine Einstellung: nicht in `ThemeSettings` und damit
- * nicht in der Sicherung.
+ * Whether the user has swiped the mini player away (only possible while paused). Persists across an app restart until
+ * something is played again ([PlayerViewModel] then calls [show]). Deliberately not a setting: not in `ThemeSettings` and thus
+ * not in the backup.
  */
 @Singleton
 class MiniPlayerVisibility @Inject constructor(@ApplicationContext context: Context) {

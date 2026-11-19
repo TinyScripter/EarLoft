@@ -22,35 +22,35 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Fehler der Audiobookshelf-API; [code] ist der HTTP-Status. */
+/** Error of the Audiobookshelf API; [code] is the HTTP status. */
 class AbsException(val code: Int, message: String) : IOException(message) {
     val isAuthError: Boolean get() = code == 401 || code == 403
 }
 
 /**
- * Die Audiobookshelf-REST-Aufrufe, die die App braucht. Der API-Key steht hier in jeder Anfrage; für Streams und
- * Cover, die nicht von hier stammen, setzt ihn [AbsAuthInterceptor].
+ * The Audiobookshelf REST calls the app needs. The API key is included here in every request; for streams and
+ * covers that don't come from here, [AbsAuthInterceptor] adds it.
  */
 @Singleton
 class AbsApi @Inject constructor(
     private val client: OkHttpClient,
 ) {
-    /** Erreichbar und ein Audiobookshelf? (ohne Anmeldung) */
+    /** Reachable and an Audiobookshelf? (without login) */
     suspend fun ping(server: AbsServer) {
         val body = execute(Request.Builder().url(server.endpoint("ping").build()).build())
         if (!body.contains("\"success\"")) throw AbsException(0, "Kein Audiobookshelf-Server")
     }
 
-    /** Prüft den API-Key und liefert den Fortschritt des Kontos. */
+    /** Checks the API key and returns the account's progress. */
     suspend fun me(server: AbsServer): AbsMeResponse = decode(execute(authorized(server, server.endpoint("api/me").build())))
 
-    /** Hörzeit des Kontos wie der Server sie aus den Sitzungen zählt; unverändert als Text, damit sie zwischengespeichert werden kann. */
+    /** The account's listening time as the server counts it from the sessions; unchanged as text so it can be cached. */
     suspend fun listeningStats(server: AbsServer): String =
         execute(authorized(server, server.endpoint("api/me/listening-stats").build())).also { AbsStats.parse(it) }
 
     /**
-     * Meldet (oder aktualisiert) eine Hörsitzung; der Server übernimmt dabei auch die Position. Er antwortet mit dem
-     * Text `OK` (kein JSON): maßgeblich ist der HTTP-Status.
+     * Reports (or updates) a listening session; the server also takes over the position. It answers with the
+     * text `OK` (not JSON): the HTTP status is what matters.
      */
     suspend fun syncLocalSession(server: AbsServer, session: AbsLocalSession) {
         val body = JSON.encodeToString(AbsLocalSession.serializer(), session).toRequestBody(JSON_MEDIA_TYPE)
@@ -61,8 +61,8 @@ class AbsApi @Inject constructor(
         decode<AbsLibrariesResponse>(execute(authorized(server, server.endpoint("api/libraries").build()))).libraries
 
     /**
-     * Eine Seite der Einträge, nach `addedAt` sortiert: Die Reihenfolge ist fest, neue kommen ans Ende. Der Server rechnet
-     * den Anfang als `page * limit`; mit `limit = 1` ist `page` also genau die Stelle (geprüft an 2.37.2).
+     * One page of the entries, sorted by `addedAt`: the order is fixed, new ones are appended at the end. The server computes
+     * the start as `page * limit`; with `limit = 1`, `page` is therefore exactly the position (checked on 2.37.2).
      */
     suspend fun libraryItems(server: AbsServer, libraryId: String, page: Int, limit: Int): AbsItemsPage {
         val url = server.endpoint("api/libraries/$libraryId/items")
@@ -74,13 +74,13 @@ class AbsApi @Inject constructor(
         return decode(execute(authorized(server, url)))
     }
 
-    /** Einzelner Eintrag mit Kapiteln und Dateien. */
+    /** Single entry with chapters and files. */
     suspend fun item(server: AbsServer, itemId: String): AbsItemDto {
         val url = server.endpoint("api/items/$itemId").addQueryParameter("expanded", "1").build()
         return decode(execute(authorized(server, url)))
     }
 
-    /** `null`, wenn der Server für den Eintrag noch keinen Fortschritt kennt. */
+    /** `null` if the server doesn't know any progress for the entry yet. */
     suspend fun progress(server: AbsServer, itemId: String): AbsMediaProgressDto? =
         try {
             decode(execute(authorized(server, server.endpoint("api/me/progress/$itemId").build())))
@@ -93,24 +93,24 @@ class AbsApi @Inject constructor(
         execute(authorized(server, server.endpoint("api/me/progress/$itemId").build()) { patch(body) })
     }
 
-    /** Fortschritt auf dem Server entfernen; [progressId] ist die ID des Fortschritts-Eintrags, nicht die des Buchs. */
+    /** Remove progress on the server; [progressId] is the ID of the progress entry, not that of the book. */
     suspend fun deleteProgress(server: AbsServer, progressId: String) {
         execute(authorized(server, server.endpoint("api/me/progress/$progressId").build()) { delete() })
     }
 
-    /** Legt ein Lesezeichen an; Audiobookshelf 2.x antwortet mit dem Lesezeichen. */
+    /** Creates a bookmark; Audiobookshelf 2.x answers with the bookmark. */
     suspend fun createBookmark(server: AbsServer, itemId: String, bookmark: AbsBookmarkUpdate) {
         val body = JSON.encodeToString(AbsBookmarkUpdate.serializer(), bookmark).toRequestBody(JSON_MEDIA_TYPE)
         execute(authorized(server, server.endpoint("api/me/item/$itemId/bookmark").build()) { post(body) })
     }
 
-    /** Ändert den Titel des Lesezeichens bei [AbsBookmarkUpdate.time]; 404, wenn es dort keines gibt. */
+    /** Changes the title of the bookmark at [AbsBookmarkUpdate.time]; 404 if there is none there. */
     suspend fun updateBookmark(server: AbsServer, itemId: String, bookmark: AbsBookmarkUpdate) {
         val body = JSON.encodeToString(AbsBookmarkUpdate.serializer(), bookmark).toRequestBody(JSON_MEDIA_TYPE)
         execute(authorized(server, server.endpoint("api/me/item/$itemId/bookmark").build()) { patch(body) })
     }
 
-    /** Entfernt das Lesezeichen bei [time]; schon fehlende (404) gelten als entfernt. */
+    /** Removes the bookmark at [time]; already missing ones (404) count as removed. */
     suspend fun deleteBookmark(server: AbsServer, itemId: String, time: Double) {
         try {
             execute(authorized(server, server.endpoint("api/me/item/$itemId/bookmark/${bookmarkTime(time)}").build()) { delete() })
@@ -125,7 +125,7 @@ class AbsApi @Inject constructor(
     fun coverUrl(server: AbsServer, itemId: String, width: Int): HttpUrl =
         server.endpoint("api/items/$itemId/cover").addQueryParameter("width", width.toString()).build()
 
-    /** Cover-Bytes (Bild); `null`, wenn der Eintrag keines hat. */
+    /** Cover bytes (image); `null` if the entry has none. */
     suspend fun cover(server: AbsServer, itemId: String, width: Int): ByteArray? = withContext(Dispatchers.IO) {
         client.newCall(authorized(server, coverUrl(server, itemId, width))).await().use { response ->
             if (response.code == 404) return@use null
@@ -134,11 +134,11 @@ class AbsApi @Inject constructor(
         }
     }
 
-    /** Autoren der Bibliothek (mit Bildpfad, falls der Server ein Bild kennt). */
+    /** Authors of the library (with image path, if the server knows an image). */
     suspend fun authors(server: AbsServer, libraryId: String): List<AbsAuthorDto> =
         decode<AbsAuthorsResponse>(execute(authorized(server, server.endpoint("api/libraries/$libraryId/authors").build()))).authors
 
-    /** Autorenbild (Bytes); `null`, wenn der Autor keines hat. */
+    /** Author image (bytes); `null` if the author has none. */
     suspend fun authorImage(server: AbsServer, authorId: String, width: Int): ByteArray? = withContext(Dispatchers.IO) {
         val url = server.endpoint("api/authors/$authorId/image").addQueryParameter("width", width.toString()).build()
         client.newCall(authorized(server, url)).await().use { response ->
@@ -149,9 +149,9 @@ class AbsApi @Inject constructor(
     }
 
     /**
-     * Lädt ein Buch hoch (`POST /api/upload`): Der Server legt `<Ordner>/<Autor>/<Titel>/` mit den Dateien an und nimmt es nach
-     * dem Scannen in die Bibliothek auf. Braucht das Recht „Hochladen“. Ein vorhandener Zielordner ist [AbsUploadExists].
-     * [onProgress] bekommt die gesendeten Bytes und die Gesamtgröße.
+     * Uploads a book (`POST /api/upload`): the server creates `<folder>/<author>/<title>/` with the files and adds it to the
+     * library after scanning. Requires the "Upload" permission. An existing target folder is [AbsUploadExists].
+     * [onProgress] receives the bytes sent and the total size.
      */
     suspend fun uploadBook(server: AbsServer, upload: AbsUpload, onProgress: (sent: Long, total: Long) -> Unit = { _, _ -> }) {
         val total = upload.files.sumOf { it.file.length() }
@@ -171,14 +171,14 @@ class AbsApi @Inject constructor(
                 }
             }
             .build()
-        // Große Dateien über ein langsames Netz: weder Gesamt- noch Schreibzeit begrenzen, solange Daten fließen.
+        // Large files over a slow network: limit neither the total nor the write time as long as data is flowing.
         val patient = client.newBuilder().callTimeout(0, TimeUnit.MILLISECONDS).writeTimeout(60, TimeUnit.SECONDS).build()
         val request = authorized(server, server.endpoint("api/upload").build()) { post(body) }
         withContext(Dispatchers.IO) {
             patient.newCall(request).await().use { response ->
                 if (response.isSuccessful) return@use
                 val text = response.body.string()
-                // Der Server meldet einen vorhandenen Ordner als 500 mit Hinweis im Text.
+                // The server reports an existing folder as 500 with a hint in the text.
                 if (response.code == 500 && text.contains("exist", ignoreCase = true)) throw AbsUploadExists()
                 throw AbsException(response.code, "HTTP ${response.code}: ${text.take(200)}")
             }
@@ -213,10 +213,10 @@ class AbsApi @Inject constructor(
     }
 }
 
-/** Das Buch ist auf dem Server schon vorhanden (der Zielordner besteht). */
+/** The book already exists on the server (the target folder exists). */
 class AbsUploadExists : IOException("Das Buch gibt es auf dem Server schon")
 
-/** Ein Buch zum Hochladen: [title] und [author] bestimmen den Ordner, [files] die Dateien in dieser Reihenfolge. */
+/** A book to upload: [title] and [author] determine the folder, [files] the files in this order. */
 data class AbsUpload(
     val libraryId: String,
     val folderId: String,
@@ -226,10 +226,10 @@ data class AbsUpload(
     val files: List<AbsUploadFile>,
 )
 
-/** Eine Datei des Uploads unter dem Namen [name] auf dem Server. */
+/** One file of the upload under the name [name] on the server. */
 data class AbsUploadFile(val file: File, val name: String, val mimeType: String)
 
-/** Liest [file] und meldet jedes gesendete Stück, damit ein Upload seinen Fortschritt zeigen kann. */
+/** Reads [file] and reports every chunk sent, so an upload can show its progress. */
 private class ProgressBody(private val file: File, private val type: MediaType, private val onBytes: (Long) -> Unit) : RequestBody() {
     override fun contentType(): MediaType = type
     override fun contentLength(): Long = file.length()
@@ -250,6 +250,6 @@ private class ProgressBody(private val file: File, private val type: MediaType, 
     }
 }
 
-/** Zeit eines Lesezeichens im Pfad: ganze Sekunden ohne „.0“, sonst als Dezimalzahl (der Server vergleicht Zahlen). */
+/** Time of a bookmark in the path: whole seconds without ".0", otherwise as a decimal (the server compares numbers). */
 internal fun bookmarkTime(time: Double): String =
     if (time % 1.0 == 0.0) time.toLong().toString() else java.math.BigDecimal.valueOf(time).toPlainString()

@@ -54,8 +54,8 @@ private val BUBBLE_SIZE = 56.dp
 private const val HIDE_DELAY_MS = 1_500L
 
 /**
- * Buchstabe für die Anzeige beim Schnellscrollen: erster Buchstabe, sonst „#“ (Ziffern, Zeichen).
- * [sortText] sollte der Text sein, nach dem die Liste sortiert ist.
+ * Letter shown while fast scrolling: the first letter, otherwise "#" (digits, symbols).
+ * [sortText] should be the text the list is sorted by.
  */
 fun letterOf(sortText: String): String {
     val first = sortText.trim().firstOrNull() ?: return "#"
@@ -63,16 +63,16 @@ fun letterOf(sortText: String): String {
 }
 
 /**
- * Wie [letterOf], aber so, wie die Bücherlisten sortieren (`normalizeForMerge()`): ohne Umlaute und Akzente, Satzzeichen vorn
- * übergangen. „Ödön“ steht unter O und zeigt „O“.
+ * Like [letterOf], but the way the book lists sort (`normalizeForMerge()`): without umlauts and accents, leading punctuation
+ * skipped. "Ödön" is filed under O and shows "O".
  */
 fun foldedLetterOf(sortText: String): String =
     sortText.normalizeForMerge().firstOrNull()?.takeIf { it.isLetter() }?.uppercaseChar()?.toString() ?: "#"
 
 /**
- * Schnellscroller für eine [androidx.compose.foundation.lazy.LazyColumn]; [labelAt] liefert zum Listenindex die Marke (z. B. den
- * Buchstaben). Ohne [labelAt] (Listen nach Datum oder in eigener Reihenfolge) gibt es nur den Griff, keine Blase.
- * [onDragStart] meldet das Greifen: Das Springen per `scrollToItem` zählt nicht als Ziehen der Liste (z. B. für ein Mitlaufen).
+ * Fast scroller for an [androidx.compose.foundation.lazy.LazyColumn]; [labelAt] returns the label for a list index (e.g. the
+ * letter). Without [labelAt] (lists by date or in a custom order) there is only the thumb, no bubble.
+ * [onDragStart] reports the grab: jumping via `scrollToItem` doesn't count as dragging the list (e.g. for follow mode).
  */
 @Composable
 fun LazyListFastScroller(
@@ -81,7 +81,7 @@ fun LazyListFastScroller(
     labelAt: ((Int) -> String)? = null,
     onDragStart: () -> Unit = {},
 ) {
-    // layoutInfo ändert sich bei jedem Scroll-Frame; nur die Anzahl ist hier von Belang.
+    // layoutInfo changes on every scroll frame; only the count matters here.
     val itemCount by remember(state) { derivedStateOf { state.layoutInfo.totalItemsCount } }
     FastScroller(
         itemCount = itemCount,
@@ -95,8 +95,8 @@ fun LazyListFastScroller(
 }
 
 /**
- * Eine [LazyColumn] mit [LazyListFastScroller] darüber, für Listen, bei denen nichts anderes im selben Rahmen liegt. [modifier]
- * gilt für beide; passt sich der Rahmen dem Inhalt an (Bottom Sheet), tut das auch die Spur des Griffs.
+ * A [LazyColumn] with a [LazyListFastScroller] on top, for lists that share their frame with nothing else. [modifier]
+ * applies to both; if the frame adapts to the content (bottom sheet), so does the thumb's track.
  */
 @Composable
 fun FastScrollLazyColumn(
@@ -113,7 +113,7 @@ fun FastScrollLazyColumn(
     }
 }
 
-/** Wie [LazyListFastScroller] für ein [androidx.compose.foundation.lazy.grid.LazyVerticalGrid]. */
+/** Like [LazyListFastScroller] for an [androidx.compose.foundation.lazy.grid.LazyVerticalGrid]. */
 @Composable
 fun LazyGridFastScroller(state: LazyGridState, modifier: Modifier = Modifier, labelAt: ((Int) -> String)? = null) {
     val itemCount by remember(state) { derivedStateOf { state.layoutInfo.totalItemsCount } }
@@ -128,9 +128,9 @@ fun LazyGridFastScroller(state: LazyGridState, modifier: Modifier = Modifier, la
 }
 
 /**
- * Griff am rechten Rand, mit dem sich lange Listen schnell durchfahren lassen. Er erscheint beim Scrollen
- * und blendet sich danach aus; beim Ziehen zeigt eine Blase die Marke ([labelAt]) der ersten sichtbaren Zeile, ohne Marke keine.
- * Gedacht als Überlagerung über der Liste (gleiche Größe), fängt aber nur am rechten Rand Berührungen ab.
+ * Thumb on the right edge for quickly moving through long lists. It appears while scrolling
+ * and fades out afterwards; while dragging, a bubble shows the label ([labelAt]) of the first visible row, none without a label.
+ * Meant as an overlay above the list (same size), but only intercepts touches at the right edge.
  */
 @Composable
 private fun FastScroller(
@@ -165,7 +165,7 @@ private fun FastScroller(
         val thumbPx = with(density) { THUMB_HEIGHT.toPx() }
         val rangePx = (trackPx - thumbPx).coerceAtLeast(1f)
 
-        // Erst beim Platzieren gelesen: Scrollen verschiebt dann nur den Griff, ohne neu zusammenzusetzen.
+        // Read only during placement: scrolling then only moves the thumb without recomposing.
         val thumbTop = {
             val listFraction = if (itemCount > 1) firstVisibleIndex().coerceIn(0, itemCount - 1) / (itemCount - 1f) else 0f
             ((if (dragging) dragFraction else listFraction) * rangePx).roundToInt()
@@ -220,7 +220,7 @@ private fun FastScroller(
                 .padding(end = TOUCH_WIDTH + 8.dp),
         ) {
             val labelIndex = if (dragging) (dragFraction * (itemCount - 1)).roundToInt() else firstVisibleIndex()
-            // Ein Zeichen oder zwei: Kreis; längere Marken („#100“, Jahreszahlen) machen ihn zur Pille.
+            // One or two characters: circle; longer labels ("#100", years) turn it into a pill.
             Box(
                 modifier = Modifier
                     .height(BUBBLE_SIZE)

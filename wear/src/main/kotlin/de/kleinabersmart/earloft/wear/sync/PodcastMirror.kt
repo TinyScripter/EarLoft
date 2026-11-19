@@ -24,10 +24,10 @@ import java.util.Locale
 import javax.inject.Inject
 
 /**
- * Übernimmt das Folgen-Manifest des Handys in die Datenbank der Uhr (Wear-Konzept 16.1/16.2): Abos und Folgen mit denselben
- * Schlüsseln wie am Handy (`feedId`, guid), je Folge die Audio-Adresse als einzige Datei; Hörbücher mit `serverId` und
- * `remoteId` und ihrer Dateiliste. Der Fortschritt des Handys gilt, wenn er neuer ist. Was nicht mehr im Manifest steht,
- * verschwindet samt Fortschritt und Datei.
+ * Applies the phone's episode manifest to the watch's database (Wear concept 16.1/16.2): subscriptions and episodes with the same
+ * keys as on the phone (`feedId`, guid), for each episode the audio address as the only file; audiobooks with `serverId` and
+ * `remoteId` and their file list. The phone's progress applies if it is newer. Whatever is no longer in the manifest
+ * disappears along with its progress and file.
  */
 class PodcastMirror @Inject constructor(
     private val database: EarLoftDatabase,
@@ -37,10 +37,10 @@ class PodcastMirror @Inject constructor(
     private val episodeStorage: EpisodeStorage,
     private val bookStorage: BookStorage,
 ) {
-    /** @return die IDs der Folgen und Bücher auf der Uhr in der Reihenfolge des Handys (für die Warteschlange). */
+    /** @return the IDs of the episodes and books on the watch in the phone's order (for the queue). */
     suspend fun apply(manifest: WearPodcastManifest): List<Long> {
         val result = applyRows(manifest)
-        // Erst nach der Transaktion: Eine gerade laufende Übertragung einer entfernten Folge verwirft ihre Datei selbst.
+        // Only after the transaction: a running transfer of a removed episode discards its file itself.
         result.removedEpisodeFiles.forEach { (bookId, path) -> episodeStorage.delete(bookId, path) }
         result.removedBooks.forEach { bookStorage.delete(it) }
         return result.ids
@@ -61,7 +61,7 @@ class PodcastMirror @Inject constructor(
                     imageUrl = dto.imageUrl,
                     newestFirst = dto.newestFirst,
                     continuous = dto.continuous,
-                    // Die Uhr fragt Feeds nie selbst ab und lädt nichts von sich aus.
+                    // The watch never refreshes feeds itself and downloads nothing on its own.
                     autoDownload = false,
                     speed = dto.speed,
                     skipSilence = dto.skipSilence,
@@ -77,14 +77,14 @@ class PodcastMirror @Inject constructor(
                 BookTrackEntity(
                     bookId = bookId,
                     trackIndex = 0,
-                    // Folgen vom Gerät des Handys haben keine Adresse; die Kennung des Datei-Kanals hält den Eintrag eindeutig.
+                    // Episodes from the phone's device have no address; the file channel's identifier keeps the entry unique.
                     remoteFileId = dto.audioUrl ?: WearEpisodeFile.uid(dto.feedId, dto.guid),
                     startMs = 0,
                     durationMs = dto.durationMs,
                     mimeType = dto.mimeType,
                 ),
             )
-            // Ohne Kapitel vom Handy bleiben die, die die Uhr über den Kapitel-Link selbst geholt hat.
+            // Without chapters from the phone, the ones the watch fetched itself via the chapter link stay.
             if (dto.chapters.isNotEmpty()) applyChapters(bookId, dto.chapters)
             applyProgress(bookId, dto.feedId, dto.guid, dto.progress)
             bookId
@@ -124,14 +124,14 @@ class PodcastMirror @Inject constructor(
                     volumeBoostDb = remote.volumeBoostDb,
                 ),
             )
-            // Kommt vom Handy: nicht als Neuigkeit zurückmelden.
+            // Comes from the phone: do not report it back as news.
             reported.markProgress(serverId, remoteId, remote.updatedAt)
         }
     }
 
     /**
-     * Gleiche Dateiliste: geladene Dateien bleiben, nur was nicht mehr abrufbar ist, ändert sich. Sonst neu (alte Dateien räumt der
-     * Download-Auftrag als verwaist weg).
+     * Same file list: downloaded files stay, only what is no longer available changes. Otherwise new (the download job
+     * cleans up old files as orphaned).
      */
     private suspend fun applyTracks(bookId: Long, dto: WearBookDto) {
         val now = System.currentTimeMillis()
@@ -139,7 +139,7 @@ class PodcastMirror @Inject constructor(
             BookTrackEntity(
                 bookId = bookId,
                 trackIndex = track.index,
-                // Bücher vom Gerät des Handys haben keine Kennung bei Audiobookshelf; die des Datei-Kanals hält den Eintrag eindeutig.
+                // Books from the phone's device have no identifier at Audiobookshelf; the file channel's identifier keeps the entry unique.
                 remoteFileId = track.fileId ?: WearBookFile.uid(dto.serverId, dto.remoteId, track.index),
                 startMs = track.startMs,
                 durationMs = track.durationMs,
@@ -169,7 +169,7 @@ class PodcastMirror @Inject constructor(
         kind = BookKind.EPISODE,
         remoteId = guid,
         title = title,
-        // Die Uhr sucht nicht; ein einfacher Schlüssel genügt.
+        // The watch does not search; a simple key is enough.
         normTitle = title.lowercase(Locale.ROOT),
         author = feedTitle,
         durationMs = durationMs,
@@ -189,7 +189,7 @@ class PodcastMirror @Inject constructor(
         author = author,
         narrator = narrator,
         durationMs = durationMs,
-        // Die Dateiliste kommt mit dem Manifest; die Uhr fragt Audiobookshelf nie nach Details.
+        // The file list comes with the manifest; the watch never asks Audiobookshelf for details.
         detailsLoaded = true,
         seenInGeneration = generation,
     )

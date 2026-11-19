@@ -20,7 +20,7 @@ class AddToPlaylistViewModel @Inject constructor(
     serverRepository: ServerRepository,
 ) : ViewModel() {
 
-    /** `null`, solange noch geladen wird. */
+    /** `null` while still loading. */
     val playlists: StateFlow<List<Playlist>?> = playlistRepository.playlists()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 

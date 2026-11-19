@@ -39,9 +39,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Übernimmt den Stand des Handys in die Datenbank der Uhr (Wear-Konzept 6/7): erst die Server (auch die von Audiobookshelf,
- * 16.2), dann das Manifest, dann Folgen und Bücher (16.1/16.2). Liest immer den aktuellen Stand der DataItems – mehrfaches
- * Ausführen schadet nicht.
+ * Applies the phone's state to the watch's database (Wear concept 6/7): first the servers (including those of Audiobookshelf,
+ * 16.2), then the manifest, then episodes and books (16.1/16.2). Always reads the current state of the DataItems – running it
+ * several times does no harm.
  */
 @Singleton
 class PhoneLibrarySync @Inject constructor(
@@ -62,25 +62,25 @@ class PhoneLibrarySync @Inject constructor(
     private val mutex = Mutex()
 
     /**
-     * Ändert sich mit jedem Update der Uhr-App: Eine neue Version versteht vielleicht mehr vom selben Stand (z. B. Server
-     * einer neuen Art in `otherServers`), den die alte schon als übernommen vermerkt hatte.
+     * Changes with every update of the watch app: a new version may understand more of the same state (e.g. servers
+     * of a new type in `otherServers`) that the old one had already marked as applied.
      */
     private val appVersionStamp: Long by lazy {
         context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
     }
 
     suspend fun sync() = mutex.withLock {
-        // Zuerst die Einstellungen: Qualität und Speichergrenze bestimmen, was der Planer einreiht. Versteht diese Uhr sie
-        // nicht (neuerer Wert vom Handy), gelten die bisherigen – Server und Manifest kommen trotzdem. Geänderte Sprungweiten
-        // allein planen nicht neu: Das ersetzte den Download-Auftrag und bräche einen laufenden Download ab.
+        // Settings first: quality and storage limit determine what the planner queues. If this watch does not understand them
+        // (newer value from the phone), the previous ones apply – servers and manifest still come. Changed skip intervals
+        // alone do not replan: that would replace the download job and cancel a running download.
         val previous = state.settings.value
         val settingsChanged = dataClient.payloadsAt(WearPaths.SETTINGS).values.firstOrNull()
             ?.let { bytes -> decodeOrNull<WearSettingsDto>(bytes, "Einstellungen") }
             ?.takeIf { state.updateSettings(it) }
             ?.let { it.withoutSeek() != previous.withoutSeek() } == true
         val servers = dataClient.payloadsAt(WearPaths.SERVERS).entries.firstOrNull()
-        // Jeder Prozessstart der Uhr stößt einen Lauf an (Nachricht vom Handy, Download-Versuch, Kachel …). Ist seit der
-        // letzten Übernahme nichts Neues gekommen, bleibt es beim Nachfragen nach Passwörtern und beim Planen.
+        // Every process start of the watch triggers a run (message from the phone, download attempt, tile …). If nothing new
+        // has arrived since the last apply, it stops at asking for passwords and planning.
         val podcastsHash = dataClient.hashesAt(WearPaths.PODCASTS).values.firstOrNull()
         val manifestHash = dataClient.hashesAt(WearPaths.MANIFEST).values.firstOrNull()
         val stamp = "$appVersionStamp:${servers?.value?.let(WearCodec::hash)}:$manifestHash:$podcastsHash"
@@ -94,7 +94,7 @@ class PhoneLibrarySync @Inject constructor(
             val dto = WearCodec.decode<WearServersDto>(servers.value)
             val renewed = serverMirror.apply((dto.servers + dto.otherServers).mapNotNull { it.toMirrored() }) +
                 audiobookshelf.mirror(dto.spokenServers.map { MirroredAbsServer(it.serverId, it.name, it.baseUrl, it.credentialsStamp) })
-            // Am Handy geänderte Zugangsdaten gleich holen, nicht erst nach der Wartezeit für fehlende.
+            // Fetch credentials changed on the phone right away, not only after the waiting time for missing ones.
             credentials.request(renewed, phoneNodeId = servers.key)
             requestMissingPasswords(phoneNodeId = servers.key)
         }
@@ -102,21 +102,21 @@ class PhoneLibrarySync @Inject constructor(
         manifest?.let { manifestApplier.apply(WearCodec.decodeManifest(it)) }
         val podcasts = dataClient.assetPayloadsAt(WearPaths.PODCASTS).values.firstOrNull()
         if (podcasts != null) {
-            // Erst die Stellen melden: Was das neue Manifest nicht mehr enthält, löscht der Spiegel samt Fortschritt.
+            // Report the positions first: whatever the new manifest no longer contains is deleted by the mirror along with its progress.
             episodeReporter.report()
             episodeQueue.setOrder(podcastMirror.apply(WearCodec.decodeCompressed<WearPodcastManifest>(podcasts)))
         }
         planner.plan(replaceSchedule = settingsChanged || phoneBack)
-        // Ein DataItem, dessen Asset (noch) nicht lesbar war (Handy außer Reichweite, Übertragung läuft), gilt nicht als
-        // übernommen; sonst käme es erst mit der nächsten Änderung am Handy.
+        // A DataItem whose asset was not readable (yet) (phone out of range, transfer running) does not count as
+        // applied; otherwise it would only come with the next change on the phone.
         if ((manifestHash == null || manifest != null) && (podcastsHash == null || podcasts != null)) {
             state.appliedPhoneStamp = stamp
         }
     }
 
     /**
-     * Wartete der Download-Auftrag aufs Ladegerät, weil das Handy mehrmals fehlte, und ist es jetzt erreichbar: wieder volle
-     * Versuche, und der Auftrag läuft gleich statt erst am Ladegerät (Review V1).
+     * If the download job was waiting for the charger because the phone was missing several times, and it is reachable now: full
+     * attempts again, and the job runs right away instead of only on the charger (Review V1).
      */
     private suspend fun phoneIsBack(): Boolean {
         if (!state.waitingForPhone || phoneConnection.connectedPhoneNodeId() == null) return false
@@ -126,9 +126,9 @@ class PhoneLibrarySync @Inject constructor(
     }
 
     /**
-     * Fragt beim Handy nach Passwörtern und API-Schlüsseln, die der Uhr fehlen (neuer Server, Uhr zurückgesetzt). Die
-     * Antwort kommt als Message an den `WatchListenerService`. Hat das Handy selbst keine, käme keine Antwort, und jeder Start
-     * der Uhr weckte das Handy erneut; deshalb je Quelle höchstens alle [CredentialsRequester.MISSING_RETRY_MS].
+     * Asks the phone for passwords and API keys the watch lacks (new server, watch reset). The
+     * answer arrives as a message at the `WatchListenerService`. If the phone has none itself, no answer would come, and every start
+     * of the watch would wake the phone again; hence at most every [CredentialsRequester.MISSING_RETRY_MS] per source.
      */
     private suspend fun requestMissingPasswords(phoneNodeId: String) {
         credentials.requestMissing(serverMirror.serversWithoutPassword() + audiobookshelf.withoutKey(), phoneNodeId)
@@ -142,7 +142,7 @@ class PhoneLibrarySync @Inject constructor(
             null
         }
 
-    /** `null` für Typen, die diese Uhr-Version (noch) nicht kennt – ihre Songs lädt sie über das Handy. */
+    /** `null` for types this watch version does not know (yet) – it downloads their songs via the phone. */
     private fun WearServerDto.toMirrored(): MirroredServer? {
         val sourceType = SourceType.entries.firstOrNull { it.name == type && it.isServer }
         if (sourceType == null) {
@@ -158,9 +158,9 @@ class PhoneLibrarySync @Inject constructor(
 }
 
 /**
- * Schreibt ein Manifest in die Datenbank: Songs über den `LibrarySyncer` (je Quelle eine
- * [WearManifestSource]), Auswahlen als Geräte-Playlists (Wear-Konzept 7.2). In `wear_selections` zeigt
- * `refId` auf der Uhr auf diese Playlist; `addedAt` ist die Position im Manifest (Reihenfolge des Handys).
+ * Writes a manifest to the database: songs via the `LibrarySyncer` (one
+ * [WearManifestSource] per source), selections as device playlists (Wear concept 7.2). In `wear_selections`
+ * `refId` on the watch points to this playlist; `addedAt` is the position in the manifest (the phone's order).
  */
 class ManifestApplier @Inject constructor(
     private val database: EarLoftDatabase,
@@ -175,7 +175,7 @@ class ManifestApplier @Inject constructor(
         val servers = serverSources.mapTo(HashSet()) { it.sourceId }
         val keepPhone = wearDao.doneDownloadRemoteIds(WearManifestSource.PHONE_SOURCE_ID).toSet()
         val tracks = manifestTracks(manifest, servers, keepPhone)
-        // Auch Quellen ohne Tracks: Ihr Abgleich löscht, was aus allen Auswahlen gefallen ist.
+        // Sources without tracks too: their sync deletes whatever has dropped out of all selections.
         serverSources.forEach { librarySyncer.sync(WearManifestSource(it.sourceId, it.type, tracks[it.sourceId].orEmpty())) }
         librarySyncer.sync(
             WearManifestSource(WearManifestSource.PHONE_SOURCE_ID, SourceType.PHONE, tracks[WearManifestSource.PHONE_SOURCE_ID].orEmpty()),

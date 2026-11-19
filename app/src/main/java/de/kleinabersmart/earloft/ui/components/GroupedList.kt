@@ -19,14 +19,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
-/** Abstand einer Gruppe zum Bildschirmrand; Überschriften ([SectionHeader]) richten sich am Inhalt der Gruppe aus. */
+/** Distance of a group from the screen edge; headers ([SectionHeader]) align with the group's content. */
 val GroupMargin = 8.dp
 
 private val GroupCorner = 20.dp
 
 /**
- * Eintrag [index] von [count] einer Listengruppe: Zusammen bilden die Einträge eine Fläche mit runden Ecken oben am ersten
- * und unten am letzten. Zeilen darin (z. B. `ListItem`) liegen auf dieser Fläche, ohne eigene Farben anzugeben.
+ * Entry [index] of [count] of a list group: together the entries form one surface with rounded corners at the top of the first
+ * and the bottom of the last. Rows inside (e.g. `ListItem`) sit on this surface without specifying their own colors.
  */
 @Composable
 fun GroupedItem(index: Int, count: Int, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
@@ -43,7 +43,7 @@ fun GroupedItem(index: Int, count: Int, modifier: Modifier = Modifier, content: 
     }
 }
 
-/** Feste (nicht scrollende) Gruppe: alle Zeilen aus [content] auf einer Fläche wie bei [GroupedItem]. */
+/** Fixed (non-scrolling) group: all rows from [content] on one surface as with [GroupedItem]. */
 @Composable
 fun ListGroup(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
@@ -58,8 +58,8 @@ fun ListGroup(modifier: Modifier = Modifier, content: @Composable ColumnScope.()
 }
 
 /**
- * Zeilen färben ihren Hintergrund mit `surface` (`ListItem` u. a.); auf der Gruppe gilt dafür die Gruppenfläche. So müssen
- * die vielen Zeilen-Bausteine keine Farben mitbekommen.
+ * Rows paint their background with `surface` (`ListItem` etc.); within the group the group surface is used for that. That way
+ * the many row building blocks don't need colors passed in.
  */
 @Composable
 private fun OnGroupSurface(content: @Composable () -> Unit) {
@@ -68,14 +68,14 @@ private fun OnGroupSurface(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = onGroup, content = content)
 }
 
-/** Wie `items`, aber alle Einträge bilden zusammen eine Gruppe ([GroupedItem]). */
+/** Like `items`, but all entries together form one group ([GroupedItem]). */
 inline fun <T> LazyListScope.groupedItems(
     items: List<T>,
     noinline key: ((T) -> Any)? = null,
     crossinline itemContent: @Composable LazyItemScope.(T) -> Unit,
 ) = groupedItemsIndexed(items, key = key?.let { k -> { _: Int, item: T -> k(item) } }) { _, item -> itemContent(item) }
 
-/** Wie `itemsIndexed`, aber alle Einträge bilden zusammen eine Gruppe ([GroupedItem]). */
+/** Like `itemsIndexed`, but all entries together form one group ([GroupedItem]). */
 inline fun <T> LazyListScope.groupedItemsIndexed(
     items: List<T>,
     noinline key: ((index: Int, T) -> Any)? = null,
@@ -85,7 +85,7 @@ inline fun <T> LazyListScope.groupedItemsIndexed(
     GroupedItem(index, items.size) { scope.itemContent(index, item) }
 }
 
-/** Sammelt die Zeilen eines Abschnitts, siehe [group]. */
+/** Collects the rows of a section, see [group]. */
 class ListGroupScope @PublishedApi internal constructor() {
     @PublishedApi
     internal val rows = mutableListOf<Pair<Any, @Composable () -> Unit>>()
@@ -96,15 +96,15 @@ class ListGroupScope @PublishedApi internal constructor() {
 }
 
 /**
- * Abschnitt einer Liste: Überschrift [title] (Schlüssel [key]), darunter die Zeilen aus [build] als eine Gruppe. Bedingte
- * Zeilen (`if`, Schleifen) sind erlaubt; ohne Zeilen entfällt auch die Überschrift.
+ * Section of a list: header [title] (key [key]), below it the rows from [build] as one group. Conditional
+ * rows (`if`, loops) are allowed; without rows the header is omitted too.
  */
 fun LazyListScope.group(key: Any, @StringRes title: Int? = null, build: ListGroupScope.() -> Unit) {
     val text: (@Composable () -> String)? = title?.let { id -> { stringResource(id) } }
     group(key, text, build)
 }
 
-/** Wie [group], mit einer Überschrift, die erst beim Zeichnen entsteht (etwa mit einer Anzahl). */
+/** Like [group], with a header that is only created while drawing (e.g. with a count). */
 fun LazyListScope.group(key: Any, title: (@Composable () -> String)?, build: ListGroupScope.() -> Unit) {
     val rows = ListGroupScope().apply(build).rows
     if (rows.isEmpty()) return

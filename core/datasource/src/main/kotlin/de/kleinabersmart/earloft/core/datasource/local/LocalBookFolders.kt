@@ -14,10 +14,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Freigabe des Ordners „Audiobooks“ über das Storage Access Framework (`books_improvements.md` M7). Mit der Audio-Berechtigung
- * sieht die App nur Audiodateien; Cover, `desc.txt`, `reader.txt` und `metadata.opf` daneben liest sie erst mit dieser
- * Freigabe. Sie ist freiwillig: Ohne sie zählen Tags und Ordnernamen. Gilt nur für Ordner des Speichers des Geräts
- * (`ExternalStorageProvider`), deren Kennung sich aus dem Pfad ergibt, den MediaStore nennt.
+ * Access grant for the "Audiobooks" folder via the Storage Access Framework (`books_improvements.md` M7). With the audio permission
+ * the app only sees audio files; it can read the cover, `desc.txt`, `reader.txt` and `metadata.opf` next to them only with this
+ * grant. It is optional: without it, tags and folder names count. Only applies to folders on the device's storage
+ * (`ExternalStorageProvider`), whose ID follows from the path MediaStore reports.
  */
 @Singleton
 class LocalBookFolders @Inject constructor(
@@ -25,15 +25,15 @@ class LocalBookFolders @Inject constructor(
 ) {
     private val resolver get() = context.contentResolver
 
-    /** Hier beginnt die Ordnerauswahl: „Audiobooks“ im internen Speicher. */
+    /** The folder picker starts here: "Audiobooks" in internal storage. */
     val initialUri: Uri get() = DocumentsContract.buildDocumentUri(AUTHORITY, "$PRIMARY:${LocalBookLayout.ROOT}")
 
-    /** Es gibt eine Freigabe. */
+    /** There is a grant. */
     fun isShared(): Boolean = trees().isNotEmpty()
 
     /**
-     * Übernimmt die gewählte Freigabe, wenn sie der Ordner „Audiobooks“ ist oder ihn enthält (Wurzel eines Speichers).
-     * Sonst `false`, und die App behält nichts.
+     * Takes over the chosen grant if it is the "Audiobooks" folder or contains it (root of a storage volume).
+     * Otherwise `false`, and the app keeps nothing.
      */
     fun share(tree: Uri): Boolean {
         if (tree.authority != AUTHORITY || !DocumentsContract.isTreeUri(tree)) return false
@@ -48,7 +48,7 @@ class LocalBookFolders @Inject constructor(
         }
     }
 
-    /** Gibt alle Freigaben zurück. */
+    /** Releases all grants. */
     fun unshare() {
         trees().forEach { resolver.releasePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
     }
@@ -58,8 +58,8 @@ class LocalBookFolders @Inject constructor(
         .map { it.uri }
 
     /**
-     * Die Dateien des Ordners mit dem Pfad [folderPath] (wie MediaStore ihn nennt); leer, wenn keine Freigabe [trees] ihn umfasst.
-     * `null`, wenn er sich gerade nicht lesen lässt: Das ist nicht dasselbe wie „keine Begleitdateien“.
+     * The files of the folder with the path [folderPath] (as MediaStore reports it); empty if no grant in [trees] covers it.
+     * `null` if it can't be read right now: that is not the same as "no companion files".
      */
     internal fun list(folderPath: String, trees: List<Uri>): List<SideFile>? {
         val documentId = documentId(folderPath) ?: return emptyList()
@@ -85,13 +85,13 @@ class LocalBookFolders @Inject constructor(
                 }
             }
         } catch (e: RuntimeException) {
-            // Freigabe zurückgenommen, Ordner verschwunden (SecurityException, IllegalArgumentException, …).
+            // Grant revoked, folder gone (SecurityException, IllegalArgumentException, …).
             Log.w(TAG, "Ordner $folderPath nicht lesbar", e)
             null
         }
     }
 
-    /** Inhalt einer Datei aus [list], höchstens [maxBytes] groß; `null`, wenn sie größer oder nicht lesbar ist. */
+    /** Content of a file from [list], at most [maxBytes] in size; `null` if it is larger or not readable. */
     fun read(uri: String, maxBytes: Long): ByteArray? = try {
         resolver.openInputStream(Uri.parse(uri))?.use { stream ->
             val bytes = stream.readNBytesCompat(maxBytes + 1)
@@ -105,7 +105,7 @@ class LocalBookFolders @Inject constructor(
         null
     }
 
-    /** `readNBytes` gibt es erst ab Android 13. */
+    /** `readNBytes` only exists from Android 13 on. */
     private fun InputStream.readNBytesCompat(limit: Long): ByteArray {
         val out = ByteArrayOutputStream()
         val buffer = ByteArray(8192)
@@ -125,7 +125,7 @@ class LocalBookFolders @Inject constructor(
         private val VOLUME = Regex("""^/storage/([^/]+)/(.*)$""")
         private val SDCARD = Regex("""^/sdcard/(.*)$""")
 
-        /** Kennung des Ordners [path] bei `ExternalStorageProvider` („primary:Audiobooks/A“); `null` für andere Orte. */
+        /** ID of the folder [path] at `ExternalStorageProvider` ("primary:Audiobooks/A"); `null` for other locations. */
         fun documentId(path: String): String? {
             val clean = path.trimEnd('/')
             EMULATED.matchEntire(clean)?.let { return "$PRIMARY:${it.groupValues[1]}" }
@@ -134,7 +134,7 @@ class LocalBookFolders @Inject constructor(
             return null
         }
 
-        /** Die Freigabe mit der Kennung [treeId] umfasst den Ordner [documentId]. */
+        /** The grant with the ID [treeId] covers the folder [documentId]. */
         fun covers(treeId: String, documentId: String): Boolean {
             val treeVolume = treeId.substringBefore(':')
             val treePath = treeId.substringAfter(':', "")

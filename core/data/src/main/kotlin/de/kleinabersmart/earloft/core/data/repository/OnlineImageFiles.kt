@@ -8,16 +8,16 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Art der Bilder aus dem Internet; jede hat ein eigenes Verzeichnis. */
+/** Kind of images from the internet; each has its own directory. */
 enum class OnlineImageKind(internal val directory: String) {
     ARTIST("artist-images"),
     ALBUM("online-covers"),
 }
 
 /**
- * Bilder aus dem Internet als Dateien: ein Treffer wird einmal geladen und danach offline gezeigt.
- * Eine Suche ohne Treffer merkt sich eine `.none`-Datei und wird erst nach [RETRY_AFTER_MS] wiederholt,
- * damit nicht bei jedem Scrollen erneut angefragt wird.
+ * Images from the internet as files: a hit is downloaded once and then shown offline.
+ * A search without a hit records a `.none` file and is only repeated after [RETRY_AFTER_MS],
+ * so it isn't requested again on every scroll.
  */
 @Singleton
 class OnlineImageFiles @Inject constructor(
@@ -48,7 +48,7 @@ class OnlineImageFiles @Inject constructor(
         return marker.isFile && now - marker.lastModified() < RETRY_AFTER_MS
     }
 
-    /** Entfernt alle Bilder und Negativ-Einträge einer Art, z. B. nach dem Ausschalten der Option. */
+    /** Removes all images and negative entries of a kind, e.g. after switching the option off. */
     fun clear(kind: OnlineImageKind) {
         File(root, kind.directory).deleteRecursively()
     }

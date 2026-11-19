@@ -33,7 +33,7 @@ import org.robolectric.annotation.Config
 import javax.inject.Inject
 import de.kleinabersmart.earloft.core.data.podcast.PodcastTranscripts
 
-/** Position im ganzen Buch über mehrere Dateien (Review A3). */
+/** Position within the whole book across several files (review A3). */
 @HiltAndroidTest
 @Config(application = HiltTestApplication::class)
 @RunWith(RobolectricTestRunner::class)
@@ -54,7 +54,7 @@ class BookPlayerViewModelTest {
     @Inject lateinit var effects: SpokenEffectsRepository
     @Inject lateinit var transcripts: PodcastTranscripts
 
-    // Hilt erlaubt kein Injizieren von @HiltViewModel; die Abhängigkeiten kommen aber alle aus dem echten Graphen.
+    // Hilt doesn't allow injecting a @HiltViewModel; but all dependencies come from the real graph.
     private val viewModel by lazy { BookPlayerViewModel(playback, books, covers, continueListening, launcher, effects, transcripts) }
 
     private var bookId = 0L
@@ -62,7 +62,7 @@ class BookPlayerViewModelTest {
     @Before
     fun setUp() = runTest {
         hilt.inject()
-        // Ein Buch vom Gerät aus zwei Dateien zu je einer Stunde mit drei Kapiteln; ohne Server, also ohne Netz.
+        // A book on the device made of two one-hour files with three chapters; no server, so no network.
         bookId = dao.upsertBook(
             BookEntity(
                 serverId = LOCAL_BOOK_SERVER_ID,
@@ -90,7 +90,7 @@ class BookPlayerViewModelTest {
         )
     }
 
-    /** Spielt die zweite Datei an [offsetMs] und wartet, bis das ViewModel die Zeitachse geladen hat. */
+    /** Plays the second file at [offsetMs] and waits until the ViewModel has loaded the timeline. */
     private suspend fun TestScope.playSecondFileAt(offsetMs: Long) {
         playback.state.value = PlayerState(spoken = SpokenEntry(bookId, trackIndex = 1, title = "Buch", author = "Autor"), isPlaying = true)
         playback.currentPositionMs = offsetMs
@@ -121,7 +121,7 @@ class BookPlayerViewModelTest {
 
     @Test
     fun `next chapter jumps across the file boundary`() = runTest {
-        // 65 min im Buch = Kapitel „Zwei“; das nächste beginnt bei 80 min, also 20 min in der zweiten Datei.
+        // 65 min into the book = chapter "Zwei"; the next one starts at 80 min, i.e. 20 min into the second file.
         playSecondFileAt(5 * MINUTE_MS)
 
         viewModel.nextChapter()
@@ -131,7 +131,7 @@ class BookPlayerViewModelTest {
 
     @Test
     fun `previous chapter twice goes back although the player still reports the old position`() = runTest {
-        // 65 min = 15 min in „Zwei“: erst an dessen Anfang (50 min), dann – der Player meldet beim Casten noch 65 min – zu „Eins“.
+        // 65 min = 15 min into "Zwei": first to its start (50 min), then – the player still reports 65 min while casting – to "Eins".
         playSecondFileAt(5 * MINUTE_MS)
 
         viewModel.previousChapter()
@@ -144,7 +144,7 @@ class BookPlayerViewModelTest {
     fun `once the player has caught up its position counts again`() = runTest {
         playSecondFileAt(5 * MINUTE_MS)
         viewModel.previousChapter()
-        // Der Sprung ist angekommen und es lief 10 s weiter: wieder an den Anfang von „Zwei“.
+        // The seek has arrived and it played on for 10 s: back to the start of "Zwei" again.
         playback.state.value = playback.state.value.copy(spoken = playback.state.value.spoken?.copy(trackIndex = 0))
         playback.currentPositionMs = 50 * MINUTE_MS + 10_000
 

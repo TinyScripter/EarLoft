@@ -45,9 +45,9 @@ class EpisodeDateTest {
             episode(1, "news", berlinMillis(12, 7)),
             episode(2, "news", berlinMillis(12, 17)),
             episode(3, "news", berlinMillis(11, 17)),
-            // Anderer Podcast am selben Tag: kein Grund für die Uhrzeit.
+            // Different podcast on the same day: no reason for the time of day.
             episode(4, "talk", berlinMillis(12, 9)),
-            // Kurz nach Mitternacht ist schon der nächste Tag.
+            // Shortly after midnight it is already the next day.
             episode(5, "talk", berlinMillis(13, 0)),
         )
         assertEquals(setOf(1L, 2L), episodesSharingDay(books, berlin))

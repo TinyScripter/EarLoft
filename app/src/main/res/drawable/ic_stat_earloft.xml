@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Statusleisten-Symbol (Benachrichtigungen): das Emblem aus ic_launcher_monochrome, auf 24 dp mit 1 dp Rand. -->
+<!-- Status bar icon (notifications): the emblem from ic_launcher_monochrome, at 24 dp with a 1 dp margin. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"

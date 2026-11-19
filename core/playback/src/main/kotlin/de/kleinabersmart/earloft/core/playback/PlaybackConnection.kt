@@ -7,7 +7,7 @@ import de.kleinabersmart.earloft.core.model.Song
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
-/** Wiederholen reihum: aus → alle → Titel → aus (`Player.REPEAT_MODE_*`). */
+/** Cycle repeat: off → all → one → off (`Player.REPEAT_MODE_*`). */
 fun nextRepeatMode(mode: Int): Int = when (mode) {
     Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
     Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
@@ -23,26 +23,26 @@ data class QueueEntry(
 )
 
 /**
- * Die gespeicherte Musik-Warteschlange, während ein Buch bzw. eine Folge geladen ist: [entries] wie beim Fortsetzen geladen
- * (Songs, die es nicht mehr gibt, fehlen), [index] der Titel, bei dem die Musik weiterginge.
+ * The saved music queue while a book or episode is loaded: [entries] as loaded on resume
+ * (songs that no longer exist are missing), [index] the title at which the music would continue.
  */
 data class SavedMusicQueue(val entries: List<QueueEntry>, val index: Int)
 
-/** Das laufende Hörbuch (Konzept 12); die Position im Buch rechnet die UI über die Zeitachse aus. */
+/** The current audiobook (concept 12); the UI computes the position in the book via the timeline. */
 data class SpokenEntry(
     val bookId: Long,
     val trackIndex: Int,
     val title: String,
     val author: String,
-    /** Sprungweiten der Spulen-Knöpfe, aus den Einstellungen des Bereichs (Bücher bzw. Podcasts). */
+    /** Skip distances of the seek buttons, from the area's settings (books or podcasts). */
     val seek: SeekSteps = SeekSteps.DEFAULT,
-    /** Eine Podcast-Folge statt eines Buchs. */
+    /** A podcast episode instead of a book. */
     val isEpisode: Boolean = false,
 )
 
 data class PlayerState(
     val current: QueueEntry? = null,
-    /** Statt [current], wenn ein Hörbuch läuft. */
+    /** Instead of [current] while an audiobook is playing. */
     val spoken: SpokenEntry? = null,
     val speed: Float = 1f,
     val isPlaying: Boolean = false,
@@ -51,11 +51,11 @@ data class PlayerState(
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     val queue: List<QueueEntry> = emptyList(),
     val currentIndex: Int = -1,
-    /** Wiedergabe angehalten, weil die Ausgabe nicht passt (Uhr ohne Kopfhörer, Wear-Konzept 9). */
+    /** Playback paused because the output isn't suitable (watch without headphones, Wear concept 9). */
     val outputSuppressed: Boolean = false,
-    /** Wiedergabe auf einem anderen Gerät (Chromecast). */
+    /** Playback on another device (Chromecast). */
     val isRemote: Boolean = false,
-    /** Lautstärke des Cast-Geräts in Stufen von 0 bis [maxDeviceVolume]; nur bei [isRemote] aussagekräftig. */
+    /** Volume of the cast device in steps from 0 to [maxDeviceVolume]; only meaningful if [isRemote]. */
     val deviceVolume: Int = 0,
     val maxDeviceVolume: Int = 0,
 ) {
@@ -63,51 +63,51 @@ data class PlayerState(
 }
 
 /**
- * Verbindung der App-UI zur Wiedergabe. Alle Methoden müssen auf dem Main-Thread aufgerufen werden (Vorgabe von
- * `MediaController`). Umgesetzt von [MediaPlaybackConnection]; als Schnittstelle, damit ViewModels mit einem Fake
- * testbar sind (Review A3).
+ * Connection of the app UI to playback. All methods must be called on the main thread (requirement of
+ * `MediaController`). Implemented by [MediaPlaybackConnection]; an interface so that ViewModels are testable
+ * with a fake (review A3).
  */
 interface PlaybackConnection {
 
     val state: StateFlow<PlayerState>
 
-    /** Meldet Sprünge der Position (Spulen, Titelwechsel), die der [state] nicht abbildet. */
+    /** Reports position jumps (seeking, title changes) that [state] doesn't reflect. */
     val positionJumps: Flow<Unit>
 
-    /** Aktuelle Position (0 ohne Verbindung); für die Fortschrittsanzeige periodisch abfragen, solange [state] beobachtet wird. */
+    /** Current position (0 without a connection); poll periodically for the progress display while [state] is observed. */
     val currentPositionMs: Long
 
-    /** Restzeit des Sleep-Timers in Millisekunden, jede Sekunde neu; `null`, solange keiner läuft. */
+    /** Remaining time of the sleep timer in milliseconds, updated every second; `null` while none is running. */
     val sleepTimerRemainingMs: Flow<Long?>
 
-    /** Der Sleep-Timer läuft bis zum Ende des Kapitels bzw. der Folge statt eine feste Dauer. */
+    /** The sleep timer runs until the end of the chapter or episode instead of a fixed duration. */
     val sleepTimerToEnd: Flow<Boolean>
 
     fun play(songs: List<Song>, startIndex: Int = 0, shuffle: Boolean = false)
 
     /**
-     * Sprachsuche („Spiele … mit EarLoft“): ein Item ohne Media-ID mit [query] als Suchbegriff; die Session sucht die
-     * Songs aus (`LibrarySessionCallback.voiceSongs`, leerer Begriff = gemischte Favoriten), wie bei Android Auto.
+     * Voice search ("Play … on EarLoft"): an item without a media ID with [query] as search term; the session picks the
+     * songs (`LibrarySessionCallback.voiceSongs`, empty term = shuffled favorites), as with Android Auto.
      */
     fun playFromSearch(query: String)
 
     /**
-     * Startet ein Hörbuch an der gespeicherten Stelle (oder bei [startPositionMs], z. B. einem Kapitel), nachdem der
-     * Fortschritt mit dem Server abgeglichen ist.
-     * `null`, wenn das Buch nicht zu laden ist (kein Netz und noch nie geladen).
+     * Starts an audiobook at the saved position (or at [startPositionMs], e.g. a chapter) after the
+     * progress has been synced with the server.
+     * `null` if the book can't be loaded (no network and never downloaded).
      */
     suspend fun playBook(bookId: Long, startPositionMs: Long? = null): PreparedBook?
 
     /**
-     * Setzt die gespeicherte Musik-Warteschlange an ihrer Stelle fort und löst damit ein geladenes Buch bzw. eine Folge ab
-     * (Widget nur für Musik, Zeile „Warteschlange“ auf dem Musik-Start); ohne gespeicherte Warteschlange nichts. Mit [index]
-     * (Stelle in [SavedMusicQueue.entries]) beginnt sie bei diesem Titel von vorn, außer es ist der gespeicherte.
+     * Resumes the saved music queue at its position, thereby replacing a loaded book or episode
+     * (music-only widget, "Queue" row on the music home); without a saved queue nothing. With [index]
+     * (position in [SavedMusicQueue.entries]) it starts at that title from the beginning, unless it is the saved one.
      */
     fun resumeMusic(index: Int? = null)
 
     /**
-     * Die gespeicherte Musik-Warteschlange, solange kein Song geladen ist (ein Buch bzw. eine Folge oder gar nichts, etwa nach
-     * dem Ende eines Buchs beim Casten); mit Song (und ohne gespeicherte) `null`.
+     * The saved music queue while no song is loaded (a book or episode or nothing at all, e.g. after
+     * a book ended while casting); with a song (and without a saved queue) `null`.
      */
     val savedMusicQueue: Flow<SavedMusicQueue?>
 
@@ -115,22 +115,22 @@ interface PlaybackConnection {
 
     fun skipForward()
 
-    /** Springt in Datei [trackIndex] an die Stelle [positionMs] (Position in der Datei). */
+    /** Seeks in file [trackIndex] to [positionMs] (position within the file). */
     fun seekToTrack(trackIndex: Int, positionMs: Long)
 
     /**
-     * Spielt [songs] nach dem laufenden Titel. Hält der Player ein Buch bzw. eine Folge, gehen sie stattdessen hinter den
-     * gespeicherten Titel der Musik-Warteschlange (siehe [queuedForMusic]); das Gesprochene läuft unverändert weiter.
+     * Plays [songs] after the current title. If the player holds a book or episode, they go behind the
+     * saved title of the music queue instead (see [queuedForMusic]); the spoken content keeps playing unchanged.
      */
     fun playNext(songs: List<Song>)
 
-    /** Hängt [songs] an die Warteschlange; bei einem Buch bzw. einer Folge an die gespeicherte Musik-Warteschlange (wie [playNext]). */
+    /** Appends [songs] to the queue; with a book or episode to the saved music queue (like [playNext]). */
     fun addToQueue(songs: List<Song>)
 
-    /** Anzahl Songs, die [playNext] bzw. [addToQueue] in die gespeicherte Musik-Warteschlange gelegt haben, weil Gesprochenes lief. */
+    /** Number of songs that [playNext] or [addToQueue] put into the saved music queue because spoken content was playing. */
     val queuedForMusic: Flow<Int>
 
-    /** Der laufende Titel spielt weiter, alles nach ihm weicht [songs] (Mix aus Now Playing); ohne Warteschlange wie [play]. */
+    /** The current title keeps playing, everything after it gives way to [songs] (mix from now playing); without a queue like [play]. */
     fun replaceUpcoming(songs: List<Song>)
 
     fun togglePlayPause()
@@ -149,19 +149,19 @@ interface PlaybackConnection {
 
     fun moveQueueItem(from: Int, to: Int)
 
-    /** „Warteschlange leeren“: Alles außer dem laufenden Titel verlässt die Warteschlange; die Wiedergabe läuft weiter. */
+    /** "Clear queue": everything except the current title leaves the queue; playback continues. */
     fun clearQueue()
 
     fun toggleShuffle()
 
     fun cycleRepeatMode()
 
-    /** Ändert die Lautstärke des Cast-Geräts um eine Stufe; ohne Cast nichts. */
+    /** Changes the cast device's volume by one step; nothing without cast. */
     fun changeRemoteVolume(up: Boolean)
 
     fun startSleepTimer(minutes: Int)
 
-    /** Sleep-Timer bis zum Ende des Kapitels (Bücher mit Kapiteln) bzw. der Folge oder des Buchs. */
+    /** Sleep timer until the end of the chapter (books with chapters), the episode or the book. */
     fun startSleepTimerToEnd()
 
     fun cancelSleepTimer()

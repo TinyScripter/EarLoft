@@ -14,9 +14,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Position für Fortschrittsanzeigen. Regelmäßig abgefragt wird nur, solange [isPlaying] und der Aufrufer mindestens
- * STARTED ist – Compose hält Effekte bei gestoppter Activity nicht an, und der Mini-Player ist fast immer da. Pausiert
- * einmal, bei jedem Sprung ([jumps], z. B. Spulen von außen) und wenn sich [keys] ändern (anderer Titel, Zeitachse geladen).
+ * Position for progress indicators. Polled regularly only while [isPlaying] and the caller is at least
+ * STARTED – Compose doesn't pause effects when the activity is stopped, and the mini player is almost always there. When paused,
+ * once, on every seek ([jumps], e.g. seeking from outside) and when [keys] change (different title, timeline loaded).
  */
 @Composable
 fun rememberPlaybackPosition(

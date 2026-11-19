@@ -13,29 +13,29 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Alles, was der Player zum Starten eines Buchs braucht. */
+/** Everything the player needs to start a book. */
 data class PreparedBook(
     val book: Book,
     val timeline: BookTimeline,
-    /** Medien-URL je Datei, in der Reihenfolge von [BookTimeline.tracks]; ohne Zugangsdaten (Konzept 12.1). */
+    /** Media URL per file, in the order of [BookTimeline.tracks]; without credentials (concept 12.1). */
     val trackUrls: List<String>,
-    /** Wo die Wiedergabe beginnt, nachdem der Stand des Servers abgeglichen ist. */
+    /** Where playback starts after the server's state has been reconciled. */
     val startPositionMs: Long,
-    /** Der Server hatte einen neueren Stand, der spürbar von dem auf diesem Gerät abweicht. */
+    /** The server had a newer state that differs noticeably from the one on this device. */
     val resumedFromServer: Boolean,
     val speed: Float,
     /**
-     * Adresse je Datei für einen Cast-Empfänger: die des Servers bzw. des Feeds, auch wenn die Datei geladen ist.
-     * Ohne Zugangsdaten; bei Audiobookshelf ergänzt der Cast-Teil den Schlüssel ([absServerId]). Bücher und Folgen vom Gerät
-     * haben nur ihre Datei (`content://`); die liefert das Handy selbst aus (Chromecast Etappe 2).
+     * Address per file for a cast receiver: that of the server or feed, even if the file is downloaded.
+     * Without credentials; for Audiobookshelf the cast part adds the key ([absServerId]). Books and episodes from the device
+     * only have their file (`content://`); the phone serves it itself (Chromecast stage 2).
      */
     val castUrls: List<String> = emptyList(),
-    /** Der Audiobookshelf-Server der Adressen; `null` bei Podcast-Folgen (öffentliche Adressen). */
+    /** The Audiobookshelf server of the addresses; `null` for podcast episodes (public addresses). */
     val absServerId: String? = null,
     val castCoverUrl: String? = null,
     /**
-     * Nur bei [BookPlaybackSource.restore]: seit wann pausiert ist (`book_progress.updatedAt`). Die Regel zum Fortsetzen
-     * greift dann erst beim Drücken von Play; `null` = schon angewendet bzw. kein Stand.
+     * Only with [BookPlaybackSource.restore]: since when playback has been paused (`book_progress.updatedAt`). The resume rule
+     * then only applies when Play is pressed; `null` = already applied or no state.
      */
     val pausedSinceMs: Long? = null,
 )
@@ -53,22 +53,22 @@ class BookPlaybackSource @Inject constructor(
     private val effects: SpokenEffectsRepository,
 ) {
     /**
-     * Zum Abspielen: gleicht den Fortschritt mit dem Server ab (ohne Verbindung gilt der lokale Stand), wendet die Regel
-     * zum Fortsetzen an und stellt das Buch nach vorn in „Weiterhören“.
-     * `null`, wenn das Buch oder seine Dateien nicht zu bekommen sind.
+     * For playback: reconciles progress with the server (without a connection the local state applies), applies the resume
+     * rule and moves the book to the front of "Continue listening".
+     * `null` if the book or its files can't be obtained.
      */
     suspend fun prepare(bookId: Long): PreparedBook? = build(bookId, forPlayback = true)
 
     /**
-     * Zum pausierten Wiederherstellen beim Start des Service: wie [prepare], aber ohne Zurückspulen und ohne zu
-     * schreiben. Sonst rückte jeder Start, auf den kein Abspielen folgt, die gespeicherte Position ein Stück zurück und
-     * setzte die Pause neu an. Die Regel zum Fortsetzen greift beim ersten Play ([PreparedBook.pausedSinceMs]).
+     * For restoring paused when the service starts: like [prepare], but without rewinding and without
+     * writing. Otherwise every start not followed by playback would move the stored position back a bit and
+     * restart the pause. The resume rule applies on the first Play ([PreparedBook.pausedSinceMs]).
      */
     suspend fun restore(bookId: Long): PreparedBook? = build(bookId, forPlayback = false)
 
     /**
-     * Wie [restore], aber nur aus der Datenbank, ohne Server und Feed: für Items, die Media3 synchron braucht (eine
-     * Folge kommt nach einem Neustart der App vom Cast-Empfänger zurück und hat keine Adresse auf dem Handy).
+     * Like [restore], but only from the database, without server and feed: for items that Media3 needs synchronously (an
+     * episode comes back from the cast receiver after an app restart and has no address on the phone).
      */
     suspend fun rebuild(bookId: Long): PreparedBook? = build(bookId, forPlayback = false, offline = true)
 
@@ -76,15 +76,15 @@ class BookPlaybackSource @Inject constructor(
         val book = repository.bookNow(bookId) ?: return null
         val pulled = if (offline) progressSync.local(bookId) else progressSync.pull(bookId)
         val episode = book.kind == BookKind.EPISODE
-        // Kapitel einer Folge kommen aus einer eigenen Liste; fehlt sie oder ist sie offline nicht erreichbar, geht es ohne.
+        // An episode's chapters come from a separate list; if it's missing or unreachable offline, we do without.
         if (episode && !offline) podcasts.ensureChapters(bookId)
-        // Offline (Wiederherstellen, Cast-Wechsel auf dem Main-Thread): nie den Server fragen, auch wenn die Details veraltet sind.
+        // Offline (restore, cast switch on the main thread): never ask the server, even if the details are outdated.
         val timeline = repository.timeline(bookId, fetch = !offline) ?: return null
-        // Ohne Streams (Uhr, Wear-Konzept 16.1) nur, wenn jede Datei auf dem Gerät liegt; nicht mehr abrufbare überspringt der Player.
+        // Without streams (watch, Wear concept 16.1) only if every file is on the device; the player skips ones no longer available.
         if (!policy.allowStreaming && timeline.tracks.any { track -> !track.unavailable && track.localPath?.let(::File)?.isFile != true }) return null
-        // Eine geladene Datei geht vor dem Stream (Folgen und Bücher, auch gemischt, wenn nur ein Teil geladen ist).
-        // Folgen, Bücher vom Gerät und aus ARD Sounds haben keinen Audiobookshelf-Server; ihre Dateikennung ist die Adresse selbst.
-        // Ohne Streams liegt alles als Datei vor: Der Server wird dann nicht gebraucht (Uhr ohne Schlüssel, 16.2).
+        // A downloaded file takes precedence over the stream (episodes and books, also mixed if only part is downloaded).
+        // Episodes and books from the device and from ARD Sounds have no Audiobookshelf server; their file identifier is the address itself.
+        // Without streams everything is available as a file: the server is then not needed (watch without key, 16.2).
         val server = if (episode || book.isLocal || book.isArdSounds) {
             null
         } else {
@@ -92,18 +92,18 @@ class BookPlaybackSource @Inject constructor(
         }
         val urls = timeline.tracks.map { track ->
             track.localPath?.let(::File)?.takeIf { it.isFile }?.let { Uri.fromFile(it).toString() }
-                // Bei Folgen ist die Dateikennung die Audio-Adresse aus dem Feed.
+                // For episodes the file identifier is the audio address from the feed.
                 ?: if (server == null) track.remoteFileId else api.fileUrl(server, book.remoteId, track.remoteFileId).toString()
         }
-        // Dateien vom Gerät liefert das Handy beim Casten selbst aus (Konzept 7.5).
+        // The phone serves files from the device itself when casting (concept 7.5).
         val castUrls = if (book.isLocal) urls else timeline.tracks.map { track ->
             if (server == null) track.remoteFileId else api.fileUrl(server, book.remoteId, track.remoteFileId).toString()
         }
         val progress = pulled.progress
         val playing = effects.effectsNow(bookId)
-        // Intro überspringen (je Abo): nur bei einer Folge, die bei 0 beginnt – nicht nach dem Zurückspulen an den Anfang.
+        // Skip intro (per subscription): only for an episode starting at 0 – not after rewinding to the beginning.
         val fresh = (progress?.takeUnless { it.finished }?.positionMs ?: 0L) == 0L
-        // Ohne Dauer im Feed (0) ist das Ende unbekannt; dann gibt es nichts, wogegen der Sprung zu prüfen wäre.
+        // Without a duration in the feed (0) the end is unknown; then there's nothing to check the jump against.
         val introMs = playing.skipIntroMs.takeIf {
             episode && fresh && it > 0 && (timeline.durationMs <= 0 || it < timeline.durationMs - playing.skipOutroMs)
         }
@@ -118,11 +118,11 @@ class BookPlaybackSource @Inject constructor(
                 restartChapter = !episode && settings.restartChapter.first(),
             )
         } else {
-            // Wie resumePosition ohne Regel: Ein beendetes Stück beginnt von vorn.
+            // Like resumePosition without a rule: a finished item starts from the beginning.
             progress?.takeUnless { it.finished }?.positionMs ?: 0L
         }
         val speed = playing.speed
-        // Nach dem Abgleich: Das Buch steht ab jetzt ganz vorn in „Weiterhören“ (Folgen haben ihre eigene Zeile).
+        // After the reconcile: from now on the book is at the very front of "Continue listening" (episodes have their own row).
         if (forPlayback && !episode) {
             repository.touchProgress(bookId, startPositionMs, timeline.durationMs)
             queue.moveToFront(bookId)

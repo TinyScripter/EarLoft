@@ -62,7 +62,7 @@ class WatchSpokenTest {
             .build()
         val client = OkHttpClient()
         val api = AbsApi(client)
-        // Ohne Schlüssel ist kein Server eingetragen: Abrufe und Meldungen scheitern sofort, ohne Netz.
+        // Without a key no server is registered: fetches and reports fail immediately, without network.
         val secrets = object : SecretStore {
             override suspend fun get(key: String): String? = null
             override suspend fun put(key: String, value: String) = Unit
@@ -97,7 +97,7 @@ class WatchSpokenTest {
         spoken.setSelected(third, selected = true)
         Thread.sleep(5)
         spoken.setSelected(first, selected = true)
-        // Erneutes Wählen behält den ersten Zeitpunkt.
+        // Selecting again keeps the first timestamp.
         spoken.setSelected(third, selected = true)
 
         val content = spoken.load()
@@ -254,7 +254,7 @@ class WatchSpokenTest {
         return id
     }
 
-    /** Ein Buch mit geladenen Details: [files] Dateien zu je einer Stunde. */
+    /** A book with loaded details: [files] files of one hour each. */
     private suspend fun book(remoteId: String, files: Int = 1, serverId: String = "abs"): Long {
         val id = db.bookDao().insertBook(
             BookEntity(

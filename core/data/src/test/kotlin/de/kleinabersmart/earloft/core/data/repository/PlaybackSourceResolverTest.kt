@@ -42,7 +42,7 @@ class PlaybackSourceResolverTest {
     private lateinit var db: EarLoftDatabase
     private lateinit var resolver: PlaybackSourceResolver
     private val policy = PlaybackPolicy()
-    /** Was [MobileStreaming] gerade verlangt; `null`: Original (WLAN bzw. Einstellung „Original“). */
+    /** What [MobileStreaming] currently demands; `null`: original (Wi-Fi or setting "Original"). */
     private var transcodeTo: Pair<String, Int>? = null
     private var albumId = 0L
 
@@ -133,7 +133,7 @@ class PlaybackSourceResolverTest {
     @Test
     fun `replay gain comes from the chosen source`() = runTest {
         val serverValues = ReplayGain(trackGainDb = -6.5f, albumPeak = 0.9f)
-        // Die lokale Datei gewinnt; ihre Werte kennt die Datenbank (noch) nicht.
+        // The local file wins; the database doesn't know its values (yet).
         val local = song("nd" to "1", "local" to "9", replayGain = mapOf("nd" to serverValues))
         assertNull(resolver.candidates(local).firstOrNull()?.replayGain)
 
@@ -153,7 +153,7 @@ class PlaybackSourceResolverTest {
         )
         assertEquals(listOf(null, "opus" to 128, null), candidates.map { it.transcodedTo })
 
-        // In WLAN (bzw. mit „Original“) bleibt es beim Original.
+        // On Wi-Fi (or with "Original") it stays with the original.
         transcodeTo = null
         assertEquals(listOf(null, null), resolver.candidates(songId).map { it.transcodedTo })
     }
@@ -163,11 +163,11 @@ class PlaybackSourceResolverTest {
         transcodeTo = "opus" to 128
         val small = song("nd" to "1", bitRate = mapOf("nd" to 135_000))
         assertEquals(listOf(Sources.stream("nd", "1")), resolver.candidates(small).map { it.location })
-        // Ab dem 1,25-Fachen lohnt es sich.
+        // From 1.25 times on, it's worth it.
         val mp3 = song("nd" to "3", bitRate = mapOf("nd" to 192_000))
         assertEquals("opus" to 128, resolver.candidates(mp3).first().transcodedTo)
 
-        // Ohne bekannte Bitrate wird umgewandelt.
+        // Without a known bitrate it's transcoded.
         val unknown = song("nd" to "2")
         assertEquals("opus" to 128, resolver.candidates(unknown).first().transcodedTo)
     }
@@ -210,7 +210,7 @@ class PlaybackSourceResolverTest {
             override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? = null
         }
 
-        /** Der Server kann umwandeln, die Geräte-Quelle nicht. */
+        /** The server can transcode, the device source can't. */
         private class Server(sourceId: String) : Source(sourceId, SourceType.SUBSONIC), RemoteTranscoding {
             override fun transcodedPlayback(remoteId: String, codec: String, maxKbps: Int) = transcoded(sourceId, remoteId, codec, maxKbps)
         }

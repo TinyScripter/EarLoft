@@ -38,7 +38,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.File
 
-/** Laden zum Abspielen gegenüber pausiertem Wiederherstellen beim Start des Service (Review K1). */
+/** Loading for playback versus paused restore when the service starts (review K1). */
 @RunWith(RobolectricTestRunner::class)
 class BookPlaybackSourceTest {
 
@@ -54,10 +54,10 @@ class BookPlaybackSourceTest {
         try {
             WorkManager.initialize(context, Configuration.Builder().build())
         } catch (e: IllegalStateException) {
-            // schon initialisiert
+            // already initialized
         }
         db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
-        // Ein Buch vom Gerät: kein Server, also kein Netz im Test.
+        // A book from the device: no server, so no network in the test.
         val client = OkHttpClient()
         val api = AbsApi(client)
         val secrets = object : SecretStore {
@@ -127,7 +127,7 @@ class BookPlaybackSourceTest {
     fun `abspielen wendet die Regel an und haelt den Start fest`() = runTest {
         val prepared = source.prepare(bookId)!!
 
-        // Standard: nach mehr als 5 min Pause 10 s zurück.
+        // Default: after more than 5 min pause, 10 s back.
         assertEquals(590_000L, prepared.startPositionMs)
         assertNull(prepared.pausedSinceMs)
         val stored = db.bookDao().progress(bookId)!!

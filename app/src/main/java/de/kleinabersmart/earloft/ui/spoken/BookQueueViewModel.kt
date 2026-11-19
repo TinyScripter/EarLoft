@@ -25,7 +25,7 @@ class BookQueueViewModel @Inject constructor(
     spokenSettings: SpokenSettings,
 ) : ViewModel() {
 
-    /** Vorgabe der Bücher für die Restzeit von Büchern ohne eigenes Tempo. */
+    /** Books default for the remaining time of books without their own speed. */
     val bookSpeed: StateFlow<Float> = spokenSettings.bookEffects.map { it.speed }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1f)
 
@@ -33,16 +33,16 @@ class BookQueueViewModel @Inject constructor(
         .asLoadState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
-    /** Das gerade geladene Buch. */
+    /** The currently loaded book. */
     val currentBookId: StateFlow<Long?> = playback.state.map { it.spoken?.bookId }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Anzahl der Bücher und ihre Restzeit zusammen, jedes bei seinem Tempo (Kopf der Warteschlange); `null` = leer. */
+    /** Number of books and their combined remaining time, each at its own speed (queue header); `null` = empty. */
     val summary: StateFlow<QueueSummary?> = combine(queue.books, spokenSettings.bookEffects) { books, area ->
         if (books.isEmpty()) null else QueueSummary(books.size, books.sumOf { it.remainingPlayMs(area.speed) ?: 0L })
     }.orOnError(null).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** „Warteschlange leeren“; das geladene Buch bleibt. */
+    /** "Clear queue"; the loaded book stays. */
     fun clear() {
         viewModelScope.launch { queue.clear(keepId = currentBookId.value) }
     }

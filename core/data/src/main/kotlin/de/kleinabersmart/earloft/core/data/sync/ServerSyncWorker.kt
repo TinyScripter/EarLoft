@@ -20,8 +20,8 @@ import de.kleinabersmart.earloft.core.data.work.ensurePeriodicWork
 import java.util.concurrent.TimeUnit
 
 /**
- * Regelmäßiger Vollabgleich aller Server (täglich, wöchentlich oder monatlich, [LibrarySettings.syncIntervalDays]) (Mark-and-Sweep findet gelöschte Songs nur so).
- * Läuft nur im WLAN (ungetaktet) und beim Laden, weil große Bibliotheken viele Seiten abfragen.
+ * Periodic full sync of all servers (daily, weekly or monthly, [LibrarySettings.syncIntervalDays]) (mark-and-sweep only finds deleted songs this way).
+ * Runs only on Wi-Fi (unmetered) and while charging, because large libraries query many pages.
  */
 class ServerSyncWorker(
     context: Context,
@@ -30,10 +30,10 @@ class ServerSyncWorker(
 
     override suspend fun doWork(): Result {
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, SyncEntryPoint::class.java)
-        // Ausgeblendete Musik (Allgemein → Bereiche): kein Abgleich mit den Servern.
+        // Hidden music (General → Sections): no sync with the servers.
         if (SpokenMode.MUSIC !in entryPoint.spokenSettings().areas.first()) return Result.success()
         val servers = entryPoint.registry().servers()
-        // Neu heißt wie beim Aktualisieren von Hand: nach dem Start angelegt, beim ersten Einlesen eines Servers nichts.
+        // New means, as with a manual refresh: created after the start; nothing on the first read of a server.
         val baseline = entryPoint.newSongs().begin(servers.map { it.sourceId })
         val allSucceeded = servers
             .map { entryPoint.syncer().syncSafely(it) }
@@ -57,7 +57,7 @@ class ServerSyncWorker(
         private const val WORK_NAME = "server-sync"
         private const val MAX_ATTEMPTS = 3
 
-        /** [days] = [LibrarySettings.SYNC_NEVER] beendet die Planung. */
+        /** [days] = [LibrarySettings.SYNC_NEVER] ends the scheduling. */
         suspend fun schedule(context: Context, days: Int) {
             if (days <= LibrarySettings.SYNC_NEVER) {
                 WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)

@@ -24,28 +24,28 @@ import kotlinx.coroutines.withTimeoutOrNull
 private const val TAG = "WearDataLayer"
 
 /**
- * Meldet sofort einmal und dann bei jeder Änderung von [capability]. Den aktuellen Stand liefert
- * [reachableNodes] – der Listener allein reicht nicht, weil er z. B. nach einem Neustart der
- * Play-Dienste nichts meldet.
+ * Emits once immediately and then on every change of [capability]. The current state comes from
+ * [reachableNodes] – the listener alone isn't enough because, e.g. after a restart of
+ * Play services, it reports nothing.
  */
 fun CapabilityClient.capabilityChanges(capability: String): Flow<Unit> = callbackFlow {
     val listener = CapabilityClient.OnCapabilityChangedListener { info ->
         Log.d(TAG, "Capability ${info.name} geändert: ${info.nodes.map { it.displayName }}")
         trySend(Unit)
     }
-    // `await()` liefert hier `Void` (= null); deshalb ausdrücklich Unit für „registriert“.
+    // `await()` returns `Void` (= null) here; hence explicitly Unit for "registered".
     val registered = runCatchingApi("Capability $capability beobachten") { addListener(listener, capability).await(); Unit } != null
     send(Unit)
     awaitClose { if (registered) removeListener(listener, capability) }
 }
 
 /**
- * Erreichbare Geräte mit [capability]. Ohne Data Layer (z. B. Handy ohne Wear-OS-App, keine
- * Play-Dienste) leer, statt zu werfen.
+ * Reachable devices with [capability]. Without a Data Layer (e.g. phone without the Wear OS app, no
+ * Play services) empty instead of throwing.
  */
 suspend fun CapabilityClient.reachableNodes(capability: String): Set<Node> = nodesWith(capability, CapabilityClient.FILTER_REACHABLE)
 
-/** Alle gekoppelten Geräte mit [capability], auch wenn sie gerade nicht verbunden sind. */
+/** All paired devices with [capability], even if they aren't currently connected. */
 suspend fun CapabilityClient.pairedNodes(capability: String): Set<Node> = nodesWith(capability, CapabilityClient.FILTER_ALL)
 
 private suspend fun CapabilityClient.nodesWith(capability: String, filter: Int): Set<Node> =
@@ -54,8 +54,8 @@ private suspend fun CapabilityClient.nodesWith(capability: String, filter: Int):
     }.orEmpty()
 
 /**
- * Schreibt [payload] (siehe [WearCodec]) als DataItem unter [path]. Gleicher Inhalt löst bei der
- * Gegenstelle kein Ereignis aus. @return `false`, wenn der Data Layer nicht verfügbar ist.
+ * Writes [payload] (see [WearCodec]) as a DataItem under [path]. Identical content triggers no event on the
+ * other side. @return `false` if the Data Layer is not available.
  */
 suspend fun DataClient.putPayload(path: String, payload: ByteArray, urgent: Boolean = true): Boolean {
     val request = PutDataMapRequest.create(path).apply {
@@ -67,8 +67,8 @@ suspend fun DataClient.putPayload(path: String, payload: ByteArray, urgent: Bool
 }
 
 /**
- * Wie [putPayload], aber als Asset (für Nutzlasten über der 100-KB-Grenze eines DataItems) und mit
- * [hash] des Inhalts, damit der Absender Unverändertes nicht neu schreibt (siehe [hashesAt]).
+ * Like [putPayload], but as an asset (for payloads above a DataItem's 100 KB limit) and with
+ * [hash] of the content, so the sender doesn't rewrite unchanged content (see [hashesAt]).
  */
 suspend fun DataClient.putAssetPayload(path: String, payload: ByteArray, hash: String): Boolean {
     val request = PutDataMapRequest.create(path).apply {
@@ -79,7 +79,7 @@ suspend fun DataClient.putAssetPayload(path: String, payload: ByteArray, hash: S
     return runCatchingApi("$path schreiben") { putDataItem(request).await() } != null
 }
 
-/** [WearDataKeys.HASH] der DataItems unter [path]: `nodeId → hash`. */
+/** [WearDataKeys.HASH] of the DataItems under [path]: `nodeId → hash`. */
 suspend fun DataClient.hashesAt(path: String): Map<String, String> =
     runCatchingApi("$path lesen") {
         val buffer = getDataItems(allNodesUri(path)).await()
@@ -95,8 +95,8 @@ suspend fun DataClient.hashesAt(path: String): Map<String, String> =
     }.orEmpty()
 
 /**
- * Asset-Nutzlasten (siehe [putAssetPayload]) unter [path]: `nodeId → payload`. Nutzlasten eines
- * anderen [WearProtocol.VERSION] werden übergangen.
+ * Asset payloads (see [putAssetPayload]) under [path]: `nodeId → payload`. Payloads of a
+ * different [WearProtocol.VERSION] are skipped.
  */
 suspend fun DataClient.assetPayloadsAt(path: String): Map<String, ByteArray> {
     val assets = runCatchingApi("$path lesen") {
@@ -126,25 +126,25 @@ suspend fun DataClient.assetPayloadsAt(path: String): Map<String, ByteArray> {
     }.toMap()
 }
 
-/** Nutzlast und Protokollversion eines DataItems; `null`, wenn es keine Nutzlast hat. Nur im Ereignis-Callback aufrufen. */
+/** Payload and protocol version of a DataItem; `null` if it has no payload. Only call in the event callback. */
 fun DataItem.payloadOrNull(): ByteArray? {
     val dataMap = DataMapItem.fromDataItem(this).dataMap
     return dataMap.getByteArray(WearDataKeys.PAYLOAD)
         ?.takeIf { dataMap.getInt(WearDataKeys.PROTOCOL) == WearProtocol.VERSION }
 }
 
-/** Löscht das DataItem unter [uri] (z. B. ein importiertes Wiedergabe-Paket). @return `false` bei Fehler. */
+/** Deletes the DataItem under [uri] (e.g. an imported playback package). @return `false` on error. */
 suspend fun DataClient.delete(uri: Uri): Boolean =
     runCatchingApi("$uri löschen") { deleteDataItems(uri).await() } != null
 
-/** Schickt eine Message; nur zugestellt, wenn [nodeId] gerade erreichbar ist. @return `false` bei Fehler. */
+/** Sends a message; only delivered if [nodeId] is currently reachable. @return `false` on error. */
 suspend fun MessageClient.sendPayload(nodeId: String, path: String, payload: ByteArray): Boolean =
     runCatchingApi("Message $path an $nodeId senden") { sendMessage(nodeId, path, payload).await() } != null
 
 /**
- * Schickt [payload] an [nodeId] und wartet höchstens [timeoutMs] auf die erste Message unter [responsePath], deren Inhalt
- * [accept] annimmt (zur Zuordnung der Antwort). Der Listener steht vor dem Senden, die Antwort kann also nicht verloren gehen.
- * @return die Antwort; `null` bei Fehler oder Zeitüberschreitung.
+ * Sends [payload] to [nodeId] and waits at most [timeoutMs] for the first message under [responsePath] whose content
+ * [accept] accepts (to match the response). The listener is set up before sending, so the response can't get lost.
+ * @return the response; `null` on error or timeout.
  */
 suspend fun MessageClient.sendAndAwait(
     nodeId: String,
@@ -167,7 +167,7 @@ suspend fun MessageClient.sendAndAwait(
     }
 }
 
-/** Nutzlasten der DataItems unter [path] von allen Geräten (auch dem eigenen): `nodeId → payload`. */
+/** Payloads of the DataItems under [path] from all devices (including our own): `nodeId → payload`. */
 suspend fun DataClient.payloadsAt(path: String): Map<String, ByteArray> =
     runCatchingApi("$path lesen") {
         val buffer = getDataItems(allNodesUri(path)).await()
@@ -182,9 +182,9 @@ suspend fun DataClient.payloadsAt(path: String): Map<String, ByteArray> =
         }
     }.orEmpty()
 
-/** Meldet sofort einmal und dann bei jeder Änderung eines DataItems unter [path]. */
+/** Emits once immediately and then on every change of a DataItem under [path]. */
 fun DataClient.changesAt(path: String): Flow<Unit> = callbackFlow {
-    // Ereignisse nur innerhalb des Callbacks lesen; der Puffer wird danach freigegeben.
+    // Only read events within the callback; the buffer is released afterwards.
     val listener = DataClient.OnDataChangedListener { events ->
         if (events.any { it.dataItem.uri.path == path }) trySend(Unit)
     }
@@ -196,17 +196,17 @@ fun DataClient.changesAt(path: String): Flow<Unit> = callbackFlow {
 private fun allNodesUri(path: String): Uri =
     Uri.Builder().scheme(PutDataRequest.WEAR_URI_SCHEME).authority("*").path(path).build()
 
-/** Alle derzeit verbundenen Geräte (unabhängig davon, ob dort unsere App läuft). */
+/** All currently connected devices (regardless of whether our app runs there). */
 suspend fun NodeClient.connectedNodesOrEmpty(): List<Node> =
     runCatchingApi("Verbundene Geräte abfragen") { connectedNodes.await() }.orEmpty()
 
-/** Löscht das eigene DataItem unter [path] (DataItems gehören dem Gerät, das sie geschrieben hat). @return `false` bei Fehler. */
+/** Deletes our own DataItem under [path] (DataItems belong to the device that wrote them). @return `false` on error. */
 suspend fun DataClient.deleteOwn(nodeClient: NodeClient, path: String): Boolean {
     val localId = runCatchingApi("Eigenes Gerät abfragen") { nodeClient.localNode.await().id } ?: return false
     return delete(Uri.Builder().scheme(PutDataRequest.WEAR_URI_SCHEME).authority(localId).path(path).build())
 }
 
-/** Data-Layer-Fehler (`ApiException`, z. B. API nicht verfügbar) werden geloggt und als `null` gemeldet. */
+/** Data Layer errors (`ApiException`, e.g. API not available) are logged and reported as `null`. */
 internal suspend fun <T> runCatchingApi(what: String, block: suspend () -> T): T? = try {
     block()
 } catch (e: CancellationException) {

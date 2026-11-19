@@ -5,8 +5,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * Antwort von `GET /api/me/listening-stats`. Zeiten in Sekunden. [days] ist nach `YYYY-MM-DD` geschlüsselt, [dayOfWeek]
- * nach englischem Wochentagsnamen, [items] nach der ID des Eintrags.
+ * Response of `GET /api/me/listening-stats`. Times in seconds. [days] is keyed by `YYYY-MM-DD`, [dayOfWeek]
+ * by English weekday name, [items] by the entry's ID.
  */
 @Serializable
 data class AbsListeningStats(
@@ -31,7 +31,7 @@ data class AbsStatMetadata(
     val authorName: String? = null,
 )
 
-/** Wandelt die Antwort in [AbsListeningStats]; unbekannte Felder werden ignoriert. */
+/** Converts the response into [AbsListeningStats]; unknown fields are ignored. */
 object AbsStats {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -48,9 +48,9 @@ object AbsStats {
 }
 
 /**
- * Eine Hörsitzung, wie Clients sie `POST /api/session/local` melden, wenn sie ohne Server-Sitzung abspielen. Zeiten in
- * Sekunden, [startedAt] und [updatedAt] in Unix-ms; wiederholte Meldungen mit derselben [id] ersetzen die Summen.
- * (Ohne Standardwerte, damit alle Felder gesendet werden.)
+ * A listening session as clients report it via `POST /api/session/local` when they play without a server session. Times in
+ * seconds, [startedAt] and [updatedAt] in Unix ms; repeated reports with the same [id] replace the totals.
+ * (Without default values, so that all fields are sent.)
  */
 @Serializable
 data class AbsLocalSession(
@@ -61,7 +61,7 @@ data class AbsLocalSession(
     val displayTitle: String,
     val displayAuthor: String,
     val duration: Double,
-    /** 3 = lokal (ohne Server-Stream). */
+    /** 3 = local (without a server stream). */
     val playMethod: Int,
     val mediaPlayer: String,
     val deviceInfo: AbsDeviceInfo,

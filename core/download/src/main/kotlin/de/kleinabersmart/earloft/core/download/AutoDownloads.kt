@@ -22,11 +22,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Hält die automatischen Downloads aktuell:
- * - **Favoriten** (Songs, Alben, auf Wunsch Künstler): beim Start und bei jeder Änderung der Favoriten oder der Einstellungen.
- * - **Ganze Server:** beim Start, bei Änderung der Einstellung und nach jedem Abgleich (neue Songs).
- * - **Neueste und meistgehörte Alben:** beim Start, bei Änderung der Einstellungen, nach jedem Abgleich (auch die Songs eines
- *   neuen Albums, die erst nach seinem ersten Auftauchen ankamen) und sobald sich die Auswahl der Alben ändert.
+ * Keeps the automatic downloads up to date:
+ * - **Favorites** (songs, albums, optionally artists): at startup and on every change of the favorites or the settings.
+ * - **Whole servers:** at startup, when the setting changes and after every sync (new songs).
+ * - **Newest and most played albums:** at startup, when the settings change, after every sync (including the songs of a
+ *   new album that only arrived after it first appeared) and as soon as the selection of albums changes.
  */
 @Singleton
 class AutoDownloads @Inject constructor(
@@ -40,7 +40,7 @@ class AutoDownloads @Inject constructor(
     fun start(scope: CoroutineScope) {
         if (!started.compareAndSet(false, true)) return
         scope.launch {
-            // Room meldet jede Änderung an `songs` (jeder Abgleichsschritt); abgleichen nur, wenn sich die gewollten Songs ändern.
+            // Room reports every change to `songs` (every sync step); only reconcile when the wanted songs change.
             combine(settings.autoDownloadFavorites, settings.autoDownloadFavoriteArtists) { enabled, artists -> enabled to artists }
                 .flatMapLatest { (enabled, artists) ->
                     repository.favoriteSongIds(artists).distinctUntilChanged().map { enabled to artists }

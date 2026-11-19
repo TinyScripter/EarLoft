@@ -6,15 +6,15 @@ import de.kleinabersmart.earloft.core.database.dao.SourceDao
 import javax.inject.Inject
 
 /**
- * Zählt die Songs, die ein Abgleich neu angelegt hat: [begin] vor dem Abgleich, [newSongs] danach. Songs bekommen eine
- * fortlaufende `songId`, die nie wiederverwendet wird; neu ist also, was eine größere Id hat als der höchste Song vorher.
- * Neu getaggte Dateien behalten ihre Id und gelten nicht als neu.
+ * Counts the songs a sync newly created: [begin] before the sync, [newSongs] afterwards. Songs get a
+ * sequential `songId` that's never reused; so new is whatever has a larger id than the highest song before.
+ * Retagged files keep their id and don't count as new.
  */
 class NewSongsCounter @Inject constructor(
     private val libraryDao: LibraryDao,
     private val sourceDao: SourceDao,
 ) {
-    /** [firstImport]: Eine der Quellen wird zum ersten Mal eingelesen, dann ist alles „neu“ und wird nicht gezählt. */
+    /** [firstImport]: one of the sources is read for the first time; then everything is "new" and isn't counted. */
     data class Baseline(val maxSongId: Long, val firstImport: Boolean)
 
     suspend fun begin(sourceIds: List<String>): Baseline = Baseline(
@@ -25,7 +25,7 @@ class NewSongsCounter @Inject constructor(
     suspend fun newSongs(baseline: Baseline): Int =
         if (baseline.firstImport) 0 else libraryDao.countVisibleSongsAfter(baseline.maxSongId)
 
-    /** Die Alben der neuen Songs ([NewAlbum.songs] zählt nur die neuen), die mit den meisten neuen zuerst. */
+    /** The albums of the new songs ([NewAlbum.songs] counts only the new ones), those with the most new ones first. */
     suspend fun newAlbums(baseline: Baseline): List<NewAlbum> =
         if (baseline.firstImport) {
             emptyList()

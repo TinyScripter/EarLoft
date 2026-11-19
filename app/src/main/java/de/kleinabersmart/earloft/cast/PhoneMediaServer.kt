@@ -32,17 +32,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Chromecast Etappe 2 (Konzept 7.5): Songs, Bücher und Folgen, die nur auf dem Handy liegen (oder deren Server der Empfänger
- * nicht erreicht), lädt der Empfänger per HTTP vom Handy.
+ * Chromecast stage 2 (concept 7.5): songs, books and episodes that exist only on the phone (or whose server the receiver
+ * can't reach) are loaded by the receiver from the phone via HTTP.
  *
- * - Der Server ([HttpFileServer]) startet erst, wenn in einer Sitzung eine Adresse gebraucht wird, und endet mit der Sitzung
- *   ([stop]). Jede Sitzung bekommt ein neues Geheimnis im Pfad ([newSession]); abrufbar ist nur, was in dieser Sitzung
- *   veröffentlicht wurde ([fileUrl], Cover über Album bzw. Buch). Die Adressen sind deshalb wie Zugangsdaten zu behandeln.
- * - Adresse ist die IPv4-Adresse des Handys im WLAN (bzw. Ethernet); ohne sie gibt es keine Adressen, und die Titel fallen
- *   beim Casten weg wie bisher. Im Debug-Build ersetzt `phone_address` (Host:Port) in den SharedPreferences `cast_debug` die
- *   angekündigte Adresse: Im Emulator erreicht der Empfänger das Handy nur über eine Weiterleitung auf dem Rechner.
- * - Solange der Server läuft und abgerufen wird, halten ein Partial-Wake-Lock und ein WLAN-Lock Prozessor und WLAN wach
- *   (wie ExoPlayer beim Streamen); sie laufen [LOCK_TIMEOUT_MS] nach dem letzten Abruf von selbst ab.
+ * - The server ([HttpFileServer]) only starts once an address is needed in a session, and stops with the session
+ *   ([stop]). Each session gets a new secret in the path ([newSession]); only what was published in this session
+ *   can be fetched ([fileUrl], covers via album or book). The addresses must therefore be treated like credentials.
+ * - The address is the phone's IPv4 address on Wi-Fi (or Ethernet); without it there are no addresses, and the titles are
+ *   dropped when casting as before. In the debug build, `phone_address` (host:port) in the SharedPreferences `cast_debug` replaces
+ *   the announced address: in the emulator the receiver can only reach the phone through port forwarding on the host.
+ * - While the server is running and being accessed, a partial wake lock and a Wi-Fi lock keep CPU and Wi-Fi awake
+ *   (like ExoPlayer when streaming); they expire by themselves [LOCK_TIMEOUT_MS] after the last request.
  */
 @Singleton
 internal class PhoneMediaServer @Inject constructor(
@@ -68,14 +68,14 @@ internal class PhoneMediaServer @Inject constructor(
             .apply { setReferenceCounted(false) }
     }
 
-    @Suppress("DEPRECATION") // WIFI_MODE_FULL_HIGH_PERF: wie ExoPlayers WifiLockManager.
+    @Suppress("DEPRECATION") // WIFI_MODE_FULL_HIGH_PERF: like ExoPlayer's WifiLockManager.
     private val wifiLock by lazy {
         context.applicationContext.getSystemService(WifiManager::class.java)
             .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "EarLoft:cast-server")
             .apply { setReferenceCounted(false) }
     }
 
-    /** Zu Beginn jeder Cast-Sitzung: neues Geheimnis; nichts von vorher bleibt abrufbar. */
+    /** At the start of every cast session: new secret; nothing from before remains accessible. */
     fun newSession() {
         stop()
         token = newToken()
@@ -84,7 +84,7 @@ internal class PhoneMediaServer @Inject constructor(
         covers.clear()
     }
 
-    /** Am Ende der Sitzung. */
+    /** At the end of the session. */
     fun stop() {
         server.stop()
         releaseLocks()
@@ -102,7 +102,7 @@ internal class PhoneMediaServer @Inject constructor(
 
     override fun bookCoverUrl(bookId: Long): String? = baseUrl()?.let { "$it/c/book/$bookId" }
 
-    /** `http://host:port/<Geheimnis>`; startet den Server bei Bedarf. */
+    /** `http://host:port/<secret>`; starts the server if needed. */
     private fun baseUrl(): String? {
         val override = debugAddress()
         val host = override?.substringBeforeLast(':') ?: lanAddress() ?: return null
@@ -117,7 +117,7 @@ internal class PhoneMediaServer @Inject constructor(
         return "http://$host:$advertisedPort/$token"
     }
 
-    /** Die IPv4-Adresse im WLAN bzw. Ethernet; über Mobilfunk erreicht der Empfänger das Handy nicht. */
+    /** The IPv4 address on Wi-Fi or Ethernet; the receiver can't reach the phone over mobile data. */
     private fun lanAddress(): String? {
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
         val network = connectivity.activeNetwork ?: return null
@@ -136,7 +136,7 @@ internal class PhoneMediaServer @Inject constructor(
         return context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE).getString(DEBUG_ADDRESS, null)?.takeIf { ':' in it }
     }
 
-    /** Auf einem Thread des Servers. */
+    /** On a server thread. */
     private fun resolve(path: String): HttpFileServer.Resource? {
         val parts = path.trim('/').split('/')
         if (parts.size < 3 || parts[0] != token) return null
@@ -193,7 +193,7 @@ internal class PhoneMediaServer @Inject constructor(
         return ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.JPEG, 90, it) }.toByteArray()
     }
 
-    /** Verlängert die Locks bei jedem Abruf; ohne Abruf laufen sie ab. */
+    /** Extends the locks on every request; without requests they expire. */
     @SuppressLint("WakelockTimeout")
     private fun keepAwake() {
         wakeLock.acquire(LOCK_TIMEOUT_MS)

@@ -24,17 +24,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Was ein Server vor der Anmeldung über sich verrät (`GET /status`). Die Beschriftung des Knopfs (`authOpenIDButtonText`)
- * bleibt außen vor: Sie ist für die Weboberfläche gedacht und folgt nicht der Sprache der App.
+ * What a server reveals about itself before login (`GET /status`). The button label (`authOpenIDButtonText`)
+ * is left out: it's meant for the web UI and doesn't follow the app's language.
  */
 data class AbsLoginOptions(val openId: Boolean)
 
-/** Ergebnis einer Anmeldung oder Erneuerung. [refreshToken] `null`: Server vor 2.26, [accessToken] läuft nicht ab. */
+/** Result of a login or refresh. [refreshToken] `null`: server before 2.26, [accessToken] doesn't expire. */
 data class AbsTokens(val accessToken: String, val refreshToken: String?)
 
 /**
- * Eine begonnene Anmeldung per OpenID (Konzept 12.11): Der Nutzer meldet sich unter [authorizationUrl] beim Identity-Provider
- * an, der leitet auf [redirectUri] zurück. PKCE-Verifier und Cookies der Sitzung bleiben nur im Speicher.
+ * A started OpenID login (concept 12.11): the user signs in to the identity provider at [authorizationUrl],
+ * which redirects back to [redirectUri]. The PKCE verifier and the session cookies are kept in memory only.
  */
 class AbsOpenIdLogin internal constructor(
     val baseUrl: HttpUrl,
@@ -45,12 +45,12 @@ class AbsOpenIdLogin internal constructor(
     internal val cookies: CookieJar,
 )
 
-/** Anmeldung bei Audiobookshelf per OpenID und Erneuerung der Tokens (Konzept 12.11); die übrigen Aufrufe in [AbsApi]. */
+/** Audiobookshelf login via OpenID and token refresh (concept 12.11); the other calls are in [AbsApi]. */
 @Singleton
 class AbsAuthApi @Inject constructor(
     private val client: OkHttpClient,
 ) {
-    /** Ohne Anmeldung; wirft [AbsException] bzw. [java.io.IOException], wenn kein Audiobookshelf antwortet. */
+    /** Without login; throws [AbsException] or [java.io.IOException] if no Audiobookshelf answers. */
     suspend fun loginOptions(baseUrl: HttpUrl): AbsLoginOptions = withContext(Dispatchers.IO) {
         val url = baseUrl.newBuilder().addPathSegment("status").build()
         val status = client.newCall(Request.Builder().url(url).build()).await().use { decode<AbsStatusDto>(it.textOrThrow()) }
@@ -59,8 +59,8 @@ class AbsAuthApi @Inject constructor(
     }
 
     /**
-     * Fragt den Server ohne Browser nach der Adresse des Identity-Providers (Schritt 2 in 12.11). Der Server merkt sich
-     * [redirectUri] zum `state`; er lässt nur Adressen aus „Allowed Mobile Redirect URIs“ zu, sonst [AbsException] mit 400.
+     * Asks the server, without a browser, for the identity provider's URL (step 2 in 12.11). The server remembers
+     * [redirectUri] for the `state`; it only allows URLs from "Allowed Mobile Redirect URIs", otherwise [AbsException] with 400.
      */
     suspend fun beginOpenId(baseUrl: HttpUrl, redirectUri: String): AbsOpenIdLogin = withContext(Dispatchers.IO) {
         val verifier = randomToken(64)
@@ -82,8 +82,8 @@ class AbsAuthApi @Inject constructor(
     }
 
     /**
-     * Schließt die Anmeldung mit der Rückleitung des Identity-Providers ab (Schritt 4). Wirft [AbsException], wenn die
-     * Rückleitung nicht zu [login] gehört oder der Server ablehnt.
+     * Completes the login with the identity provider's redirect (step 4). Throws [AbsException] if the
+     * redirect doesn't belong to [login] or the server rejects it.
      */
     suspend fun finishOpenId(login: AbsOpenIdLogin, redirect: HttpUrl): AbsTokens = withContext(Dispatchers.IO) {
         if (redirect.queryParameter("state") != login.state) throw AbsException(0, "Rückleitung gehört nicht zu dieser Anmeldung")
@@ -98,8 +98,8 @@ class AbsAuthApi @Inject constructor(
     }
 
     /**
-     * Blockiert (der [AbsTokenAuthenticator] läuft auf einem Thread von OkHttp, und `enqueue` könnte dort auf die eigenen
-     * Anfragen an denselben Host warten). Der Refresh-Token rotiert: Der alte gilt danach nur noch 10 Minuten.
+     * Blocks (the [AbsTokenAuthenticator] runs on an OkHttp thread, and `enqueue` could wait there for its own
+     * requests to the same host). The refresh token rotates: the old one is then only valid for 10 more minutes.
      */
     fun refreshBlocking(baseUrl: HttpUrl, refreshToken: String): AbsTokens {
         val request = Request.Builder()
@@ -110,7 +110,7 @@ class AbsAuthApi @Inject constructor(
         return client.newCall(request).execute().use { it.tokensOrThrow() }
     }
 
-    /** Ohne Weiterleitungen (die `Location` ist das Ergebnis), ohne Cache und mit den Cookies der Anmeldung. */
+    /** Without redirects (the `Location` is the result), without cache and with the login's cookies. */
     private fun loginClient(cookies: CookieJar): OkHttpClient =
         client.newBuilder().followRedirects(false).followSslRedirects(false).cache(null).cookieJar(cookies).build()
 
@@ -149,10 +149,10 @@ class AbsAuthApi @Inject constructor(
     }
 
     companion object {
-        /** Die Rückleitung, die Audiobookshelf ohne Einstellung zulässt (die der offiziellen App). */
+        /** The redirect Audiobookshelf allows without configuration (the one of the official app). */
         const val DEFAULT_REDIRECT_URI = "audiobookshelf://oauth"
 
-        /** Wie die offizielle App; Audiobookshelf wertet ihn nicht aus. */
+        /** Like the official app; Audiobookshelf doesn't evaluate it. */
         private const val CLIENT_ID = "Audiobookshelf-App"
 
         private val JSON = Json {
@@ -169,7 +169,7 @@ class AbsAuthApi @Inject constructor(
         private fun challenge(verifier: String): String =
             base64Url.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)))
 
-        /** Ablauf eines Access-Tokens in Sekunden seit 1970 (`exp` im JWT); `null` bei API-Keys ohne Ablauf oder fremdem Format. */
+        /** Expiry of an access token in seconds since 1970 (`exp` in the JWT); `null` for API keys without expiry or an unknown format. */
         fun expiresAt(token: String): Long? {
             val payload = token.split('.').getOrNull(1) ?: return null
             return try {
@@ -180,7 +180,7 @@ class AbsAuthApi @Inject constructor(
             }
         }
 
-        /** Für Rückleitungen, deren Schema OkHttp nicht kennt (`audiobookshelf://oauth?…`): nur die Query zählt. */
+        /** For redirects whose scheme OkHttp doesn't know (`audiobookshelf://oauth?…`): only the query matters. */
         fun redirectUrl(uri: String): HttpUrl? = "https://redirect/?${uri.substringAfter('?', "")}".toHttpUrlOrNull()
     }
 }

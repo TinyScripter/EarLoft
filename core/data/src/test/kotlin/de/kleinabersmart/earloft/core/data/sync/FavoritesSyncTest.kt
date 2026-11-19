@@ -58,7 +58,7 @@ class FavoritesSyncTest {
         assertTrue(db.syncQueueProcessor(nd).process())
         assertEquals(0, db.syncDao().countActions())
 
-        // Auf dem Server wieder entsternt: Er liefert denselben Track wie beim ersten Abgleich.
+        // Unstarred again on the server: it returns the same track as in the first sync.
         syncer.syncAdding(db, nd)
 
         assertFalse(song().isFavorite)
@@ -131,7 +131,7 @@ class FavoritesSyncTest {
         syncer.syncAdding(db, source("office", track("x", starredAt = 1_000)))
         assertTrue(song().isFavorite)
 
-        // Auf „nd“ neu getaggt: Der Track ist jetzt ein anderer Song, sein Stern auf dem Server bleibt.
+        // Retagged to "nd": the track is now a different song, its star on the server stays.
         syncer.syncAdding(db, source("nd", track("a", starredAt = 1_000).copy(title = "Hoppípolla (Live)", lastModified = 2)))
 
         val songs = db.libraryDao().observeSongRows().first()

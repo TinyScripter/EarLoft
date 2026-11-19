@@ -36,8 +36,8 @@ import javax.inject.Inject
 import kotlin.math.roundToInt
 
 /**
- * Wiedergabe-Ansicht des Handys (Wear-Konzept 15): zeigt, was das Handy meldet, und schickt die Bedienung dorthin.
- * Play/Pause, Zufall und Wiederholen springen sofort um und gelten, bis das Handy seinen Zustand meldet.
+ * The phone's now playing view (Wear concept 15): shows what the phone reports and sends the controls there.
+ * Play/pause, shuffle and repeat toggle immediately and apply until the phone reports its state.
  */
 @HiltViewModel
 class RemotePlayerViewModel @Inject constructor(
@@ -46,11 +46,11 @@ class RemotePlayerViewModel @Inject constructor(
 ) : ViewModel(), NowPlayingModel, ChaptersModel, SleepTimerModel {
 
     private val remoteState: StateFlow<WearRemoteStateDto?> =
-        // Die Nebenwirkungen hängen am Fluss, nicht an einem eigenen Collector: Ein dauerhafter Collector hielte die Anmeldung
-        // beim Handy offen (und damit dessen Schreiben), auch wenn die Ansicht nicht sichtbar ist.
+        // The side effects hang on the flow, not on a separate collector: a permanent collector would keep the subscription
+        // at the phone open (and with it its writing) even when the view is not visible.
         remote.state
             .onEach { dto ->
-                // Das Handy hat gemeldet: Die vorläufigen Werte gelten nicht mehr.
+                // The phone has reported: the provisional values no longer apply.
                 pendingPlaying.value = null
                 pendingShuffle.value = null
                 pendingRepeat.value = null
@@ -63,7 +63,7 @@ class RemotePlayerViewModel @Inject constructor(
     private val pendingShuffle = MutableStateFlow<Boolean?>(null)
     private val pendingRepeat = MutableStateFlow<Int?>(null)
 
-    /** Der Timer wurde hier beendet; bis das Handy meldet, steht er schon als aus da. */
+    /** The timer was ended here; until the phone reports, it is already shown as off. */
     private val pendingSleepCancelled = MutableStateFlow(false)
     private var pendingJob: Job? = null
 
@@ -77,7 +77,7 @@ class RemotePlayerViewModel @Inject constructor(
         val spoken = dto.hasMedia && dto.isSpoken
         PlayerState(
             current = if (dto.hasMedia && !spoken) QueueEntry(0, dto.title, dto.artist, dto.albumId, dto.albumTitle) else null,
-            // Position und Länge sind schon Buchzeiten; eine Datei (trackIndex) gibt es für die Uhr nicht.
+            // Position and length are already book times; there is no file (trackIndex) for the watch.
             spoken = if (spoken) {
                 SpokenEntry(
                     dto.bookId ?: 0,
@@ -99,9 +99,9 @@ class RemotePlayerViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlayerState())
 
     /**
-     * Aus dem gemeldeten Stand fortgerechnet; regelmäßig nur, solange das Handy spielt, sonst bei jeder neuen Meldung. Nur der
-     * Startwert vergleicht Handy- und Uhr-Uhrzeit (die Meldung kann älter sein, Wear OS stellt die Uhr nach dem Handy); weiter
-     * zählt die monotone Uhr, damit ein Zeitabgleich unterwegs die Anzeige nicht springen lässt.
+     * Extrapolated from the reported state; regularly only while the phone is playing, otherwise on every new report. Only the
+     * start value compares phone and watch clock time (the report may be older; Wear OS sets the watch clock from the phone); after that
+     * the monotonic clock counts, so that a time sync along the way does not make the display jump.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     override val positionMs: StateFlow<Long> = remoteState
@@ -131,19 +131,19 @@ class RemotePlayerViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
-     * Aus der fortgerechneten Position: Der Name wechselt mitten in der Datei, ohne dass das Handy etwas meldet. Neu zusammengesetzt
-     * wird nur beim Wechsel, nicht im 500-ms-Takt der Position.
+     * From the extrapolated position: the name changes in the middle of the file without the phone reporting anything. It only
+     * recomposes on a change, not in the 500 ms tick of the position.
      */
     override val currentChapter: StateFlow<BookChapter?> = combine(chapters, positionMs, ::chapterAt)
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Das Handy wählt Datei und Versatz über seine Zeitachse ([WearRemoteAction.SEEK] in Buchzeit). */
+    /** The phone chooses file and offset via its timeline ([WearRemoteAction.SEEK] in book time). */
     override fun seekToBook(bookPositionMs: Long) = seekTo(bookPositionMs)
 
     /**
-     * Restzeit des Sleep-Timers am Handy: aus der Meldung fortgerechnet wie die Position (das Handy meldet nur Start, Ende und
-     * Änderungen), bei „bis zum Ende“ nur während der Wiedergabe.
+     * Remaining time of the phone's sleep timer: extrapolated from the report like the position (the phone only reports start, end and
+     * changes), for "until the end" only during playback.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     override val sleepTimerRemainingMs: StateFlow<Long?> = combine(remoteState, pendingSleepCancelled, ::Pair)
@@ -163,7 +163,7 @@ class RemotePlayerViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Das Handy nimmt Sleep-Timer-Befehle an (ältere nicht: dann kein Knopf). */
+    /** The phone accepts sleep timer commands (older ones do not: then no button). */
     val sleepTimerSupported: StateFlow<Boolean> = remoteState.map { it?.sleepTimerSupported == true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -232,14 +232,14 @@ class RemotePlayerViewModel @Inject constructor(
     }
 
     /**
-     * Im App-Scope: Die Kapitelliste schließt sich direkt nach dem Tipp, ihr ViewModel wäre vor dem Senden schon weg
+     * In the app scope: the chapter list closes right after the tap, its ViewModel would already be gone before sending
      * (Review V3).
      */
     private fun send(action: WearRemoteAction, value: Long = 0) {
         applicationScope.launch { remote.send(action, value) }
     }
 
-    /** Setzt vorläufige Werte; meldet das Handy nichts zurück (nicht erreichbar), verfallen sie nach kurzer Zeit. */
+    /** Sets provisional values; if the phone does not report back (unreachable), they expire after a short time. */
     private fun pending(set: () -> Unit) {
         set()
         pendingJob?.cancel()
@@ -262,8 +262,8 @@ class RemotePlayerViewModel @Inject constructor(
 }
 
 /**
- * Die Kapitel aus [chapters], wenn sie zum Buch bzw. zur Folge gehören, die das Handy laut [state] spielt; bei Musik, ohne
- * Meldung oder mit den Kapiteln eines vorigen Buchs keine.
+ * The chapters from [chapters] if they belong to the book or episode the phone is playing according to [state]; none for music, without
+ * a report or with the chapters of a previous book.
  */
 internal fun chaptersOf(state: WearRemoteStateDto?, chapters: WearRemoteChaptersDto?): List<BookChapter> {
     if (state == null || !state.hasMedia || !state.isSpoken || chapters == null || chapters.bookId != state.bookId) return emptyList()
@@ -272,6 +272,6 @@ internal fun chaptersOf(state: WearRemoteStateDto?, chapters: WearRemoteChapters
     }
 }
 
-/** Das Kapitel an [positionMs] (Buchzeit), wie [de.kleinabersmart.earloft.core.model.BookTimeline.chapterAt]. */
+/** The chapter at [positionMs] (book time), like [de.kleinabersmart.earloft.core.model.BookTimeline.chapterAt]. */
 internal fun chapterAt(chapters: List<BookChapter>, positionMs: Long): BookChapter? =
     chapters.lastOrNull { it.startMs <= positionMs } ?: chapters.firstOrNull()

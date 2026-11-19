@@ -11,7 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 
-/** Ein Absatz der Datenschutzerklärung. Text-Inhalte enthalten noch die Inline-Auszeichnung (siehe [policyText]). */
+/** A paragraph of the privacy policy. Text contents still contain the inline markup (see [policyText]). */
 internal sealed interface PolicyBlock {
     data class Heading(val level: Int, val text: String) : PolicyBlock
     data class Paragraph(val text: String) : PolicyBlock
@@ -20,8 +20,8 @@ internal sealed interface PolicyBlock {
 }
 
 /**
- * Zerlegt das Markdown von `PRIVACY.md` in Absätze. Unterstützt nur, was die Datei nutzt: Überschriften (`#`),
- * Trennlinien (`---`), Aufzählungen (`* `, Folgezeilen eingerückt), umbrochene Absätze und harte Umbrüche (zwei Leerzeichen).
+ * Splits the Markdown of `PRIVACY.md` into paragraphs. Supports only what the file uses: headings (`#`),
+ * horizontal rules (`---`), bullet lists (`* `, continuation lines indented), wrapped paragraphs and hard line breaks (two spaces).
  */
 internal fun parsePolicy(markdown: String): List<PolicyBlock> {
     val blocks = mutableListOf<PolicyBlock>()
@@ -68,7 +68,7 @@ internal fun parsePolicy(markdown: String): List<PolicyBlock> {
 
 private val urlPattern = Regex("""https?://[^\s)]+""")
 
-/** Inline-Auszeichnung eines Absatzes: `**fett**`, `*kursiv*`, `` `Code` `` und nackte Web-Adressen als Links. */
+/** Inline markup of a paragraph: `**bold**`, `*italic*`, `` `code` `` and bare web addresses as links. */
 internal fun policyText(text: String, linkStyles: TextLinkStyles? = null): AnnotatedString = buildAnnotatedString {
     var boldIndex: Int? = null
     var italicIndex: Int? = null

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Media3 nimmt dieses Symbol für die Wiedergabe-Benachrichtigung; statt der Note das Emblem der App. -->
+    <!-- Media3 uses this icon for the playback notification; the app's emblem instead of the note. -->
     <drawable name="media3_notification_small_icon">@drawable/ic_stat_earloft</drawable>
 </resources>

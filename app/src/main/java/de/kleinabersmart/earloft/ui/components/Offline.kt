@@ -22,9 +22,9 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Offline-Zustand und Download-Aktionen für jede Song-Zeile der App, dazu die Markierung der Alben. Zeile und Kachel
- * lesen den Zustand über [statusOf] bzw. [albumMarkOf] und recomposen nur, wenn sich ihr eigener Zustand ändert –
- * nicht bei jedem Fortschritt anderer Songs.
+ * Offline state and download actions for every song row of the app, plus the album marks. Row and tile
+ * read the state via [statusOf] or [albumMarkOf] and only recompose when their own state changes –
+ * not on every progress update of other songs.
  */
 @Stable
 class OfflineController(
@@ -46,7 +46,7 @@ class OfflineController(
     }
 }
 
-/** `null` (Vorschau, Tests): Zeilen zeigen keinen Download-Zustand. */
+/** `null` (preview, tests): rows show no download state. */
 val LocalOfflineController = staticCompositionLocalOf<OfflineController?> { null }
 
 @HiltViewModel

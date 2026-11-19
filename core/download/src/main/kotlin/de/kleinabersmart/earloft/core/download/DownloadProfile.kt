@@ -1,16 +1,16 @@
 package de.kleinabersmart.earloft.core.download
 
-/** In welcher Form der Server die Datei liefert (Wear-Konzept 8.2). */
+/** In which form the server delivers the file (Wear concept 8.2). */
 enum class DownloadProfile(
-    /** Ziel der Umwandlung auf dem Server (Codec, höchstens kbit/s); `null` = Original. */
+    /** Target of the conversion on the server (codec, max kbit/s); `null` = original. */
     val transcodeTo: Pair<String, Int>?,
 ) {
-    /** Die Datei wie auf dem Server. */
+    /** The file as it is on the server. */
     ORIGINAL(transcodeTo = null),
 
     /**
-     * Der Server transkodiert beim Download nach Opus mit höchstens 128 kbit/s (Navidrome braucht dafür
-     * ffmpeg). Quellen ohne [de.kleinabersmart.earloft.core.datasource.RemoteTranscoding] liefern das Original.
+     * The server transcodes to Opus at max 128 kbit/s while downloading (Navidrome needs
+     * ffmpeg for this). Sources without [de.kleinabersmart.earloft.core.datasource.RemoteTranscoding] deliver the original.
      */
     OPUS_128(transcodeTo = "opus" to 128),
 }

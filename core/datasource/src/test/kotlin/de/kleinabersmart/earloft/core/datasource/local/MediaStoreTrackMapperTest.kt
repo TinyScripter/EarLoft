@@ -66,7 +66,7 @@ class MediaStoreTrackMapperTest {
     fun `timestamps are converted to milliseconds`() {
         val track = MediaStoreTrackMapper.map(listOf(row(id = 1)), names).single()
 
-        // Die Millisekunden-Stellen tragen die Version des Tag-Lesens.
+        // The millisecond digits carry the version of the tag reading.
         assertEquals(1_700_000_000_000 + MediaStoreTrackMapper.TAGS_VERSION, track.lastModified)
     }
 

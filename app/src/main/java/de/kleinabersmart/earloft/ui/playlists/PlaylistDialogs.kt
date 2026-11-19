@@ -51,7 +51,7 @@ import de.kleinabersmart.earloft.core.model.ServerInfo
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Wählt eine Playlist (oder legt eine neue an) und fügt [songIds] hinzu. */
+/** Picks a playlist (or creates a new one) and adds [songIds]. */
 @Composable
 fun AddToPlaylistDialog(
     songIds: List<Long>,
@@ -115,8 +115,8 @@ fun AddToPlaylistDialog(
 }
 
 /**
- * Name eingeben; mit [servers] zusätzlich, wo die Playlist liegt (vorausgewählt: der erste Server,
- * damit sie auch in anderen Apps erscheint). Ohne [servers] (Umbenennen) gibt es keine Auswahl.
+ * Enter a name; with [servers] also where the playlist lives (preselected: the first server,
+ * so it also appears in other apps). Without [servers] (rename) there is no selection.
  */
 @Composable
 fun PlaylistNameDialog(
@@ -127,7 +127,7 @@ fun PlaylistNameDialog(
     initialName: String = "",
     servers: List<ServerInfo>? = null,
 ) {
-    // Vorhandener Name ist markiert: Tippen ersetzt ihn, Pfeiltasten ergänzen.
+    // The existing name is selected: typing replaces it, arrow keys extend it.
     var name by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue(initialName, TextRange(0, initialName.length)))
     }
@@ -186,12 +186,12 @@ private fun LocationOption(label: String, selected: Boolean, onClick: () -> Unit
     }
 }
 
-/** „Nur auf diesem Gerät“ bzw. der Servername. */
+/** "Only on this device" or the server name. */
 @Composable
 fun playlistLocation(serverName: String?): String =
     serverName ?: stringResource(R.string.playlist_location_device)
 
-/** Symbol für Playlists in Listen. */
+/** Icon for playlists in lists. */
 @Composable
 fun PlaylistIcon(modifier: Modifier = Modifier) {
     Box(modifier.size(48.dp), contentAlignment = Alignment.Center) {

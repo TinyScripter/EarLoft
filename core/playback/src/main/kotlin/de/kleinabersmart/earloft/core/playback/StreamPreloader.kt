@@ -24,30 +24,30 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 
 /**
- * Lädt beim Streamen die nächsten Titel der Warteschlange vorab in den Stream-Cache (Konzept 7.2 „Vorladen“): im WLAN den
- * nächsten und übernächsten ganz, über mobile Daten nur den nächsten und davon höchstens [meteredLimitBytes]. Das schützt
- * Gapless bei schwankendem Netz und überbrückt Funklöcher. Den laufenden Titel nicht: Dessen Rest hält ExoPlayer selbst im
- * Cache gesperrt, ein zweiter Download würde nichts speichern.
+ * While streaming, preloads the next titles of the queue into the stream cache (concept 7.2 "Preloading"): on Wi-Fi the
+ * next and the one after it completely, over mobile data only the next one and at most [meteredLimitBytes] of it. This protects
+ * gapless playback on a fluctuating network and bridges dead spots. Not the current title: ExoPlayer itself keeps its rest locked
+ * in the cache, a second download would store nothing.
  *
- * Es geht erst los, wenn ExoPlayer gerade nicht lädt (der Puffer des laufenden Titels ist voll), damit beide nicht um die
- * Leitung konkurrieren. Ändern sich die Titel, bricht der laufende Download ab. Lokale Dateien und Downloads überspringt er.
+ * It only starts when ExoPlayer isn't loading (the current title's buffer is full), so the two don't compete for
+ * bandwidth. If the titles change, the running download is aborted. Local files and downloads are skipped.
  */
 @OptIn(UnstableApi::class)
 internal class StreamPreloader(
     private val player: Player,
-    /** Je Titel eine neue Datenquelle, die in den Stream-Cache schreibt. */
+    /** A new data source per title that writes into the stream cache. */
     private val dataSource: () -> CacheDataSource,
-    /** Siehe [de.kleinabersmart.earloft.core.data.repository.PlaybackSourceResolver.candidates]. */
+    /** See [de.kleinabersmart.earloft.core.data.repository.PlaybackSourceResolver.candidates]. */
     private val candidatesOf: suspend (songId: Long) -> List<ResolvedPlayback>,
     private val isMetered: () -> Boolean,
     private val scope: CoroutineScope,
-    /** Siehe [preferCachedOriginals]. */
+    /** See [preferCachedOriginals]. */
     private val isFullyCached: (cacheKey: String) -> Boolean = { false },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val meteredLimitBytes: Long = METERED_LIMIT_BYTES,
 ) : Player.Listener {
 
-    /** Was gerade vorgeladen wird bzw. zuletzt wurde; `null` vor dem ersten Mal. */
+    /** What is being preloaded right now or was last; `null` before the first time. */
     private var plan: Plan? = null
     private var started = false
     private var job: Job? = null
@@ -58,7 +58,7 @@ internal class StreamPreloader(
         if (events.containsAny(*TRIGGERS)) update()
     }
 
-    /** Beim Beenden des Dienstes. */
+    /** When the service ends. */
     fun release() {
         job?.cancel()
         job = null
@@ -82,9 +82,9 @@ internal class StreamPreloader(
     }
 
     /**
-     * Lädt [songIds] nacheinander in den Cache, je höchstens [limitBytes] (`null`: ganz) – vom Server umgewandelte Titel immer
-     * ganz, sie sind klein (höchstens 192 kbit/s) und erst mit bekannter Länge spulbar. Schon Vorhandenes lädt [CacheWriter]
-     * nicht noch einmal. Scheitert ein Titel am Netz, bleibt der Rest für den nächsten Anlass.
+     * Loads [songIds] into the cache one after another, at most [limitBytes] each (`null`: complete) – titles transcoded by the server always
+     * complete, they are small (at most 192 kbit/s) and only seekable with a known length. [CacheWriter] doesn't load
+     * what's already there again. If a title fails due to the network, the rest is left for the next occasion.
      */
     internal suspend fun preload(songIds: List<Long>, limitBytes: Long?) {
         for (songId in songIds) {
@@ -103,7 +103,7 @@ internal class StreamPreloader(
     private suspend fun cache(songId: Long, spec: DataSpec): Boolean = withContext(ioDispatcher) {
         var cachedBytes = 0L
         val writer = CacheWriter(dataSource(), spec, null) { _, bytesCached, _ -> cachedBytes = bytesCached }
-        // Blockiert; ein Abbruch der Coroutine bricht den Download über cancel() ab.
+        // Blocks; cancelling the coroutine aborts the download via cancel().
         val canceller = launch { try { awaitCancellation() } finally { writer.cancel() } }
         try {
             writer.cache()
@@ -132,8 +132,8 @@ internal class StreamPreloader(
         )
 
         /**
-         * Die Songs der nächsten [count] Einträge nach dem laufenden, in Abspielreihenfolge (Zufall, Wiederholen der ganzen
-         * Warteschlange). „Einen wiederholen“ zählt wie „aus“: Vorgeladen wird, was beim Weiterspringen kommt.
+         * The songs of the next [count] entries after the current one, in playback order (shuffle, repeat of the whole
+         * queue). "Repeat one" counts like "off": what is preloaded is what comes when skipping ahead.
          */
         fun upcomingSongIds(player: Player, count: Int): List<Long> {
             val timeline = player.currentTimeline
@@ -152,7 +152,7 @@ internal class StreamPreloader(
     }
 }
 
-/** Ob der Inhalt zu [key] vollständig im Cache liegt (die Länge ist erst nach einmal ganz Laden bekannt). */
+/** Whether the content for [key] is completely in the cache (the length is only known after loading it fully once). */
 @OptIn(UnstableApi::class)
 internal fun Cache.isFullyCached(key: String): Boolean {
     val length = ContentMetadata.getContentLength(getContentMetadata(key))

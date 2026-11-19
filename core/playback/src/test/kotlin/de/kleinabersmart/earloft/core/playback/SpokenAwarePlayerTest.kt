@@ -104,7 +104,7 @@ class SpokenAwarePlayerTest {
         .setMediaMetadata(MediaMetadata.Builder().setMediaType(mediaType).setArtist(artist).build())
         .build()
 
-    /** Ein Item von zehn Minuten; Springen setzt nur die Position. */
+    /** An item of ten minutes; seeking only sets the position. */
     private class FakePlayer(private val item: MediaItem, private var positionMs: Long) : SimpleBasePlayer(Looper.getMainLooper()) {
 
         override fun getState(): State = State.Builder()

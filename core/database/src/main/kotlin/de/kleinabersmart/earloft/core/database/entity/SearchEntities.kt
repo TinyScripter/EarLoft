@@ -4,8 +4,8 @@ import androidx.room.Entity
 import androidx.room.Fts4
 import androidx.room.FtsOptions
 
-// Volltextindizes über die Bibliothekstabellen. Room hält sie per Trigger synchron;
-// unicode61 ignoriert Groß-/Kleinschreibung und gängige Diakritika ("bjork" findet "Björk").
+// Full-text indexes over the library tables. Room keeps them in sync via triggers;
+// unicode61 ignores case and common diacritics ("bjork" finds "Björk").
 
 @Fts4(contentEntity = SongEntity::class, tokenizer = FtsOptions.TOKENIZER_UNICODE61)
 @Entity(tableName = "songs_fts")

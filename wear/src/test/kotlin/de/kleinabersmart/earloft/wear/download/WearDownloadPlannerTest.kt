@@ -53,7 +53,7 @@ class WearDownloadPlannerTest {
             .allowMainThreadQueries()
             .build()
         state = WatchState(ApplicationProvider.getApplicationContext())
-        // Der Emulator-Speicher soll das Ergebnis nicht bestimmen.
+        // The emulator's storage should not determine the result.
         state.updateSettings(WearSettingsDto(minFreeBytes = 0))
         scheduler = RecordingScheduler()
         episodeQueue = EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao())
@@ -99,7 +99,7 @@ class WearDownloadPlannerTest {
 
     @Test
     fun `episodes from the phone come first, finished ones are not loaded`() = runTest {
-        // Eine Stunde Folge schätzt der Planer auf 57,6 MB; daneben passt kein Titel mehr (je 3,296 MB).
+        // The planner estimates one hour of episode at 57.6 MB; no track fits next to it any more (3.296 MB each).
         state.updateSettings(WearSettingsDto(minFreeBytes = 0, storageLimitBytes = 60_000_000))
         db.podcastDao().upsertFeed(PodcastFeedEntity("f1", "https://example.org/feed", "Podcast"))
         val heard = episode("heard")
@@ -119,7 +119,7 @@ class WearDownloadPlannerTest {
 
     @Test
     fun `books come after episodes, whole or not at all, and never as an episode`() = runTest {
-        // Folge 1 h = 57,6 MB; Buch mit zwei Dateien zu je 1 h = 115,2 MB; das zweite Buch passt nicht mehr.
+        // Episode 1 h = 57.6 MB; book with two files of 1 h each = 115.2 MB; the second book no longer fits.
         state.updateSettings(WearSettingsDto(minFreeBytes = 0, storageLimitBytes = 180_000_000))
         db.podcastDao().upsertFeed(PodcastFeedEntity("f1", "https://example.org/feed", "Podcast"))
         val first = book("b1", files = 2)
@@ -132,7 +132,7 @@ class WearDownloadPlannerTest {
         assertEquals(TrackDownload.QUEUED, db.podcastDao().trackOf(episode)!!.downloadState)
         assertEquals(listOf(TrackDownload.QUEUED, TrackDownload.QUEUED), db.bookDao().tracks(first).map { it.downloadState })
         assertEquals(TrackDownload.NONE, db.bookDao().tracks(second).single().downloadState)
-        // Der Folgen-Planer fasst Bücher nicht an (ihre erste Datei sieht aus wie eine Folge).
+        // The episode planner does not touch books (their first file looks like an episode).
         assertEquals(1, db.podcastDao().countPendingDownloads())
         assertEquals(1, state.missingForStorage.value)
         assertEquals(1, scheduler.calls)
@@ -156,7 +156,7 @@ class WearDownloadPlannerTest {
 
     @Test
     fun `stops at the storage limit and reports the missing songs`() = runTest {
-        // Opus: 200 s * 16 000 B/s + 3 % = 3,296 MB je Titel -> 2 passen unter 7 MB.
+        // Opus: 200 s * 16,000 B/s + 3 % = 3.296 MB per track -> 2 fit under 7 MB.
         state.updateSettings(WearSettingsDto(minFreeBytes = 0, storageLimitBytes = 7_000_000))
         select("album:1", listOf(song("nd:t1"), song("nd:t2"), song("nd:t3")))
 
@@ -175,7 +175,7 @@ class WearDownloadPlannerTest {
         planner.plan()
 
         val byUid = db.downloadDao().getAll().associateBy { it.sourceUid }
-        // Fehlgeschlagenes bleibt fehlgeschlagen (Erneut versuchen ist Sache des Nutzers).
+        // Failed stays failed (retrying is up to the user).
         assertEquals(DownloadState.FAILED, byUid.getValue("nd:t1").state)
         assertEquals(DownloadState.QUEUED, byUid.getValue("nd:t2").state)
     }
@@ -196,7 +196,7 @@ class WearDownloadPlannerTest {
 
     @Test
     fun `phone songs are estimated as original even with opus quality`() = runTest {
-        // Opus wäre 3,296 MB je Titel. Das Handy schickt das Original: 5 MB.
+        // Opus would be 3.296 MB per track. The phone sends the original: 5 MB.
         state.updateSettings(WearSettingsDto(minFreeBytes = 0, storageLimitBytes = 7_000_000))
         select("album:1", listOf(song("phone:local:1", sourceId = "phone", sizeBytes = 5_000_000), song("phone:local:2", sourceId = "phone", sizeBytes = 5_000_000)))
 
@@ -222,7 +222,7 @@ class WearDownloadPlannerTest {
         val t1 = song("nd:t1")
         val t2 = song("nd:t2")
         val t3 = song("nd:t3")
-        // Doppelt in der Playlist zählt einmal; ein Song in zwei Auswahlen zählt bei beiden.
+        // A duplicate in the playlist counts once; a song in two selections counts in both.
         select("album:1", listOf(t1, t2, t1, t3))
         select("favorites", listOf(t1), addedAt = 1)
         db.downloadDao().insertIfAbsent(
@@ -249,7 +249,7 @@ class WearDownloadPlannerTest {
         val selections = db.wearDao().observeSelectionProgress().first().associateBy { it.key }
         assertEquals(3_000L, selections.getValue("album:1").bytes)
         assertEquals(2, selections.getValue("album:1").done)
-        // t3 läuft: 100 von 4 000 Bytes.
+        // t3 is running: 100 of 4,000 bytes.
         assertEquals(0.025, selections.getValue("album:1").runningFraction, 1e-9)
         assertEquals(1_000L, selections.getValue("favorites").bytes)
 
@@ -268,7 +268,7 @@ class WearDownloadPlannerTest {
 
     private var songCounter = 0
 
-    /** Ein 200 s langer Song mit einer Quelle [uid] (`<sourceId>:<remoteId>`); liefert die songId. */
+    /** A 200 s song with one source [uid] (`<sourceId>:<remoteId>`); returns the songId. */
     private suspend fun song(uid: String, sourceId: String = "nd", sizeBytes: Long? = null): Long {
         songCounter++
         val songId = db.libraryDao().insertSong(
@@ -295,7 +295,7 @@ class WearDownloadPlannerTest {
         return songId
     }
 
-    /** Eine Auswahl wie auf der Uhr: `refId` zeigt auf die Geräte-Playlist. */
+    /** A selection as on the watch: `refId` points to the device playlist. */
     private suspend fun select(key: String, songIds: List<Long>, addedAt: Long = 0) {
         val playlistId = db.playlistDao().insertPlaylist(PlaylistEntity(name = key, updatedAt = 0))
         db.playlistDao().insertEntries(

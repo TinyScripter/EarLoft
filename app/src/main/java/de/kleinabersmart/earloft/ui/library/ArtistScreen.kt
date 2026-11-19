@@ -97,8 +97,8 @@ fun ArtistScreen(
 }
 
 /**
- * Abspielen/Zufällig über alle Songs des Künstlers, darunter (sofern gehört) seine meistgehörten Songs, seine Alben und
- * die Alben anderer, auf denen er mitwirkt. Überschriften nur, wenn es mehr als die eigenen Alben gibt.
+ * Play/shuffle across all of the artist's songs, below that (if any were played) their most played songs, their albums and
+ * other artists' albums they appear on. Headers only if there is more than their own albums.
  */
 @Composable
 private fun ArtistContent(
@@ -124,7 +124,7 @@ private fun ArtistContent(
         fullWidthItem("actions") { PlayShuffleRow(onPlay = onPlay, onShuffle = onShuffle) }
         if (topSongs.isNotEmpty()) {
             fullWidthItem("top-header") { SectionHeader(stringResource(R.string.artist_most_played)) }
-            // Ein Eintrag für alle: Der Abstand zwischen den Rasterzeilen würde die Gruppe sonst zerteilen.
+            // One entry for all: otherwise the spacing between the grid rows would split the group.
             fullWidthItem("top-songs") {
                 Column {
                     topSongs.forEachIndexed { index, song ->

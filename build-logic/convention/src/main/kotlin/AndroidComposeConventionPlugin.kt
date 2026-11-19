@@ -9,15 +9,15 @@ import org.gradle.kotlin.dsl.dependencies
 import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
 
 /**
- * Compose-Compiler + BOM. Bewusst ohne Material-Bibliothek, damit das Plugin
- * für Phone (Material 3) und Wear (Wear Material 3) gleichermaßen passt.
+ * Compose compiler + BOM. Deliberately without a Material library so the plugin
+ * fits phone (Material 3) and Wear (Wear Material 3) alike.
  */
 class AndroidComposeConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
             pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
             extensions.configure<ComposeCompilerGradlePluginExtension> {
-                // Modellklassen aus Modulen ohne Compose-Compiler als stabil (Review C4).
+                // Model classes from modules without the Compose compiler as stable (review C4).
                 stabilityConfigurationFiles.add(rootProject.layout.projectDirectory.file("compose_stability.conf"))
             }
 

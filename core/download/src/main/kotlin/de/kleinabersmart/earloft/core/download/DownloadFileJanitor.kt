@@ -13,9 +13,9 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
- * Verschwinden Song-Quellen (Server entfernt, Datei auf dem Server gelöscht), löscht die Datenbank
- * deren Downloads per CASCADE – hier werden die zugehörigen Dateien entfernt. Nach einem Abgleich
- * werden neu eingereihte Downloads (geänderte Server-Dateien) gestartet.
+ * When song sources disappear (server removed, file deleted on the server), the database deletes
+ * their downloads via CASCADE – this removes the corresponding files. After a sync,
+ * newly enqueued downloads (changed server files) are started.
  */
 internal class DownloadFileJanitor @Inject constructor(
     private val downloadDao: DownloadDao,
@@ -30,9 +30,9 @@ internal class DownloadFileJanitor @Inject constructor(
     }
 
     override suspend fun onSyncFinished() {
-        // Ersetzte Dateien mit anderer Endung bleiben sonst liegen.
+        // Otherwise replaced files with a different extension would be left behind.
         onSongSourcesRemoved()
-        // Ein laufender Worker holt Neues selbst ab; angehängt liefe nach jedem Abgleich ein weiterer Auftrag.
+        // A running worker picks up new entries itself; appended, another job would run after every sync.
         if (downloadDao.countPending() > 0) scheduler.resume()
     }
 

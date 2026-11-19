@@ -24,7 +24,7 @@ class Mp4ChaptersTest {
         val samples = listOf("Vorspann", "Wurststullen auf Bali", "Abspann").map { sample(it) }
         val mdat = box("mdat", samples.fold(ByteArray(0)) { acc, s -> acc + s })
         val prefix = ftyp()
-        // Samples liegen hinter dem mdat-Kopf; ein Chunk mit drei Samples.
+        // Samples are located after the mdat header; one chunk with three samples.
         val chunkOffset = (prefix.size + 8).toLong()
         val textTrack = trak(
             id = 2,
@@ -32,7 +32,7 @@ class Mp4ChaptersTest {
             timescale = 1000,
             stbl = box(
                 "stbl",
-                fullBox("stts", 0, u32(1) + u32(3) + u32(15_788)) + // drei Samples à 15 788 ticks
+                fullBox("stts", 0, u32(1) + u32(3) + u32(15_788)) + // three samples of 15 788 ticks each
                     fullBox("stsc", 0, u32(1) + u32(1) + u32(3) + u32(1)) +
                     fullBox("stsz", 0, u32(0) + u32(3) + samples.fold(ByteArray(0)) { acc, s -> acc + u32(s.size.toLong()) }) +
                     fullBox("stco", 0, u32(1) + u32(chunkOffset)),
@@ -82,7 +82,7 @@ class Mp4ChaptersTest {
             write(payload)
         }.toByteArray()
 
-    /** Atom mit Version und Flags vor den Daten. */
+    /** Atom with version and flags before the data. */
     private fun fullBox(type: String, version: Int, payload: ByteArray) = box(type, byteArrayOf(version.toByte(), 0, 0, 0) + payload)
 
     private fun bytes(data: ByteArray) = object : RandomAccessSource {

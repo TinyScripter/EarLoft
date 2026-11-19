@@ -43,8 +43,8 @@ import de.kleinabersmart.earloft.ui.settings.databaseExportMessage
 import kotlinx.coroutines.launch
 
 /**
- * Dialog „Quelle wechseln“: Warnung mit Datenbank-Export, neue Adresse, Prüfen, Bestätigen. Hat das Abo heute die Adresse
- * einer RSS-Bridge für ARD Sounds, steht die Sendung in ARD Sounds schon im Feld.
+ * "Switch source" dialog: warning with database export, new address, check, confirm. If the subscription currently has the address
+ * of an RSS bridge for ARD Sounds, the show on ARD Sounds is already in the field.
  */
 @Composable
 fun SourceSwitchDialog(
@@ -178,9 +178,9 @@ private fun Working(@StringRes text: Int) {
     }
 }
 
-/** Sendungen aus ARD Sounds zeigen ihre Seite statt der internen Abo-Adresse. */
+/** Shows from ARD Sounds display their page instead of the internal subscription address. */
 private fun shownSource(url: String): String = ardSoundsShowId(url)?.let(::ardSoundsPageUrl) ?: url
 
-/** Vorschlag: Ist das Abo der Feed einer RSS-Bridge für ARD Sounds, die Sendung selbst; sonst leer. */
+/** Suggestion: if the subscription is the feed of an RSS bridge for ARD Sounds, the show itself; otherwise empty. */
 private fun suggestedSource(url: String): String =
     if (ardSoundsShowId(url) != null) "" else parseArdSoundsInput(url)?.let { ardSoundsShowId(it) }?.let(::ardSoundsPageUrl).orEmpty()

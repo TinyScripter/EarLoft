@@ -121,19 +121,19 @@ import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Ganz oben das Banner der App, darunter der Schalter Musik / Podcasts / Bücher über Start und Bibliothek
- * (Konzept 12.5). Er schaltet nur den Inhalt dieser beiden Tabs um; Einstellungen, Mini-Player und
- * Wiedergabe-Ansicht hängen am laufenden Item. Die Lupe im Kopf ([onSearch]) sucht im gewählten Bereich.
+ * At the very top the app's banner, below it the Music / Podcasts / Books switch above start and library
+ * (concept 12.5). It only switches the content of these two tabs; settings, mini player and
+ * now-playing view depend on the current item. The magnifier in the header ([onSearch]) searches in the selected area.
  */
 @Composable
 fun SpokenModeHost(
     music: @Composable () -> Unit,
     podcasts: @Composable () -> Unit,
     books: @Composable () -> Unit,
-    /** Nach dem Wechsel auf einen anderen Modus; schließt z. B. die Detailspalte des vorigen Modus. */
+    /** After switching to another mode; e.g. closes the previous mode's detail pane. */
     onModeChange: () -> Unit,
     onSearch: () -> Unit,
-    /** Zur Einstellung, die Bereiche ausblendet (Allgemein → Bereiche); angeboten in leeren Bereichen ([EmptyAreaHint]). */
+    /** To the setting that hides areas (General → Areas); offered in empty areas ([EmptyAreaHint]). */
     onOpenAreaSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -146,7 +146,7 @@ fun SpokenModeHost(
     }
 }
 
-/** Banner und Modus-Schalter über den eingeschalteten Bereichen, die als Seiten eines Pagers nebeneinanderliegen. */
+/** Banner and mode switch above the enabled areas, which lie side by side as pages of a pager. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SpokenModeScaffold(
@@ -159,36 +159,36 @@ private fun SpokenModeScaffold(
 ) {
     val loaded by viewModel.loaded.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
-    // Die eingeschalteten Bereiche liegen nebeneinander wie auf Schienen: Tippen auf den Schalter und Wischen fahren dorthin.
-    // Der Pager entsteht erst mit dem gespeicherten Bereich, beginnt also ohne Fahrt auf der richtigen Seite, und ist dann
-    // maßgeblich. Wird ein Bereich ein- oder ausgeschaltet (Allgemein → Bereiche), entsteht er neu auf dem gezeigten Bereich.
+    // The enabled areas lie side by side as if on rails: tapping the switch and swiping travel there.
+    // The pager is only created with the stored area, so it starts on the correct page without travel, and is then
+    // authoritative. If an area is enabled or disabled (General → Areas), it is recreated on the shown area.
     val pages = loaded?.areas
     val pagerState = loaded?.let { (initial, areas) ->
         remember(areas) { PagerState(currentPage = areas.indexOf(initial).coerceAtLeast(0)) { areas.size } }
     }
-    // Wohin der Pager fährt bzw. bei losgelassenem Finger einrasten würde; der Schalter zeigt das schon während der Fahrt.
+    // Where the pager is heading or would snap to when the finger is lifted; the switch already shows this during travel.
     val mode = pagerState?.let { pages?.getOrNull(it.targetPage) }
-    // Bis der Pager steht, zeichnet der Schalter die zuletzt bekannten Bereiche, damit der Kopf nicht springt.
+    // Until the pager exists, the switch draws the last known areas so the header doesn't jump.
     val fallbackAreas by viewModel.areas.collectAsStateWithLifecycle()
     val areas = pages ?: fallbackAreas
     val scope = rememberCoroutineScope()
-    // Knöpfe der Bereiche für den Kopf (z. B. die Sortierung der Bibliothek), je Bereich ein Platz.
+    // Area buttons for the header (e.g. the library sorting), one slot per area.
     val headerActions = remember { SpokenMode.entries.associateWith { HeaderActions() } }
     if (pagerState != null && pages != null) {
         val currentOnModeChange by rememberUpdatedState(onModeChange)
-        // Gespeichert wird erst, wo der Pager einrastet; ein angefangenes und zurückgenommenes Wischen ändert nichts.
-        // Die Startseite wird auch gespeichert (DataStore schreibt Gleiches nicht neu): War der gespeicherte Bereich
-        // ausgeblendet, gilt sonst nach dem Einschalten eines weiteren wieder dessen erster statt des gezeigten.
+        // Saved only where the pager snaps; a swipe that was started and taken back changes nothing.
+        // The start page is saved too (DataStore doesn't rewrite identical values): if the stored area was
+        // hidden, after enabling another one its first one would apply again instead of the shown one.
         LaunchedEffect(pagerState) {
             snapshotFlow { pagerState.settledPage }.collectIndexed { index, page ->
-                // War der Bereich schon gespeichert, kam der Wechsel von außen (unten); die Seite darüber bleibt dann offen.
+                // If the area was already stored, the change came from outside (below); the page above then stays open.
                 val changed = pages[page] != viewModel.loaded.value?.mode
                 viewModel.setMode(pages[page])
                 if (index > 0 && changed) currentOnModeChange()
             }
         }
-        // Von außen gewählter Bereich (Tipp auf eine Benachrichtigung über Neues): Der Pager fährt dorthin, außer der Finger
-        // ist gerade auf ihm. Nach einem eigenen Wischen ist der gespeicherte Bereich schon der gezeigte.
+        // Area selected from outside (tap on a notification about new items): the pager travels there, unless the finger
+        // is currently on it. After a swipe of its own, the stored area is already the shown one.
         LaunchedEffect(pagerState) {
             viewModel.loaded.filterNotNull().map { it.mode }.distinctUntilChanged().collect { stored ->
                 val index = pages.indexOf(stored)
@@ -196,23 +196,23 @@ private fun SpokenModeScaffold(
             }
         }
     }
-    // Auf kleinen Handys (niedrig oder quer) klappt der Kopf beim Scrollen weg; sonst bliebe für die Listen kaum Platz.
-    // Nach der Fenstergröße wie die Fensterklassen (Konzept 8), nicht nach LocalConfiguration (ändert sich auch bei Sprache, Schrift …).
+    // On small phones (low or landscape) the header collapses while scrolling; otherwise there would be hardly any space for the lists.
+    // By window size like the window classes (concept 8), not by LocalConfiguration (also changes with language, font …).
     val window = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.toSize().toDpSize() }
     val compactHeight = window.height < WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND.dp ||
         (window.width < WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND.dp && window.height < SHORT_PHONE_HEIGHT)
     val collapse = remember(compactHeight) { HeaderCollapse(compactHeight) }
-    // Die Statusleiste verbraucht das Banner; die Bildschirme darunter haben keine eigene Leiste mehr.
-    // Der Statuszeilen-Inset bleibt außerhalb des einklappbaren Kopfs, sonst rutscht der Inhalt beim Einklappen darunter.
-    // Der Kopf liegt als getöntes Band (samt Statusleiste) über dem Inhalt, der auf der normalen Fläche beginnt.
+    // The banner consumes the status bar; the screens below no longer have their own bar.
+    // The status bar inset stays outside the collapsible header, otherwise the content slides under it when collapsing.
+    // The header lies as a tinted band (including status bar) over the content, which starts on the normal surface.
     Column(
         modifier
             .fillMaxSize()
             .nestedScroll(collapse),
     ) {
-        // Start und Bibliothek teilen sich den Kopf: Beim Wechsel zwischen ihnen bleibt er stehen, nur der Inhalt blendet über.
-        // Der geteilte Rahmen sitzt außerhalb des Einklappens, damit ein eingeklappter Kopf auch im Übergang eingeklappt bleibt.
-        // Band und Statusleiste gehören mit dazu; sonst blendete die Farbe dahinter mit der Seite aus und wieder ein.
+        // Start and library share the header: when switching between them it stays in place, only the content crossfades.
+        // The shared frame sits outside the collapsing, so a collapsed header stays collapsed during the transition too.
+        // The tinted band and status bar belong to it; otherwise the color behind would fade out and back in with the page.
         SharedAcrossScreens(APP_HEADER_KEY) {
             Column(
                 Modifier
@@ -224,7 +224,7 @@ private fun SpokenModeScaffold(
                     windowInsets = TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Horizontal),
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                     title = { AppLogo(Modifier.height(40.dp)) },
-                    // Wie im einzelnen Abo: Aktualisieren ganz rechts, die Suche links davon.
+                    // As in a single subscription: refresh at the far right, the search to its left.
                     actions = {
                         mode?.let { headerActions.getValue(it).content?.invoke() }
                         IconButton(onClick = onSearch) {
@@ -244,16 +244,16 @@ private fun SpokenModeScaffold(
                         }
                     },
                 )
-                // Der gewählte Bereich trägt die Akzentfarbe (wie die Play-Knöpfe), die anderen liegen hell auf dem Band.
+                // The selected area carries the accent color (like the play buttons), the others lie light on the band.
                 val segmentColors = SegmentedButtonDefaults.colors(
                     activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
                     activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
-                // Die Füllung fährt mit dem Pager mit, auch während des Wischens; die Knöpfe selbst bleiben durchsichtig.
+                // The fill travels with the pager, also while swiping; the buttons themselves stay transparent.
                 val pagePosition: () -> Float? = { pagerState?.let { it.currentPage + it.currentPageOffsetFraction } }
-                // Die Knöpfe sind selbst so hoch wie ihre Tippfläche und alle gleich hoch (auch bei großer Schrift); so deckt
-                // die Füllung genau die Zeile ab. Sonst läge um jeden Knopf ein unsichtbarer Rand bis 48 dp.
-                // Mit nur einem eingeschalteten Bereich gibt es nichts umzuschalten; dann entfällt die Zeile.
+                // The buttons themselves are as tall as their touch target and all equally tall (also with large font); this way
+                // the fill covers exactly the row. Otherwise there would be an invisible margin of up to 48 dp around each button.
+                // With only one enabled area there is nothing to switch; then the row is omitted.
                 if (areas.size > 1) CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                     SingleChoiceSegmentedButtonRow(
                         Modifier.fillMaxWidth()
@@ -271,11 +271,11 @@ private fun SpokenModeScaffold(
                                 modifier = Modifier.fillMaxHeight().heightIn(min = SegmentMinHeight),
                                 shape = SegmentedButtonDefaults.itemShape(index, areas.size),
                                 colors = buttonColors,
-                                // Kein Haken: Die Füllfarbe zeigt die Auswahl schon.
+                                // No check mark: the fill color already shows the selection.
                                 icon = {},
                             ) {
-                                // Die Schrift wechselt die Farbe so weit, wie die Füllung schon unter ihr liegt. Sie bleibt einzeilig
-                                // und wird bei großer Schrift lieber etwas kleiner, als umzubrechen.
+                                // The text changes color as far as the fill already lies beneath it. It stays on one line
+                                // and with large font rather gets slightly smaller than wrapping.
                                 val style = LocalTextStyle.current
                                 BasicText(
                                     stringResource(modeLabel(entry)),
@@ -293,7 +293,7 @@ private fun SpokenModeScaffold(
                 }
             }
         }
-        // Herunterziehen gleicht den Bereich ab (wie der Knopf oben).
+        // Pull to refresh syncs the area (like the button at the top).
         val onRefresh = when (mode) {
             SpokenMode.MUSIC, null -> viewModel::refreshMusic
             SpokenMode.BOOKS -> viewModel::refreshBooks
@@ -307,9 +307,9 @@ private fun SpokenModeScaffold(
             if (pagerState != null && pages != null) {
                 val minFlingVelocity = with(LocalDensity.current) { MinFlingVelocity.toPx() }
                 val handoff = remember(pagerState, minFlingVelocity) { ModeFlingHandoff(pagerState, minFlingVelocity) }
-                // Schlüssel ist der Bereich, nicht die Seite: Nach dem Ein- oder Ausschalten eines Bereichs behalten die übrigen
-                // ihren Zustand (Reiter, Scrollstand).
-                // Den letzten eingeschalteten Bereich kann man nicht ausblenden; dann bietet ein leerer Bereich das nicht an.
+                // The key is the area, not the page: after enabling or disabling an area the others keep
+                // their state (tab, scroll position).
+                // The last enabled area can't be hidden; then an empty area doesn't offer it.
                 CompositionLocalProvider(LocalOpenAreaSettings provides onOpenAreaSettings.takeIf { pages.size > 1 }) {
                     HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize(), key = { pages[it].ordinal }) { page ->
                         Box(Modifier.fillMaxSize().nestedScroll(handoff)) {
@@ -325,10 +325,10 @@ private fun SpokenModeScaffold(
 }
 
 /**
- * Übergang aus den Reitern der Bibliothek in den Bereich daneben: Wischt man über den ersten bzw. letzten Reiter hinaus,
- * zieht der Rest der Geste schon von selbst den Bereichs-Pager mit. Den Schwung beim Loslassen schluckt Compose aber;
- * der Pager rastete dann nur nach der Strecke ein. Hier zählt wie beim Wischen direkt auf dem Bereich auch die Richtung
- * eines kurzen, schnellen Wischers.
+ * Transition from the library tabs into the neighboring area: swiping past the first or last tab,
+ * the rest of the gesture already drags the area pager along by itself. Compose swallows the fling on release, though;
+ * the pager would then only snap by distance. Here, as when swiping directly on the area, the direction
+ * of a short, fast swipe counts too.
  */
 private class ModeFlingHandoff(private val pager: PagerState, private val minVelocity: Float) : NestedScrollConnection {
     override suspend fun onPreFling(available: Velocity): Velocity {
@@ -345,9 +345,9 @@ private class ModeFlingHandoff(private val pager: PagerState, private val minVel
 }
 
 /**
- * Zeichnet hinter eine Zeile aus [count] Segmenten die helle Fläche und darüber die Füllung des gewählten Segments an
- * [position] (0 = erstes Segment, Bruchteile dazwischen). Gelesen wird die Lage erst beim Zeichnen, damit das Mitfahren
- * nichts neu zusammensetzt.
+ * Draws the light surface behind a row of [count] segments and on top the fill of the selected segment at
+ * [position] (0 = first segment, fractions in between). The position is read only while drawing, so following along
+ * doesn't recompose anything.
  */
 private fun Modifier.slidingSegmentIndicator(
     count: Int,
@@ -366,15 +366,15 @@ private fun Modifier.slidingSegmentIndicator(
         }
     }
 
-/** Mindesthöhe der Bereichs-Knöpfe: die empfohlene Tippfläche, hier zugleich sichtbar. */
+/** Minimum height of the area buttons: the recommended touch target, here also visible. */
 private val SegmentMinHeight = 48.dp
 
-/** Ab dieser Geschwindigkeit entscheidet die Richtung eines Wischers, nicht die Strecke (wie beim Pager selbst). */
+/** From this velocity the direction of a swipe decides, not the distance (as with the pager itself). */
 private val MinFlingVelocity = 400.dp
 
 /**
- * Zustand des einklappbaren Kopfs: [offset] läuft von 0 (ganz sichtbar) bis -[height]. Scrollt der Inhalt nach oben,
- * verschwindet zuerst der Kopf; beim Zurückscrollen kommt er zuerst wieder. Ohne [enabled] bleibt alles unverändert.
+ * State of the collapsible header: [offset] runs from 0 (fully visible) to -[height]. If the content scrolls up,
+ * the header disappears first; when scrolling back it comes back first. Without [enabled] everything stays unchanged.
  */
 @Stable
 private class HeaderCollapse(private val enabled: Boolean) : NestedScrollConnection {
@@ -399,7 +399,7 @@ private fun Modifier.collapsingHeader(state: HeaderCollapse): Modifier = clipToB
 
 private const val APP_HEADER_KEY = "app-header"
 
-/** Darunter klappt der Kopf auch hochkant weg (kleines Handy); keine Grenze der Fensterklassen, die springen erst bei 900 dp. */
+/** Below this the header also collapses in portrait (small phone); not a window class boundary, those only jump at 900 dp. */
 private val SHORT_PHONE_HEIGHT = 700.dp
 
 private fun modeLabel(mode: SpokenMode): Int = when (mode) {
@@ -408,7 +408,7 @@ private fun modeLabel(mode: SpokenMode): Int = when (mode) {
     SpokenMode.BOOKS -> R.string.spoken_mode_books
 }
 
-/** „In Musik suchen“ usw. */
+/** "Search in music" etc. */
 fun searchLabel(mode: SpokenMode): Int = when (mode) {
     SpokenMode.MUSIC -> R.string.search_in_music
     SpokenMode.PODCASTS -> R.string.search_in_podcasts
@@ -416,8 +416,8 @@ fun searchLabel(mode: SpokenMode): Int = when (mode) {
 }
 
 /**
- * Quadratisches Buchcover; solange keines geladen ist (oder keines existiert), bleibt das Buch-Symbol sichtbar. Ein
- * [chapterImage] (Bild des laufenden Kapitels einer Folge) liegt darüber, bis es geladen ist, bleibt das Cover zu sehen.
+ * Square book cover; as long as none is loaded (or none exists), the book icon stays visible. A
+ * [chapterImage] (image of an episode's current chapter) lies on top; until it is loaded, the cover stays visible.
  */
 @Composable
 fun BookArt(
@@ -457,7 +457,7 @@ fun BookArt(
     }
 }
 
-/** „5 h 12 min“, „12 min“, „45 s“ – mit festen Leerzeichen, damit eine schmale Zeile nicht mitten in der Dauer umbricht. */
+/** "5 h 12 min", "12 min", "45 s" – with non-breaking spaces, so a narrow row doesn't wrap in the middle of the duration. */
 fun formatDuration(ms: Long): String {
     val totalSeconds = (ms / 1000).coerceAtLeast(0)
     val hours = totalSeconds / 3600
@@ -469,7 +469,7 @@ fun formatDuration(ms: Long): String {
     }
 }
 
-/** „1:02:03“ bzw. „2:03“. */
+/** "1:02:03" or "2:03". */
 fun formatClock(ms: Long): String {
     val totalSeconds = (ms / 1000).coerceAtLeast(0)
     val hours = totalSeconds / 3600
@@ -479,8 +479,8 @@ fun formatClock(ms: Long): String {
 }
 
 /**
- * Einmal an der Wurzel der App: zeigt die Hinweise des [BookLauncher] als Snackbar und fragt, bevor ein Buch oder eine
- * Folge über mobile Daten gestreamt wird (wenn eingeschaltet).
+ * Once at the app root: shows the [BookLauncher]'s messages as snackbars and asks before a book or an
+ * episode is streamed over mobile data (if enabled).
  */
 @Composable
 fun BookLaunchEffect(viewModel: BookLaunchViewModel = hiltViewModel()) {
@@ -524,18 +524,18 @@ fun BookLaunchEffect(viewModel: BookLaunchViewModel = hiltViewModel()) {
 
 private val MARKUP = Regex("<[a-zA-Z/!][^>]*>|&(#x?[0-9a-fA-F]+|[a-zA-Z]+);")
 private val TAG = Regex("<[^>]*>")
-// Bilder zeigt die Beschreibung nicht; `fromHtml` machte aus ihnen ein Platzhalterzeichen (U+FFFC, „OBJ“).
+// The description doesn't show images; `fromHtml` turned them into a placeholder character (U+FFFC, "OBJ").
 private val IMAGE = Regex("<img\\b[^>]*>", RegexOption.IGNORE_CASE)
 
-// Nackte Adressen im Text; Satzzeichen am Ende gehören nicht dazu (siehe [urlEnd]).
+// Bare addresses in the text; trailing punctuation doesn't belong to them (see [urlEnd]).
 private val BARE_URL = Regex("""(?<![\w/.@])(?:https?://|www\.)[^\s<>"]+""", RegexOption.IGNORE_CASE)
-// „1:02:03“, „12:34“, „75:10“; keine Uhrzeit („17:00 Uhr“), kein Teil einer längeren Zahlenfolge.
+// "1:02:03", "12:34", "75:10"; no time of day ("17:00 Uhr"), not part of a longer digit sequence.
 private val TIMESTAMP = Regex("""(?<![\d:.,/])(?:(\d{1,2}):)?(\d{1,3}):([0-5]\d)(?![\d:]|\s*Uhr\b)""")
 
 /**
- * Beschreibung eines Buchs oder einer Folge. Enthält sie HTML (Absätze, Fett/Kursiv, Links, Zeichencodes), wird es
- * umgesetzt; reiner Text bleibt unverändert, damit seine Zeilenumbrüche erhalten bleiben. Nackte Adressen werden
- * antippbar; mit [onTimestamp] auch Zeitmarken („12:34“), die in die Folge passen ([durationMs], 0 = unbekannt).
+ * Description of a book or episode. If it contains HTML (paragraphs, bold/italic, links, character entities), it is
+ * converted; plain text stays unchanged so its line breaks are preserved. Bare addresses become
+ * tappable; with [onTimestamp] also timestamps ("12:34") that fit within the episode ([durationMs], 0 = unknown).
  */
 @Composable
 fun rememberDescription(raw: String, durationMs: Long = 0, onTimestamp: ((Long) -> Unit)? = null): AnnotatedString {
@@ -552,7 +552,7 @@ fun rememberDescription(raw: String, durationMs: Long = 0, onTimestamp: ((Long) 
     }
 }
 
-/** Umsetzung zu [rememberDescription]. */
+/** Conversion for [rememberDescription]. */
 internal fun formatDescription(
     raw: String,
     links: TextLinkStyles? = null,
@@ -568,7 +568,7 @@ internal fun formatDescription(
     return withTextLinks(base, links, durationMs, onTimestamp)
 }
 
-/** Verlinkt nackte Adressen und (mit [onTimestamp]) Zeitmarken, die noch kein Link sind. */
+/** Links bare addresses and (with [onTimestamp]) timestamps that aren't links yet. */
 private fun withTextLinks(
     base: AnnotatedString,
     links: TextLinkStyles?,
@@ -601,7 +601,7 @@ private fun withTextLinks(
     }
 }
 
-/** Ende einer nackten Adresse ohne Satzzeichen dahinter; eine Klammer zu bleibt nur, wenn die Adresse eine öffnet. */
+/** End of a bare address without trailing punctuation; a closing parenthesis stays only if the address opens one. */
 private fun urlEnd(text: String, range: IntRange): Int {
     var end = range.last + 1
     while (end > range.first) {
@@ -612,7 +612,7 @@ private fun urlEnd(text: String, range: IntRange): Int {
     return end
 }
 
-/** Position einer Zeitmarke in ms; mit Stunden höchstens 59 Minuten. */
+/** Position of a timestamp in ms; with hours, at most 59 minutes. */
 private fun timestampMs(match: MatchResult): Long? {
     val hours = match.groupValues[1].toLongOrNull()
     val minutes = match.groupValues[2].toLong()
@@ -621,7 +621,7 @@ private fun timestampMs(match: MatchResult): Long? {
     return (((hours ?: 0) * 60 + minutes) * 60 + seconds) * 1000
 }
 
-/** Beschreibung ohne Tags für die Suche; die Zeichencodes bleiben stehen (billiger als eine Umsetzung je Tastendruck). */
+/** Description without tags for the search; the character entities stay (cheaper than a conversion per keystroke). */
 fun descriptionForSearch(raw: String): String = if ('<' in raw) raw.replace(TAG, " ") else raw
 
 private fun AnnotatedString.trimmed(): AnnotatedString {
@@ -630,20 +630,20 @@ private fun AnnotatedString.trimmed(): AnnotatedString {
     return subSequence(start, text.indexOfLast { !it.isWhitespace() } + 1)
 }
 
-/** „Okt. 31“; das Jahr steht nur dabei, wenn es nicht das laufende ist („Okt. 31, 2025“). */
+/** "Oct 31"; the year is only included if it isn't the current one ("Oct 31, 2025"). */
 fun formatEpisodeDate(ms: Long, now: Long = System.currentTimeMillis(), locale: Locale = Locale.getDefault()): String {
     fun yearOf(time: Long) = Calendar.getInstance().apply { timeInMillis = time }.get(Calendar.YEAR)
     val pattern = if (yearOf(ms) == yearOf(now)) "MMM d" else "MMM d, yyyy"
     return SimpleDateFormat(pattern, locale).format(Date(ms))
 }
 
-/** Wie [formatEpisodeDate], mit [withTime] dahinter die Uhrzeit („Nov. 12 · 17:00“). */
+/** Like [formatEpisodeDate], with [withTime] followed by the time of day ("Nov 12 · 17:00"). */
 fun formatEpisodeDate(ms: Long, withTime: Boolean): String {
     val date = formatEpisodeDate(ms)
     return if (withTime) "$date · ${formatEpisodeTime(ms)}" else date
 }
 
-/** Datum der Folge in Listen („12.11.2026“), mit [withTime] auch die Uhrzeit. */
+/** Date of the episode in lists ("12.11.2026"), with [withTime] also the time of day. */
 fun formatEpisodeDay(ms: Long, withTime: Boolean): String =
     if (withTime) {
         DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(ms))
@@ -654,9 +654,9 @@ fun formatEpisodeDay(ms: Long, withTime: Boolean): String =
 private fun formatEpisodeTime(ms: Long): String = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(ms))
 
 /**
- * Folgen, die am selben Kalendertag erschienen sind wie eine andere Folge desselben Podcasts in [books] (Nachrichten
- * mehrmals am Tag): Bei ihnen steht die Uhrzeit beim Datum, sonst wären sie nicht zu unterscheiden. Bücher und Folgen
- * ohne Datum zählen nicht.
+ * Episodes published on the same calendar day as another episode of the same podcast in [books] (news
+ * several times a day): they show the time of day next to the date, otherwise they couldn't be told apart. Books and episodes
+ * without a date don't count.
  */
 fun episodesSharingDay(books: List<Book>, zone: TimeZone = TimeZone.getDefault()): Set<Long> {
     val calendar = Calendar.getInstance(zone)
@@ -671,8 +671,8 @@ fun episodesSharingDay(books: List<Book>, zone: TimeZone = TimeZone.getDefault()
 }
 
 /**
- * Kurze Inhaltsangabe aus den Shownotes: reiner Text, Zeilen zu einem Absatz zusammengezogen, ohne Zeilen, die nur den
- * [title] wiederholen (ARD Sounds: Shownotes = Titel); leer, wenn es keine gibt. Die Anzeige kürzt sie auf ihre Zeilenzahl.
+ * Short summary from the show notes: plain text, lines joined into one paragraph, without lines that only
+ * repeat the [title] (ARD Sounds: show notes = title); empty if there is none. The display truncates it to its line count.
  */
 fun descriptionSummary(raw: String, title: String): String {
     if (raw.isBlank()) return ""

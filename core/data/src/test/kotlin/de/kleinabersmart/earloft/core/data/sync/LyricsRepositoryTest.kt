@@ -39,15 +39,15 @@ class LyricsRepositoryTest {
     private val nd = FakeServer("nd", listOf(track("a"), track("b", artist = "Band feat. Gast"), track("c")))
     private val synced = Lyrics.Synced(listOf(LyricLine(0, "Eins"), LyricLine(5_000, "Zweiä")))
 
-    // Nachgebautes LRCLIB: Antworten je Pfad, alle Anfragen zum Nachsehen.
+    // Fake LRCLIB: responses per path, all requests recorded for inspection.
     private val lrclib = MockWebServer()
     private val lrclibResponses = mutableMapOf<String, MockResponse>()
     private val lrclibRequests = CopyOnWriteArrayList<RecordedRequest>()
 
-    /** Wird vor [lrclibResponses] der Reihe nach beantwortet. */
+    /** Answered in order before [lrclibResponses]. */
     private val lrclibFirst = java.util.concurrent.ConcurrentLinkedQueue<MockResponse>()
 
-    /** Läuft, während LRCLIB eine Anfrage bekommt (die Abfrage ist dann unterwegs). */
+    /** Runs while LRCLIB receives a request (the query is then in flight). */
     @Volatile
     private var onLrclibRequest: (() -> Unit)? = null
 
@@ -107,7 +107,7 @@ class LyricsRepositoryTest {
         assertEquals(Lyrics.None, lyrics.lyrics(id))
         assertEquals(1, nd.calls.size)
 
-        // Eintrag altern lassen: nach Ablauf wird neu gefragt und der inzwischen ergänzte Text gefunden.
+        // Let the entry age: after expiry it is queried again and the lyrics added in the meantime are found.
         db.lyricsDao().upsert(LyricsEntity(id, LyricsKind.NONE, "", "", fetchedAt = 0))
         nd.lyrics["b"] = synced
         assertEquals(synced, lyrics.lyrics(id))
@@ -152,7 +152,7 @@ class LyricsRepositoryTest {
 
         val expected = Lyrics.Synced(listOf(LyricLine(1_000, "Online"), LyricLine(4_500, "Zwei")))
         assertEquals(SongLyrics(expected, fromLrclib = true), lyrics.songLyrics(id))
-        // Auch aus dem Speicher mit Quelle.
+        // From the cache, too, with source.
         assertEquals(SongLyrics(expected, fromLrclib = true), lyrics.songLyrics(id))
 
         val request = lrclibRequests.single().url

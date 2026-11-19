@@ -8,22 +8,22 @@ import androidx.media3.exoplayer.audio.ForwardingAudioSink
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Inhaltszeit, die „Stille kürzen“ übersprungen hat (Statistik „gespart“). Media3 rechnet übersprungene Frames laufend in
- * die Position ein (`DefaultAudioSink.applySkipping`); `DISCONTINUITY_REASON_SILENCE_SKIP` kommt erst rund 100 ms danach,
- * und der Sprung zwischen alter und neuer Position ist dann nur noch der Fortschritt eines Durchlaufs. Deshalb zählt
- * [CountingAudioProcessorChain] am Zähler des Prozessors mit, genau dann, wenn der Sink ihn für die Position liest.
+ * Content time skipped by "skip silence" (statistics "saved"). Media3 continuously factors skipped frames into
+ * the position (`DefaultAudioSink.applySkipping`); `DISCONTINUITY_REASON_SILENCE_SKIP` only comes about 100 ms later,
+ * and the jump between old and new position is then only the progress of one pass. That's why
+ * [CountingAudioProcessorChain] counts along at the processor's counter, exactly when the sink reads it for the position.
  *
- * [onFrameCount] und [sampleRate] kommen vom Player-Thread, [drainMs] vom Main-Thread.
+ * [onFrameCount] and [sampleRate] come from the player thread, [drainMs] from the main thread.
  */
 internal class SkippedSilence {
-    /** Abtastrate des Eingangs; der Zähler zählt Frames davon. */
+    /** Sample rate of the input; the counter counts frames of it. */
     @Volatile
     var sampleRate = 0
 
     private var lastFrames = 0L
     private val pendingUs = AtomicLong()
 
-    /** Zählerstand des Prozessors; er fällt beim Flushen (Spulen, Wechsel der Datei) auf 0 und zählt von dort weiter. */
+    /** Counter value of the processor; it drops to 0 on flush (seeking, file change) and counts on from there. */
     fun onFrameCount(frames: Long) {
         val skipped = if (frames >= lastFrames) frames - lastFrames else frames
         lastFrames = frames
@@ -31,7 +31,7 @@ internal class SkippedSilence {
         if (skipped > 0 && rate > 0) pendingUs.addAndGet(skipped * MICROS_PER_SECOND / rate)
     }
 
-    /** Übersprungene Inhaltszeit seit dem letzten Aufruf in ms; der Rest unter 1 ms bleibt stehen. */
+    /** Skipped content time since the last call in ms; the remainder below 1 ms is kept. */
     fun drainMs(): Long {
         val us = pendingUs.getAndSet(0)
         pendingUs.addAndGet(us % MICROS_PER_MS)
@@ -44,7 +44,7 @@ internal class SkippedSilence {
     }
 }
 
-/** Die Kette des Sinks, die jeden gelesenen Stand der übersprungenen Frames an [silence] meldet. */
+/** The sink's chain, which reports every read value of skipped frames to [silence]. */
 @OptIn(UnstableApi::class)
 internal class CountingAudioProcessorChain(
     private val chain: AudioProcessorChain,
@@ -53,7 +53,7 @@ internal class CountingAudioProcessorChain(
     override fun getSkippedOutputFrameCount(): Long = chain.skippedOutputFrameCount.also(silence::onFrameCount)
 }
 
-/** Merkt sich die Abtastrate jedes neu eingerichteten Formats für [SkippedSilence]. */
+/** Remembers the sample rate of every newly configured format for [SkippedSilence]. */
 @OptIn(UnstableApi::class)
 internal class SilenceRateAudioSink(sink: AudioSink, private val silence: SkippedSilence) : ForwardingAudioSink(sink) {
     override fun configure(config: AudioSink.AudioSinkConfig) {

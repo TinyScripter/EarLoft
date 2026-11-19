@@ -1,21 +1,21 @@
 package de.kleinabersmart.earloft.core.playback
 
-/** So kurz vor dem Ende gilt ein laufendes Buch bzw. eine laufende Folge als zu Ende gehört (Abspann). */
+/** This close to the end a playing book or episode counts as finished (credits). */
 internal const val FINISHED_TOLERANCE_MS = 5_000L
 
-/** Angehaltene Folgen: mindestens so viel darf fehlen … */
+/** Stopped episodes: at least this much may be missing … */
 internal const val EPISODE_STOPPED_MIN_MS = 30_000L
 
 /**
- * Ob an [positionMs] zu Ende gehört ist (Konzept 12.3). Angehalten ([stopped]: Pause, Stopp, Wechsel zu etwas anderem)
- * gilt schon kurz vor dem Ende als gehört – Abspann und Werbung am Schluss hört kaum jemand:
- * - Folgen: es dürfen max(30 s, 2 %) fehlen, bei sehr kurzen Folgen höchstens 10 %.
- * - Bücher: ab 99 %, mit Kapiteln aber erst im letzten Kapitel ([lastChapterStartMs]) – ein kurzes Schlusskapitel
- *   nimmt sonst Inhalt des vorletzten mit.
+ * Whether [positionMs] counts as finished (concept 12.3). When stopped ([stopped]: pause, stop, switch to something else)
+ * it counts as played already shortly before the end – hardly anyone listens to credits and ads at the end:
+ * - Episodes: max(30 s, 2 %) may be missing, for very short episodes at most 10 %.
+ * - Books: from 99 %, but with chapters only in the last chapter ([lastChapterStartMs]) – otherwise a short final chapter
+ *   would take content of the second to last one with it.
  *
- * Solange es läuft, gilt [FINISHED_TOLERANCE_MS]; sonst nähmen Aufräumen und Probeabos einer Folge die Datei, während
- * sie noch spielt, und ein Buch fiele mitten im Hören aus „Weiterhören“.
- * Ohne bekannte Dauer (Folge, deren Länge noch nicht gelernt ist) ist nichts zu Ende.
+ * While playing, [FINISHED_TOLERANCE_MS] applies; otherwise cleanup and trial subscriptions would take an episode's file while
+ * it is still playing, and a book would drop out of "Continue listening" mid-listen.
+ * Without a known duration (episode whose length hasn't been learned yet) nothing is finished.
  */
 internal fun isFinishedAt(
     positionMs: Long,

@@ -6,8 +6,8 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.Multibinds
 
 /**
- * Kurzfassung des Wiedergabezustands für Oberflächen außerhalb der App (z. B. Widget).
- * Entweder ein Song ([songId]) oder ein Hörbuch ([bookId]); bei Büchern ist [artist] der Autor.
+ * Short summary of the playback state for surfaces outside the app (e.g. widget).
+ * Either a song ([songId]) or an audiobook ([bookId]); for books, [artist] is the author.
  */
 data class NowPlaying(
     val songId: Long?,
@@ -16,17 +16,17 @@ data class NowPlaying(
     val albumId: Long?,
     val isPlaying: Boolean,
     val bookId: Long? = null,
-    /** Bei [bookId]: eine Podcast-Folge statt eines Buchs. */
+    /** With [bookId]: a podcast episode instead of a book. */
     val isEpisode: Boolean = false,
-    /** Bei [bookId]: das laufende Kapitel; `null` ohne Kapitel. */
+    /** With [bookId]: the current chapter; `null` without chapters. */
     val chapter: String? = null,
 ) {
     val isBook: Boolean get() = bookId != null
 }
 
 /**
- * Wird vom [PlaybackService] bei Titel- oder Statuswechsel aufgerufen – auch wenn die App-UI
- * nicht läuft (z. B. Start per Kopfhörertaste). Implementierungen per `@IntoSet` binden.
+ * Called by the [PlaybackService] on title or status changes – even if the app UI
+ * is not running (e.g. started via headphone button). Bind implementations via `@IntoSet`.
  */
 interface NowPlayingObserver {
     fun onNowPlayingChanged(nowPlaying: NowPlaying?)

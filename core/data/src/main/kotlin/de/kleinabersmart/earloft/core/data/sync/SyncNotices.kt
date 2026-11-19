@@ -7,20 +7,20 @@ import kotlinx.coroutines.flow.asSharedFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Hinweise an den Nutzer, wenn der Abgleich eine seiner Änderungen nicht umsetzen konnte (Konzept 6.4). */
+/** Notices to the user when the sync couldn't apply one of their changes (concept 6.4). */
 sealed interface SyncNotice {
-    /** Die Playlist wurde auch auf dem Server geändert; deren Fassung gilt, die lokale Änderung ist weg. */
+    /** The playlist was also changed on the server; its version applies, the local change is gone. */
     data class PlaylistReplacedByServer(val playlistName: String) : SyncNotice
 
-    /** Der Server hat eine Änderung abgelehnt bzw. sie ließ sich auch nach vielen Versuchen nicht senden. */
+    /** The server rejected a change, or it couldn't be sent even after many attempts. */
     data class ChangeDropped(val kind: Kind) : SyncNotice {
         enum class Kind { FAVORITE, PLAYLIST }
     }
 }
 
 /**
- * Wer gerade nicht zuhört (App im Hintergrund), verpasst den Hinweis – er wird nicht nachgereicht, weil
- * ein veralteter Toast beim nächsten Start mehr verwirrt als hilft.
+ * Whoever isn't listening right now (app in the background) misses the notice – it isn't delivered later, because
+ * an outdated toast on the next start confuses more than it helps.
  */
 @Singleton
 class SyncNotices @Inject constructor() {

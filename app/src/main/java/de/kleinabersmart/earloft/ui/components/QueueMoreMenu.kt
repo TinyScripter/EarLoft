@@ -23,9 +23,9 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Das ⋮ oben rechts im Kopf jeder Warteschlange (Musik, Podcasts, Bücher). „Warteschlange leeren“ steht immer darin, nach
- * Rückfrage mit [clearMessage]; ist nichts zu leeren ([canClear]), ist der Eintrag ausgegraut. [items]: Einträge davor,
- * `close` schließt das Menü.
+ * The ⋮ at the top right of every queue's header (music, podcasts, books). "Clear queue" is always in it, after
+ * confirmation with [clearMessage]; if there is nothing to clear ([canClear]), the entry is grayed out. [items]: entries before it,
+ * `close` closes the menu.
  */
 @Composable
 fun QueueMoreMenu(
@@ -70,7 +70,7 @@ fun QueueMoreMenu(
     }
 }
 
-/** Titel im Kopf einer Warteschlange, darunter klein [summary] (etwa Anzahl und Restzeit), falls vorhanden. */
+/** Title in a queue's header, with [summary] (e.g. count and remaining time) in small type below it, if present. */
 @Composable
 fun QueueTitle(summary: String?) {
     Column {

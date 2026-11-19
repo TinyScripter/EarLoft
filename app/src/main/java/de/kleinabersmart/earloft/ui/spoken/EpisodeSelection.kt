@@ -48,8 +48,8 @@ import kotlinx.coroutines.launch
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Ausgewählte Folgen einer Liste (Mehrfachauswahl, Konzept 12.5); leer = keine Auswahl. Sie beginnt über „Auswählen“ im
- * Langklick-Menü; danach schaltet ein Tipp (auch ein Langklick) eine Folge dazu oder weg.
+ * Selected episodes of a list (multi-selection, concept 12.5); empty = no selection. It starts via "Select" in the
+ * long-press menu; after that a tap (also a long press) adds or removes an episode.
  */
 @Stable
 class EpisodeSelection internal constructor(initial: Collection<Long>) {
@@ -64,7 +64,7 @@ class EpisodeSelection internal constructor(initial: Collection<Long>) {
         ids = if (bookId in ids) ids - bookId else ids + bookId
     }
 
-    /** Alle [shown] auswählen; sind schon alle ausgewählt, keine mehr (dann endet die Auswahl). */
+    /** Select all [shown]; if all are already selected, none any more (then the selection ends). */
     fun toggleAll(shown: Collection<Long>) {
         ids = if (ids.containsAll(shown)) emptySet() else shown.toSet()
     }
@@ -73,7 +73,7 @@ class EpisodeSelection internal constructor(initial: Collection<Long>) {
         ids = emptySet()
     }
 
-    /** Was nicht mehr in der Liste steht (anderer Filter, aus der Warteschlange gefallen), ist nicht mehr ausgewählt. */
+    /** Whatever is no longer in the list (different filter, dropped out of the queue) is no longer selected. */
     internal fun retain(shown: Collection<Long>) {
         if (!active) return
         val kept = ids.intersect(shown.toSet())
@@ -86,11 +86,11 @@ fun rememberEpisodeSelection(): EpisodeSelection =
     rememberSaveable(saver = listSaver({ it.ids.toList() }, { EpisodeSelection(it) })) { EpisodeSelection(emptyList()) }
 
 /**
- * Leiste statt der Kopfzeile, solange ausgewählt ist: ✕ beendet die Auswahl (wie „Zurück“), daneben die Anzahl; rechts
- * „Alle auswählen“, „Gehört“ und „Laden“, im ⋮ „Download löschen“, Warteschlange, „Als Nächstes“ und „Merken“. [shown] sind die Folgen
- * der Liste in ihrer Reihenfolge; die Aktionen gelten für die ausgewählten darunter, in dieser Reihenfolge. [inQueue]: Die
- * Liste ist die Warteschlange (dort „Entfernen“ statt „Zur Warteschlange“). Nach einer Aktion endet die Auswahl. [loaded]: Die Liste
- * ist geladen; solange nicht (nach dem Prozessende), bleibt die wiederhergestellte Auswahl stehen.
+ * Bar instead of the header while selecting: ✕ ends the selection (like "Back"), next to it the count; on the right
+ * "Select all", "Played" and "Download", in the ⋮ "Delete download", queue, "Play next" and "Star". [shown] are the episodes
+ * of the list in their order; the actions apply to the selected ones among them, in this order. [inQueue]: the
+ * list is the queue (there "Remove" instead of "Add to queue"). After an action the selection ends. [loaded]: the list
+ * is loaded; as long as it isn't (after process death), the restored selection stays.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,14 +100,14 @@ fun EpisodeSelectionBar(
     modifier: Modifier = Modifier,
     loaded: Boolean = true,
     inQueue: Boolean = false,
-    /** Unter dem Kopf der App (Reiter „Folgen“) ohne Abstand für die Statusleiste. */
+    /** Below the app header ("Episodes" tab) without padding for the status bar. */
     windowInsets: WindowInsets = TopAppBarDefaults.windowInsets,
     viewModel: EpisodeMenuViewModel = hiltViewModel(),
 ) {
     val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
     val queued by viewModel.queued.collectAsStateWithLifecycle()
     val trialFeeds by viewModel.trialFeeds.collectAsStateWithLifecycle()
-    // Abonniert, damit „Als Nächstes“ die vorderste Folge kennt.
+    // Subscribed, so that "Play next" knows the frontmost episode.
     viewModel.queueHead.collectAsStateWithLifecycle()
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
@@ -148,7 +148,7 @@ fun EpisodeSelectionBar(
                     contentDescription = stringResource(if (allPlayed) R.string.episode_mark_unplayed else R.string.episode_mark_played),
                 )
             }
-            // Folgen vom Gerät sind schon da.
+            // Episodes from the device are already there.
             if (selected.any { !it.book.isLocal && it.book.id !in downloaded }) {
                 IconButton(onClick = {
                     viewModel.download(selected) { snackbars.show(resources.getString(it), SnackbarDuration.Long) }
@@ -197,7 +197,7 @@ fun EpisodeSelectionBar(
                             done(quantity(resources, R.plurals.episodes_play_next, count))
                         },
                     )
-                    // Sind alle gemerkt: nicht mehr merken; Folgen von Probeabos lassen sich nicht merken.
+                    // If all are starred: unstar; episodes of trial subscriptions can't be starred.
                     val starrable = selected.filter { it.book.serverId !in trialFeeds }
                     if (starrable.isNotEmpty()) {
                         val allStarred = starrable.all { it.book.starred }
@@ -222,7 +222,7 @@ fun EpisodeSelectionBar(
 private fun quantity(resources: android.content.res.Resources, id: Int, count: Int): String =
     resources.getQuantityString(id, count, count)
 
-/** [BookArt] mit Haken darüber, wenn die Folge ausgewählt ist. */
+/** [BookArt] with a check mark over it if the episode is selected. */
 @Composable
 fun SelectableArt(bookId: Long, selected: Boolean, modifier: Modifier = Modifier, shape: Shape = MaterialTheme.shapes.small) {
     Box(modifier) {
@@ -231,7 +231,7 @@ fun SelectableArt(bookId: Long, selected: Boolean, modifier: Modifier = Modifier
     }
 }
 
-/** Abgedunkelte Fläche mit Haken über einem Bild, solange [selected]. */
+/** Darkened area with a check mark over an image, as long as [selected]. */
 @Composable
 fun SelectedMark(selected: Boolean, shape: Shape, modifier: Modifier = Modifier) {
     if (!selected) return
@@ -244,10 +244,10 @@ fun SelectedMark(selected: Boolean, shape: Shape, modifier: Modifier = Modifier)
 }
 
 /**
- * Wischen auf einer Folgenzeile (Konzept 12.5, abschaltbar unter Einstellungen → Podcasts): nach rechts in die
- * Warteschlange (steht sie schon darin: heraus), nach links „gehört“ (ist sie es schon: „ungehört“). Die Zeile gleitet
- * danach zurück; „Gehört“ lässt sich in der Snackbar rückgängig machen. Die im Player geladene Folge hielte dabei an, ohne
- * dass sich das zurücknehmen ließe; für sie fragt die Snackbar erst nach.
+ * Swiping on an episode row (concept 12.5, can be turned off under Settings → Podcasts): to the right into the
+ * queue (if it is already in it: out), to the left "played" (if it already is: "unplayed"). The row slides
+ * back afterwards; "Played" can be undone in the snackbar. The episode loaded in the player would pause, without
+ * that being reversible; for it the snackbar asks first.
  */
 @Composable
 fun EpisodeSwipeBox(
@@ -295,8 +295,8 @@ fun EpisodeSwipeBox(
         scope.launch { state.reset() }
         Unit
     }
-    // Gleichbleibend: Die Box ruft ein neues Lambda erneut auf, solange sie nicht zurückgeglitten ist – und die Aktion
-    // selbst ändert die Zeile (Warteschlange, gehört).
+    // Stable: the box calls a new lambda again as long as it hasn't slid back – and the action
+    // itself changes the row (queue, played).
     val onDismiss: (SwipeToDismissBoxValue) -> Unit = remember { { direction -> handle(direction) } }
     SwipeToDismissBox(
         state = state,

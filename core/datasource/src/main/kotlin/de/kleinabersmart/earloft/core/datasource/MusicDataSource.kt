@@ -7,131 +7,131 @@ import de.kleinabersmart.earloft.core.model.Lyrics
 import de.kleinabersmart.earloft.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
 
-/** Eine Musikquelle (lokal oder Server). Konzept Abschnitt 6.1. */
+/** A music source (local or server). Concept section 6.1. */
 interface MusicDataSource {
     val sourceId: String
     val type: SourceType
 
-    /** Anzeigename für die Quellenliste. */
+    /** Display name for the source list. */
     val displayName: String
 
     /**
-     * Liefert die komplette Bibliothek in Batches. Wirft bei Fehlern (z. B. fehlende Berechtigung),
-     * damit der Abgleich abbricht, statt die Bibliothek als leer zu interpretieren.
+     * Delivers the complete library in batches. Throws on errors (e.g. missing permission)
+     * so the sync aborts instead of interpreting the library as empty.
      */
     fun fullScan(): Flow<SourceBatch>
 
     /**
-     * Wie [fullScan]; [isUnchanged] sagt, ob die Quelle einen Track mit genau diesem `lastModified` schon kennt.
-     * Quellen, die für neue Tracks aufwendig nachlesen müssen (lokale Tags), sparen sich das für bekannte.
+     * Like [fullScan]; [isUnchanged] says whether the source already knows a track with exactly this `lastModified`.
+     * Sources that have to do expensive extra reads for new tracks (local tags) skip that for known ones.
      */
     fun fullScan(isUnchanged: suspend (remoteId: String, lastModified: Long) -> Boolean): Flow<SourceBatch> = fullScan()
 
-    /** Wird zur Ladezeit vom Player aufgerufen. */
+    /** Called by the player at load time. */
     suspend fun resolvePlayback(remoteId: String): PlaybackLocation
 
     suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap?
 }
 
 /**
- * Nutzerdaten, die eine Server-Quelle hält (Favoriten, Scrobbles, Playlists). Fehler werden als
- * Ausnahmen gemeldet: `IOException` = später erneut versuchen.
+ * User data held by a server source (favorites, scrobbles, playlists). Errors are reported as
+ * exceptions: `IOException` = retry later.
  */
 interface RemoteLibraryActions {
-    /** [remoteId] ist je nach [kind] die ID eines Songs, Albums oder Künstlers. */
+    /** Depending on [kind], [remoteId] is the ID of a song, album or artist. */
     suspend fun setFavorite(remoteId: String, favorite: Boolean, kind: FavoriteKind = FavoriteKind.SONG)
 
-    /** [playedAt] = Beginn des Hörens in ms seit Epoche. */
+    /** [playedAt] = start of listening in ms since epoch. */
     suspend fun scrobble(remoteId: String, playedAt: Long)
 
-    /** Eigene, änderbare Playlists des Kontos, ohne Songs. */
+    /** The account's own editable playlists, without songs. */
     suspend fun playlists(): List<RemotePlaylistInfo>
 
     suspend fun playlist(remoteId: String): RemotePlaylist
 
-    /** @return der Stand danach. */
+    /** @return the state afterwards. */
     suspend fun createPlaylist(name: String, songRemoteIds: List<String>): RemotePlaylistInfo
 
-    /** Ersetzt Name und Songs von [current]. @return der Stand danach. */
+    /** Replaces name and songs of [current]. @return the state afterwards. */
     suspend fun replacePlaylist(current: RemotePlaylist, name: String, songRemoteIds: List<String>): RemotePlaylistInfo
 
     suspend fun deletePlaylist(remoteId: String)
 }
 
 /**
- * Meldet eine gerade gezählte Wiedergabe wie ein Player des Servers, damit Statistik und Plugins des Servers (Last.fm,
- * ListenBrainz) sie als Wiedergabe sehen. Nachgereichtes (offline Gehörtes, Wiedergaben der Uhr) geht weiter über
- * [RemoteLibraryActions.scrobble] mit dem richtigen Zeitpunkt. Fehler: `IOException`.
+ * Reports a just-counted play like one of the server's players, so the server's statistics and plugins (Last.fm,
+ * ListenBrainz) see it as a play. Late submissions (listened offline, plays from the watch) still go through
+ * [RemoteLibraryActions.scrobble] with the correct timestamp. Errors: `IOException`.
  */
 interface RemotePlaybackReporting {
-    /** [durationMs] = Länge des Songs; gemeldet wird er als zu Ende gehört. */
+    /** [durationMs] = duration of the song; it is reported as listened to the end. */
     suspend fun reportPlayback(remoteId: String, durationMs: Long)
 }
 
 /**
- * Billiger Zwischenabgleich für Server (statt des Vollabgleichs): erfasst neu hinzugekommene Alben und den
- * Favoriten-Stand, den andere Clients geändert haben. Gelöschte oder geänderte Songs findet nur der Vollabgleich.
+ * Cheap intermediate sync for servers (instead of the full sync): picks up newly added albums and the
+ * favorite state that other clients have changed. Only the full sync finds deleted or changed songs.
  */
 interface RemoteQuickSync {
-    /** Songs der Alben, die nach [since] (ms seit Epoche) auf den Server kamen. */
+    /** Songs of the albums that arrived on the server after [since] (ms since epoch). */
     suspend fun tracksAddedSince(since: Long): List<RawTrack>
 
-    /** Alles Favorisierte des Kontos. */
+    /** Everything the account has favorited. */
     suspend fun starred(): RemoteStarred
 }
 
-/** Je Art `remoteId` → Zeitpunkt des Sterns (ms; 0 = unbekannt). */
+/** Per kind, `remoteId` → time of the star (ms; 0 = unknown). */
 data class RemoteStarred(
     val songs: Map<String, Long>,
     val albums: Map<String, Long> = emptyMap(),
     val artists: Map<String, Long> = emptyMap(),
 )
 
-/** Quellen, die Songtexte liefern. Fehler wie bei [RemoteLibraryActions]; `IOException` = später erneut versuchen. */
+/** Sources that provide lyrics. Errors as with [RemoteLibraryActions]; `IOException` = retry later. */
 interface RemoteLyrics {
-    /** [artist] und [title] dienen Servern ohne OpenSubsonic als Suchbegriff. [Lyrics.None], wenn es keinen Text gibt. */
+    /** [artist] and [title] serve as the search term for servers without OpenSubsonic. [Lyrics.None] if there are no lyrics. */
     suspend fun lyrics(remoteId: String, artist: String, title: String): Lyrics
 }
 
-/** Server, die zu einem Song passende Songs vorschlagen (Mix). Fehler: Ausnahmen; leer, wenn der Server nichts weiß. */
+/** Servers that suggest songs matching a song (mix). Errors: exceptions; empty if the server knows nothing. */
 interface RemoteSimilarSongs {
-    /** `remoteId`s von bis zu [count] Songs, die zum Song [remoteId] passen, in der Reihenfolge des Servers. */
+    /** `remoteId`s of up to [count] songs that match the song [remoteId], in the server's order. */
     suspend fun similarSongs(remoteId: String, count: Int): List<String>
 }
 
-/** Quellen, deren Dateien Songtexte einbetten. Fehler beim Lesen gelten als „kein Text“. */
+/** Sources whose files embed lyrics. Read errors count as "no lyrics". */
 interface LocalLyrics {
     suspend fun embeddedLyrics(remoteId: String): Lyrics
 }
 
 /**
- * Quellen, deren Songs ein anderes Gerät im Netz selbst abrufen kann (Chromecast). Die URLs enthalten
- * Zugangsdaten und dürfen weder gespeichert noch geloggt werden.
+ * Sources whose songs another device on the network can fetch itself (Chromecast). The URLs contain
+ * credentials and must neither be stored nor logged.
  */
 interface ExternalPlayback {
-    /** Original-Datei bzw. mit [transcodeTo] (Format, Bitrate in kbit/s) vom Server umgewandelt. */
+    /** Original file, or converted by the server with [transcodeTo] (format, bitrate in kbit/s). */
     fun externalStreamUrl(remoteId: String, transcodeTo: Pair<String, Int>? = null): String
 
     fun externalCoverUrl(coverRemoteId: String, sizePx: Int): String
 }
 
 /**
- * Server, die eine Datei beim Abruf umwandeln (Downloads für die Uhr, Wear-Konzept 8.2). Die Auth übernimmt
- * wie bei [MusicDataSource.resolvePlayback] der gemeinsame OkHttpClient; die URL enthält keine Zugangsdaten.
+ * Servers that convert a file when it is fetched (downloads for the watch, Wear concept 8.2). As with
+ * [MusicDataSource.resolvePlayback], the shared OkHttpClient handles auth; the URL contains no credentials.
  */
 interface RemoteTranscoding {
-    /** [codec] z. B. `opus`, [maxKbps] höchste Bitrate in kbit/s. */
+    /** [codec] e.g. `opus`, [maxKbps] highest bitrate in kbit/s. */
     fun transcodedPlayback(remoteId: String, codec: String, maxKbps: Int): PlaybackLocation.Remote
 }
 
-/** [changedAt] = letzte Änderung auf dem Server (ms) – dient der Konflikterkennung. */
+/** [changedAt] = last change on the server (ms) – used for conflict detection. */
 data class RemotePlaylistInfo(
     val remoteId: String,
     val name: String,
     val changedAt: Long,
 )
 
-/** [songRemoteIds] in Reihenfolge, Duplikate möglich. */
+/** [songRemoteIds] in order, duplicates possible. */
 data class RemotePlaylist(
     val info: RemotePlaylistInfo,
     val songRemoteIds: List<String>,
@@ -147,11 +147,11 @@ sealed interface PlaybackLocation {
 data class RawArtist(
     val name: String,
     val mbid: String? = null,
-    /** ID des Künstlers auf dem Server (für Favoriten); lokale Quellen kennen keine. */
+    /** ID of the artist on the server (for favorites); local sources have none. */
     val remoteId: String? = null,
 )
 
-/** Track, wie ihn eine Quelle liefert – noch nicht dedupliziert. */
+/** Track as a source delivers it – not yet deduplicated. */
 data class RawTrack(
     val remoteId: String,
     val title: String,
@@ -160,16 +160,16 @@ data class RawTrack(
     val albumTitle: String,
     val albumArtistDisplay: String,
     val albumArtists: List<RawArtist>,
-    /** ID des Albums auf dem Server (für Favoriten); lokale Quellen kennen keine. */
+    /** ID of the album on the server (for favorites); local sources have none. */
     val albumRemoteId: String? = null,
     val isCompilation: Boolean = false,
     val discNumber: Int = 1,
     val trackNumber: Int = 0,
     val durationMs: Long,
     val year: Int? = null,
-    /** Das erste Genre. */
+    /** The first genre. */
     val genre: String? = null,
-    /** Alle Genres, wenn die Quelle mehrere nennt (OpenSubsonic, Jellyfin/Emby); sonst leer, dann gilt [genre]. */
+    /** All genres if the source names several (OpenSubsonic, Jellyfin/Emby); otherwise empty, then [genre] applies. */
     val genres: List<String> = emptyList(),
     val mbidTrack: String? = null,
     val mbidAlbum: String? = null,
@@ -183,10 +183,10 @@ data class RawTrack(
     val sizeBytes: Long? = null,
     val lastModified: Long? = null,
     val dateAdded: Long? = null,
-    /** Vom Server favorisiert seit (ms); lokale Quellen kennen keine Favoriten. */
+    /** Favorited by the server since (ms); local sources have no favorites. */
     val starredAt: Long? = null,
 ) {
-    /** Alle Genres ohne leere, das erste vorn. */
+    /** All genres without empty ones, the first one at the front. */
     val allGenres: List<String>
         get() = genres.ifEmpty { listOfNotNull(genre) }.map { it.trim() }.filter { it.isNotEmpty() }
 }

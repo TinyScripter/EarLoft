@@ -37,13 +37,13 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Was sich einzeln auf die Uhr legen lässt: Album, Playlist, Favoriten (Wear-Konzept 5) oder eine Folge bzw. ein Buch (16.1/16.2). */
+/** What can be put on the watch individually: album, playlist, favorites (Wear concept 5) or an episode or book (16.1/16.2). */
 sealed interface WatchTarget {
     data class Selection(val kind: WearSelectionKind, val refId: Long?) : WatchTarget
     data class Spoken(val bookId: Long) : WatchTarget
 }
 
-/** Was auf die Uhr soll (Wear-Konzept 5). Ohne gekoppelte Uhr mit EarLoft ist [isAvailable] `false`. */
+/** What should go on the watch (Wear concept 5). Without a paired watch running EarLoft, [isAvailable] is `false`. */
 @Stable
 class WatchController(
     private val available: State<Boolean>,
@@ -61,18 +61,18 @@ class WatchController(
         is WatchTarget.Spoken -> target.bookId in selectedSpoken.value
     }
 
-    /** Fortschritt der Uhr für diese Auswahl; `null`, wenn sie nicht ausgewählt ist oder die Uhr noch nichts gemeldet hat. */
+    /** The watch's progress for this selection; `null` if it isn't selected or the watch hasn't reported anything yet. */
     fun progressOf(kind: WearSelectionKind, refId: Long?): WearSelectionStatusDto? {
         val key = kind.key(refId)
         if (key !in selectedKeys.value) return null
         return status.value?.selections?.firstOrNull { it.key == key }
     }
 
-    /** Titel, die die Uhr wegen der Speichergrenze nicht eingereiht hat. */
+    /** Titles the watch didn't enqueue because of the storage limit. */
     val missingForStorage: Int get() = status.value?.missingForStorage ?: 0
 }
 
-/** `null` (Vorschau, Tests): keine Uhr-Funktionen. */
+/** `null` (preview, tests): no watch features. */
 val LocalWatchController = staticCompositionLocalOf<WatchController?> { null }
 
 @HiltViewModel
@@ -113,7 +113,7 @@ fun rememberWatchController(viewModel: WatchViewModel = hiltViewModel()): WatchC
     return remember(viewModel) { WatchController(available, selectedKeys, selectedSpoken, status, viewModel::setSelected) }
 }
 
-/** Kleine Zeile „Auf der Uhr: 12 von 14“ für die Kopfzeile von Album, Playlist und Favoriten; ohne Auswahl leer. */
+/** Small line "On the watch: 12 of 14" for the header of album, playlist and favorites; empty without a selection. */
 @Composable
 fun WatchStatusText(kind: WearSelectionKind, refId: Long?, modifier: Modifier = Modifier) {
     val controller = LocalWatchController.current ?: return
@@ -128,7 +128,7 @@ fun WatchStatusText(kind: WearSelectionKind, refId: Long?, modifier: Modifier = 
     Text(text, modifier, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/** Knopf „Auf Uhr laden“ / „Von Uhr entfernen“ für die TopAppBar; ohne Uhr unsichtbar. */
+/** "Load onto watch" / "Remove from watch" button for the TopAppBar; invisible without a watch. */
 @Composable
 fun WatchToggleButton(kind: WearSelectionKind, refId: Long?) = WatchToggleButton(WatchTarget.Selection(kind, refId))
 
@@ -152,8 +152,8 @@ fun WatchToggleButton(target: WatchTarget) {
 }
 
 /**
- * Eintrag „Auf Uhr laden“ / „Von Uhr entfernen“ für die Kontextmenüs (Album, Folge), direkt über „Download entfernen“;
- * ohne Uhr unsichtbar. [withIcon] wie die übrigen Einträge des Menüs.
+ * "Load onto watch" / "Remove from watch" entry for the context menus (album, episode), directly above "Remove download";
+ * invisible without a watch. [withIcon] like the other entries of the menu.
  */
 @Composable
 fun WatchMenuItem(target: WatchTarget, onDismiss: () -> Unit, withIcon: Boolean = true) {

@@ -3,8 +3,8 @@ package de.kleinabersmart.earloft.core.download
 import android.os.SystemClock
 
 /**
- * Drosselt die Fortschritts-Benachrichtigung der Download-Worker: Jede Meldung baut die Benachrichtigung neu und fragt die
- * Zahl der wartenden Downloads ab. Bei schnellen Downloads wechselt das Prozent sonst mehrmals pro Sekunde.
+ * Throttles the progress notification of the download workers: every update rebuilds the notification and queries the
+ * number of waiting downloads. With fast downloads the percentage would otherwise change several times per second.
  */
 class ProgressThrottle(
     private val intervalMs: Long = INTERVAL_MS,
@@ -15,8 +15,8 @@ class ProgressThrottle(
     private var reported = false
 
     /**
-     * @return der zu meldende Fortschritt in Prozent ([UNKNOWN] ohne bekannte Größe), wenn er sich geändert hat und die
-     * letzte Meldung mindestens [intervalMs] zurückliegt; sonst `null`. Die erste Änderung wird sofort gemeldet.
+     * @return the progress to report in percent ([UNKNOWN] without a known size) if it has changed and the
+     * last report was at least [intervalMs] ago; otherwise `null`. The first change is reported immediately.
      */
     fun next(done: Long, total: Long?): Int? {
         val percent = total?.takeIf { it > 0 }?.let { (done * 100 / it).toInt() } ?: UNKNOWN

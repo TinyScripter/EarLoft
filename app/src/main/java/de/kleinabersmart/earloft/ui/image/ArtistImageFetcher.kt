@@ -12,7 +12,7 @@ import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
 import de.kleinabersmart.earloft.core.model.AppUris
 import java.io.IOException
 
-/** Lädt `earloft://cover/artist/<id>` über [ArtworkRepository]; ohne Bild (oder bei ausgeschalteter Option) bleibt der Platzhalter. */
+/** Loads `earloft://cover/artist/<id>` via [ArtworkRepository]; without an image (or with the option disabled) the placeholder stays. */
 class ArtistImageFetcher(
     private val artistId: Long,
     private val artworkRepository: ArtworkRepository,

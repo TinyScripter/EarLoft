@@ -13,7 +13,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 
-/** Clients der Wearable Data Layer API, an den Application-Context gebunden. */
+/** Clients of the Wearable Data Layer API, bound to the application context. */
 @Module
 @InstallIn(SingletonComponent::class)
 internal object WearableModule {

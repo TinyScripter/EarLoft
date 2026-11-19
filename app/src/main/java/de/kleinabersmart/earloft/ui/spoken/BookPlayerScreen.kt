@@ -120,7 +120,7 @@ import kotlinx.coroutines.flow.Flow
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 import de.kleinabersmart.earloft.core.playback.R as PlaybackR
 
-/** Wiedergabe-Ansicht für Hörbücher: Kapitel, Restzeiten, Spulen (einstellbar), Geschwindigkeit (Konzept 12.5). */
+/** Now-playing view for audiobooks: chapters, remaining times, seeking (configurable), speed (concept 12.5). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookPlayerScreen(
@@ -158,8 +158,8 @@ private fun BookPlayerContent(
     val nextInSeries by viewModel.nextInSeries.collectAsStateWithLifecycle()
     val entry = state.spoken
     val seek = entry?.seek ?: SeekSteps.DEFAULT
-    // Die Position im Buch braucht die Zeitachse; ist sie geladen, einmal neu lesen (auch pausiert).
-    // Im Takt liest sie nur BookProgress; der übrige Player hängt nur am laufenden Kapitel.
+    // The position in the book needs the timeline; once it is loaded, read it again once (also when paused).
+    // On each tick only BookProgress reads it; the rest of the player depends only on the current chapter.
     val position = rememberPlaybackPosition(state.isPlaying, viewModel.positionJumps, entry, timeline) { viewModel.bookPositionMs() }
     val dragging = remember { mutableStateOf<Float?>(null) }
     val chapterIndex by remember(timeline) {
@@ -171,20 +171,20 @@ private fun BookPlayerContent(
     var showBookmarks by remember { mutableStateOf(false) }
     val resources = LocalResources.current
     val bookmarksViewModel: BookmarksViewModel = hiltViewModel()
-    // Lesezeichen an der Stelle, die gerade läuft (beim Ziehen am Regler: dort), mit Kapitelname und Zeit als Titel.
+    // Bookmark at the position currently playing (while dragging the slider: there), with chapter name and time as title.
     val addBookmark: () -> Unit = {
         val at = dragging.value?.toLong() ?: viewModel.bookPositionMs()
         entry?.let { bookmarksViewModel.add(it.bookId, at, bookmarkTitle(resources, timeline, at)) }
     }
     var showQueue by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
-    // Breit: Kapitelliste oder Warteschlange ersetzen im rechten Panel die Beschreibung.
+    // Wide: the chapter list or queue replaces the description in the right panel.
     var pane by remember { mutableStateOf(SidePane.DESCRIPTION) }
-    // Hat die Folge ein Transkript, stehen Beschreibung und Transkript als Reiter nebeneinander (Konzept 12.5 „Transkripte“).
+    // If the episode has a transcript, description and transcript appear side by side as tabs (concept 12.5 "Transcripts").
     var notesTab by rememberSaveable { mutableIntStateOf(NOTES_DESCRIPTION) }
 
     if (entry == null) {
-        // Das Buch wurde beendet oder entfernt: zurück, statt eine leere Seite zu zeigen.
+        // The book was finished or removed: go back instead of showing an empty page.
         Box(modifier.fillMaxSize())
         return
     }
@@ -208,17 +208,17 @@ private fun BookPlayerContent(
     val hasChapters = tl?.hasChapters == true
     val sleepEnd = sleepTimerEnd(episode, hasChapters)
     val sleepLine: @Composable () -> Unit = { SleepTimerLine(sleepRemaining, toEnd = sleepEnd.takeIf { sleepToEnd }) }
-    // Folgen mit Kapiteln: Kapitel zurück/vor statt „Neu starten“ und „Nächste Folge“; im letzten Kapitel führt „vor“
-    // zur nächsten Folge (wie der Doppelklick auf der Kopfhörertaste).
+    // Episodes with chapters: previous/next chapter instead of "Restart" and "Next episode"; in the last chapter "next" leads
+    // to the next episode (like the double click on the headset button).
     val lastChapter = hasChapters && chapterIndex != null && chapterIndex == tl.chapters.lastOrNull()?.index
-    // Fehlt, was gewählt war (Buch ohne Kapitel, Buch statt Folge), steht wieder die Beschreibung rechts.
+    // If what was selected is missing (book without chapters, book instead of episode), the description is shown on the right again.
     val shownPane = when {
         pane == SidePane.CHAPTERS && hasChapters -> SidePane.CHAPTERS
         pane == SidePane.BOOKMARKS -> SidePane.BOOKMARKS
         pane == SidePane.QUEUE && episode -> SidePane.QUEUE
         else -> SidePane.DESCRIPTION
     }
-    // Handy quer (wenig Höhe): kleinerer Abspielknopf, damit die Leiste darunter ohne Scrollen sichtbar bleibt.
+    // Phone in landscape (little height): smaller play button, so the bar below stays visible without scrolling.
     val shortHeight = !currentWindowAdaptiveInfoV2().windowSizeClass
         .isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
     val controls: @Composable () -> Unit = {
@@ -226,8 +226,8 @@ private fun BookPlayerContent(
             Modifier.fillMaxWidth().padding(vertical = if (shortHeight) 4.dp else 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Jeder Knopf bekommt gleich viel Platz und schrumpft bei Bedarf; nur Abspielen behält seine Größe.
-            // Folgen ohne Kapitel: ganz links neu starten, ganz rechts zur nächsten Folge der Warteschlange.
+            // Every button gets the same amount of space and shrinks if needed; only play keeps its size.
+            // Episodes without chapters: restart at the far left, next episode of the queue at the far right.
             if (episode && !hasChapters) {
                 ControlCell {
                     IconButton(onClick = viewModel::restartEpisode) {
@@ -235,7 +235,7 @@ private fun BookPlayerContent(
                     }
                 }
             }
-            // Kapitel-Knöpfe bei Büchern und Folgen mit Kapiteln (am Anfang des ersten Kapitels startet „zurück“ neu).
+            // Chapter buttons for books and episodes with chapters (at the start of the first chapter "previous" restarts).
             if (hasChapters) {
                 ControlCell {
                     IconButton(onClick = viewModel::previousChapter) {
@@ -269,13 +269,13 @@ private fun BookPlayerContent(
         }
     }
     val description = bookWithProgress?.book?.description.orEmpty()
-    // Zeitmarken in den Shownotes springen in der laufenden Folge.
+    // Timestamps in the show notes seek within the current episode.
     val onTimestamp: ((Long) -> Unit)? = if (episode) viewModel::seekToBook else null
     val sleepActive = sleepRemaining != null
     val castDeviceName = rememberCastDeviceName(state.isRemote)
     val transcriptPane: (@Composable (Modifier) -> Unit)? = if (episode && hasTranscript) {
         { paneModifier ->
-            // Geladen wird erst, wenn das Transkript zu sehen ist.
+            // Loaded only once the transcript is visible.
             LaunchedEffect(Unit) { viewModel.loadTranscript() }
             TranscriptPane(transcript, { position.value }, onSeek = viewModel::seekToBook, onRetry = viewModel::retryTranscript, modifier = paneModifier)
         }
@@ -287,19 +287,19 @@ private fun BookPlayerContent(
     }
 
     BoxWithConstraints(modifier.fillMaxSize().safeDrawingPadding()) {
-        // Wie bei der Musik: breit (Tablet) links Cover und Steuerung, rechts Beschreibung oder Kapitel; Handy quer
-        // links das Cover und rechts alles andere; schmal untereinander.
+        // As with music: wide (tablet) cover and controls on the left, description or chapters on the right; phone in landscape
+        // the cover on the left and everything else on the right; narrow stacked vertically.
         val short = maxHeight < ShortHeight && maxWidth > maxHeight
         val wide = maxWidth >= TwoColumnMinWidth && !short
-        // Auf kleinen Handys bekommt das Hochformat unten etwas Rand, sonst klebt der Play-Knopf am Bildschirmrand.
+        // On small phones the portrait layout gets some bottom margin, otherwise the play button sticks to the screen edge.
         val tight = maxHeight < 700.dp
 
-        // Geschwindigkeit, Sleep-Timer, Kapitelliste, bei Folgen die Warteschlange, schmal auch die Beschreibung.
+        // Speed, sleep timer, chapter list, for episodes the queue, when narrow also the description.
         val togglePane: (SidePane) -> Unit = { pane = if (shownPane == it) SidePane.DESCRIPTION else it }
         val actionRow: @Composable () -> Unit = {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                 CastButton(active = state.isRemote)
-                // Mit Stille kürzen oder Lautstärke anheben steht ein kleines Symbol neben dem Tempo (beim Casten nicht).
+                // With trim silence or volume boost a small icon appears next to the speed (not while casting).
                 val audioEffects = !state.isRemote && effectLayers?.effects?.hasAudioEffects == true
                 val effectsLabel = stringResource(R.string.playback_effects_active)
                 TextButton(
@@ -347,7 +347,7 @@ private fun BookPlayerContent(
                     )
                 }
                 if (wide) {
-                    // Die Beschreibung steht schon rechts; der Knopf holt sie nur hinter Kapiteln oder Warteschlange hervor.
+                    // The description is already on the right; the button only brings it back from behind chapters or queue.
                     ToggleIconButton(
                         icon = DesignR.drawable.ic_info,
                         active = shownPane == SidePane.DESCRIPTION,
@@ -402,14 +402,14 @@ private fun BookPlayerContent(
             }
         }
         val coverShape = MaterialTheme.shapes.extraLarge
-        // Folgen: Das Bild des laufenden Kapitels liegt über dem Cover; hat das Kapitel eine Webseite, öffnet ein Tipp sie.
+        // Episodes: the current chapter's image lies over the cover; if the chapter has a web page, a tap opens it.
         val currentChapter = tl?.chapters?.firstOrNull { it.index == chapterIndex }
         val openLink = rememberOpenLink()
         val chapterLinkLabel = stringResource(R.string.spoken_chapter_link)
         val art: @Composable (Modifier) -> Unit = { artModifier ->
             val link = currentChapter?.url
-            // Zu Ende gehört: unten auf dem Cover der nächste Band der Serie (books_improvements M2), startet nur per Tipp.
-            // Quadratisch wie das Cover selbst, damit die Karte auf ihm liegt und nicht daneben.
+            // Finished: at the bottom of the cover the next volume of the series (books_improvements M2), starts only on tap.
+            // Square like the cover itself, so the card sits on it and not next to it.
             Box(artModifier.aspectRatio(1f)) {
                 BookArt(
                     entry.bookId,
@@ -435,18 +435,18 @@ private fun BookPlayerContent(
                 onClose = onClose,
             ) {
                 bookWithProgress?.book?.let { book ->
-                    // Wie im Menü: Folgen vom Gerät haben keine öffentliche Adresse.
+                    // As in the menu: episodes from the device have no public address.
                     if (book.kind == BookKind.BOOK || !book.isLocal) {
                         PlayerShareButton(book.id) { dragging.value?.toLong() ?: viewModel.bookPositionMs() }
                     }
-                    // Wie auf der Buch-/Folgenseite rechts neben Teilen; ohne Uhr unsichtbar.
+                    // As on the book/episode page to the right of share; invisible without a watch.
                     WatchToggleButton(WatchTarget.Spoken(book.id))
                 }
-                // Als gespielt markieren (bei Folgen auch „und nächste spielen“), Warteschlange, Position zurücksetzen.
+                // Mark as played (for episodes also "and play next"), queue, reset position.
                 bookWithProgress?.let { EpisodeMenuButton(it) }
             }
             if (short) {
-                // Links Cover mit den Knöpfen darunter, rechts Titel und Steuerung.
+                // Cover on the left with the buttons below, title and controls on the right.
                 Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                     Column(Modifier.weight(1f).fillMaxHeight().padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -455,7 +455,7 @@ private fun BookPlayerContent(
                         actionRow()
                         sleepLine()
                     }
-                    // Ohne Scrollen: Der Titel bekommt den Platz, den Regler und Knöpfe übrig lassen, und schrumpft dafür.
+                    // Without scrolling: the title gets the space left over by slider and buttons, and shrinks for it.
                     Column(
                         Modifier.weight(1f).fillMaxHeight().padding(bottom = 8.dp),
                         verticalArrangement = Arrangement.Center,
@@ -501,7 +501,7 @@ private fun BookPlayerContent(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        // Ohne fillMaxWidth, damit das Cover bei wenig Höhe schrumpft statt die Knöpfe zu überdecken.
+                        // Without fillMaxWidth, so the cover shrinks when height is limited instead of covering the buttons.
                         art(Modifier.weight(1f, fill = false).widthIn(max = 480.dp))
                         actionRow()
                         sleepLine()
@@ -536,13 +536,13 @@ private fun BookPlayerContent(
                     }
                 }
             } else {
-                // Cover oben mit den Knöpfen darunter; Titel und Steuerung im übrigen Platz mittig.
+                // Cover at the top with the buttons below; title and controls centered in the remaining space.
                 Column(
                     Modifier.weight(1f).widthIn(max = 560.dp).fillMaxWidth().padding(bottom = if (tight) 16.dp else 0.dp),
                     verticalArrangement = CoverThenCentered,
                 ) {
                     Column(Modifier.weight(1f, fill = false).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                        // Quadrat im Restplatz; ein Cover, das nur nach Seitenverhältnis wächst, liegt sonst über Kopfzeile und Knopfreihe.
+                        // Square in the remaining space; a cover that only grows by aspect ratio would otherwise overlap the header and button row.
                         FitSquare(
                             Modifier.weight(1f, fill = false).fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
                             maxSide = 420.dp,
@@ -559,7 +559,7 @@ private fun BookPlayerContent(
     }
 
     if (showInfo) {
-        // Mit Transkript gleich in voller Höhe: Es ist lang, und die Suche braucht Platz über der Tastatur.
+        // With a transcript, full height right away: it is long, and the search needs space above the keyboard.
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = transcriptPane != null)
         ModalBottomSheet(onDismissRequest = { showInfo = false }, sheetState = sheetState) {
             if (transcriptPane != null) {
@@ -627,13 +627,13 @@ private fun BookPlayerContent(
     }
 }
 
-/** Was breit im rechten Panel steht. */
+/** What is shown in the right panel when wide. */
 private enum class SidePane { DESCRIPTION, CHAPTERS, BOOKMARKS, QUEUE }
 
 private const val NOTES_DESCRIPTION = 0
 private const val NOTES_TRANSCRIPT = 1
 
-/** Karte über dem Cover eines zu Ende gehörten Buchs: nächster Band der Serie mit Abspielen. */
+/** Card over the cover of a finished book: next volume of the series with play. */
 @Composable
 private fun NextVolumeCard(bookId: Long, title: String, volume: String?, onPlay: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
@@ -661,7 +661,7 @@ private fun NextVolumeCard(bookId: Long, title: String, volume: String?, onPlay:
 }
 
 /**
- * Beschreibung bzw. Shownotes; gibt es ein Transkript ([transcript]), als Reiter „Beschreibung“ und „Transkript“ ([tab]).
+ * Description or show notes; if there is a transcript ([transcript]), as tabs "Description" and "Transcript" ([tab]).
  */
 @Composable
 private fun NotesPane(
@@ -691,9 +691,9 @@ private fun NotesPane(
 }
 
 /**
- * Oben das ganze Buch (zum Spulen), darunter nur das Kapitel; jeweils links gespielt, rechts die Restzeit mit „-“.
- * Liest als einziger Teil des Players die laufende Position, und das nur bei Sekundenwechsel (so fein sind die Zeiten).
- * [dragging] ist der Wert am Buchregler während des Ziehens; er liegt beim Aufrufer, weil das hervorgehobene Kapitel mitläuft.
+ * The whole book at the top (for seeking), below it only the chapter; played time on the left, remaining time with "-" on the right.
+ * The only part of the player that reads the current position, and only when the second changes (that's how fine the times are).
+ * [dragging] is the value of the book slider while dragging; it lives with the caller because the highlighted chapter follows it.
  */
 @Composable
 private fun BookProgress(
@@ -706,9 +706,9 @@ private fun BookProgress(
     episode: Boolean,
     onSeek: (Long) -> Unit,
 ) {
-    // Ziehen am Kapitelbalken: Abstand zum Kapitelanfang.
+    // Dragging the chapter bar: offset from the chapter start.
     var chapterDragging by remember { mutableStateOf<Float?>(null) }
-    // Genau bleiben (Sprünge auf einen Kapitelanfang), aber erst bei der nächsten Sekunde neu zusammensetzen.
+    // Stay precise (jumps to a chapter start), but only recompose at the next second.
     val played by remember { derivedStateOf(SameSecond) { positionMs() } }
     val base = dragging()?.toLong() ?: played
     val chapter = timeline?.chapterAt(base)
@@ -732,13 +732,13 @@ private fun BookProgress(
                 stateDescription = positionState
             },
     )
-    // Bei Folgen gibt es nur diesen einen Regler; ein Kapitelname steht dann zwischen den Zeiten.
+    // Episodes only have this one slider; a chapter name then sits between the times.
     TimeRow(
         elapsed = formatClock(shown),
         remaining = "-" + formatClock(remainingTotal),
         center = if (episode && chapter != null) chapterTitle(chapter) else null,
     )
-    // Nur bei Büchern mit Kapiteln.
+    // Only for books with chapters.
     val chapterRemaining = timeline?.remainingChapterMs(shown, speed)
     if (!episode && chapter != null && chapterRemaining != null) {
         val chapterElapsed = (shown - chapter.startMs).coerceIn(0, chapter.durationMs)
@@ -748,7 +748,7 @@ private fun BookProgress(
             value = chapterElapsed.toFloat(),
             onValueChange = { chapterDragging = it },
             onValueChangeFinished = {
-                // Knapp vor dem Ende bleiben, damit der Sprung nicht schon im nächsten Kapitel landet.
+                // Stay just before the end so the jump doesn't already land in the next chapter.
                 chapterDragging?.let { onSeek(chapter.startMs + it.toLong().coerceAtMost(chapter.durationMs - 1)) }
                 chapterDragging = null
             },
@@ -769,15 +769,15 @@ private fun BookProgress(
     }
 }
 
-/** Positionen in derselben Sekunde gelten als gleich; die Anzeige hat Sekundenauflösung. */
+/** Positions within the same second count as equal; the display has one-second resolution. */
 private object SameSecond : SnapshotMutationPolicy<Long> {
     override fun equivalent(a: Long, b: Long): Boolean = a / 1000 == b / 1000
 }
 
 /**
- * Gespielte Zeit links, Restzeit rechts, optional ein Text genau in der Mitte (Kapitelname, also über dem Abspielknopf).
- * Die Mitte hängt nicht von der Breite der Zeiten ab: Der Text bekommt höchstens so viel Platz, wie neben der breiteren
- * Zeit auf beiden Seiten frei bleibt.
+ * Played time on the left, remaining time on the right, optionally a text exactly in the middle (chapter name, i.e. above the play button).
+ * The middle doesn't depend on the width of the times: the text gets at most as much space as remains free on both sides
+ * next to the wider time.
  */
 @Composable
 private fun TimeRow(elapsed: String, remaining: String, center: String? = null) {
@@ -813,13 +813,13 @@ private fun TimeRow(elapsed: String, remaining: String, center: String? = null) 
     }
 }
 
-/** Gleich breite Zelle in der Wiedergabe-Leiste; ein größerer Knopf wird auf die Zellbreite begrenzt. */
+/** Equal-width cell in the playback bar; a larger button is limited to the cell width. */
 @Composable
 private fun RowScope.ControlCell(content: @Composable () -> Unit) {
     Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { content() }
 }
 
-/** Zurück- oder Vorspringen mit der Sekundenzahl im Pfeil. */
+/** Skip back or forward with the number of seconds in the arrow. */
 @Composable
 private fun SeekBackButton(seconds: Int, onClick: () -> Unit) =
     SeekButton(DesignR.drawable.ic_replay, seconds, pluralStringResource(PlaybackR.plurals.spoken_seek_back, seconds, seconds), onClick)
@@ -833,15 +833,15 @@ private fun SeekButton(icon: Int, seconds: Int, description: String, onClick: ()
     IconButton(onClick = onClick, modifier = Modifier.size(56.dp)) {
         Box(contentAlignment = Alignment.Center) {
             Icon(painterResource(icon), contentDescription = description, modifier = Modifier.size(40.dp))
-            // Die Zahl steckt schon in der Beschreibung des Symbols; TalkBack soll sie nicht noch einmal vorlesen.
+            // The number is already in the icon's description; TalkBack shouldn't read it out again.
             Text(seconds.toString(), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp).clearAndSetSemantics {})
         }
     }
 }
 
 /**
- * Tempo und Effekte des Buchs bzw. der Folge (Konzept 12.4). Alles gilt zuerst nur hier; „Für alle Bücher“ bzw. „Für
- * diesen Podcast“ macht es zur Vorgabe. Beim Casten gibt es nur das Tempo.
+ * Speed and effects of the book or episode (concept 12.4). Everything applies only here at first; "For all books" or "For
+ * this podcast" makes it the default. While casting there is only the speed.
  */
 @Composable
 private fun SpeedDialog(
@@ -855,7 +855,7 @@ private fun SpeedDialog(
     onRememberAsDefault: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // Während des Ziehens zählt der Regler; der Player zieht über die Datenbank nach.
+    // While dragging, the slider counts; the player catches up via the database.
     var dragged by remember { mutableStateOf<Float?>(null) }
     val shown = dragged ?: speed
     val effects = layers?.effects
@@ -922,7 +922,7 @@ private fun SpeedDialog(
                             )
                         }
                     }
-                    // Eigene Werte: Hinweis und der Weg, sie zur Vorgabe zu machen.
+                    // Custom values: hint and the way to make them the default.
                     if (!layers.own.isEmpty) {
                         Text(
                             stringResource(if (episode) R.string.playback_own_episode else R.string.playback_own_book),
@@ -955,7 +955,7 @@ private fun SpeedDialog(
     )
 }
 
-/** „Aus“ bzw. „+6 dB“. */
+/** "Off" or "+6 dB". */
 @Composable
 internal fun volumeBoostLabel(db: Int): String =
     if (db <= 0) stringResource(R.string.playback_volume_boost_off) else stringResource(R.string.playback_volume_boost_value, db)
@@ -988,7 +988,7 @@ private fun ChapterList(
     onChapter: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Die Liste öffnet beim laufenden Kapitel.
+    // The list opens at the current chapter.
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = timeline.chapters.indexOfFirst { it.index == currentIndex }.coerceAtLeast(0))
     val withImages = timeline.chapters.any { it.imageUrl != null }
     FastScrollLazyColumn(modifier, state = listState) {
@@ -1010,7 +1010,7 @@ private fun ChapterList(
     }
 }
 
-/** Teilen im Player: das Buch bzw. die Folge, oder ab der Stelle, die gerade läuft (Konzept 13). */
+/** Share in the player: the book or episode, or from the position currently playing (concept 13). */
 @Composable
 private fun PlayerShareButton(bookId: Long, positionMs: () -> Long) {
     val controller = LocalShareController.current ?: return
@@ -1043,7 +1043,7 @@ private fun PlayerShareButton(bookId: Long, positionMs: () -> Long) {
     }
 }
 
-/** Beschreibung des Buchs bzw. die Shownotes der Folge; mit [onTimestamp] sind Zeitmarken antippbar. */
+/** Description of the book or show notes of the episode; with [onTimestamp] timestamps are tappable. */
 @Composable
 private fun DescriptionPane(
     description: String,
@@ -1063,13 +1063,13 @@ private fun DescriptionPane(
     }
 }
 
-/** Mini-Player für Hörbücher: Cover, Titel, zurück, Wiedergabe/Pause, vor, dünner Fortschrittsbalken des Buchs. */
+/** Mini player for audiobooks: cover, title, back, play/pause, forward, thin progress bar of the book. */
 @Composable
 fun SpokenMiniPlayer(
     state: PlayerState,
     fractionProvider: () -> Float,
     positionJumps: Flow<Unit>,
-    /** Ändert sich, sobald [fractionProvider] etwas Neues liefern kann (geladene Zeitachse). */
+    /** Changes as soon as [fractionProvider] can deliver something new (loaded timeline). */
     refreshKey: Any?,
     onClick: () -> Unit,
     onTogglePlayPause: () -> Unit,
@@ -1114,7 +1114,7 @@ fun SpokenMiniPlayer(
     }
 }
 
-/** Unter dem Podcast-Namen: wann die Folge erschien, mit Uhrzeit. Bücher und Folgen ohne Datum: nichts. */
+/** Below the podcast name: when the episode was published, with time of day. Books and episodes without a date: nothing. */
 @Composable
 private fun EpisodeDateLine(book: Book?, style: TextStyle) {
     val publishedAt = book?.takeIf { it.kind == BookKind.EPISODE }?.addedAt?.takeIf { it > 0 } ?: return
@@ -1130,14 +1130,14 @@ private const val MIN_SPEED = 0.5f
 private const val MAX_SPEED = 3f
 private const val SPEED_STEP = 0.05f
 
-/** Rundet auf Schritte von 0,05, damit Regler und Anzeige zusammenpassen. */
+/** Rounds to steps of 0.05 so slider and display match. */
 private fun snapSpeed(value: Float): Float = (Math.round(value / SPEED_STEP) * SPEED_STEP).coerceIn(MIN_SPEED, MAX_SPEED)
 
-/** „1“, „1,25“, „1,5“ – ohne überflüssige Nullen. */
+/** "1", "1,25", "1,5" – without superfluous zeros. */
 private fun formatSpeed(speed: Float): String =
     "%.2f".format(snapSpeed(speed)).trimEnd('0').trimEnd(',', '.')
 
-/** Der Anteil des Buchs für den Mini-Player. */
+/** The book's fraction for the mini player. */
 fun BookPlayerViewModel.bookFraction(): Float {
     val duration = durationMs()
     return if (duration > 0) (bookPositionMs().toFloat() / duration).coerceIn(0f, 1f) else 0f

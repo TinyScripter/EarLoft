@@ -21,15 +21,15 @@ import kotlinx.coroutines.flow.transform
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Gesichert (anders als `noBackupFilesDir`): Ein wiederhergestelltes Gerät bringt „schon eingerichtet“ mit. */
+/** Backed up (unlike `noBackupFilesDir`): a restored device brings "already set up" along. */
 private val Context.setupDataStore: DataStore<Preferences> by preferencesDataStore(name = "setup")
 
 /**
- * Ob der Einrichtungsassistent beim Start erscheint (Konzept 15).
+ * Whether the setup wizard appears at startup (concept 15).
  *
- * Der Merker [KEY_DONE] fehlt nur beim ersten Start mit dieser Version. Dann entscheidet der Inhalt, nachdem gesicherte
- * Nutzerdaten zurückgespielt sind: Gibt es schon einen Server, ein Abo oder eine eingeschaltete Quelle auf dem Gerät
- * (Update, Wiederherstellung), gilt die Einrichtung still als erledigt; sonst erscheint der Assistent, bis er beendet wird.
+ * The flag [KEY_DONE] is only missing on the first start with this version. Then the content decides, after backed-up
+ * user data has been restored: if there already is a server, a subscription or an enabled on-device source
+ * (update, restore), setup silently counts as done; otherwise the wizard appears until it is finished.
  */
 @Singleton
 class SetupState internal constructor(
@@ -55,17 +55,17 @@ class SetupState internal constructor(
         },
     )
 
-    /** `true`, solange der Assistent beim Start erscheinen soll. Liefert erst, wenn das feststeht. */
+    /** `true` as long as the wizard should appear at startup. Only emits once that is determined. */
     val pending: Flow<Boolean> = dataStore.data.map { it[KEY_DONE] }.distinctUntilChanged().transform { done ->
         if (done != null) emit(!done) else decide()
     }
 
-    /** Assistent beendet, ob über „Zur App“ oder „Überspringen“; er erscheint nicht mehr von selbst. */
+    /** Wizard finished, whether via "To the app" or "Skip"; it no longer appears on its own. */
     suspend fun finish() {
         dataStore.edit { it[KEY_DONE] = true }
     }
 
-    /** Schreibt die Entscheidung; [pending] liefert sie mit der Änderung. */
+    /** Writes the decision; [pending] emits it with the change. */
     private suspend fun decide() {
         awaitRestore()
         val done = hasContent()

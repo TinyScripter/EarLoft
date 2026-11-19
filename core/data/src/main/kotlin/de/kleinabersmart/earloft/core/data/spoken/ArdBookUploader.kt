@@ -26,37 +26,37 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Wohin ein Buch hochgeladen werden kann: Bibliothek und Ordner eines Audiobookshelf-Servers, in denen das Konto hochladen darf. */
+/** Where a book can be uploaded: library and folder of an Audiobookshelf server in which the account may upload. */
 data class UploadTarget(
     val serverId: String,
     val serverName: String,
     val libraryId: String,
     val libraryName: String,
     val folderId: String,
-    /** Pfad des Ordners auf dem Server; nur gesetzt, wenn die Bibliothek mehrere hat (zur Unterscheidung). */
+    /** Path of the folder on the server; only set if the library has several (to tell them apart). */
     val folderPath: String? = null,
 )
 
 sealed interface UploadResult {
     /**
-     * Hochgeladen. [newBookId] ist das Buch auf dem Server in dieser App (Fortschritt, Lesezeichen und Tempo sind dorthin
-     * übernommen); `null`, wenn der Server es noch nicht gemeldet hat – es erscheint dann bei einem späteren Abgleich, der den
-     * Stand übernimmt ([ArdUploadAdoption]).
+     * Uploaded. [newBookId] is the book on the server in this app (progress, bookmarks and speed have been
+     * carried over); `null` if the server hasn't reported it yet – it then appears on a later sync, which carries over the
+     * state ([ArdUploadAdoption]).
      */
     data class Done(val newBookId: Long?) : UploadResult
 
-    /** Nicht alle Dateien des Buchs liegen auf dem Gerät. */
+    /** Not all of the book's files are on the device. */
     data object NotDownloaded : UploadResult
 
-    /** Das Buch gibt es auf dem Server schon (der Ordner Autor/Titel besteht). */
+    /** The book already exists on the server (the folder author/title exists). */
     data object Exists : UploadResult
 
-    /** Das Konto darf nicht hochladen (mehr). */
+    /** The account may not upload (anymore). */
     data object NoPermission : UploadResult
 
     /**
-     * Der Server hat mit einem Serverfehler (HTTP 5xx) geantwortet. Meist kann Audiobookshelf den Ordner nicht anlegen, weil der
-     * Bibliotheksordner für den Server schreibgeschützt ist: Er meldet das nur als „Internal Server Error“.
+     * The server responded with a server error (HTTP 5xx). Usually Audiobookshelf can't create the folder because the
+     * library folder is read-only for the server: it only reports this as "Internal Server Error".
      */
     data object ServerError : UploadResult
 
@@ -64,12 +64,12 @@ sealed interface UploadResult {
 }
 
 /**
- * Lädt ein Buch aus ARD Sounds zu Audiobookshelf hoch (`books_improvements.md` M9, Ausnahme von „Serververwaltung bewusst nicht“)
- * und übernimmt danach, was der Nutzer am Buch angelegt hat (Fortschritt, Tempo und Effekte, Lesezeichen; [ArdUploadAdoption]). Das Paket sind die
- * geladenen Teile als `01 - Teil.mp3`, dazu `cover.jpg`, `metadata.opf` (Titel, Autor, Sprecher, Beschreibung, Sender, Genres),
- * `desc.txt` (Beschreibung) und `reader.txt` (Sprecher), die Audiobookshelf beim Scannen liest. Die OPF-Datei braucht es, weil die
- * Tags der Dateien sonst Titel und Autor setzen (etwa „Autorin: Titel (1/9)“ vom Sender): In der Standard-Rangfolge von
- * Audiobookshelf schlagen sie den Ordnernamen, die OPF-Datei schlägt sie.
+ * Uploads a book from ARD Sounds to Audiobookshelf (`books_improvements.md` M9, exception to "deliberately no server management")
+ * and then carries over what the user created on the book (progress, speed and effects, bookmarks; [ArdUploadAdoption]). The package consists of the
+ * downloaded parts as `01 - Part.mp3`, plus `cover.jpg`, `metadata.opf` (title, author, narrator, description, broadcaster, genres),
+ * `desc.txt` (description) and `reader.txt` (narrator), which Audiobookshelf reads when scanning. The OPF file is needed because the
+ * files' tags would otherwise set title and author (e.g. "Author: Title (1/9)" from the broadcaster): in Audiobookshelf's default precedence
+ * they beat the folder name, the OPF file beats them.
  */
 @Singleton
 class ArdBookUploader @Inject constructor(
@@ -81,12 +81,12 @@ class ArdBookUploader @Inject constructor(
     private val covers: BookCovers,
     private val adoption: ArdUploadAdoption,
 ) {
-    /** Gibt es einen eingeschalteten Server? (Der Knopf „In Audiobookshelf hochladen“ erscheint nur dann.) */
+    /** Is there an enabled server? (The "Upload to Audiobookshelf" button only appears then.) */
     suspend fun hasServer(): Boolean = servers.all().isNotEmpty()
 
     /**
-     * Die Ziele, in die das Konto hochladen darf: alle gezeigten Buch-Bibliotheken der eingeschalteten Server mit ihren Ordnern.
-     * Nicht erreichbare Server und Konten ohne das Recht fehlen.
+     * The targets the account may upload to: all shown book libraries of the enabled servers with their folders.
+     * Unreachable servers and accounts without the permission are missing.
      */
     suspend fun targets(): List<UploadTarget> = servers.all().flatMap { server ->
         try {
@@ -109,29 +109,29 @@ class ArdBookUploader @Inject constructor(
         }
     }
 
-    /** Wie viele Bytes der Upload von [bookId] umfasst (die Dateien des Buchs); 0, wenn nicht alle geladen sind. */
+    /** How many bytes the upload of [bookId] comprises (the book's files); 0 if not all are downloaded. */
     suspend fun uploadBytes(bookId: Long): Long {
         val files = downloadedFiles(bookId) ?: return 0
         return files.sumOf { it.second.length() }
     }
 
-    /** Wie viele Teile von [bookId] fehlen werden: nicht geladen und bei ARD Sounds nicht mehr abrufbar. */
+    /** How many parts of [bookId] will be missing: not downloaded and no longer available at ARD Sounds. */
     suspend fun missingParts(bookId: Long): Int = dao.tracks(bookId).count { it.isUnavailable }
 
     /**
-     * Lädt [bookId] nach [target] hoch; [onProgress] bekommt gesendete Bytes und Gesamtgröße. Danach wird gewartet (bis etwa eine
-     * Minute), dass der Server das Buch meldet, und der Stand übernommen; bricht der Aufrufer das Warten ab oder meldet der Server
-     * nichts, holt das ein späterer Abgleich nach. Das Buch aus ARD Sounds bleibt unberührt: Entfernen und Wechseln der Seite
-     * entscheidet der Aufrufer (es kann gerade im Player liegen).
+     * Uploads [bookId] to [target]; [onProgress] receives the bytes sent and the total size. Afterwards it waits (up to about a
+     * minute) for the server to report the book, and the state is carried over; if the caller cancels the wait or the server reports
+     * nothing, a later sync catches up. The book from ARD Sounds stays untouched: removing it and switching the page
+     * is up to the caller (it may currently be in the player).
      */
     suspend fun upload(bookId: Long, target: UploadTarget, onProgress: (sent: Long, total: Long) -> Unit = { _, _ -> }): UploadResult {
         val book = dao.book(bookId)?.takeIf { isArdSoundsBook(it.serverId) } ?: return UploadResult.Failed
         val files = downloadedFiles(bookId) ?: return UploadResult.NotDownloaded
         val server = servers.server(target.serverId) ?: return UploadResult.Failed
-        // Der lokale Stand kann alt sein: Was andere inzwischen hochgeladen haben, darf danach nicht für dieses Buch gehalten werden.
+        // The local state may be stale: whatever others have uploaded in the meantime must not be mistaken for this book afterwards.
         syncer.syncSafely(server)
         val onServer = dao.booksOf(target.serverId)
-        // Neuere Versionen von Audiobookshelf prüfen nicht, ob der Ordner schon besteht, und mischten die Dateien: vorher selbst prüfen.
+        // Newer versions of Audiobookshelf don't check whether the folder already exists and would mix the files: check beforehand ourselves.
         if (onServer.any { it.libraryId == target.libraryId && it.normTitle == book.normTitle && sameAuthor(it.author, book.author) }) {
             return UploadResult.Exists
         }
@@ -163,14 +163,14 @@ class ArdBookUploader @Inject constructor(
             work.deleteRecursively()
         }
         val sentMs = dao.tracks(bookId).filterNot { it.isUnavailable }.sumOf { it.durationMs }
-        // Das Buch liegt auf dem Server: Die Übernahme darf nicht mehr verloren gehen.
+        // The book is on the server: the carry-over must not get lost anymore.
         withContext(NonCancellable) { adoption.remember(book, target.serverId, target.libraryId, sentMs, onServer) }
         return UploadResult.Done(awaitOnServer(bookId, server))
     }
 
     /**
-     * Die Dateien des Buchs in Reihenfolge mit ihrer Spur, wenn alle geladen sind, sonst `null`. Teile, die ARD Sounds nicht mehr
-     * führt und die nie geladen wurden, fehlen (ohne sie ließe sich ein solches Buch nie hochladen).
+     * The book's files in order with their track if all are downloaded, otherwise `null`. Parts that ARD Sounds no longer
+     * lists and that were never downloaded are missing (without that, such a book could never be uploaded).
      */
     private suspend fun downloadedFiles(bookId: Long): List<Pair<Int, File>>? {
         val tracks = dao.tracks(bookId).filterNot { it.isUnavailable }
@@ -206,8 +206,8 @@ class ArdBookUploader @Inject constructor(
     }
 
     /**
-     * Wartet, bis der Server das hochgeladene Buch meldet (er scannt es erst nach dem Upload); der Abgleich übernimmt dann den Stand.
-     * Das Buch auf dem Server, `null`, wenn er es noch nicht meldet.
+     * Waits until the server reports the uploaded book (it only scans it after the upload); the sync then carries over the state.
+     * The book on the server, `null` if it doesn't report it yet.
      */
     private suspend fun awaitOnServer(bookId: Long, server: AbsServer): Long? {
         repeat(ATTEMPTS) { attempt ->
@@ -241,8 +241,8 @@ class ArdBookUploader @Inject constructor(
 }
 
 /**
- * Die Angaben von [book] als OPF 2.0, wie Audiobookshelf sie aus `metadata.opf` liest. ARD Sounds führt keine Sprache; die
- * Hörbücher dort sind deutsch.
+ * The details of [book] as OPF 2.0, as Audiobookshelf reads them from `metadata.opf`. ARD Sounds doesn't list a language; the
+ * audiobooks there are German.
  */
 internal fun opfOf(book: BookEntity): String {
     val fields = buildList {
@@ -264,13 +264,13 @@ internal fun opfOf(book: BookEntity): String {
     }
 }
 
-/** [text] für XML: Zeichen mit Bedeutung maskiert, Steuerzeichen (in XML 1.0 verboten) entfernt. */
+/** [text] for XML: characters with special meaning escaped, control characters (forbidden in XML 1.0) removed. */
 private fun xml(text: String): String =
     text.filter { it >= ' ' || it == '\t' || it == '\n' || it == '\r' }.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
 /**
- * [positionMs] im Buch ohne die Teile [missing]: Was nach einem fehlenden Teil liegt, rückt um dessen Länge vor; eine Stelle in einem
- * fehlenden Teil wird zum Anfang des nächsten.
+ * [positionMs] in the book without the parts [missing]: whatever lies after a missing part moves forward by its length; a position in a
+ * missing part becomes the start of the next one.
  */
 internal fun positionWithout(positionMs: Long, missing: List<BookTrackEntity>): Long {
     val shift = missing.sumOf { track ->

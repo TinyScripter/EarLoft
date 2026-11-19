@@ -11,7 +11,7 @@ class WearEpisodeTest {
         val guid = "https://example.org/folge/12:a b?x=1&y=ä"
         val uid = WearEpisodeFile.uid("local:3f2a", guid)
         assertEquals("local:3f2a" to guid, WearEpisodeFile.parse(uid))
-        // Kein Schrägstrich im Pfad des Kanals.
+        // No slash in the channel's path.
         assertEquals(false, uid.contains('/'))
     }
 

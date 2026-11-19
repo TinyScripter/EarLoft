@@ -6,8 +6,8 @@ import android.os.Bundle
 import de.kleinabersmart.earloft.ui.spoken.OpenIdRedirects
 
 /**
- * Nimmt die Rückleitung `earloft://oauth?code=…&state=…` von Browsern ohne Auth Tab an (Konzept 12.11) und kehrt zur
- * [MainActivity] zurück; `CLEAR_TOP` schließt dabei den Custom Tab, der über ihr liegt. Das Formular wartet auf
+ * Receives the redirect `earloft://oauth?code=…&state=…` from browsers without Auth Tab (concept 12.11) and returns to
+ * [MainActivity]; `CLEAR_TOP` closes the Custom Tab sitting on top of it. The form waits on
  * [OpenIdRedirects].
  */
 class OpenIdRedirectActivity : Activity() {

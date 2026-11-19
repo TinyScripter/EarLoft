@@ -6,17 +6,17 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.Multibinds
 
 /**
- * Reagiert auf Änderungen der Bibliothek, die andere Module betreffen (Download-Dateien,
- * Stream-Cache, laufende Wiedergabe). Implementierungen per `@IntoSet` binden.
+ * Reacts to library changes that affect other modules (download files,
+ * stream cache, current playback). Bind implementations via `@IntoSet`.
  */
 interface LibraryChangeListener {
     /**
-     * Song-Quellen wurden gelöscht (Mark-and-Sweep oder Server entfernt). Downloads verschwinden
-     * dabei per CASCADE aus der Datenbank, ihre Dateien aber nicht.
+     * Song sources were deleted (mark-and-sweep or server removed). Downloads disappear
+     * from the database via CASCADE, but their files don't.
      */
     suspend fun onSongSourcesRemoved() {}
 
-    /** Ein Abgleich ist durch; er kann z. B. Downloads geänderter Dateien neu eingereiht haben. */
+    /** A sync has finished; it may e.g. have re-enqueued downloads of changed files. */
     suspend fun onSyncFinished() {}
 }
 

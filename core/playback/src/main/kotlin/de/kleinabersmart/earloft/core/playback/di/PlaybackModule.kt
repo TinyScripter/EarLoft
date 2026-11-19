@@ -24,7 +24,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 internal object PlaybackModule {
 
-    /** LRU-Cache für Streams (Konzept 7.2). Pro Ordner darf es nur eine Instanz geben. */
+    /** LRU cache for streams (concept 7.2). There may only be one instance per folder. */
     @OptIn(UnstableApi::class)
     @Provides
     @Singleton
@@ -38,14 +38,14 @@ internal object PlaybackModule {
     private const val STREAM_CACHE_BYTES = 1024L * 1024 * 1024
 }
 
-/** Die Handy-App bindet einen Cast-fähigen Player, die Uhr nicht. */
+/** The phone app binds a cast-capable player, the watch doesn't. */
 @Module
 @InstallIn(SingletonComponent::class)
 internal interface OptionalPlaybackModule {
     @BindsOptionalOf
     fun sessionPlayerFactory(): SessionPlayerFactory
 
-    /** „Zuletzt gespielt“ speichert den Schlüssel der Folge; er wandert beim Wechsel der Quelle mit (Konzept 12.10). */
+    /** "Recently played" stores the episode's key; it moves along when the source changes (concept 12.10). */
     @Binds
     @IntoSet
     fun queuePersistence(persistence: QueuePersistence): BookKeyRenamer

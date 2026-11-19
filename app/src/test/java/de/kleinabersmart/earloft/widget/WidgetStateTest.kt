@@ -50,7 +50,7 @@ class WidgetStateTest {
         val next = state.withClock(null, nowMs = 10_000)
         assertNull(next.clock)
         val stopped = next.entries.getValue(SpokenMode.PODCASTS).clock!!
-        assertEquals(2_000L, stopped.positionMs) // 1 s + 10 s, höchstens die Länge
+        assertEquals(2_000L, stopped.positionMs) // 1 s + 10 s, at most the duration
         assertFalse(stopped.running)
     }
 

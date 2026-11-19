@@ -3,7 +3,7 @@ package de.kleinabersmart.earloft.core.network.jellyfin
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** `GET /System/Info/Public` – ohne Anmeldung; [productName] unterscheidet Jellyfin von Emby (das keinen nennt). */
+/** `GET /System/Info/Public` – without login; [productName] distinguishes Jellyfin from Emby (which gives none). */
 @Serializable
 data class JfPublicSystemInfo(
     @SerialName("ServerName") val serverName: String? = null,
@@ -40,7 +40,7 @@ data class JfItemsPage(
     @SerialName("TotalRecordCount") val totalRecordCount: Int = 0,
 )
 
-/** Ein Eintrag der Bibliothek (`BaseItemDto`): Song (`Audio`), Playlist oder Bibliotheksansicht. */
+/** An entry of the library (`BaseItemDto`): song (`Audio`), playlist or library view. */
 @Serializable
 data class JfItem(
     @SerialName("Id") val id: String,
@@ -48,7 +48,7 @@ data class JfItem(
     @SerialName("Type") val type: String? = null,
     @SerialName("CollectionType") val collectionType: String? = null,
     @SerialName("MediaType") val mediaType: String? = null,
-    /** Nur mit `fields=Etag`; bei Playlists ändert Jellyfin ihn mit Name und Einträgen (12.4 gemessen). */
+    /** Only with `fields=Etag`; for playlists Jellyfin changes it with name and entries (measured on 12.4). */
     @SerialName("Etag") val etag: String? = null,
     @SerialName("Album") val album: String? = null,
     @SerialName("AlbumId") val albumId: String? = null,
@@ -58,12 +58,12 @@ data class JfItem(
     @SerialName("Artists") val artists: List<String> = emptyList(),
     @SerialName("IndexNumber") val indexNumber: Int? = null,
     @SerialName("ParentIndexNumber") val parentIndexNumber: Int? = null,
-    /** 1 Tick = 100 ns. */
+    /** 1 tick = 100 ns. */
     @SerialName("RunTimeTicks") val runTimeTicks: Long? = null,
     @SerialName("ProductionYear") val productionYear: Int? = null,
     @SerialName("Genres") val genres: List<String> = emptyList(),
     @SerialName("ProviderIds") val providerIds: Map<String, String> = emptyMap(),
-    /** Vom Server gemessene Lautheit (LUFS-Scan), in dB wie ReplayGain; ohne Peak. */
+    /** Loudness measured by the server (LUFS scan), in dB like ReplayGain; without peak. */
     @SerialName("NormalizationGain") val normalizationGain: Float? = null,
     @SerialName("AlbumNormalizationGain") val albumNormalizationGain: Float? = null,
     @SerialName("Container") val container: String? = null,
@@ -72,7 +72,7 @@ data class JfItem(
     @SerialName("UserData") val userData: JfUserData? = null,
     @SerialName("ImageTags") val imageTags: Map<String, String> = emptyMap(),
     @SerialName("AlbumPrimaryImageTag") val albumPrimaryImageTag: String? = null,
-    /** Nur in den Einträgen einer Emby-Playlist: die Nummer des Eintrags zum Entfernen. */
+    /** Only in the entries of an Emby playlist: the entry's number for removal. */
     @SerialName("PlaylistItemId") val playlistItemId: String? = null,
 )
 
@@ -85,14 +85,14 @@ data class JfNameId(
 @Serializable
 data class JfMediaSource(
     @SerialName("Size") val size: Long? = null,
-    /** Bit/s. */
+    /** bit/s. */
     @SerialName("Bitrate") val bitrate: Int? = null,
     @SerialName("Container") val container: String? = null,
     @SerialName("Id") val id: String? = null,
     @SerialName("MediaStreams") val mediaStreams: List<JfMediaStream> = emptyList(),
 )
 
-/** Emby führt Songtexte als Untertitel: eingebettet mit dem Text in [extradata], als `.lrc` daneben extern. */
+/** Emby keeps lyrics as subtitles: embedded with the text in [extradata], as an external `.lrc` next to the file. */
 @Serializable
 data class JfMediaStream(
     @SerialName("Type") val type: String? = null,
@@ -107,7 +107,7 @@ data class JfUserData(
     @SerialName("IsFavorite") val isFavorite: Boolean = false,
 )
 
-/** `GET /Playlists/{id}`: die Song-IDs in Reihenfolge (Duplikate möglich). */
+/** `GET /Playlists/{id}`: the song IDs in order (duplicates possible). */
 @Serializable
 data class JfPlaylist(
     @SerialName("ItemIds") val itemIds: List<String> = emptyList(),
@@ -127,14 +127,14 @@ data class JfCreatePlaylist(
     @SerialName("IsPublic") val isPublic: Boolean = false,
 )
 
-/** Ersetzt Name und Songs auf einmal (Jellyfin ab 10.9). */
+/** Replaces name and songs at once (Jellyfin 10.9+). */
 @Serializable
 data class JfUpdatePlaylist(
     @SerialName("Name") val name: String,
     @SerialName("Ids") val ids: List<String>,
 )
 
-/** `Sessions/Playing` und `Sessions/Playing/Stopped`; [positionTicks] in 100 ns. Emby verlangt [playSessionId]. */
+/** `Sessions/Playing` and `Sessions/Playing/Stopped`; [positionTicks] in 100 ns. Emby requires [playSessionId]. */
 @Serializable
 data class JfPlaybackReport(
     @SerialName("ItemId") val itemId: String,
@@ -157,13 +157,13 @@ data class JfLyrics(
 @Serializable
 data class JfLyricMetadata(
     @SerialName("IsSynced") val isSynced: Boolean? = null,
-    /** Ticks (100 ns), um die der Text gegenüber dem Ton verschoben ist (wie `[offset:]` in LRC, positiv = früher). */
+    /** Ticks (100 ns) by which the text is shifted relative to the audio (like `[offset:]` in LRC, positive = earlier). */
     @SerialName("Offset") val offset: Long? = null,
 )
 
 @Serializable
 data class JfLyricLine(
     @SerialName("Text") val text: String = "",
-    /** Ticks (100 ns) ab Songbeginn; fehlt bei nicht synchronisierten Texten. */
+    /** Ticks (100 ns) from the start of the song; missing for unsynced lyrics. */
     @SerialName("Start") val start: Long? = null,
 )

@@ -27,9 +27,9 @@ import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.network.podcast.normalizeFeedUrl
 
 /**
- * Benutzername und Passwort eines geschützten Feeds (Konzept 12.10): beim Hinzufügen nach einer 401 und aus den
- * Abo-Einstellungen. [feedUrl] nennt den Host, an den sie gehen; bei `http://` warnt der Dialog. [onRemove] nur, wenn schon
- * welche gespeichert sind.
+ * User name and password of a protected feed (concept 12.10): when adding after a 401 and from the
+ * subscription settings. [feedUrl] names the host they are sent to; with `http://` the dialog warns. [onRemove] only if some
+ * are already stored.
  */
 @Composable
 fun FeedCredentialsDialog(

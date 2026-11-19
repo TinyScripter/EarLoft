@@ -33,7 +33,7 @@ class PodcastQueueViewModel @Inject constructor(
     spokenSettings: SpokenSettings,
 ) : ViewModel() {
 
-    /** Tempo je Abo (sonst die Vorgabe der Podcasts) für die Restzeit von Folgen ohne eigenes Tempo. */
+    /** Speed per subscription (otherwise the podcasts default) for the remaining time of episodes without their own speed. */
     val feedSpeeds: StateFlow<Map<String, Float>> = combine(podcasts.feeds, spokenSettings.podcastEffects) { feeds, area ->
         feeds.associate { it.id to (it.effects.speed ?: area.speed) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
@@ -42,11 +42,11 @@ class PodcastQueueViewModel @Inject constructor(
         .asLoadState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
-    /** Die gerade geladene Folge. */
+    /** The currently loaded episode. */
     val currentBookId: StateFlow<Long?> = playback.state.map { it.spoken?.bookId }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Anzahl der Folgen und ihre Restzeit zusammen, jede bei ihrem Tempo (Kopf der Warteschlange); `null` = leer. */
+    /** Number of episodes and their combined remaining time, each at its own speed (queue header); `null` = empty. */
     val summary: StateFlow<QueueSummary?> = combine(continueListening.episodes, feedSpeeds) { episodes, speeds ->
         if (episodes.isEmpty()) {
             null
@@ -55,19 +55,19 @@ class PodcastQueueViewModel @Inject constructor(
         }
     }.orOnError(null).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** „Warteschlange leeren“; die geladene Folge bleibt. */
+    /** "Clear queue"; the loaded episode stays. */
     fun clear() {
         viewModelScope.launch { continueListening.clear(keepId = currentBookId.value) }
     }
 
     private val searchQuery = MutableStateFlow("")
 
-    /** Suchtext der Seite [PodcastQueueSearchScreen]; die Treffer kommen über [searchHits]. */
+    /** Search text of the [PodcastQueueSearchScreen] page; the results come via [searchHits]. */
     fun search(text: String) {
         searchQuery.value = text.trim()
     }
 
-    /** Treffer in Überschrift, Inhaltsangabe und Name des Podcasts, in der Reihenfolge der Warteschlange. */
+    /** Matches in title, summary and podcast name, in queue order. */
     @OptIn(FlowPreview::class)
     val searchHits: StateFlow<EpisodeHits?> = combine(
         continueListening.episodes.map { episodes -> episodes.map { SearchEntry(it, withPodcast = true) } },
@@ -92,8 +92,8 @@ class PodcastQueueViewModel @Inject constructor(
 data class QueueSummary(val count: Int, val remainingMs: Long)
 
 /**
- * Restzeit der Folge in Wiedergabezeit: beim eigenen Tempo, sonst bei [inheritedSpeed] (Abo bzw. Vorgabe); `null` ohne
- * bekannte Dauer.
+ * Remaining time of the episode in playback time: at its own speed, otherwise at [inheritedSpeed] (subscription or default); `null` without
+ * a known duration.
  */
 internal fun BookWithProgress.remainingPlayMs(inheritedSpeed: Float): Long? {
     val durationMs = progress?.durationMs?.takeIf { it > 0 } ?: book.durationMs

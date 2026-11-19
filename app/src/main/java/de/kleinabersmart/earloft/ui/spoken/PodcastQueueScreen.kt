@@ -70,7 +70,7 @@ import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Die Warteschlange der Podcasts („Weiterhören“) bearbeiten: wie bei der Musik mit Ziehgriff und ✕, dazu die Suche. */
+/** Edit the podcast queue ("Continue listening"): as with music, with drag handle and ✕, plus the search. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PodcastQueueScreen(
@@ -100,7 +100,7 @@ fun PodcastQueueScreen(
                 }
                 QueueMoreMenu(
                     clearMessage = stringResource(R.string.podcast_queue_clear_message),
-                    // Die geladene Folge bleibt; steht nur sie da, gibt es nichts zu leeren.
+                    // The loaded episode stays; if it is the only one, there is nothing to clear.
                     canClear = episodes.valueOrNull.orEmpty().any { it.book.id != currentId },
                     onClear = viewModel::clear,
                 )
@@ -111,8 +111,8 @@ fun PodcastQueueScreen(
 }
 
 /**
- * Die Liste der Warteschlange mit Ziehgriff, ✕ und Tipp zur Seite der Folge; auch im Folgen-Player (Sheet bzw. rechter
- * Bereich). [transparent]: ohne eigenen Hintergrund für Zeilen, die nicht laufen (auf farbigen Flächen).
+ * The queue list with drag handle, ✕ and tap to the episode's page; also in the episode player (sheet or right
+ * pane). [transparent]: without its own background for rows that aren't playing (on colored surfaces).
  */
 @Composable
 fun PodcastQueueList(
@@ -142,17 +142,17 @@ fun PodcastQueueList(
 }
 
 /**
- * Warteschlange von Folgen oder Büchern (beide „Weiterhören“) mit Ziehgriff, ✕ und Tipp. Die lokale Kopie wird beim
- * Ziehen sofort umsortiert und erst am Ende des Ziehens über [onReorder] gespeichert (neue Reihenfolge, bewegter Eintrag).
- * Mit [selection] zeigt ein Langklick das Menü der Folge mit „Auswählen“ (Konzept 12.5); während der Auswahl schaltet ein
- * Tipp die Zeile dazu oder weg, Ziehgriff und ✕ entfallen.
+ * Queue of episodes or books (both "Continue listening") with drag handle, ✕ and tap. The local copy is
+ * reordered immediately while dragging and only saved at the end of the drag via [onReorder] (new order, moved entry).
+ * With [selection], a long press shows the episode's menu with "Select" (concept 12.5); during the selection a
+ * tap adds or removes the row, drag handle and ✕ are omitted.
  */
 @Composable
 internal fun SpokenQueueList(
     entries: LoadState<List<BookWithProgress>>,
     currentId: Long?,
     emptyText: String,
-    /** Tempo, wenn der Eintrag kein eigenes hat (Abo bzw. Vorgabe des Bereichs). */
+    /** Speed if the entry has none of its own (subscription or the area's default). */
     inheritedSpeed: (BookWithProgress) -> Float,
     onClick: (Long) -> Unit,
     onRemove: (Long) -> Unit,
@@ -179,7 +179,7 @@ internal fun SpokenQueueList(
     when (entries) {
         LoadState.Loading -> LoadingIndicator()
         LoadState.Missing, LoadState.Failed -> LoadFailedHint()
-        // Die Kopie zieht erst im nächsten Frame nach; leer ist die Liste erst, wenn auch die Quelle leer ist.
+        // The copy only catches up in the next frame; the list is only empty once the source is empty too.
         is LoadState.Ready -> if (rows.isEmpty() && entries.valueOrNull.isNullOrEmpty()) EmptyHint(emptyText)
     }
     if (rows.isEmpty()) return
@@ -192,7 +192,7 @@ internal fun SpokenQueueList(
                 current = id == currentId,
                 withTime = id in sameDay,
                 inheritedSpeed = inheritedSpeed(item),
-                // Gezogen braucht die Zeile einen Hintergrund, sonst scheinen die anderen durch.
+                // While dragged, the row needs a background, otherwise the others show through.
                 transparent = transparent && !reorder.isLifted(id),
                 onClick = { if (selecting) selection.toggle(id) else onClick(id) },
                 onRemove = { onRemove(id) },
@@ -209,8 +209,8 @@ internal fun SpokenQueueList(
                                 id,
                                 index = { rows.indexOfFirst { it.book.id == id } },
                                 onMove = { from, to -> rows.add(to, rows.removeAt(from)) },
-                                // Nur speichern, wenn sich der Platz geändert hat; sonst würde schon ein Antippen die Zeile festlegen.
-                                // Ohne Platzwechsel kommt kein neuer Stand nach; was beim Ziehen eintraf, gilt jetzt.
+                                // Only save if the position changed; otherwise just a tap would fix the row in place.
+                                // Without a position change no new state follows; whatever arrived during the drag applies now.
                                 onDragEnd = { moved -> if (moved) onReorder(rows.map { it.book.id }, id) else syncRows() },
                             ),
                     )
@@ -227,8 +227,8 @@ internal fun SpokenQueueList(
 }
 
 /**
- * Suche nur in der Warteschlange der Podcasts: Überschrift, Inhaltsangabe und Name des Podcasts. Aufbau wie die Suche in
- * einem Podcast; ohne Ziehgriff, denn eine gefilterte Liste lässt sich nicht sinnvoll umsortieren.
+ * Search only within the podcast queue: title, summary and podcast name. Structured like the search within
+ * a podcast; without drag handle, because a filtered list can't be reordered sensibly.
  */
 @Composable
 fun PodcastQueueSearchScreen(
@@ -246,7 +246,7 @@ fun PodcastQueueSearchScreen(
     LaunchedEffect(query) { viewModel.search(query) }
 
     val trimmed = query.trim()
-    // Beim Tippen bleiben die letzten Treffer stehen, bis die neuen da sind; „Nichts gefunden“ erst für den aktuellen Text.
+    // While typing, the last results stay until the new ones are there; "Nothing found" only for the current text.
     val hits = result?.hits.orEmpty()
     val settled = result?.query == trimmed
 
@@ -299,16 +299,16 @@ fun PodcastQueueSearchScreen(
 }
 
 /**
- * Eine Folge (Datum) oder ein Buch (Autor) der Warteschlange mit Download, Titel, Fortschritt; links Ziehgriff (falls
- * [dragHandle]) und Bild. Eigene Zeile statt `ListItem`: Dessen Abstände für drei Zeilen sind zu großzügig, hier sollen
- * möglichst viele Einträge auf einen Blick passen. Farben wie beim `ListItem`.
+ * An episode (date) or a book (author) of the queue with download, title, progress; on the left drag handle (if
+ * [dragHandle]) and image. Own row instead of `ListItem`: its paddings for three lines are too generous, here
+ * as many entries as possible should fit at a glance. Colors as with `ListItem`.
  */
 @Composable
 private fun QueueRow(
     item: BookWithProgress,
     current: Boolean,
     withTime: Boolean,
-    /** Tempo des Abos bzw. der Vorgabe, wenn die Folge kein eigenes hat. */
+    /** Speed of the subscription or the default, if the episode has none of its own. */
     inheritedSpeed: Float,
     transparent: Boolean,
     onClick: () -> Unit,
@@ -372,11 +372,11 @@ private fun QueueRow(
     }
 }
 
-/** Die kleinen Zeilen über und unter dem Titel, etwas enger als `labelSmall`. */
+/** The small lines above and below the title, slightly tighter than `labelSmall`. */
 @Composable
 private fun smallLineStyle() = MaterialTheme.typography.labelSmall.copy(lineHeight = 14.sp)
 
-/** Erste Zeile: Datum der Folge, dahinter der Download-Stand wie in den Listen (geladen: Haken, sonst nichts). */
+/** First line: date of the episode, followed by the download state as in the lists (downloaded: check mark, otherwise nothing). */
 @Composable
 private fun EpisodeFacts(item: BookWithProgress, withTime: Boolean) {
     val book = item.book
@@ -389,7 +389,7 @@ private fun EpisodeFacts(item: BookWithProgress, withTime: Boolean) {
     }
 }
 
-/** Erste Zeile bei Büchern: Autor, dahinter der Download-Stand wie bei den Folgen. */
+/** First line for books: author, followed by the download state as for episodes. */
 @Composable
 private fun BookFacts(item: BookWithProgress) {
     val mark = LocalBookDownloads.current[item.book.id]?.offlineMark
@@ -401,14 +401,14 @@ private fun BookFacts(item: BookWithProgress) {
     }
 }
 
-/** Letzte Zeile: gehörte Zeit, kleiner Balken, Restzeit wie im Player (beim eingestellten Tempo). Ohne Dauer nichts. */
+/** Last line: played time, small bar, remaining time as in the player (at the set speed). Nothing without a duration. */
 @Composable
 private fun EpisodeProgress(item: BookWithProgress, inheritedSpeed: Float) {
     val remainingMs = item.remainingPlayMs(inheritedSpeed) ?: return
     val durationMs = item.progress?.durationMs?.takeIf { it > 0 } ?: item.book.durationMs
     val positionMs = item.progress?.positionMs?.coerceIn(0, durationMs) ?: 0
     val style = smallLineStyle()
-    // Gleich breite Zeiten, damit die Balken untereinander gleich lang sind.
+    // Equal-width times so the bars are equally long below each other.
     val measurer = rememberTextMeasurer()
     val timeWidth = with(LocalDensity.current) { measurer.measure("-0:00:00", style).size.width.toDp() }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -416,7 +416,7 @@ private fun EpisodeProgress(item: BookWithProgress, inheritedSpeed: Float) {
         LinearProgressIndicator(
             progress = { positionMs.toFloat() / durationMs },
             modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-            // Die Standardspur hat die Farbe der Zeile der laufenden Folge.
+            // The default track has the color of the current episode's row.
             trackColor = LocalContentColor.current.copy(alpha = 0.2f),
             drawStopIndicator = {},
         )

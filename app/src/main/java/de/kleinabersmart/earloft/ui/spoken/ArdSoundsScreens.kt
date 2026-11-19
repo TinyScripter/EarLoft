@@ -72,9 +72,9 @@ import kotlinx.coroutines.launch
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Seite „ARD Sounds“ in *Bücher* (`books_improvements.md` M9): oben die Suche nach Titeln (erst auf die Lupe), darunter die
- * Sendungen der Rubriken Hörbuch und Hörspiel. Eine Sendung ist ein Buch in Teilen oder eine Reihe mit vielen Büchern; ihre
- * Seite zeigt die Bücher. Die Chips der Rubriken bleiben beim Scrollen oben stehen, damit sich die Rubrik jederzeit wechseln lässt.
+ * "ARD Sounds" page in *Books* (`books_improvements.md` M9): the title search at the top (only on the magnifier), below that the
+ * shows of the categories audiobook and radio play. A show is a book in parts or a series with many books; its
+ * page shows the books. The category chips stay pinned at the top while scrolling, so the category can be changed at any time.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,7 +101,7 @@ fun ArdSoundsScreen(
         focus.clearFocus()
         viewModel.search(term)
     }
-    // Ohne Suchbegriff wieder die Rubriken.
+    // Without a search term, back to the categories.
     LaunchedEffect(term.isBlank()) { if (term.isBlank()) viewModel.clearSearch() }
     val openBook: (ArdBookSummary) -> Unit = { book -> library[book.key]?.let(onOpenBook) ?: onBook(book) }
     val noResults = search?.let { stringResource(R.string.search_no_results, it.first) }.orEmpty()
@@ -166,7 +166,7 @@ fun ArdSoundsScreen(
                     }
                 }
                 stickyHeader(key = CategoriesKey) {
-                    // Eigener Hintergrund, damit die Sendungen darunter durchlaufen statt durchzuscheinen.
+                    // Own background, so the shows below scroll underneath instead of showing through.
                     Row(
                         Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
                             .padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
@@ -185,8 +185,8 @@ fun ArdSoundsScreen(
                     }
                 }
                 when (val state = shows) {
-                    // So hoch wie die Liste: Beim Laden der anderen Rubrik bleiben die Chips oben stehen, statt dass die
-                    // kurze Liste zurück an den Seitenanfang springt.
+                    // As tall as the list: while loading the other category the chips stay at the top instead of the
+                    // short list jumping back to the top of the page.
                     ArdLoad.Loading -> item(key = "shows-loading") { Box(Modifier.fillParentMaxHeight()) { ArdLoading() } }
                     ArdLoad.Failed -> item(key = "shows-failed") { Box(Modifier.fillParentMaxHeight()) { ArdFailed(viewModel::retry) } }
                     is ArdLoad.Done -> groupedItems(state.value, key = { "show-${it.id}" }) { show -> ArdShowRow(show, subscribed = show.id in subscribed) { onShow(show) } }
@@ -199,8 +199,8 @@ fun ArdSoundsScreen(
 private const val CategoriesKey = "categories"
 
 /**
- * Nach einem Rubrikwechsel beginnt die Liste wieder direkt unter den Chips, wenn sie schon darunter gescrollt war;
- * sonst stünde man mitten in der neuen Liste (oder hinter ihrem Ende).
+ * After a category change the list starts again directly below the chips if it was already scrolled past them;
+ * otherwise you'd end up in the middle of the new list (or past its end).
  */
 private suspend fun LazyListState.showCategoriesStart() {
     val header = layoutInfo.visibleItemsInfo.firstOrNull { it.key == CategoriesKey } ?: return
@@ -208,7 +208,7 @@ private suspend fun LazyListState.showCategoriesStart() {
     if (pastHeader) scrollToItem(header.index)
 }
 
-/** Die Bücher einer Sendung aus ARD Sounds, neueste zuerst. */
+/** The books of a show from ARD Sounds, newest first. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArdShowScreen(
@@ -261,7 +261,7 @@ fun ArdShowScreen(
                     empty = noBooks,
                     onBook = { book -> library[book.key]?.let(onOpenBook) ?: onBook(book) },
                     keyPrefix = "book",
-                    // Alle aus derselben Sendung: deren Name stünde in jeder Zeile.
+                    // All from the same show: its name would appear in every row.
                     withShow = false,
                 )
             }
@@ -270,8 +270,8 @@ fun ArdShowScreen(
 }
 
 /**
- * Vorschau eines Buchs aus ARD Sounds: Cover, Angaben, Verfügbarkeit, Teile. Abspielen, Laden und Hinzufügen nehmen es in die
- * Bibliothek auf; dann tritt die Buchseite an die Stelle der Vorschau ([onAdded]). Ist es schon dort, gleich die Buchseite.
+ * Preview of a book from ARD Sounds: cover, details, availability, parts. Play, download and add take it into the
+ * library; then the book page replaces the preview ([onAdded]). If it is already there, the book page right away.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -378,8 +378,8 @@ private fun ArdBookHeader(book: ArdBook, working: Boolean, onAction: (ArdBookAct
 }
 
 /**
- * „Verfügbar bis 08.01.2027“ bzw. „Nicht mehr bei ARD Sounds verfügbar“; in Rot, wenn weniger als eine Woche bleibt und nicht
- * alles geladen ist. Ganz geladene Bücher bleiben hörbar, das steht dann dabei.
+ * "Available until 08.01.2027" or "No longer available on ARD Sounds"; in red if less than a week remains and not
+ * everything is downloaded. Fully downloaded books stay playable, which is then noted.
  */
 @Composable
 fun AvailabilityText(until: Long, downloaded: Boolean, modifier: Modifier = Modifier) {

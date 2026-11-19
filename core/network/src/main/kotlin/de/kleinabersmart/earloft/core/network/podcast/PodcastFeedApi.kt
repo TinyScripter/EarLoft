@@ -18,13 +18,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Antwort des Feeds auf einen bedingten Abruf. [movedTo]: Der Feed liegt dauerhaft unter einer anderen Adresse (nur
- * 301/308 auf dem ganzen Weg, kein Wechsel von HTTPS zu HTTP; Konzept 12.10 „Feed-Umzug“).
+ * The feed's response to a conditional fetch. [movedTo]: the feed has permanently moved to another URL (only
+ * 301/308 along the whole way, no switch from HTTPS to HTTP; concept 12.10 "feed move").
  */
 sealed interface FeedFetch {
     val movedTo: String?
 
-    /** Seit dem letzten Abruf unverändert (HTTP 304). */
+    /** Unchanged since the last fetch (HTTP 304). */
     data class NotModified(override val movedTo: String? = null) : FeedFetch
 
     data class Fetched(
@@ -35,19 +35,19 @@ sealed interface FeedFetch {
     ) : FeedFetch
 }
 
-/** Ein geladenes Transkript, noch ungelesen; [contentType] wie der Server ihn nennt. */
+/** A downloaded transcript, not yet parsed; [contentType] as the server reports it. */
 data class TranscriptText(val text: String, val contentType: String?)
 
-/** Ein Kapitel aus der Podcasting-2.0-Kapitelliste oder Podlove; Bild und Webseite nur als absolute http(s)-Adresse. */
+/** A chapter from the Podcasting 2.0 chapter list or Podlove; image and web page only as an absolute http(s) URL. */
 data class ParsedChapter(val startMs: Long, val title: String, val imageUrl: String? = null, val url: String? = null)
 
-/** Nur absolute http(s)-Adressen gelten als Webseite oder Bild. */
+/** Only absolute http(s) URLs count as a web page or image. */
 internal fun webAddress(raw: String?): String? =
     raw?.trim()?.takeIf { it.startsWith("https://", ignoreCase = true) || it.startsWith("http://", ignoreCase = true) }
 
 /**
- * Abruf von Feeds, Kapitellisten und Bildern. Feeds und Kapitel kommen nie aus dem HTTP-Cache. [FeedAuth] meldet beim
- * geschützten Feed an ([FeedAuthInterceptor]); ohne sie gelten die gespeicherten Zugangsdaten des Hosts.
+ * Fetching of feeds, chapter lists and images. Feeds and chapters never come from the HTTP cache. [FeedAuth] authenticates
+ * against the protected feed ([FeedAuthInterceptor]); without it the host's stored credentials apply.
  */
 @Singleton
 class PodcastFeedApi @Inject constructor(
@@ -73,7 +73,7 @@ class PodcastFeedApi @Inject constructor(
             val movedTo = permanentTarget(url, response)?.toString()
             if (response.code == 304) return@use FeedFetch.NotModified(movedTo)
             if (!response.isSuccessful) throw HttpStatusException(response.code, movedTo)
-            // Ein zu großer Feed wird abgeschnitten gelesen und vom Parser als unvollständig abgelehnt.
+            // A feed that is too large is read truncated and rejected by the parser as incomplete.
             val feed = PodcastFeedParser.parse(response.peekBody(MAX_FEED_BYTES).byteStream())
             FeedFetch.Fetched(feed, response.header("ETag"), response.header("Last-Modified"), movedTo)
         }
@@ -90,8 +90,8 @@ class PodcastFeedApi @Inject constructor(
     }
 
     /**
-     * Text eines Transkripts (`podcast:transcript`) samt `Content-Type` der Antwort. Darf aus dem HTTP-Cache kommen; auf dem
-     * Host eines geschützten Feeds meldet [FeedAuthInterceptor] an. Ein zu großes wird nicht abgeschnitten, sondern abgelehnt.
+     * Text of a transcript (`podcast:transcript`) including the response's `Content-Type`. May come from the HTTP cache; on the
+     * host of a protected feed [FeedAuthInterceptor] authenticates. One that is too large is not truncated but rejected.
      */
     suspend fun transcript(url: String): TranscriptText = withContext(Dispatchers.IO) {
         val httpUrl = url.toHttpUrlOrNull() ?: throw IOException("Ungültige Transkript-URL")
@@ -105,8 +105,8 @@ class PodcastFeedApi @Inject constructor(
     }
 
     /**
-     * Anfrage für die Audiodatei einer Folge (eigener User-Agent, nie aus dem HTTP-Cache); `null` bei ungültiger Adresse.
-     * [auth]: die Zugangsdaten ihres Abos (gelten nur auf dessen Host).
+     * Request for the audio file of an episode (own User-Agent, never from the HTTP cache); `null` for an invalid URL.
+     * [auth]: the credentials of its subscription (only valid on its host).
      */
     fun audioRequest(url: String, auth: FeedAuth? = null): Request? =
         url.toHttpUrlOrNull()?.let {
@@ -115,7 +115,7 @@ class PodcastFeedApi @Inject constructor(
                 .build()
         }
 
-    /** Bild-Bytes; `null`, wenn es das Bild nicht (mehr) gibt. */
+    /** Image bytes; `null` if the image doesn't exist (anymore). */
     suspend fun image(url: String): ByteArray? = withContext(Dispatchers.IO) {
         val httpUrl = url.toHttpUrlOrNull() ?: return@withContext null
         client.newCall(Request.Builder().url(httpUrl).header("User-Agent", USER_AGENT).build()).await().use { response ->
@@ -135,8 +135,8 @@ class PodcastFeedApi @Inject constructor(
 }
 
 /**
- * Ziel der Weiterleitungen vor [response], soweit sie von [requested] aus alle dauerhaft waren (301/308); eine
- * vorübergehende (302/307) beendet die Kette. `null`, wenn es keins gibt oder es von HTTPS zu HTTP führte.
+ * Target of the redirects before [response], as long as they were all permanent starting from [requested] (301/308); a
+ * temporary one (302/307) ends the chain. `null` if there is none or it led from HTTPS to HTTP.
  */
 internal fun permanentTarget(requested: HttpUrl, response: Response): HttpUrl? {
     val chain = generateSequence(response) { it.priorResponse }.toList().asReversed()
@@ -149,14 +149,14 @@ internal fun permanentTarget(requested: HttpUrl, response: Response): HttpUrl? {
 }
 
 /**
- * Manche Verzeichnisse (z. B. podcastindex.org) und Audio-Hoster (Buzzsprout über podtrac/op3) lehnen den Standard-User-Agent
- * von OkHttp mit 403 ab; auch Streams im Player schicken deshalb diesen.
+ * Some directories (e.g. podcastindex.org) and audio hosts (Buzzsprout via podtrac/op3) reject OkHttp's default User-Agent
+ * with 403; that's why streams in the player send this one too.
  */
 const val PODCAST_USER_AGENT = "EarLoft/1.0 (Android podcast client)"
 
 /**
- * Macht aus einer Eingabe eine Feed-Adresse: Leerraum weg, `feed://`/`itpc://`/`pcast://` werden `https://`, ohne
- * Schema gilt `https://`. `null`, wenn daraus keine http(s)-Adresse wird.
+ * Turns an input into a feed URL: whitespace removed, `feed://`/`itpc://`/`pcast://` become `https://`, without
+ * a scheme `https://` applies. `null` if this doesn't result in an http(s) URL.
  */
 fun normalizeFeedUrl(input: String): HttpUrl? {
     var text = input.trim()
@@ -180,9 +180,9 @@ private data class ChapterDto(
 )
 
 /**
- * Podcasting-2.0-Kapitel (`{"chapters":[{"startTime":0,"title":"…","img":"…","url":"…"}]}`), nach Beginn sortiert.
- * „Stille“ Kapitel (`"toc": false`, etwa ein Bild zu einer Spende mitten im Kapitel) gehören nicht ins Inhaltsverzeichnis
- * und zerschnitten sonst das Kapitel, in dem sie liegen; sie fallen weg.
+ * Podcasting 2.0 chapters (`{"chapters":[{"startTime":0,"title":"…","img":"…","url":"…"}]}`), sorted by start.
+ * "Silent" chapters (`"toc": false`, e.g. an image for a donation in the middle of a chapter) don't belong in the table of contents
+ * and would otherwise cut up the chapter they're in; they are dropped.
  */
 fun parseChapters(json: String): List<ParsedChapter> =
     try {

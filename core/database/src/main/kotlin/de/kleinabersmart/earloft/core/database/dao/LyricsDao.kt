@@ -6,7 +6,7 @@ import androidx.room.Upsert
 import de.kleinabersmart.earloft.core.database.entity.LyricsEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 
-/** Lyrics-Cache (inkl. Negativ-Cache `NONE`) und die Server-Quellen, die danach gefragt werden. */
+/** Lyrics cache (incl. negative cache `NONE`) and the server sources that are asked for them. */
 @Dao
 interface LyricsDao {
 
@@ -24,7 +24,7 @@ interface LyricsDao {
     )
     suspend fun getLocalSources(songId: Long): List<SongSourceEntity>
 
-    /** Nur eingeschaltete Server: Ein ausgeschalteter wird nicht gefragt, wie er auch nicht abgeglichen wird. */
+    /** Only enabled servers: a disabled one is not asked, just as it isn't synced. */
     @Query(
         """
         SELECT ss.* FROM song_sources ss JOIN sources src ON src.sourceId = ss.sourceId
@@ -34,7 +34,7 @@ interface LyricsDao {
     )
     suspend fun getServerSources(songId: Long): List<SongSourceEntity>
 
-    /** Erster Interpret des Songs (ohne „feat.“), für die Suche im Internet. */
+    /** First artist of the song (without "feat."), for searching the internet. */
     @Query(
         """
         SELECT a.name FROM song_artists sa JOIN artists a ON a.artistId = sa.artistId
@@ -46,7 +46,7 @@ interface LyricsDao {
     @Query("DELETE FROM lyrics WHERE origin = :origin")
     suspend fun deleteByOrigin(origin: String)
 
-    /** Fehlende und statische Texte außer [keepOrigin] vergessen, damit eine neue Quelle sie ergänzen kann. */
+    /** Forgets missing and static lyrics except [keepOrigin] so a new source can fill them in. */
     @Query("DELETE FROM lyrics WHERE kind != 'SYNCED' AND origin != :keepOrigin")
     suspend fun deleteUnsyncedExcept(keepOrigin: String)
 }

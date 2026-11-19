@@ -63,18 +63,18 @@ class BookViewModel @AssistedInject constructor(
         .onEach { if (it != null) wasLoaded = true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Das Buch war schon da; ist es jetzt `null`, wurde es entfernt (nicht: lädt noch). */
+    /** The book was already there; if it is now `null`, it was removed (not: still loading). */
     var wasLoaded = false
         private set
 
-    /** Die Seite wird gerade ersetzt (nach dem Hochladen): Das Verschwinden des Buchs schließt sie nicht. */
+    /** The page is currently being replaced (after uploading): the book disappearing doesn't close it. */
     fun markLeaving() {
         wasLoaded = false
     }
 
     /**
-     * Der Podcast der Folge, wenn er nur ein Probeabo aus der Vorschau ist (Konzept 12.10); sonst `null`. Solange die
-     * Seite offen ist, bleibt das Probeabo bestehen, auch wenn die Folge die Warteschlange verlässt.
+     * The episode's podcast, if it is only a trial subscription from the preview (concept 12.10); otherwise `null`. As long as the
+     * page is open, the trial subscription persists, even if the episode leaves the queue.
      */
     val trialFeedId: StateFlow<String?> = book
         .map { it?.book?.takeIf { book -> book.kind == BookKind.EPISODE }?.serverId }
@@ -99,7 +99,7 @@ class BookViewModel @AssistedInject constructor(
 
     private val isEpisode: Boolean get() = book.value?.book?.kind == BookKind.EPISODE
 
-    /** Download-Stand des Buchs bzw. der Folge (Folgen laden einzeln, ihre Größe kennt hier niemand: `bytes` ist 0). */
+    /** Download state of the book or episode (episodes download individually, nobody here knows their size: `bytes` is 0). */
     val download: StateFlow<BookDownload> = book
         .map { it?.book?.takeIf { book -> book.kind == BookKind.EPISODE }?.serverId }
         .distinctUntilChanged()
@@ -112,11 +112,11 @@ class BookViewModel @AssistedInject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookDownload(TrackDownload.NONE, 0))
 
-    /** Anteil der ladenden Folge (0..1, [EpisodeDownloadProgress.UNKNOWN] ohne bekannte Größe); `null`, solange sie nicht lädt. */
+    /** Fraction of the downloading episode (0..1, [EpisodeDownloadProgress.UNKNOWN] without known size); `null` while it isn't downloading. */
     val episodeFraction: StateFlow<Float?> = episodeProgress.fractions.map { it[bookId] }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Bytes des ladenden Buchs; `null`, solange es nicht lädt. */
+    /** Bytes of the downloading book; `null` while it isn't downloading. */
     val transfer: StateFlow<BookTransfer?> = downloadProgress.transfers.map { it[bookId] }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -125,7 +125,7 @@ class BookViewModel @AssistedInject constructor(
 
     fun startDownload() {
         viewModelScope.launch {
-            // Probeabo: Was geladen wird, kommt in die Warteschlange und bleibt nur, solange es dort steht.
+            // Trial subscription: whatever is downloaded goes into the queue and stays only as long as it is there.
             if (trialFeedId.value != null) continueListening.append(bookId)
             val start = if (isEpisode) episodeDownloads.download(bookId) else downloads.download(bookId)
             when (start) {
@@ -137,7 +137,7 @@ class BookViewModel @AssistedInject constructor(
         }
     }
 
-    /** Bricht einen laufenden Download ab oder löscht die geladenen Dateien. */
+    /** Cancels a running download or deletes the downloaded files. */
     fun removeDownload() {
         viewModelScope.launch { if (isEpisode) episodeDownloads.remove(bookId) else downloads.remove(bookId) }
     }
@@ -146,25 +146,25 @@ class BookViewModel @AssistedInject constructor(
         .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** Mitwirkende einer Folge aus dem Feed (`podcast:person`); bei Büchern leer. */
+    /** Contributors of an episode from the feed (`podcast:person`); empty for books. */
     val persons: StateFlow<List<EpisodePerson>> = books.persons(bookId)
         .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    // Kanal statt SharedFlow: Ein Ereignis während einer Drehung (kein Sammler) bliebe sonst verloren.
+    // Channel instead of SharedFlow: an event during a rotation (no collector) would otherwise be lost.
     private val _openPlayer = Channel<Unit>(Channel.CONFLATED)
 
-    /** Die Wiedergabe-Ansicht soll aufgehen: [play] hat das Buch gestartet oder fortgesetzt. */
+    /** The now-playing view should open: [play] has started or resumed the book. */
     val openPlayer: Flow<Unit> = _openPlayer.receiveAsFlow()
 
     init {
-        // Kam vor dem Start die Rückfrage zu mobilen Daten, startet das Buch erst nach „Abspielen“.
+        // If the mobile-data question came before the start, the book starts only after "Play".
         viewModelScope.launch { launcher.confirmedStarts.filter { it == bookId }.collect { _openPlayer.send(Unit) } }
     }
 
     /**
-     * „Abspielen“/„Weiterhören“: Ist das Buch schon geladen, geht es dort weiter, sonst wird es gestartet (ein zu Ende
-     * gehörtes von vorn); danach geht die Wiedergabe-Ansicht auf.
+     * "Play"/"Continue listening": if the book is already loaded, it continues there, otherwise it is started (a finished
+     * one from the start); afterwards the now-playing view opens.
      */
     fun play() {
         val state = playback.state.value

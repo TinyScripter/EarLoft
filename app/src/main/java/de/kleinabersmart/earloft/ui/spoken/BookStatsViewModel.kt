@@ -32,31 +32,31 @@ class BookStatsViewModel @Inject constructor(
     private val serverStats: ServerStatsRepository,
     audiobookServers: AudiobookshelfServers,
 ) : ViewModel() {
-    /** Was diese App selbst gezählt hat; `null`, solange es lädt. */
+    /** What this app counted itself; `null` while loading. */
     private val yearFlow = MutableStateFlow<Int?>(null)
 
     val device: StateFlow<DeviceBookStats?> =
         yearFlow.flatMapLatest { stats.bookStats(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Eingeschaltete Audiobookshelf-Server. */
+    /** Enabled Audiobookshelf servers. */
     val servers: StateFlow<List<SpokenServer>> = audiobookServers.servers
         .map { list -> list.filter { it.enabled } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val chosen = MutableStateFlow<String?>(null)
 
-    /** Der angezeigte Server: der gewählte, sonst der erste. */
+    /** The displayed server: the selected one, otherwise the first. */
     val selectedServerId: StateFlow<String?> = combine(servers, chosen) { list, id ->
         list.firstOrNull { it.serverId == id }?.serverId ?: list.firstOrNull()?.serverId
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Letzter bekannter Stand des gewählten Servers (auch offline). */
+    /** Last known state of the selected server (also offline). */
     val server: StateFlow<ServerBookStats?> = selectedServerId
         .combine(yearFlow, ::Pair)
         .flatMapLatest { (id, year) -> if (id == null) flowOf(null) else serverStats.stats(id, year) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Zeigt die Zahlen dieses Jahres; `null` für „Gesamt“. */
+    /** Shows this year's numbers; `null` for "Total". */
     fun selectYear(value: Int?) {
         yearFlow.value = value
     }
@@ -65,7 +65,7 @@ class BookStatsViewModel @Inject constructor(
     val refresh: StateFlow<StatsRefresh> = _refresh.asStateFlow()
 
     init {
-        // Beim Öffnen und bei jedem Wechsel des Servers den Stand abrufen, wenn er älter als eine Stunde ist.
+        // On opening and on every server change, fetch the state if it is older than an hour.
         viewModelScope.launch {
             selectedServerId.filterNotNull().collect { id ->
                 _refresh.value = StatsRefresh.RUNNING

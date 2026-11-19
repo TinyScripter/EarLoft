@@ -37,25 +37,25 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.guava.future
 
-/** Benutzerdefinierte Aktion „Favorit umschalten“ (Herz in Android Auto, Benachrichtigung, Uhr). */
+/** Custom action "Toggle favorite" (heart in Android Auto, notification, watch). */
 internal const val ACTION_TOGGLE_FAVORITE = "de.kleinabersmart.earloft.TOGGLE_FAVORITE"
 
-/** Kapitel zurück bzw. vor als Knopf in Benachrichtigung und Auto (`books_improvements.md` M4). */
+/** Chapter back or forward as a button in the notification and Auto (`books_improvements.md` M4). */
 internal const val ACTION_CHAPTER_PREVIOUS = "de.kleinabersmart.earloft.CHAPTER_PREVIOUS"
 internal const val ACTION_CHAPTER_NEXT = "de.kleinabersmart.earloft.CHAPTER_NEXT"
 
 /**
- * Browse-Tree und Auflösung von Media-Items für alle Controller (App, System, Uhr, Android Auto).
+ * Browse tree and resolution of media items for all controllers (app, system, watch, Android Auto).
  *
- * Den Inhalt des Trees liefert [BrowseTree] (Tabs je nach eingeschalteten Bereichen, höchstens vier). Songs in Listen
- * tragen ihren Ordner in der Media-ID ([MediaIds.inContext]); wird einer davon allein gesetzt (Antippen in Auto), lädt
- * [onSetMediaItems] die ganze Liste als Warteschlange. Ein Buch bzw. eine Folge (`spoken:<id>`) bereitet die Session
- * selbst vor wie die App ([startSpoken]).
+ * The tree's content comes from [BrowseTree] (tabs depending on the enabled areas, at most four). Songs in lists
+ * carry their folder in the media ID ([MediaIds.inContext]); if one of them is set alone (tap in Auto),
+ * [onSetMediaItems] loads the whole list as the queue. The session prepares a book or episode (`spoken:<id>`)
+ * itself, like the app ([startSpoken]).
  *
- * Controller schicken Items ohne abspielbare URI über Prozessgrenzen; [onAddMediaItems] und
- * [onSetMediaItems] bauen sie deshalb anhand der Media-ID neu aus der Datenbank. Songs, die der
- * aktuelle Player nicht spielen kann ([SessionPlayerFactory.playableSongIds], z. B. beim Casten),
- * fallen dabei weg.
+ * Controllers send items without a playable URI across process boundaries; [onAddMediaItems] and
+ * [onSetMediaItems] therefore rebuild them from the database by media ID. Songs that the
+ * current player can't play ([SessionPlayerFactory.playableSongIds], e.g. while casting)
+ * are dropped.
  */
 @OptIn(UnstableApi::class)
 internal class LibrarySessionCallback(
@@ -68,18 +68,18 @@ internal class LibrarySessionCallback(
     private val continueListening: ContinueListening,
     private val playerFactory: SessionPlayerFactory?,
     private val scope: CoroutineScope,
-    /** Kopfhörer- und Medientasten bei Büchern und Folgen; `null`: alles wie Media3. */
+    /** Headphone and media buttons for books and episodes; `null`: everything as in Media3. */
     private val mediaButtons: SpokenMediaButtons? = null,
-    /** Kapitelknöpfe ([ACTION_CHAPTER_NEXT] = `true`); auf dem Main-Thread. */
+    /** Chapter buttons ([ACTION_CHAPTER_NEXT] = `true`); on the main thread. */
     private val onChapterButton: (forward: Boolean) -> Unit = {},
-    /** Wartet, bis der Service die letzte Warteschlange wiederhergestellt hat ([PlaybackService.restoreQueue]). */
+    /** Waits until the service has restored the last queue ([PlaybackService.restoreQueue]). */
     private val awaitRestore: suspend () -> Unit = {},
 ) : MediaLibrarySession.Callback {
 
     /**
-     * Muss sofort fertig sein: Für alte `MediaBrowser` (Android Auto, System) beantwortet Media3 `onGetRoot` auf dem
-     * Main-Thread und wartet dort ohne Zeitlimit auf dieses Future. Ein `scope.future` auf dem Main-Dispatcher käme nie dran
-     * (App hängt, ANR).
+     * Must complete immediately: for old `MediaBrowser`s (Android Auto, system) Media3 answers `onGetRoot` on the
+     * main thread and waits there for this future without a timeout. A `scope.future` on the main dispatcher would never run
+     * (app hangs, ANR).
      */
     override fun onGetLibraryRoot(
         session: MediaLibrarySession,
@@ -100,7 +100,7 @@ internal class LibrarySessionCallback(
         pageSize: Int,
         params: LibraryParams?,
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future {
-        // Android Auto merkt sich Listen: Ordner eines inzwischen ausgeschalteten Bereichs gibt es nicht mehr.
+        // Android Auto remembers lists: folders of an area disabled in the meantime no longer exist.
         if (browseTree.isHidden(parentId)) return@future LibraryResult.ofError(areaDisabled())
         val children = browseTree.children(parentId) ?: return@future LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
         val paged = children.drop(page * pageSize).take(pageSize)
@@ -130,12 +130,12 @@ internal class LibrarySessionCallback(
     }
 
     /**
-     * Zuletzt gesuchter Begriff samt eingeschalteten Bereichen und seine Treffer: Auf [onSearch] folgt gleich
-     * [onGetSearchResult], oft seitenweise.
+     * Last searched term along with the enabled areas and its results: [onSearch] is immediately followed by
+     * [onGetSearchResult], often page by page.
      */
     private var lastSearch: Pair<Pair<String, List<SpokenMode>>, List<MediaItem>>? = null
 
-    /** Läuft auf dem Main-Thread (scope), [lastSearch] braucht also keine Sperre. */
+    /** Runs on the main thread (scope), so [lastSearch] needs no lock. */
     private suspend fun searchResults(query: String): List<MediaItem> {
         val key = query to browseTree.areas()
         lastSearch?.takeIf { it.first == key }?.let { return it.second }
@@ -145,9 +145,9 @@ internal class LibrarySessionCallback(
     }
 
     /**
-     * Nimmt jedes Abo eines Ordners an, der nicht zu einem ausgeschalteten Bereich gehört. Der Standard prüft über
-     * [onGetItem], das nur Songs und Bücher kennt, und lehnte damit alle Ordner ab; Android Auto (Compat-Browser) erfuhr dann
-     * nie von [MediaLibrarySession.notifyChildrenChanged] (Bereiche umgeschaltet).
+     * Accepts every subscription to a folder that doesn't belong to a disabled area. The default checks via
+     * [onGetItem], which only knows songs and books, and thus rejected all folders; Android Auto (compat browser) then never
+     * learned of [MediaLibrarySession.notifyChildrenChanged] (areas toggled).
      */
     override fun onSubscribe(
         session: MediaLibrarySession,
@@ -156,21 +156,21 @@ internal class LibrarySessionCallback(
         params: LibraryParams?,
     ): ListenableFuture<LibraryResult<Void>> = scope.future {
         if (browseTree.isHidden(parentId)) return@future LibraryResult.ofError(areaDisabled())
-        // Wie der Standard: Media3-Browser holen den Inhalt daraufhin, alte bekommen ihn ohnehin direkt.
+        // Like the default: Media3 browsers then fetch the content, old ones get it directly anyway.
         if (browser.controllerVersion != MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION) {
             session.notifyChildrenChanged(browser, parentId, Int.MAX_VALUE, params)
         }
         LibraryResult.ofVoid()
     }
 
-    /** Bei Büchern und Folgen springen Doppelklick und „Weiter“ ins nächste Kapitel ([SpokenMediaButtons]). */
+    /** For books and episodes, double click and "next" jump to the next chapter ([SpokenMediaButtons]). */
     override fun onMediaButtonEvent(session: MediaSession, controllerInfo: MediaSession.ControllerInfo, intent: Intent): Boolean {
         val event = keyEventOf(intent) ?: return false
         val external = controllerInfo.controllerVersion == MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION
         return mediaButtons?.onMediaButton(event, external) ?: false
     }
 
-    /** Wie Media3 (`DefaultActionFactory.getKeyEvent`): kaputte Extras sind keine Taste. */
+    /** Like Media3 (`DefaultActionFactory.getKeyEvent`): broken extras are not a key. */
     private fun keyEventOf(intent: Intent): KeyEvent? = try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
@@ -185,9 +185,9 @@ internal class LibrarySessionCallback(
     private fun areaDisabled() = SessionError(SessionError.ERROR_NOT_SUPPORTED, context.getString(R.string.area_disabled))
 
     /**
-     * Der Service ist für System, Uhr und Android Auto exportiert, damit aber für jede App erreichbar. Vertrauenswürdige
-     * Controller ([isTrustedController]) bekommen alles; fremde Apps dürfen die Wiedergabe steuern, aber weder die Bibliothek
-     * durchsuchen noch die Warteschlange ersetzen noch Favoriten setzen (die gingen per Sync-Queue an den Server).
+     * The service is exported for the system, watch and Android Auto, which makes it reachable for every app. Trusted
+     * controllers ([isTrustedController]) get everything; foreign apps may control playback, but may neither browse the
+     * library nor replace the queue nor set favorites (those would go to the server via the sync queue).
      */
     override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
         val trusted = session.isTrustedController(controller)
@@ -208,8 +208,8 @@ internal class LibrarySessionCallback(
     }
 
     /**
-     * Die eigene App, das System (Benachrichtigung, Sperrbildschirm, Fortsetzen nach dem Neustart; auch Apps mit
-     * Medien-Steuerrecht oder als Benachrichtigungs-Listener wie die Uhr-Begleit-App) und Android Auto/Automotive.
+     * The app itself, the system (notification, lock screen, resumption after reboot; also apps with
+     * media control permission or acting as notification listener, like the watch companion app) and Android Auto/Automotive.
      */
     private fun MediaSession.isTrustedController(controller: MediaSession.ControllerInfo): Boolean =
         controller.packageName == context.packageName ||
@@ -219,18 +219,18 @@ internal class LibrarySessionCallback(
             isAutomotiveController(controller)
 
     /**
-     * Die System-Oberfläche liest die Metadaten der Plattform-Session direkt und lädt das Cover selbst; verbinden ([onConnect])
-     * tut sie sich erst mit dem ersten Befehl (Pause, Weiter). Deshalb bekommt sie die Freigabe gleich beim Start des Service.
-     * Android verwirft Freigaben mit jedem Update der App und jedem Neustart des Geräts.
+     * The system UI reads the metadata of the platform session directly and loads the cover itself; it only connects
+     * ([onConnect]) with the first command (pause, next). That's why it gets the grant right when the service starts.
+     * Android discards grants with every app update and every device reboot.
      */
     fun grantSystemUiCoverAccess() {
         systemUiPackage()?.let(::grantCoverAccess)
     }
 
     /**
-     * Paket der System-Oberfläche aus der Geräte-Konfiguration (`config_systemUi`, nur über den Namen erreichbar), sonst der
-     * AOSP-Name. Nicht über den PackageManager prüfen: Die Paket-Sichtbarkeit ab API 30 verbirgt es; ein falscher Name lässt
-     * nur die Freigabe scheitern ([grantCoverAccess]).
+     * Package of the system UI from the device configuration (`config_systemUi`, only reachable by name), otherwise the
+     * AOSP name. Don't check via the PackageManager: package visibility since API 30 hides it; a wrong name only
+     * makes the grant fail ([grantCoverAccess]).
      */
     @SuppressLint("DiscouragedApi")
     private fun systemUiPackage(): String? {
@@ -240,8 +240,8 @@ internal class LibrarySessionCallback(
     }
 
     /**
-     * Der [CoverProvider] ist nicht exportiert: Vertrauenswürdige Controller bekommen Leserecht auf alle Cover (eine
-     * Präfix-Freigabe), damit Android Auto bzw. die System-Oberfläche die `content://`-Cover der Listen laden können.
+     * The [CoverProvider] is not exported: trusted controllers get read access to all covers (one
+     * prefix grant), so that Android Auto or the system UI can load the `content://` covers of the lists.
      */
     private fun grantCoverAccess(packageName: String) {
         if (packageName == context.packageName || packageName == MediaSession.ControllerInfo.LEGACY_CONTROLLER_PACKAGE_NAME) return
@@ -296,11 +296,11 @@ internal class LibrarySessionCallback(
         val items = resolve(player, mediaItems).map { it.second }
         val factory = playerFactory ?: return@future items
         if (factory.hasPendingItems()) {
-            // Hinter dem, was der Player hält, liegt noch mehr: neue Titel kommen an dessen Ende.
+            // There's more behind what the player holds: new titles go to its end.
             factory.appendPending(items)
             return@future emptyList()
         }
-        // Was nicht mehr in den Player passt (Cast: höchstens 50 Titel insgesamt), reicht die Fabrik später nach.
+        // Whatever no longer fits into the player (cast: at most 50 titles in total), the factory hands over later.
         val room = factory.roomIn(player)
         if (items.size <= room) return@future items
         factory.appendPending(items.drop(room))
@@ -308,9 +308,9 @@ internal class LibrarySessionCallback(
     }
 
     /**
-     * Wie [onAddMediaItems]; fällt der Starttitel weg, beginnt die Wiedergabe beim nächsten verbliebenen.
-     * Ist die Liste länger als der Player erlaubt, kommt ein Ausschnitt mit dem Starttitel ([queueWindow]);
-     * den Rest reicht die Fabrik später nach ([SessionPlayerFactory.onQueueReplaced]).
+     * Like [onAddMediaItems]; if the start title is dropped, playback begins at the next remaining one.
+     * If the list is longer than the player allows, a window containing the start title is used ([queueWindow]);
+     * the factory hands over the rest later ([SessionPlayerFactory.onQueueReplaced]).
      */
     override fun onSetMediaItems(
         mediaSession: MediaSession,
@@ -334,7 +334,7 @@ internal class LibrarySessionCallback(
         }
         val resolved = resolve(player, requested)
         if (resolved.isEmpty() && requested.isNotEmpty()) {
-            // Nichts abspielbar: Warteschlange behalten statt sie zu leeren.
+            // Nothing playable: keep the queue instead of clearing it.
             throw UnsupportedOperationException("Keiner der Titel ist abspielbar")
         }
         val items = resolved.map { it.second }
@@ -355,8 +355,8 @@ internal class LibrarySessionCallback(
     }
 
     /**
-     * Ein einzelner Song aus einer Liste (Android Auto schickt nur die Media-ID) wird zur ganzen Liste mit diesem
-     * Song als Start. Alles andere bleibt unverändert.
+     * A single song from a list (Android Auto only sends the media ID) becomes the whole list with this
+     * song as start. Everything else stays unchanged.
      */
     private suspend fun expandContext(mediaItems: List<MediaItem>, startIndex: Int): Pair<List<MediaItem>, Int> {
         val item = mediaItems.singleOrNull() ?: return mediaItems to startIndex
@@ -367,18 +367,18 @@ internal class LibrarySessionCallback(
         return songs.map { it.toMediaItem() } to index
     }
 
-    /** Wie die Session auf „Spiele …“ startet. */
+    /** How the session starts on "Play …". */
     private sealed interface VoiceStart {
-        /** Fertige Warteschlange (Fortsetzen). */
+        /** Ready-made queue (resume). */
         class Ready(val items: MediaItemsWithStartPosition) : VoiceStart
         class Spoken(val bookId: Long) : VoiceStart
         class Songs(val songs: List<Song>) : VoiceStart
     }
 
     /**
-     * Was auf „Spiele …“ hin läuft, nur aus eingeschalteten Bereichen. Mit Begriff: [BrowseTree.voice]. Ohne Begriff wird
-     * fortgesetzt: was im Player steht, sonst das zuletzt gehörte Buch bzw. die Folge, sonst die gespeicherte
-     * Musik-Warteschlange; gibt es nichts davon, [BrowseTree.voiceWithoutQuery].
+     * What plays on "Play …", only from enabled areas. With a term: [BrowseTree.voice]. Without a term it
+     * resumes: what is in the player, otherwise the last listened book or episode, otherwise the saved
+     * music queue; if there is none of those, [BrowseTree.voiceWithoutQuery].
      */
     private suspend fun voiceTarget(player: Player, query: String): VoiceStart {
         if (query.isNotBlank()) return browseTree.voice(query).toVoiceStart()
@@ -405,8 +405,8 @@ internal class LibrarySessionCallback(
     }
 
     /**
-     * Ein Buch bzw. eine Folge aus dem Browse-Tree oder per Sprachbefehl: wie [PlaybackConnection.playBook] in der App
-     * (gespeicherte Stelle mit Zurückspulen, Tempo, ohne Shuffle/Wiederholen, Folge vorn in „Weiterhören“).
+     * A book or episode from the browse tree or via voice command: like [PlaybackConnection.playBook] in the app
+     * (saved position with rewind, speed, without shuffle/repeat, episode at the front of "Continue listening").
      */
     private suspend fun startSpoken(player: Player, bookId: Long): MediaItemsWithStartPosition {
         if (!browseTree.isSpokenEnabled(bookId)) throw UnsupportedOperationException("Bereich von Buch $bookId ausgeschaltet")
@@ -423,34 +423,34 @@ internal class LibrarySessionCallback(
 
     private fun maxQueueSize(player: Player): Int = playerFactory?.maxQueueSize(player) ?: Int.MAX_VALUE
 
-    /** Neu aufgebaute Items samt ihrer Position in [mediaItems]; unbekannte und nicht abspielbare Songs fehlen. */
+    /** Rebuilt items along with their position in [mediaItems]; unknown and unplayable songs are missing. */
     private suspend fun resolve(player: Player, mediaItems: List<MediaItem>): List<Pair<Int, MediaItem>> {
         val songIds = mediaItems.mapNotNull { it.songId }.distinct()
         val songs = libraryRepository.songs(songIds).associateBy { it.id }
         val playable = playerFactory?.playableSongIds(player, songs.keys) ?: songs.keys
         return mediaItems.mapIndexedNotNull { index, item ->
-            // Hörbücher sind schon fertig aufgebaut (BookMediaItems) und gehen unverändert durch.
+            // Audiobooks are already fully built (BookMediaItems) and pass through unchanged.
             if (item.isSpoken) return@mapIndexedNotNull index to item
             item.songId?.takeIf { it in playable }?.let(songs::get)?.let { index to it.toMediaItem() }
         }
     }
 
     /**
-     * [isForPlayback] `false`: Die System-Oberfläche will nur Metadaten für die Fortsetzen-Benachrichtigung (z. B. nach
-     * dem Neustart des Geräts); dann genügt der aktuelle Titel, und am Player ändert sich nichts.
+     * [isForPlayback] `false`: the system UI only wants metadata for the resumption notification (e.g. after
+     * the device reboots); then the current title suffices, and nothing changes in the player.
      */
     override fun onPlaybackResumption(
         mediaSession: MediaSession,
         controller: MediaSession.ControllerInfo,
         isForPlayback: Boolean,
     ): ListenableFuture<MediaItemsWithStartPosition> = scope.future {
-        // Das Cover der Fortsetzen-Karte lädt die System-Oberfläche selbst; die Freigabe dafür gab es schon beim Start des
-        // Service ([grantSystemUiCoverAccess]).
+        // The system UI loads the cover of the resumption card itself; the grant for it was given at the start of the
+        // service ([grantSystemUiCoverAccess]).
         if (isForPlayback) {
-            // Kommt „Abspielen“ (Kopfhörer, Widget, Fortsetzen-Karte) gleich nach dem Start des Service, läuft dessen
-            // Wiederherstellung noch. Gewann sie, steht das Buch schon im Player und hat sich die Pause gemerkt; ein
-            // zweites Laden über prepare() spulte dann doppelt zurück (prepare wendet die Regel an, das Abspielen
-            // danach noch einmal). Dann bleibt es beim geladenen Stand.
+            // If "play" (headphones, widget, resumption card) comes right after the service starts, its restore is
+            // still running. If the restore won, the book is already in the player and has remembered the pause; a
+            // second load via prepare() would then rewind twice (prepare applies the rule, the playback
+            // afterwards once more). In that case the loaded state stays.
             awaitRestore()
             val player = mediaSession.player
             if (player.mediaItemCount > 0) {
@@ -458,11 +458,11 @@ internal class LibrarySessionCallback(
                 return@future MediaItemsWithStartPosition(items, player.currentMediaItemIndex, player.currentPosition)
             }
         }
-        // Lief zuletzt ein Buch oder eine Folge, wird diese fortgesetzt statt der Musik-Warteschlange; nicht, wenn ihr
-        // Bereich inzwischen ausgeschaltet ist.
+        // If a book or episode played last, it is resumed instead of the music queue; not if its
+        // area has been disabled in the meantime.
         val areas = browseTree.areas()
         queuePersistence.lastBookId()?.takeIf { browseTree.isSpokenEnabled(it, areas) }?.let { bookId ->
-            // Nur Metadaten (System-Oberfläche): ohne Zurückspulen und ohne Schreiben, wie beim Start des Service.
+            // Metadata only (system UI): without rewinding and without writing, as at service start.
             val prepared = withContext(Dispatchers.IO) {
                 if (isForPlayback) bookPlaybackSource.prepare(bookId) else bookPlaybackSource.restore(bookId)
             }
@@ -470,7 +470,7 @@ internal class LibrarySessionCallback(
                 val start = prepared.timeline.locate(prepared.startPositionMs)
                 val items = prepared.toMediaItems()
                 if (!isForPlayback) {
-                    // Wie bei Musik: Die System-Oberfläche kennt earloft://cover nicht, also die CoverProvider-URI.
+                    // As with music: the system UI doesn't know earloft://cover, hence the CoverProvider URI.
                     val current = items[start.trackIndex]
                     val withCover = current.buildUpon()
                         .setMediaMetadata(
@@ -490,7 +490,7 @@ internal class LibrarySessionCallback(
         if (!isForPlayback) {
             val current = restored.items.getOrNull(restored.startIndex)
                 ?: throw UnsupportedOperationException("Keine gespeicherte Warteschlange")
-            // Die System-Oberfläche lädt das Cover selbst und kennt earloft://cover nicht (siehe CoverProvider).
+            // The system UI loads the cover itself and doesn't know earloft://cover (see CoverProvider).
             val coverUri = current.mediaMetadata.albumIdExtra?.let { CoverProvider.albumCoverUri(context, it) }
             val withCover = current.buildUpon()
                 .setMediaMetadata(current.mediaMetadata.buildUpon().setArtworkUri(coverUri).build())
@@ -506,7 +506,7 @@ internal class LibrarySessionCallback(
         const val TAG = "LibrarySession"
         const val DEFAULT_SYSTEM_UI_PACKAGE = "com.android.systemui"
 
-        /** Abspielen, Spulen, Titel wechseln, Lautstärke – aber keine Titel setzen oder die Warteschlange ändern. */
+        /** Play, seek, change title, volume – but no setting of titles or changing the queue. */
         val UNTRUSTED_PLAYER_COMMANDS: Player.Commands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
             .removeAll(Player.COMMAND_SET_MEDIA_ITEM, Player.COMMAND_CHANGE_MEDIA_ITEMS)
             .build()

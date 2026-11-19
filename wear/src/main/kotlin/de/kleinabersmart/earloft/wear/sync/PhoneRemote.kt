@@ -44,7 +44,7 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Das Handy als Fernbedienung (Wear-Konzept 15): was es spielt, was es hat, und Befehle an es. */
+/** The phone as a remote control (Wear concept 15): what it plays, what it has, and commands to it. */
 @Singleton
 class PhoneRemote @Inject constructor(
     private val dataClient: DataClient,
@@ -53,8 +53,8 @@ class PhoneRemote @Inject constructor(
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) {
     /**
-     * Die Anmeldung beim Handy, einmal für alle beobachteten Flüsse ([subscribed]): läuft, solange einer gesammelt wird, und
-     * meldet sich beim ersten sofort an. Je Fluss eine eigene Schleife hieße je Ansicht mehrere Nachrichten alle
+     * The subscription at the phone, once for all observed flows ([subscribed]): runs as long as one is being collected, and
+     * subscribes immediately with the first. A separate loop per flow would mean several messages per view every
      * [WearRemoteSubscription.RENEW_MS] (Review V20).
      */
     private val subscription: Flow<Unit> = flow<Unit> {
@@ -64,15 +64,15 @@ class PhoneRemote @Inject constructor(
         }
     }.shareIn(applicationScope, SharingStarted.WhileSubscribed())
 
-    /** Was das Handy spielt; `null`, solange es nichts gemeldet hat. */
+    /** What the phone is playing; `null` as long as it has not reported anything. */
     val state: Flow<WearRemoteStateDto?> = dataClient.changesAt(WearPaths.REMOTE_STATE)
         .subscribed()
         .map { dataClient.payloadsAt(WearPaths.REMOTE_STATE).values.firstOrNull()?.let(::decodeState) }
         .distinctUntilChanged()
 
     /**
-     * Cover des laufenden Albums bzw. Buchs als ([WearRemoteStateDto.coverKey], Bild); das Bild ist `null`, wenn das
-     * Handy keines hat.
+     * Cover of the current album or book as ([WearRemoteStateDto.coverKey], image); the image is `null` if the
+     * phone has none.
      */
     val cover: Flow<Pair<Long, Bitmap?>?> = dataClient.changesAt(WearPaths.REMOTE_COVER)
         .subscribed()
@@ -83,7 +83,7 @@ class PhoneRemote @Inject constructor(
         }
         .distinctUntilChanged { old, new -> old?.first == new?.first && (old?.second == null) == (new?.second == null) }
 
-    /** Kapitel des Buchs bzw. der Folge, die das Handy spielt (oder zuletzt spielte); `null`, solange es keine geschrieben hat. */
+    /** Chapters of the book or episode the phone is playing (or last played); `null` as long as it has not written any. */
     val chapters: Flow<WearRemoteChaptersDto?> = dataClient.changesAt(WearPaths.REMOTE_CHAPTERS)
         .subscribed()
         .map {
@@ -102,8 +102,8 @@ class PhoneRemote @Inject constructor(
         .distinctUntilChanged()
 
     /**
-     * Alben, Künstler, Playlists, Abos und Bücher des Handys; `null`, solange das Handy sie nicht geschrieben hat. Lesen,
-     * Entpacken und Dekodieren (bei großen Bibliotheken einige hundert KB) laufen abseits des Main-Threads (Review V6).
+     * Albums, artists, playlists, subscriptions and books of the phone; `null` as long as the phone has not written them. Reading,
+     * unpacking and decoding (a few hundred KB for large libraries) run off the main thread (Review V6).
      */
     val library: Flow<WearRemoteLibraryDto?> = dataClient.changesAt(WearPaths.REMOTE_LIBRARY)
         .subscribed()
@@ -123,24 +123,24 @@ class PhoneRemote @Inject constructor(
         .flowOn(Dispatchers.Default)
 
     /**
-     * Meldet die Uhr beim Handy an, solange [this] gesammelt wird. Das Handy schreibt Zustand, Cover und Bibliotheksindex nur
-     * für angemeldete Uhren; so weckt nicht jeder Titelwechsel am Handy die Uhr-App. Die Anmeldung gilt
-     * [WearRemoteSubscription.TTL_MS] und wird alle [WearRemoteSubscription.RENEW_MS] erneuert.
+     * Subscribes the watch at the phone as long as [this] is being collected. The phone writes state, cover and library index only
+     * for subscribed watches; this way not every track change on the phone wakes the watch app. The subscription is valid for
+     * [WearRemoteSubscription.TTL_MS] and is renewed every [WearRemoteSubscription.RENEW_MS].
      */
     private fun <T> Flow<T>.subscribed(): Flow<T> = channelFlow {
         launch { subscription.collect() }
         collect { send(it) }
     }
 
-    /** @return `false`, wenn kein Handy erreichbar war oder das Senden scheiterte. */
+    /** @return `false` if no phone was reachable or sending failed. */
     suspend fun send(action: WearRemoteAction, value: Long = 0): Boolean =
         sendToPhone(WearPaths.REMOTE_COMMAND, WearCodec.encode(WearRemoteCommand(action, value)))
 
     suspend fun play(request: WearRemotePlayRequest): Boolean = sendToPhone(WearPaths.REMOTE_PLAY, WearCodec.encode(request))
 
     /**
-     * Fragt die Titel einer Liste beim Handy ab. `null`, wenn das Handy nicht erreichbar ist oder nicht rechtzeitig
-     * antwortet; sonst die Antwort (bei [WearRemoteTracksResult.found] = `false` existiert die Liste nicht mehr).
+     * Queries the tracks of a list from the phone. `null` if the phone is unreachable or does not answer in
+     * time; otherwise the answer (with [WearRemoteTracksResult.found] = `false` the list no longer exists).
      */
     suspend fun tracks(kind: WearRemoteListKind, refId: Long?): WearRemoteTracksResult? {
         val nodeId = phoneConnection.connectedPhoneNodeId() ?: return null
@@ -159,8 +159,8 @@ class PhoneRemote @Inject constructor(
     }
 
     /**
-     * Fragt die Folgen eines Abos beim Handy ab (Wear-Konzept 17). `null`, wenn das Handy nicht erreichbar ist oder nicht
-     * rechtzeitig antwortet.
+     * Queries the episodes of a subscription from the phone (Wear concept 17). `null` if the phone is unreachable or does not
+     * answer in time.
      */
     suspend fun episodes(feedId: String): WearRemoteEpisodesResult? {
         val nodeId = phoneConnection.connectedPhoneNodeId() ?: return null

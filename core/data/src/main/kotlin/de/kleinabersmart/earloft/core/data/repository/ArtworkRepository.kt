@@ -11,7 +11,7 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Lädt Cover unabhängig davon, aus welcher Quelle sie stammen. */
+/** Loads covers regardless of which source they come from. */
 @Singleton
 class ArtworkRepository @Inject constructor(
     private val libraryDao: LibraryDao,
@@ -23,9 +23,9 @@ class ArtworkRepository @Inject constructor(
     private val onlineClient: OnlineArtworkClient,
 ) {
     /**
-     * Zuerst die Cover-Datei auf dem Gerät (Uhr, Wear-Konzept 7.3; Handy: für offline vorab geladen), dann der Cache, sonst
-     * die Quelle. Datei und Cache gelten nur, wenn sie mindestens [sizePx] groß sind; ist die Quelle nicht erreichbar, nimmt
-     * die App auch ein kleineres Bild.
+     * First the cover file on the device (watch, Wear concept 7.3; phone: preloaded for offline use), then the cache, otherwise
+     * the source. File and cache only count if they are at least [sizePx] in size; if the source is unreachable, the
+     * app also takes a smaller image.
      */
     suspend fun albumCover(albumId: Long, sizePx: Int): Bitmap? {
         val file = coverFiles.read(albumId)
@@ -42,7 +42,7 @@ class ArtworkRepository @Inject constructor(
 
     private val Bitmap.longestSide get() = maxOf(width, height)
 
-    /** Interpreten-Bild aus dem Internet; `null`, wenn die Option aus ist oder es keines gibt. */
+    /** Artist image from the internet; `null` if the option is off or there is none. */
     suspend fun artistImage(artistId: Long): Bitmap? {
         if (!settings.artistImages.first()) return null
         val kind = OnlineImageKind.ARTIST
@@ -52,7 +52,7 @@ class ArtworkRepository @Inject constructor(
         return fetchOnline(kind, artistId) { onlineClient.findArtistImage(name) }
     }
 
-    /** Gleicht die Dateien mit den Einstellungen ab: ausgeschaltete Optionen räumen ihre Bilder weg. */
+    /** Reconciles the files with the settings: disabled options clean up their images. */
     suspend fun clearDisabledOnlineImages() {
         if (!settings.artistImages.first()) onlineFiles.clear(OnlineImageKind.ARTIST)
         if (!settings.albumCovers.first()) onlineFiles.clear(OnlineImageKind.ALBUM)
@@ -71,7 +71,7 @@ class ArtworkRepository @Inject constructor(
         val bytes = try {
             load()
         } catch (e: IOException) {
-            return null // Kein Netz o. Ä.: nicht als „nicht gefunden“ merken
+            return null // No network or similar: don't remember as "not found"
         } catch (e: JSONException) {
             return null
         } ?: run {
@@ -80,12 +80,12 @@ class ArtworkRepository @Inject constructor(
         }
         onlineFiles.write(kind, id, bytes)
         return onlineFiles.read(kind, id) ?: run {
-            onlineFiles.markNotFound(kind, id) // kein lesbares Bild
+            onlineFiles.markNotFound(kind, id) // no readable image
             null
         }
     }
 
-    /** Holt das Cover von der Quelle und legt es als Datei ab, falls noch keine da ist. @return `true`, wenn jetzt eine Datei da ist. */
+    /** Fetches the cover from the source and stores it as a file if there isn't one yet. @return `true` if there is a file now. */
     suspend fun cacheAlbumCover(albumId: Long, sizePx: Int): Boolean {
         if (coverFiles.has(albumId)) return true
         val bitmap = coverCache.read(albumId)?.takeIf { it.longestSide >= sizePx } ?: loadFromSource(albumId, sizePx) ?: return false
@@ -94,8 +94,8 @@ class ArtworkRepository @Inject constructor(
     }
 
     /**
-     * Für offline (Handy): legt das Cover von [albumId] aus seiner Cover-Quelle [source] (`LibraryDao.getCoverSource`) als
-     * Datei ab, falls noch keine da ist. @return `false` nur, wenn die Quelle nicht antwortete; ohne Cover `true`.
+     * For offline use (phone): stores the cover of [albumId] from its cover source [source] (`LibraryDao.getCoverSource`) as a
+     * file if there isn't one yet. @return `false` only if the source didn't respond; without a cover `true`.
      */
     suspend fun keepAlbumCoverOffline(albumId: Long, source: PlayableSourceRow, sizePx: Int): Boolean {
         if (coverFiles.has(albumId)) return true
@@ -109,7 +109,7 @@ class ArtworkRepository @Inject constructor(
         return true
     }
 
-    /** Löscht die Cover-Dateien der Alben, die es nicht mehr gibt (Handy; die Uhr behält nur die ihrer Downloads). */
+    /** Deletes the cover files of albums that no longer exist (phone; the watch only keeps those of its downloads). */
     suspend fun retainAlbumCoverFiles(): Int = coverFiles.retainOnly(libraryDao.getAllAlbumIds().toSet())
 
     private suspend fun loadFromSource(albumId: Long, sizePx: Int): Bitmap? {
@@ -117,7 +117,7 @@ class ArtworkRepository @Inject constructor(
         return try {
             registry[source.sourceId]?.loadArtwork(source.coverRemoteId ?: source.remoteId, sizePx)
         } catch (e: IOException) {
-            // Server nicht erreichbar: Ein fehlendes Cover darf nie die App beenden (Aufrufer laufen u. a. im Hauptthread).
+            // Server unreachable: a missing cover must never crash the app (callers run on the main thread, among others).
             Log.w(TAG, "Cover von ${source.sourceId} nicht ladbar: $e")
             null
         }

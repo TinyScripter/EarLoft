@@ -19,12 +19,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Die Musik auf der Uhr nach Auswahlen vom Handy (Wear-Konzept 11). */
+/** The music on the watch by selections from the phone (Wear concept 11). */
 data class MusicUiState(val selections: List<SelectionItem> = emptyList()) {
-    /** Die Geräte-Playlist der Favoriten auf der Uhr; `null`, solange die Favoriten nicht übertragen sind. */
+    /** The device playlist of the favorites on the watch; `null` as long as the favorites have not been transferred. */
     val favoritesPlaylistId: Long? get() = selections.firstOrNull { it.kind == WearSelectionKind.FAVORITES }?.playlistId
 
-    /** Ohne geladene Songs gibt es nichts zu mischen. */
+    /** Without downloaded songs there is nothing to shuffle. */
     val canShuffleAll: Boolean get() = selections.any { it.downloadedCount > 0 }
 }
 
@@ -33,13 +33,13 @@ class MusicViewModel @Inject constructor(
     private val storage: WatchStorageRepository,
     private val playback: PlaybackConnection,
 ) : ViewModel() {
-    // Ohne lesbare Auswahlen bleibt das Menü bedienbar, nur ohne „Alles zufällig“ und Favoriten.
+    // Without readable selections the menu stays usable, just without "Shuffle all" and favorites.
     val state: StateFlow<MusicUiState> = storage.selections()
         .map { MusicUiState(it) }
         .orOnError(MusicUiState())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MusicUiState())
 
-    /** Mischt alle geladenen Songs; [onStarted] wechselt danach zur Wiedergabe-Ansicht. */
+    /** Shuffles all downloaded songs; [onStarted] then switches to the now playing view. */
     fun shuffleAll(onStarted: () -> Unit) {
         viewModelScope.launch {
             val songs = storage.downloadedSongs()
@@ -50,7 +50,7 @@ class MusicViewModel @Inject constructor(
     }
 }
 
-/** Favorisierte Alben bzw. Künstler des Handys: Dann führt „Favoriten“ zu einem Untermenü statt gleich zu den Songs. */
+/** Favorited albums or artists of the phone: then "Favorites" leads to a submenu instead of straight to the songs. */
 data class PhoneFavorites(val albums: Boolean = false, val artists: Boolean = false) {
     val any: Boolean get() = albums || artists
 }
@@ -59,13 +59,13 @@ private fun PhoneRemote.favorites(): Flow<PhoneFavorites> = library
     .map { PhoneFavorites(albums = !it?.favoriteAlbumIds.isNullOrEmpty(), artists = !it?.favoriteArtistIds.isNullOrEmpty()) }
     .orOnError(PhoneFavorites())
 
-/** Das Handy mischt seine ganze Bibliothek; dazu, welche Favoriten es außer Songs hat. */
+/** The phone shuffles its whole library; plus which favorites it has besides songs. */
 @HiltViewModel
 class PhoneMusicViewModel @Inject constructor(private val remote: PhoneRemote) : ViewModel() {
     val favorites: StateFlow<PhoneFavorites> = remote.favorites()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PhoneFavorites())
 
-    /** [onStarted] wechselt danach zur Wiedergabe-Ansicht des Handys. */
+    /** [onStarted] then switches to the phone's now playing view. */
     fun shuffleAll(onStarted: () -> Unit) {
         viewModelScope.launch {
             if (remote.play(WearRemotePlayRequest(WearRemoteListKind.ALL, shuffle = true))) onStarted()
@@ -74,8 +74,8 @@ class PhoneMusicViewModel @Inject constructor(private val remote: PhoneRemote) :
 }
 
 /**
- * Favoriten-Menü des Handys: welche Favoriten es außer Songs hat und der Knopf „Download“ für die Auswahl Favoriten. Die lädt
- * Lieblingssongs und alle Songs der Lieblingsalben; deshalb steht der Knopf hier und nicht auf der Songs-Seite (Review V17).
+ * The phone's favorites menu: which favorites it has besides songs, and the "Download" button for the favorites selection. It downloads
+ * favorite songs and all songs of the favorite albums; that is why the button is here and not on the songs page (Review V17).
  */
 @HiltViewModel
 class PhoneFavoritesViewModel @Inject constructor(

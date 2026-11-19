@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** Der pausierte Player übernimmt den Stand eines anderen Geräts (Uhr ↔ Handy, Audiobookshelf). */
+/** The paused player adopts the state of another device (watch ↔ phone, Audiobookshelf). */
 class StoredProgressAdoptTest {
 
     private fun stored(positionMs: Long, finished: Boolean = false) =
@@ -14,7 +14,7 @@ class StoredProgressAdoptTest {
     @Test
     fun `a paused player jumps to a position stored by another device`() {
         assertEquals(4_600_000L, storedPositionToAdopt(stored(4_600_000), playerPositionMs = 2_553_871, playWhenReady = false))
-        // Auch zurück: Der andere Stand ist schon als der neuere gespeichert worden.
+        // Backwards too: the other state has already been saved as the newer one.
         assertEquals(1_000_000L, storedPositionToAdopt(stored(1_000_000), playerPositionMs = 2_553_871, playWhenReady = false))
     }
 

@@ -40,10 +40,10 @@ import kotlin.math.roundToInt
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Lautstärke des Cast-Geräts, kurz eingeblendet nach jedem Druck auf eine Lautstärketaste ([presses] zählt hoch).
- * Beim Casten fängt die `MainActivity` die Tasten ab, weil die System-Oberfläche des Pixels ihren Dialog für
- * Cast-Sitzungen nur sporadisch zeigt (am Pixel 10 Pro gesehen, 2026-11-04; der Emulator zeigt ihn immer).
- * [state] wird nur gelesen, solange die Anzeige steht.
+ * Volume of the cast device, briefly shown after every press of a volume key ([presses] counts up).
+ * While casting, `MainActivity` intercepts the keys because the Pixel's system UI only sporadically shows its dialog for
+ * cast sessions (seen on the Pixel 10 Pro, 2026-11-04; the emulator always shows it).
+ * [state] is only read while the indicator is visible.
  */
 @Composable
 fun CastVolumeIndicator(presses: Int, state: StateFlow<PlayerState>, modifier: Modifier = Modifier) {
@@ -103,7 +103,7 @@ private fun CastVolumeCard(deviceName: String?, volume: Int, maxVolume: Int, mod
     }
 }
 
-/** Wie der Lautstärkebalken der Uhr-App: so lange nach dem letzten Tastendruck. */
+/** Like the watch app's volume bar: this long after the last key press. */
 private const val VISIBLE_MS = 1_500L
 private val CARD_MAX_WIDTH = 360.dp
 

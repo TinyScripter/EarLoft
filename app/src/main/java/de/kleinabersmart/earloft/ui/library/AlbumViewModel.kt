@@ -32,7 +32,7 @@ class AlbumViewModel @AssistedInject constructor(
     albumColorRepository: AlbumColorRepository,
 ) : ViewModel(), SongActions {
 
-    /** Grundfarbe des Covers für das Farbschema der Seite. */
+    /** Primary color of the cover for the page's color scheme. */
     val seedColor: StateFlow<Int?> = albumColorRepository.seedColor(albumId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 

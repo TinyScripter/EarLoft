@@ -40,9 +40,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Hält die Abos aktuell: ein periodischer Auftrag im eingestellten Abstand (nur im WLAN, außer „Mobilfunk“ ist erlaubt),
- * beim Öffnen der App alles, was älter als dieser Abstand ist ([refreshStale], gleiche Netz-Regel), und auf Anforderung
- * alles. Nicht beim bloßen Start des Prozesses: Startet der periodische Auftrag ihn, lüde sonst beides jeden Feed.
+ * Keeps subscriptions up to date: a periodic job at the configured interval (Wi-Fi only, unless "mobile data" is allowed),
+ * on opening the app everything older than this interval ([refreshStale], same network rule), and on request
+ * everything. Not on a mere process start: if the periodic job starts it, both would otherwise fetch every feed.
  */
 @Singleton
 class PodcastRefresher @Inject constructor(
@@ -58,7 +58,7 @@ class PodcastRefresher @Inject constructor(
     private val lastStaleCheck = AtomicLong(0)
     private val _refreshing = MutableStateFlow(false)
 
-    /** `true`, solange ein Abgleich läuft, den der Nutzer angestoßen hat (für Pull-to-refresh). */
+    /** `true` while a sync triggered by the user is running (for pull-to-refresh). */
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
 
     fun start() {
@@ -71,9 +71,9 @@ class PodcastRefresher @Inject constructor(
     }
 
     /**
-     * Beim Öffnen der App (höchstens alle [STALE_CHECK_INTERVAL_MS]): Abos abgleichen, deren letzter Abgleich länger als
-     * der eingestellte Abstand her ist – nur über ein Netz, das der periodische Auftrag auch nähme. Meldet nur, wenn es
-     * Neues gibt. Wie beim Abgleich aller: Scheitern alle, lag es am Netz, und es zählt nicht als Fehler der Abos.
+     * On opening the app (at most every [STALE_CHECK_INTERVAL_MS]): sync subscriptions whose last sync is longer ago than
+     * the configured interval – only over a network the periodic job would also use. Only reports if there is
+     * something new. As with syncing everything: if all fail, it was the network, and it doesn't count as a subscription error.
      */
     fun refreshStale() {
         val now = System.currentTimeMillis()
@@ -84,13 +84,13 @@ class PodcastRefresher @Inject constructor(
             if (hours == 0 || !networkAllows(mobile = settings.useMobileData.first())) return@launch
             val stale = now - hours * HOUR_MS
             if (dao.feeds().none { it.lastRefreshAt < stale }) return@launch
-            // Die Folgen eines Abos, das noch nie abgeglichen wurde, zählen dort schon nicht als neu.
+            // The episodes of a subscription that has never been synced don't count as new there anyway.
             val fresh = repository.refreshAll { it.lastRefreshAt < stale }.newCount
             if (fresh > 0) events.emit(RefreshEvent.Finished(RefreshKind.PODCASTS, fresh, failed = false))
         }
     }
 
-    /** Auf Anforderung: meldet Start und Ende (mit Zahl der neuen Folgen) an die Oberfläche. */
+    /** On request: reports start and end (with the number of new episodes) to the UI. */
     fun refreshAll() {
         scope.launch {
             _refreshing.value = true
@@ -105,7 +105,7 @@ class PodcastRefresher @Inject constructor(
         }
     }
 
-    /** Auf Anforderung: gleicht nur das Abo [feedId] ab (ein Podcast vom Gerät gleicht seine Dateien ab). */
+    /** On request: syncs only the subscription [feedId] (a podcast from the device syncs its files). */
     fun refreshFeed(feedId: String) {
         scope.launch {
             _refreshing.value = true
@@ -136,8 +136,8 @@ class PodcastRefresher @Inject constructor(
     }
 
     /**
-     * Wie die Bedingung des periodischen Auftrags: Internet, und ohne [mobile] nur ein Netz ohne Volumenbegrenzung. Das Netz
-     * muss geprüft sein: Hinter einem Captive Portal (Hotel-WLAN vor der Anmeldung) käme für jeden Feed die Anmeldeseite.
+     * Like the periodic job's constraint: internet, and without [mobile] only an unmetered network. The network
+     * must be validated: behind a captive portal (hotel Wi-Fi before login) every feed would return the login page.
      */
     private fun networkAllows(mobile: Boolean): Boolean {
         val manager = context.getSystemService(ConnectivityManager::class.java) ?: return false
@@ -161,14 +161,14 @@ class PodcastRefreshWorker(
 
     override suspend fun doWork(): Result {
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, RefreshEntryPoint::class.java)
-        // Ausgeblendete Podcasts (Allgemein → Bereiche): keine Abrufe, keine Downloads, keine Hinweise.
+        // Hidden podcasts (General → Sections): no fetches, no downloads, no notifications.
         if (SpokenMode.PODCASTS !in entryPoint.spokenSettings().areas.first()) return Result.success()
         val summary = entryPoint.repository().refreshAll()
-        // Podcasts, für die der Nutzer keine Hinweise will, fehlen hier.
+        // Podcasts for which the user doesn't want notifications are missing here.
         val content = NewContent.Podcasts(summary.newEpisodes.filter { it.notify }, summary.moved)
         if (!content.isEmpty) entryPoint.notifier().show(content)
-        // Nur wiederholen, wenn gar nichts ging (Netz weg). Ein einzelner toter Feed lüde sonst alle paar Minuten alle
-        // Abos neu; er kommt mit dem nächsten regulären Lauf wieder dran.
+        // Only retry if nothing worked at all (network gone). Otherwise a single dead feed would reload all subscriptions
+        // every few minutes; it gets its turn again with the next regular run.
         return if (summary.allFailed && runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()
     }
 

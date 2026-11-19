@@ -36,12 +36,12 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
-/** Ergebnis von [BookProgressSync.pull]: der jetzt gültige Fortschritt und ob er vom Server kam und spürbar springt. */
+/** Result of [BookProgressSync.pull]: the progress now in effect and whether it came from the server and jumps noticeably. */
 data class PullResult(val progress: BookProgress?, val tookRemote: Boolean, val noticeable: Boolean)
 
 /**
- * Fortschritt in beide Richtungen (Konzept 12.3): lokal sofort schreiben und als `dirty` markieren, gedrosselt an
- * Audiobookshelf melden, beim Abgleich und vor dem Abspielen die neuere Seite übernehmen.
+ * Progress in both directions (concept 12.3): write locally immediately and mark as `dirty`, report to Audiobookshelf
+ * throttled, adopt the newer side during sync and before playback.
  */
 @Singleton
 class BookProgressSync @Inject constructor(
@@ -54,30 +54,30 @@ class BookProgressSync @Inject constructor(
     private val lastPush = ConcurrentHashMap<Long, Long>()
 
     /**
-     * Bücher, die von „beendet“ auf „nicht beendet“ gewechselt sind: Audiobookshelf setzt die Position dabei im selben
-     * Aufruf auf 0 zurück, die Position muss deshalb noch einmal gesendet werden.
+     * Books that switched from "finished" to "not finished": Audiobookshelf resets the position to 0 in the same
+     * call, so the position has to be sent once more.
      */
     private val reopened = ConcurrentHashMap.newKeySet<Long>()
 
     private val _held = MutableSharedFlow<Long>(extraBufferCapacity = HELD_BUFFER)
 
     /**
-     * Bücher bzw. Folgen, deren Stand gerade mit `force` festgehalten wurde (Pause, Titelwechsel, Stop), nachdem er gespeichert
-     * ist. Die Uhr meldet ihn dann sofort dem Handy statt erst nach der Ruhepause (Wear-Konzept 16.1).
+     * Books or episodes whose state was just recorded with `force` (pause, track change, stop), after it has been
+     * stored. The watch then reports it to the phone immediately instead of only after the quiet period (Wear concept 16.1).
      */
     val held: SharedFlow<Long> = _held.asSharedFlow()
 
     /**
-     * Hält die Position fest. Gesendet wird höchstens alle [PUSH_INTERVAL_MS], mit [force] (Pause, Titelwechsel,
-     * Stop) sofort. Schlägt das Senden fehl, bleibt der Eintrag `dirty` und [BookProgressWorker] holt es nach.
-     * [hidden]: aus „Weiterhören“ nehmen (zurücksetzen, „ungehört“); jeder andere Stand holt das Buch wieder hinein.
+     * Records the position. It is sent at most every [PUSH_INTERVAL_MS], immediately with [force] (pause, track change,
+     * stop). If sending fails, the entry stays `dirty` and [BookProgressWorker] catches up.
+     * [hidden]: remove from "Continue listening" (reset, "unplayed"); any other state brings the book back in.
      */
     suspend fun record(bookId: Long, positionMs: Long, durationMs: Long, finished: Boolean, force: Boolean = false, hidden: Boolean = false) {
-        // Abo beendet bzw. Buch gelöscht, während es noch im Player liegt: kein Fortschritt mehr (Fremdschlüssel).
+        // Subscription ended or book deleted while still loaded in the player: no more progress (foreign key).
         if (dao.book(bookId) == null) return
         val previous = dao.progress(bookId)
         if (previous?.finished == true && !finished && positionMs > 0) reopened.add(bookId)
-        // Nur die Positionsspalten schreiben: Eine Tempoänderung zwischen Lesen und Schreiben ginge sonst verloren.
+        // Only write the position columns: otherwise a speed change between reading and writing would be lost.
         val updated = dao.updatePosition(
             bookId, positionMs.coerceAtLeast(0), durationMs, finished, System.currentTimeMillis(), dirty = true, hidden = hidden,
         )
@@ -101,8 +101,8 @@ class BookProgressSync @Inject constructor(
     }
 
     /**
-     * „Aus Weiterhören entfernen“: Der Stand bleibt, das Buch steht aber in keiner Zeile, bis es wieder läuft; bei
-     * Audiobookshelf auf allen Geräten (`hideFromContinueListening`).
+     * "Remove from Continue listening": the state stays, but the book appears in no row until it plays again; with
+     * Audiobookshelf on all devices (`hideFromContinueListening`).
      */
     suspend fun hideFromContinueListening(bookId: Long) {
         val progress = dao.progress(bookId) ?: return
@@ -112,8 +112,8 @@ class BookProgressSync @Inject constructor(
     }
 
     /**
-     * Wie [hideFromContinueListening] für mehrere Bücher („Warteschlange leeren“): erst alle hier heraus, gemeldet wird
-     * im Hintergrund ([BookProgressWorker]), damit nichts verloren geht, wenn die Seite vorher geschlossen wird.
+     * Like [hideFromContinueListening] for several books ("Clear queue"): first all out of here, reporting happens
+     * in the background ([BookProgressWorker]) so nothing is lost if the screen is closed before.
      */
     suspend fun hideFromContinueListening(bookIds: Collection<Long>) {
         val now = System.currentTimeMillis()
@@ -123,15 +123,15 @@ class BookProgressSync @Inject constructor(
         BookProgressWorker.schedule(context, replace = true)
     }
 
-    /** `true`, wenn nichts mehr aussteht. */
+    /** `true` if nothing is pending anymore. */
     suspend fun push(bookId: Long): Boolean {
         val progress = dao.progress(bookId) ?: return true
         if (!progress.dirty) return true
-        // Uhr: Den Stand meldet sie dem Handy (Wear-Konzept 16.2).
+        // Watch: it reports the state to the phone (Wear concept 16.2).
         if (!policy.syncsWithBookServers) return true
         val book = dao.book(bookId) ?: return true
         if (book.kind == BookKind.EPISODE || hasNoBookServer(book.serverId)) {
-            // Folgen und Bücher vom Gerät bzw. aus ARD Sounds haben keinen Server, der den Fortschritt kennen müsste.
+            // Episodes and books from the device or from ARD Sounds have no server that would need to know the progress.
             dao.markClean(bookId, progress.updatedAt)
             return true
         }
@@ -151,12 +151,12 @@ class BookProgressSync @Inject constructor(
         }
     }
 
-    /** Sendet alles, was aussteht. `true`, wenn nichts mehr offen ist. */
+    /** Sends everything pending. `true` if nothing is open anymore. */
     suspend fun pushPending(): Boolean = dao.dirtyProgress().map { push(it.bookId) }.all { it }
 
     /**
-     * Fortschritt des ganzen Kontos übernehmen, wo der Server neuer ist (beim Vollabgleich). Liefert die Antwort, damit
-     * die Lesezeichen aus demselben Abruf übernommen werden können ([Bookmarks.pull]).
+     * Adopt the whole account's progress where the server is newer (during a full sync). Returns the response so that
+     * the bookmarks from the same fetch can be adopted ([Bookmarks.pull]).
      */
     suspend fun pullAll(server: AbsServer): AbsMeResponse {
         val me = api.me(server)
@@ -164,17 +164,17 @@ class BookProgressSync @Inject constructor(
         return me
     }
 
-    /** Nur der Stand auf diesem Gerät, ohne den Server zu fragen. */
+    /** Only the state on this device, without asking the server. */
     suspend fun local(bookId: Long): PullResult = PullResult(dao.progress(bookId)?.toModel(), tookRemote = false, noticeable = false)
 
-    /** Vor dem Abspielen: den Stand dieses einen Buchs abgleichen. Ohne Verbindung gilt der lokale Stand. */
+    /** Before playback: reconcile the state of this one book. Without a connection the local state applies. */
     suspend fun pull(bookId: Long): PullResult {
         val local = dao.progress(bookId)?.toModel()
         if (!policy.syncsWithBookServers) return PullResult(local, tookRemote = false, noticeable = false)
         val book = dao.book(bookId) ?: return PullResult(local, tookRemote = false, noticeable = false)
         val server = servers.server(book.serverId) ?: return PullResult(local, tookRemote = false, noticeable = false)
-        // Kurz: Der Nutzer wartet auf den Start (Kopfhörer, Weiterhören). Ist der Server nur zu Hause erreichbar, hingen
-        // Abspielen und Fortsetzen sonst bis zum Verbindungs-Timeout (15 s); dann gilt der eigene Stand.
+        // Short: the user is waiting for playback to start (headphones, continue listening). If the server is only reachable at
+        // home, playing and resuming would otherwise hang until the connection timeout (15 s); then the own state applies.
         val remote = try {
             withTimeoutOrNull(PULL_TIMEOUT_MS) { api.progress(server, book.remoteId) }
         } catch (e: IOException) {
@@ -186,14 +186,14 @@ class BookProgressSync @Inject constructor(
         return PullResult(now, tookRemote, tookRemote && ProgressConflict.isNoticeable(local, remote.toModel()))
     }
 
-    /** `true`, wenn der Stand des Servers übernommen wurde. */
+    /** `true` if the server's state was adopted. */
     private suspend fun applyRemote(serverId: String, remote: AbsMediaProgressDto): Boolean {
         val book = dao.bookByRemote(serverId, remote.libraryItemId) ?: return false
         val local = dao.progress(book.bookId)
         val remoteModel = remote.toModel()
         if (ProgressConflict.resolve(local?.toModel(), remoteModel) == ProgressDecision.KeepLocal) return false
         val durationMs = remoteModel.durationMs.takeIf { it > 0 } ?: book.durationMs
-        // Tempo und Effekte kennt Audiobookshelf nicht: sie bleiben lokal (wie in [record] nur die Positionsspalten schreiben).
+        // Audiobookshelf doesn't know speed and effects: they stay local (as in [record], only write the position columns).
         val updated = dao.updatePosition(
             book.bookId, remoteModel.positionMs, durationMs, remoteModel.finished, remoteModel.updatedAt,
             dirty = false, hidden = remote.hideFromContinueListening,
@@ -216,8 +216,8 @@ class BookProgressSync @Inject constructor(
     }
 
     /**
-     * Aus „Weiterhören“ genommen. Ein beendetes Buch ohne `finishedAt` (aus einer Sicherung, oder eine Zeile, die es nicht
-     * gesetzt hat) behält dabei das bisherige `updatedAt` als Zeitpunkt des Endes: sonst rückte das Löschen seiner Downloads.
+     * Removed from "Continue listening". A finished book without `finishedAt` (from a backup, or a row that didn't
+     * set it) keeps the previous `updatedAt` as the time it finished: otherwise deleting its downloads would be postponed.
      */
     private fun BookProgressEntity.hiddenAt(now: Long) = copy(
         hidden = true,
@@ -246,12 +246,12 @@ class BookProgressSync @Inject constructor(
         const val PUSH_INTERVAL_MS = 30_000L
         const val PULL_TIMEOUT_MS = 3_000L
 
-        /** Ohne Zuhörer (am Handy) gehen Meldungen verloren; mit Zuhörer reichen ein paar, er fragt ohnehin alle Stände ab. */
+        /** Without a listener (on the phone) reports get lost; with a listener a few suffice, it queries all states anyway. */
         const val HELD_BUFFER = 8
     }
 }
 
-/** Holt nach, was offline nicht gemeldet werden konnte (Fortschritt und Lesezeichen). Nur das Netz ist Voraussetzung. */
+/** Catches up on what couldn't be reported offline (progress and bookmarks). Only requires network. */
 class BookProgressWorker(
     context: Context,
     params: WorkerParameters,
@@ -274,7 +274,7 @@ class BookProgressWorker(
     companion object {
         private const val WORK_NAME = "book-progress"
 
-        /** Siehe [CatchUpWork.policy]. */
+        /** See [CatchUpWork.policy]. */
         fun schedule(context: Context, replace: Boolean = false) {
             val request = OneTimeWorkRequestBuilder<BookProgressWorker>()
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())

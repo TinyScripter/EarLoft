@@ -54,9 +54,9 @@ import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Transkript einer Folge im Player (Konzept 12.5 „Transkripte“). [result] ist `null`, solange es lädt. Hat es Zeiten,
- * läuft es mit der Wiedergabe mit, und ein Tipp auf einen Absatz springt dorthin; wer selbst scrollt, hält das Mitlaufen
- * an, bis er „Zur aktuellen Stelle“ tippt. Die Suche zeigt nur die passenden Absätze.
+ * Transcript of an episode in the player (concept 12.5 "Transcripts"). [result] is `null` while it is loading. If it has times,
+ * it follows playback, and a tap on a paragraph jumps there; scrolling manually stops the following
+ * until "To current position" is tapped. The search only shows the matching paragraphs.
  */
 @Composable
 internal fun TranscriptPane(
@@ -94,7 +94,7 @@ private fun TranscriptText(transcript: Transcript, positionMs: () -> Long, onSee
     val shown = remember(segments, needle) {
         segments.withIndex().filter { needle.isEmpty() || it.value.text.contains(needle, ignoreCase = true) }
     }
-    // Nur wenn der laufende Absatz wechselt, wird neu zusammengesetzt, nicht bei jedem Positions-Tick.
+    // Recompose only when the current paragraph changes, not on every position tick.
     val currentPositionMs by rememberUpdatedState(positionMs)
     val active by remember(segments) {
         derivedStateOf {
@@ -106,7 +106,7 @@ private fun TranscriptText(transcript: Transcript, positionMs: () -> Long, onSee
     LaunchedEffect(listState) {
         listState.interactionSource.interactions.collect { if (it is DragInteraction.Start) follow = false }
     }
-    // Wie beim Songtext: Der laufende Absatz steht an zweiter Stelle, der vorige bleibt sichtbar.
+    // As with lyrics: the current paragraph is in second place, the previous one stays visible.
     LaunchedEffect(active, follow, needle) {
         if (follow && needle.isEmpty() && active >= 0) listState.animateScrollToItem((active - 1).coerceAtLeast(0))
     }
@@ -137,7 +137,7 @@ private fun TranscriptText(transcript: Transcript, positionMs: () -> Long, onSee
                 items(shown, key = { it.index }) { (index, segment) ->
                     val start = segment.startMs
                     val isActive = index == active && needle.isEmpty()
-                    // Der Sprecher steht über dem ersten Absatz, wenn er wechselt; Suchtreffer nennen auch die Zeit.
+                    // The speaker is shown above the first paragraph when it changes; search results also name the time.
                     val label = listOfNotNull(
                         segment.speaker?.takeIf { needle.isNotEmpty() || segments.getOrNull(index - 1)?.speaker != it },
                         start?.takeIf { needle.isNotEmpty() }?.let(::formatClock),
@@ -182,7 +182,7 @@ private fun TranscriptText(transcript: Transcript, positionMs: () -> Long, onSee
                     }
                 }
             }
-            // Der Griff springt per `scrollToItem`, das meldet kein Ziehen; das Mitlaufen endet hier wie beim Wischen.
+            // The handle jumps via `scrollToItem`, which reports no drag; following ends here as with swiping.
             LazyListFastScroller(listState, onDragStart = { follow = false })
             if (!follow && needle.isEmpty() && transcript.timed) {
                 FilledTonalButton(onClick = { follow = true }, modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
@@ -193,7 +193,7 @@ private fun TranscriptText(transcript: Transcript, positionMs: () -> Long, onSee
     }
 }
 
-/** [text] mit allen Vorkommen von [needle] (ohne Rücksicht auf Groß-/Kleinschreibung) hinterlegt. */
+/** [text] with all occurrences of [needle] highlighted (case-insensitive). */
 private fun highlighted(text: String, needle: String, color: Color): AnnotatedString {
     if (needle.isEmpty()) return AnnotatedString(text)
     return buildAnnotatedString {

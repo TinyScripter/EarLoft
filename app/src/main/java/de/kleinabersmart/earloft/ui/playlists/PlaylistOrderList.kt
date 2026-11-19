@@ -32,8 +32,8 @@ import de.kleinabersmart.earloft.ui.components.reorderableItem
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Die Einträge einer Playlist zum Umsortieren, mit Ziehgriffen wie die Warteschlange. Sortiert wird nur [entries] (die
- * Arbeitskopie); gespeichert wird erst mit „Fertig“ als Ganzes, damit ein Server nicht jede Zwischenstellung bekommt.
+ * The entries of a playlist for reordering, with drag handles like the queue. Only [entries] (the
+ * working copy) is reordered; it is only saved as a whole with "Done", so a server doesn't get every intermediate order.
  */
 @Composable
 fun PlaylistOrderList(entries: SnapshotStateList<PlaylistEntry>, modifier: Modifier = Modifier) {
@@ -76,7 +76,7 @@ fun PlaylistOrderList(entries: SnapshotStateList<PlaylistEntry>, modifier: Modif
                 )
             }
         }
-        // Ohne Marke (eigene Reihenfolge); die Ziehgriffe zum Umsortieren liegen links.
+        // Without a label (custom order); the drag handles for reordering are on the left.
         LazyListFastScroller(listState)
     }
 }

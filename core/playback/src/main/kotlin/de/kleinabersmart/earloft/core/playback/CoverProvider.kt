@@ -19,14 +19,14 @@ import java.io.FileNotFoundException
 import java.io.FileOutputStream
 
 /**
- * Liefert Album-Cover als `content://<Anwendungs-ID>.covers/album/<id>` (Bücher und Folgen: `…/book/<id>`, Podcast-Abos:
- * `…/feed/<id>`). Android Auto lädt die Cover der Browse-Listen
- * selbst über eine solche URI; `earloft://cover/…` kann es nicht lesen. Die Bilder kommen aus derselben Pipeline wie in der
- * App ([ArtworkRepository]), also auch von Servern mit Anmeldung.
+ * Serves album covers as `content://<application ID>.covers/album/<id>` (books and episodes: `…/book/<id>`, podcast subscriptions:
+ * `…/feed/<id>`). Android Auto loads the covers of the browse lists
+ * itself via such a URI; it cannot read `earloft://cover/…`. The images come from the same pipeline as in the
+ * app ([ArtworkRepository]), so also from servers requiring sign-in.
  *
- * Der Provider ist nicht exportiert und nur lesend: Lesen dürfen nur die eigene App und Controller, denen die Session
- * beim Verbinden das Recht gibt ([LibrarySessionCallback.onConnect], Präfix-Freigabe auf [rootUri]). Sonst könnte jede App
- * die Bibliothek über die Cover abfragen und dabei authentifizierte Abrufe beim eigenen Server auslösen.
+ * The provider is not exported and read-only: only the app itself and controllers that the session grants the right
+ * on connect may read ([LibrarySessionCallback.onConnect], prefix grant on [rootUri]). Otherwise any app could
+ * query the library via the covers and thereby trigger authenticated requests to the user's own server.
  */
 class CoverProvider : ContentProvider() {
 
@@ -38,7 +38,7 @@ class CoverProvider : ContentProvider() {
     }
 
     override fun onCreate(): Boolean {
-        // Der Provider startet mit dem Prozess, vor Service und App: Ab hier gibt es die Adressen ohne Context ([queueCoverUri]).
+        // The provider starts with the process, before service and app: from here on the addresses exist without a Context ([queueCoverUri]).
         context?.let { authorityName = authority(it) }
         return true
     }
@@ -51,7 +51,7 @@ class CoverProvider : ContentProvider() {
         if (albumId == null && bookId == null && feedId == null) throw FileNotFoundException(uri.toString())
         val context = context ?: throw FileNotFoundException(uri.toString())
         val entry = EntryPointAccessors.fromApplication(context, Entry::class.java)
-        // Die Pipe-Helfer-Threads dürfen blockieren; der Binder-Thread kehrt sofort zurück.
+        // The pipe helper threads may block; the binder thread returns immediately.
         return openPipeHelper(uri, MIME_TYPE, null, null) { output, _, _, _, _ ->
             val bitmap = runBlocking {
                 when {
@@ -90,8 +90,8 @@ class CoverProvider : ContentProvider() {
         private var authorityName: String? = null
 
         /**
-         * Cover eines Eintrags der Warteschlange: die [CoverProvider]-Adresse, die Android Auto und die System-Oberfläche laden
-         * können; ohne laufenden Provider (Unit-Tests) `earloft://cover/…`. [ArtworkBitmapLoader] versteht beide.
+         * Cover of a queue entry: the [CoverProvider] address that Android Auto and the system UI can
+         * load; without a running provider (unit tests) `earloft://cover/…`. [ArtworkBitmapLoader] understands both.
          */
         fun queueCoverUri(albumId: Long): Uri =
             authorityName?.let { Uri.Builder().scheme("content").authority(it).appendPath(ALBUM_SEGMENT).appendPath(albumId.toString()).build() }
@@ -101,7 +101,7 @@ class CoverProvider : ContentProvider() {
             authorityName?.let { Uri.Builder().scheme("content").authority(it).appendPath(BOOK_SEGMENT).appendPath(bookId.toString()).build() }
                 ?: Uri.parse(AppUris.bookCover(bookId))
 
-        /** Wurzel aller Cover-URIs, für eine Freigabe mit `FLAG_GRANT_PREFIX_URI_PERMISSION`. */
+        /** Root of all cover URIs, for a grant with `FLAG_GRANT_PREFIX_URI_PERMISSION`. */
         fun rootUri(context: Context): Uri = Uri.Builder().scheme("content").authority(authority(context)).build()
 
         fun albumCoverUri(context: Context, albumId: Long): Uri =
@@ -120,7 +120,7 @@ class CoverProvider : ContentProvider() {
                 .appendPath(bookId.toString())
                 .build()
 
-        /** Bild eines Podcast-Abos; die Kennung wird kodiert, sie kann Schrägstriche enthalten (Abos vom Gerät). */
+        /** Image of a podcast subscription; the ID is encoded since it may contain slashes (subscriptions from the device). */
         fun feedCoverUri(context: Context, feedId: String): Uri =
             Uri.Builder()
                 .scheme("content")

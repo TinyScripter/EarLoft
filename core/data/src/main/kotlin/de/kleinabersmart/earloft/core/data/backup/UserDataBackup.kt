@@ -48,29 +48,29 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Hält `user.db` ([de.kleinabersmart.earloft.core.database.UserDatabase]) auf dem Stand der Hauptdatenbank (Review K9).
+ * Keeps `user.db` ([de.kleinabersmart.earloft.core.database.UserDatabase]) in sync with the main database (review K9).
  *
- * - **Zurückspielen:** Beim ersten Start mit dieser Installation (Merker in `noBackupFilesDir`, der nie gesichert wird)
- *   kommen die gesicherten Zeilen in die Hauptdatenbank, sofern sie dort fehlen. Nach einem Gerätewechsel ist das der
- *   einzige Weg zurück; bei einem Update ist `user.db` leer, und es passiert nichts.
- * - **Fortschritt** hängt an Büchern, die es erst nach Scan bzw. Abgleich wieder gibt. Er wird deshalb bei jedem Start
- *   und danach immer dann angewendet, wenn neue Bücher auftauchen, und zwar nur, wenn er neuer ist als der vorhandene.
- *   Solange sein Buch fehlt, bleibt er in `user.db` stehen; mit seinem Abo oder Server fällt er weg.
- * - **Lesezeichen** ebenso; sie kommen dazu, wenn ihr Buch an derselben Stelle noch keins hat.
- * - **Gemerkte Folgen** ebenso; eine schon gemerkte behält ihren Zeitpunkt.
- * - **Bücher aus ARD Sounds** gibt kein Scan und kein Server zurück: Sie holt [restoreArdBooks] von ARD Sounds, mit dem alten Zeitpunkt
- *   des Hinzufügens; ohne Verbindung beim nächsten Start. Danach gelten ihr Fortschritt und ihre Lesezeichen wie bei den übrigen.
- * - **Musik** ([MusicBackup]) ebenso, sobald ihre Songs, Alben und Playlists wieder da sind: lokale Playlists (werden beim
- *   Zurückspielen leer angelegt), Favoriten von Songs ohne Server, Hörverlauf und die Auswahl für die Uhr.
- * - **Downloads der Folgen** ebenso, nach dem Fortschritt: Was auf dem alten Gerät geladen war, kommt wieder, solange es
- *   nicht gehört ist; mehr nicht – bei einem zurückgespielten Abo lässt die Automatik nach dem ersten Abgleich alle übrigen
- *   Folgen aus, erst danach erscheinende lädt sie wieder. Sie wendet vor jeder Entscheidung an, was schon passt
- *   ([applyWaiting]); sonst lüde sie nach dem Abgleich eines zurückgespielten Abos, bevor der Fortschritt da ist.
- * - **Spiegeln:** Danach überträgt jede Änderung der betroffenen Tabellen nur die Unterschiede, höchstens einmal je
- *   [MIRROR_INTERVAL_MS]. Das Backup läuft ohnehin selten (Cloud etwa täglich); so kann kein Schreibweg vergessen werden.
- *   Gelesen werden nur die Teile, deren Tabellen sich geändert haben (beim Hören eines Buchs alle 15 s nur Fortschritt und
- *   Statistik statt aller Nutzerdaten); alle [FULL_READ_INTERVAL_MS] wieder alles, für Änderungen über nicht beobachtete
- *   Tabellen (etwa umbenannte Alben in den Schlüsseln).
+ * - **Restore:** On the first start of this installation (flag in `noBackupFilesDir`, which is never backed up)
+ *   the backed-up rows go into the main database, if they are missing there. After switching devices this is the
+ *   only way back; after an update `user.db` is empty and nothing happens.
+ * - **Progress** is tied to books that only exist again after a scan or sync. It is therefore applied on every start
+ *   and afterwards whenever new books appear, and only if it is newer than the existing one.
+ *   As long as its book is missing, it stays in `user.db`; it goes away with its subscription or server.
+ * - **Bookmarks** likewise; they are added if their book has none at the same position yet.
+ * - **Saved episodes** likewise; an already saved one keeps its timestamp.
+ * - **Books from ARD Sounds** are not brought back by any scan or server: [restoreArdBooks] fetches them from ARD Sounds, with the
+ *   original time they were added; without a connection on the next start. After that their progress and bookmarks behave like the rest.
+ * - **Music** ([MusicBackup]) likewise, as soon as its songs, albums and playlists are back: local playlists (created empty
+ *   on restore), favorites of songs without a server, listening history and the selection for the watch.
+ * - **Episode downloads** likewise, after progress: what was downloaded on the old device comes back, as long as it
+ *   has not been played; nothing more – for a restored subscription the automation skips all other episodes after the
+ *   first sync and only downloads episodes published afterwards. Before each decision it applies what already fits
+ *   ([applyWaiting]); otherwise it would download after syncing a restored subscription, before the progress is there.
+ * - **Mirroring:** After that, every change to the affected tables transfers only the differences, at most once per
+ *   [MIRROR_INTERVAL_MS]. The backup runs rarely anyway (cloud roughly daily); this way no write path can be forgotten.
+ *   Only the parts whose tables changed are read (while listening to a book, only progress and statistics every 15 s
+ *   instead of all user data); every [FULL_READ_INTERVAL_MS] everything again, for changes through unobserved
+ *   tables (e.g. renamed albums in the keys).
  */
 @Singleton
 class UserDataBackup @Inject constructor(
@@ -83,24 +83,24 @@ class UserDataBackup @Inject constructor(
     private val statsDao: StatsDao,
     private val music: MusicBackup,
     private val restoreNotice: RestoreNotice,
-    /** Erst gebraucht, wenn wirklich etwas zurückgespielt wurde. */
+    /** Only needed once something has actually been restored. */
     private val registry: Lazy<DataSourceRegistry>,
     private val ardBooks: Lazy<ArdBooks>,
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
     private val started = AtomicBoolean(false)
 
-    /** Fertig, sobald das Zurückspielen beim Start gelaufen ist, auch wenn es fehlschlug. */
+    /** Completed once the restore at startup has run, even if it failed. */
     private val restoreFinished = CompletableDeferred<Unit>()
 
-    /** Ob es geklappt hat; sonst steht in `user.db` noch eine Sicherung, die das Spiegeln nicht überschreiben darf. */
+    /** Whether it succeeded; otherwise `user.db` still holds a backup that mirroring must not overwrite. */
     @Volatile
     private var restoreSucceeded = false
 
-    /** Fertig, sobald nach dem Start einmal angewendet wurde, was schon passt (auch wenn das Zurückspielen fehlschlug). */
+    /** Completed once what already fits has been applied after startup (even if the restore failed). */
     private val firstApplied = CompletableDeferred<Unit>()
 
-    /** Gesichertes, das noch auf sein Buch, seinen Song usw. wartet, samt dem Stand, aus dem es stammt; ändert sich unter [mutex]. */
+    /** Backed-up data still waiting for its book, song etc., along with the snapshot it came from; changes under [mutex]. */
     @Volatile
     private var waiting: Waiting? = null
 
@@ -108,16 +108,16 @@ class UserDataBackup @Inject constructor(
 
     private val _downloadsQueued = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
-    /** Gesicherte Downloads von Folgen stehen wieder an; `EpisodeDownloads` startet dann seinen Auftrag. */
+    /** Backed-up episode downloads are pending again; `EpisodeDownloads` then starts its job. */
     val downloadsQueued: Flow<Unit> = _downloadsQueued
 
-    /** Spiegeln und Anwenden lesen und schreiben dieselben Zeilen. */
+    /** Mirroring and applying read and write the same rows. */
     private val mutex = Mutex()
 
-    /** Der zuletzt nach `user.db` geschriebene Stand; spart das erneute Lesen von `user.db` bei jedem Abgleich. */
+    /** The snapshot last written to `user.db`; saves re-reading `user.db` on every sync. */
     private var mirrored: UserDataSnapshot? = null
 
-    /** Wann zuletzt alle Teile gelesen wurden (`elapsedRealtime`). */
+    /** When all parts were last read (`elapsedRealtime`). */
     private var fullReadAt = 0L
 
     fun start() {
@@ -130,8 +130,8 @@ class UserDataBackup @Inject constructor(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    // Ohne Merker: Beim nächsten Start wird es erneut versucht. Gespiegelt wird trotzdem nicht, damit eine
-                    // noch nicht zurückgespielte Sicherung nicht vom leeren Stand überschrieben wird.
+                    // No flag: it is retried on the next start. Mirroring still does not happen, so that a backup
+                    // not yet restored is not overwritten by the empty state.
                     Log.e(TAG, "Nutzerdaten konnten nicht zurückgespielt werden", e)
                     return@launch
                 } finally {
@@ -144,7 +144,7 @@ class UserDataBackup @Inject constructor(
             }
             launch { restoreArdBooks() }
             launch { applyWhenLibraryChanges() }
-            // Was sich geändert hat, sammelt sich hier, auch während gerade gespiegelt wird oder gewartet (`conflate`).
+            // Changes accumulate here, even while mirroring or waiting is in progress (`conflate`).
             val changed = ConcurrentHashMap.newKeySet<String>()
             database.invalidationTracker.createFlow(*MIRRORED_TABLES)
                 .onEach { changed += it }
@@ -165,18 +165,18 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Wartet, bis gesicherte Server und Abos wieder in der Hauptdatenbank stehen (nur beim ersten Start einer Installation
-     * dauert das merklich). Der Einrichtungsassistent entscheidet erst danach, ob es schon Inhalt gibt.
+     * Waits until backed-up servers and subscriptions are back in the main database (only noticeably slow on the first
+     * start of an installation). Only then does the setup wizard decide whether there is content already.
      */
     suspend fun awaitRestore() = restoreFinished.await()
 
     /**
-     * Wendet an, was von der Sicherung jetzt passt. Die Download-Automatik ruft das vor jeder Entscheidung: Gesicherter
-     * Fortschritt und Downloads sollen gelten, bevor sie die neuesten ungehörten Folgen lädt – sonst lüde sie nach dem
-     * Abgleich eines zurückgespielten Abos gehörte Folgen und solche, deren Download auf dem alten Gerät entfernt wurde.
+     * Applies what from the backup fits now. The download automation calls this before every decision: backed-up
+     * progress and downloads should apply before it downloads the newest unplayed episodes – otherwise, after
+     * syncing a restored subscription, it would download played episodes and those whose download was removed on the old device.
      */
     suspend fun applyWaiting() {
-        // Ohne [start] (etwa in Tests) gibt es nichts anzuwenden.
+        // Without [start] (e.g. in tests) there is nothing to apply.
         if (!started.get()) return
         firstApplied.await()
         if (waiting == null) return
@@ -184,8 +184,8 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Alles aus [saved] als noch anzuwenden; dazu die zurückgespielten Abos, die noch nie abgeglichen wurden und noch keine
-     * Folgen haben: Nach ihrem ersten Abgleich lädt die Automatik dort nur, was auf dem alten Gerät geladen war.
+     * Everything from [saved] as still to be applied; plus the restored subscriptions that have never been synced and have
+     * no episodes yet: after their first sync the automation only downloads there what was downloaded on the old device.
      */
     private suspend fun pendingOf(saved: UserDataSnapshot): Pending = Pending.of(saved).copy(
         restoredFeeds = saved.podcasts.keys.filter { feedId ->
@@ -193,15 +193,15 @@ class UserDataBackup @Inject constructor(
         },
     )
 
-    /** Unter [mutex]: wendet an und merkt sich den Rest für später. */
+    /** Under [mutex]: applies and remembers the rest for later. */
     private suspend fun applyAndWait(saved: UserDataSnapshot, pending: Pending) {
         val rest = applySaved(saved, pending)
         waiting = if (rest.isEmpty) null else Waiting(saved, rest)
     }
 
     /**
-     * Der Stand für die Komplett-Sicherung (`FullBackup`): `user.db` frisch gespiegelt, samt dem, was noch auf sein Buch,
-     * seinen Song usw. wartet.
+     * The snapshot for the full backup (`FullBackup`): `user.db` freshly mirrored, including what is still waiting for its book,
+     * song etc.
      */
     suspend fun exportSnapshot(): UserDataSnapshot {
         restoreFinished.await()
@@ -216,14 +216,14 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Spielt die Nutzerdaten einer Komplett-Sicherung ein. Wie beim Gerätewechsel wird nur ergänzt: Vorhandenes bleibt,
-     * Fortschritt und Favoriten gelten, wenn sie neuer sind. Server und Abos, die es hier unter anderer Kennung schon gibt
-     * (gleiche Adresse), werden nicht doppelt angelegt. Was noch kein Buch, keinen Song usw. hat, kommt nach `user.db` und
-     * folgt wie nach einem Gerätewechsel, auch über einen Neustart hinweg. Neue Server erscheinen danach mit „Passwort neu
-     * eingeben“.
+     * Restores the user data of a full backup. As with a device switch, data is only added: existing data stays,
+     * progress and favorites apply if they are newer. Servers and subscriptions that already exist here under a different ID
+     * (same address) are not created twice. Whatever has no book, song etc. yet goes into `user.db` and
+     * follows as after a device switch, even across a restart. New servers then appear with "re-enter
+     * password".
      */
     suspend fun import(saved: UserDataSnapshot): BackupImport {
-        // Erst nach dem ersten Anwenden beim Start: Das überschriebe sonst mit seinem älteren Stand, was hier wartet.
+        // Only after the first apply at startup: otherwise that would overwrite what is waiting here with its older state.
         if (started.get()) firstApplied.await() else restoreFinished.await()
         val (result, ids) = mutex.withLock {
             val ids = localIdsOf(saved)
@@ -241,21 +241,21 @@ class UserDataBackup @Inject constructor(
             val merged = current.plusMissing(adjusted)
             val changes = merged.changesSince(current)
             if (!changes.isEmpty) userDao.apply(changes)
-            // Der gemerkte Stand stimmt nicht mehr mit `user.db` überein; beim nächsten Spiegeln neu lesen.
+            // The remembered snapshot no longer matches `user.db`; re-read on the next mirroring.
             mirrored = null
             applyAndWait(merged, pendingOf(merged))
             result to ids
         }
         scope.launch { restoreArdBooks() }
-        // Den Hinweis auf fehlende Passwörter meldet `FullBackup` mit seinem Ergebnis.
+        // `FullBackup` reports the note about missing passwords with its result.
         if (result.musicServers > 0) registry.get().reload()
         Log.i(TAG, "Sicherung eingespielt: $result")
         return BackupImport(result, ids)
     }
 
     /**
-     * Kennungen von Servern und Abos aus [saved], die es hier unter anderer Kennung gibt: gesicherte → hiesige. Musik-Server über
-     * Art, Adresse und Konto, Audiobookshelf über die Adresse, Abos über die Feed-Adresse.
+     * IDs of servers and subscriptions from [saved] that exist here under a different ID: backed-up → local. Music servers by
+     * type, address and account, Audiobookshelf by address, subscriptions by feed URL.
      */
     private suspend fun localIdsOf(saved: UserDataSnapshot): Map<String, String> {
         val music = sourceDao.getServers()
@@ -265,8 +265,8 @@ class UserDataBackup @Inject constructor(
         }
         val spoken = bookDao.servers()
         val spokenIds = saved.spokenServers.values.mapNotNull { server ->
-            // Über die Adresse: `libraryId` ist seit den mehreren Bibliotheken nur die erste gezeigte und wechselt mit Auswahl und
-            // Reihenfolge in Audiobookshelf. Bei mehreren Einträgen derselben Adresse (alte Sicherungen) zuerst der mit gleicher.
+            // By address: since multiple libraries, `libraryId` is only the first one shown and changes with selection and
+            // order in Audiobookshelf. With several entries for the same address (old backups), the one with the same ID first.
             val local = spoken.firstOrNull { it.serverId == server.serverId }
                 ?: spoken.filter { sameUrl(it.baseUrl, server.baseUrl) }.let { same -> same.firstOrNull { it.libraryId == server.libraryId } ?: same.firstOrNull() }
             local?.serverId?.takeIf { it != server.serverId }?.let { server.serverId to it }
@@ -278,8 +278,8 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Nimmt aus [saved] Server und Abos heraus, die es hier unter anderer Kennung gibt, und hängt ihren Fortschritt, ihre
-     * Lesezeichen und ihre Downloads an die hiesige Kennung.
+     * Removes from [saved] the servers and subscriptions that exist here under a different ID, and attaches their progress,
+     * bookmarks and downloads to the local ID.
      */
     private fun withLocalIds(saved: UserDataSnapshot, ids: Map<String, String>): UserDataSnapshot {
         return saved.copy(
@@ -305,7 +305,7 @@ class UserDataBackup @Inject constructor(
 
     private fun sameUrl(a: String?, b: String?) = a != null && b != null && a.trimEnd('/').equals(b.trimEnd('/'), ignoreCase = true)
 
-    /** Die Liste der Server ohne Passwort entsteht beim Laden; die Einstellungen sollen „Passwort neu eingeben“ zeigen. */
+    /** The list of servers without a password is built on load; the settings should show "re-enter password". */
     private suspend fun serversRestored(music: Boolean, audiobooks: Boolean) {
         if (music) registry.get().reload()
         if (music || audiobooks) restoreNotice.serversRestored()
@@ -331,7 +331,7 @@ class UserDataBackup @Inject constructor(
         withContext(Dispatchers.IO) { marker.createNewFile() }
     }
 
-    /** Legt an, was in der Hauptdatenbank fehlt; Vorhandenes bleibt unverändert. */
+    /** Creates what is missing in the main database; existing data stays unchanged. */
     internal suspend fun restore(saved: UserDataSnapshot) {
         database.withTransaction {
             saved.servers.values.forEach { sourceDao.insertIfAbsent(it.toMain()) }
@@ -346,8 +346,8 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Überträgt gesicherten Fortschritt in die Hauptdatenbank, wenn es sein Buch dort gibt und er neuer ist als der
-     * vorhandene. Liefert den Rest, dessen Buch (noch) fehlt.
+     * Transfers backed-up progress into the main database if its book exists there and it is newer than the
+     * existing one. Returns the rest whose book is (still) missing.
      */
     internal suspend fun applyProgress(saved: Collection<UserBookProgressEntity>): List<UserBookProgressEntity> {
         if (saved.isEmpty()) return emptyList()
@@ -376,10 +376,10 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Überträgt gesicherte Lesezeichen in die Hauptdatenbank, wenn es ihr Buch dort gibt und an derselben Stelle noch keins
-     * (auch kein gelöschtes, dessen Meldung aussteht). Hat das vorhandene keine Notiz, bekommt es die gesicherte:
-     * Audiobookshelf kennt keine Notizen, der Abgleich bringt seine Lesezeichen ohne sie zurück. Liefert den Rest, dessen
-     * Buch (noch) fehlt.
+     * Transfers backed-up bookmarks into the main database if their book exists there and has none at the same position
+     * (not even a deleted one whose report is pending). If the existing one has no note, it gets the backed-up one:
+     * Audiobookshelf has no notes, the sync brings its bookmarks back without them. Returns the rest whose
+     * book is (still) missing.
      */
     internal suspend fun applyBookmarks(saved: Collection<UserBookmarkEntity>): List<UserBookmarkEntity> {
         if (saved.isEmpty()) return emptyList()
@@ -399,8 +399,8 @@ class UserDataBackup @Inject constructor(
                     when {
                         bookId == null -> unresolved += row
                         existing == null -> {
-                            // Von Audiobookshelf-Büchern ist ohne Notiz nur gesichert, was der Server noch nicht (so) hat:
-                            // wieder zu melden. Mit Notiz kann es auch eins sein, das er schon kennt.
+                            // For Audiobookshelf books, without a note only what the server doesn't have (in this form) is backed up:
+                            // to be reported again. With a note it can also be one it already knows.
                             val dirty = serverId in abs && (row.remoteTime == null || row.note.isEmpty())
                             bookDao.insertBookmark(row.toMain(bookId, dirty))
                             applied++
@@ -418,9 +418,9 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Überträgt den gesicherten Download-Zustand auf Folgen, die es hier gibt und die hier noch nie geladen wurden:
-     * entfernte und fehlgeschlagene lässt die Automatik aus, geladene kommen wieder, solange sie nicht zu Ende gehört sind.
-     * Liefert den Rest, dessen Folge (noch) fehlt.
+     * Transfers the backed-up download state to episodes that exist here and have never been downloaded here:
+     * the automation skips removed and failed ones, downloaded ones come back as long as they have not been played to the end.
+     * Returns the rest whose episode is (still) missing.
      */
     internal suspend fun applyEpisodeDownloads(saved: Collection<UserEpisodeDownloadEntity>): List<UserEpisodeDownloadEntity> {
         if (saved.isEmpty()) return emptyList()
@@ -448,7 +448,7 @@ class UserDataBackup @Inject constructor(
         return unresolved
     }
 
-    /** Merkt die gesicherten Folgen, die es hier gibt; liefert den Rest, dessen Folge (noch) fehlt. */
+    /** Marks the backed-up saved episodes that exist here; returns the rest whose episode is (still) missing. */
     internal suspend fun applyEpisodeStars(saved: Collection<UserEpisodeStarEntity>): List<UserEpisodeStarEntity> {
         if (saved.isEmpty()) return emptyList()
         val unresolved = database.withTransaction {
@@ -458,22 +458,22 @@ class UserDataBackup @Inject constructor(
         return unresolved
     }
 
-    /** Liefert die gesicherten Bücher aus ARD Sounds, die es hier (noch) nicht gibt; geholt werden sie von [restoreArdBooks]. */
+    /** Returns the backed-up books from ARD Sounds that don't exist here (yet); [restoreArdBooks] fetches them. */
     internal suspend fun applyArdBooks(saved: Collection<UserArdBookEntity>): List<UserArdBookEntity> {
         if (saved.isEmpty()) return emptyList()
         val here = bookDao.keyedBooksOf(ARD_BOOK_SERVER_ID).mapTo(HashSet()) { it.remoteId }
         return saved.filter { it.remoteId !in here }
     }
 
-    /** Wendet von [saved] an, was davon in [pending] steht; liefert, was (noch) kein Buch, keinen Song usw. hat. */
+    /** Applies from [saved] what is listed in [pending]; returns what has no book, song etc. (yet). */
     internal suspend fun applySaved(saved: UserDataSnapshot, pending: Pending): Pending {
         val progress = applyProgress(pending.progress)
         val bookmarks = applyBookmarks(pending.bookmarks)
         val episodeStars = applyEpisodeStars(pending.episodeStars)
         val ardBooks = applyArdBooks(pending.ardBooks)
-        // Nach dem Fortschritt: Gehörte Folgen kommen nicht wieder.
+        // After progress: played episodes don't come back.
         val episodeDownloads = applyEpisodeDownloads(pending.episodeDownloads)
-        // Danach: Mehr als auf dem alten Gerät geladen war, lädt die Automatik für zurückgespielte Abos nicht.
+        // Afterwards: for restored subscriptions the automation downloads no more than was downloaded on the old device.
         val restoredFeeds = pending.restoredFeeds.filter { feedId ->
             val arrived = podcastDao.episodeCount(feedId) > 0
             if (arrived) podcastDao.excludeAllFromAutomatic(feedId)
@@ -512,10 +512,10 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Holt die gesicherten Bücher aus ARD Sounds, die es hier noch nicht gibt. Danach wendet [applyWhenLibraryChanges] ihren Fortschritt
-     * an. Ohne Verbindung noch zweimal später, dann beim nächsten Start; eins, das ARD Sounds nicht mehr führt, bleibt gesichert.
-     * Nur bei eingeschaltetem Schalter der Quelle (Standard: aus): Sonst fragte jeder Start ARD Sounds, obwohl der Nutzer die Quelle
-     * nie eingeschaltet hat. Ist sie aus, wartet das Zurückholen, bis sie eingeschaltet wird.
+     * Fetches the backed-up books from ARD Sounds that don't exist here yet. Afterwards [applyWhenLibraryChanges] applies their progress.
+     * Without a connection, twice more later, then on the next start; one that ARD Sounds no longer lists stays backed up.
+     * Only when the source's switch is on (default: off): otherwise every start would query ARD Sounds although the user never
+     * enabled the source. While it is off, the restore waits until it is enabled.
      */
     internal suspend fun restoreArdBooks(pendingRows: () -> Collection<UserArdBookEntity> = { waiting?.pending?.ardBooks.orEmpty() }) {
         if (pendingRows().isEmpty()) return
@@ -532,7 +532,7 @@ class UserDataBackup @Inject constructor(
         }
     }
 
-    /** Holt die Bücher [rows] von ARD Sounds; `false`, wenn die Verbindung fehlte (der Rest bleibt dann ungeholt). */
+    /** Fetches the books [rows] from ARD Sounds; `false` if there was no connection (the rest then stays unfetched). */
     internal suspend fun fetchArdBooks(rows: Collection<UserArdBookEntity>): Boolean {
         for (row in rows) {
             try {
@@ -549,7 +549,7 @@ class UserDataBackup @Inject constructor(
         return true
     }
 
-    /** Wendet nach und nach an, was wartet, sobald Scan oder Abgleich Bücher, Songs und Playlists anlegen. */
+    /** Gradually applies what is waiting as soon as a scan or sync creates books, songs and playlists. */
     private suspend fun applyWhenLibraryChanges() {
         database.invalidationTracker.createFlow("books", "songs", "playlists")
             .conflate()
@@ -567,9 +567,9 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Vergisst gesicherten Fortschritt und gesicherte Lesezeichen der Folgen [remoteIds] von [serverId], deren Kennung sich
-     * geändert hat (Quelle wechseln, Konzept 12.10): Das Spiegeln löscht nur, was es in der Hauptdatenbank noch gibt, und
-     * die neuen Kennungen kommen von selbst hinzu.
+     * Forgets backed-up progress and bookmarks of the episodes [remoteIds] of [serverId] whose ID has
+     * changed (switch source, concept 12.10): mirroring only deletes what still exists in the main database, and
+     * the new IDs are added on their own.
      */
     suspend fun forgetProgress(serverId: String, remoteIds: Collection<String>) = mutex.withLock {
         remoteIds.chunked(MAX_ARGS).forEach {
@@ -577,20 +577,20 @@ class UserDataBackup @Inject constructor(
             userDao.deleteBookmarkKeys(serverId, it)
             userDao.deleteEpisodeStarKeys(serverId, it)
         }
-        // Der gemerkte Stand stimmt nicht mehr mit `user.db` überein; beim nächsten Spiegeln neu lesen.
+        // The remembered snapshot no longer matches `user.db`; re-read on the next mirroring.
         mirrored = null
     }
 
-    /** [changedTables]: nur deren Teile neu lesen; `null` = alles. */
+    /** [changedTables]: re-read only their parts; `null` = everything. */
     internal suspend fun mirror(changedTables: Set<String>? = null) {
         val previous = mirrored ?: readUser()
         val now = SystemClock.elapsedRealtime()
         val base = mirrored.takeIf { changedTables != null && now - fullReadAt < FULL_READ_INTERVAL_MS }
         if (base == null) fullReadAt = now
         val current = readMain(base, changedTables.orEmpty()).keepingUnchangedPlaylists(previous)
-        // Fehlt das Buch bzw. der Song, ist der Eintrag noch nicht angewendet (oder die Folge steht nicht mehr im Feed, die
-        // Datei ist weg): behalten. Gelöscht wird nur, was es hier gibt und was hier entfernt wurde.
-        // Was noch angewendet werden soll, bleibt ebenso, auch wenn sein Buch schon da ist.
+        // If the book or song is missing, the entry has not been applied yet (or the episode is no longer in the feed, the
+        // file is gone): keep it. Only what exists here and was removed here is deleted.
+        // Whatever is still to be applied stays as well, even if its book is already there.
         val stillWaiting = waiting?.pending
         val waitingProgress = stillWaiting?.progress.orEmpty().map { BookKey(it.serverId, it.remoteId) }.toSet()
         val waitingDownloads = stillWaiting?.episodeDownloads.orEmpty().map { BookKey(it.serverId, it.remoteId) }.toSet()
@@ -610,7 +610,7 @@ class UserDataBackup @Inject constructor(
             val starDeletes = changes.episodeStars.deletes.filter {
                 BookKey(it.serverId, it.remoteId) !in waitingStars && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
             }
-            // Ein Buch aus ARD Sounds, das noch nicht zurückgeholt ist, bleibt gesichert, sonst fiele es vor dem Holen weg.
+            // A book from ARD Sounds that has not been fetched back yet stays backed up, otherwise it would be dropped before fetching.
             val ardBookDeletes = changes.ardBooks.deletes.filter { it.remoteId !in waitingArdBooks }
             val songs = music.resolve((changes.favorites.deletes.map { it.song } + changes.playEvents.deletes.map { it.song }).toSet())
             changes.copy(
@@ -631,7 +631,7 @@ class UserDataBackup @Inject constructor(
         mirrored = current
     }
 
-    /** Liest die Teile, deren Tabellen in [changed] stehen, neu und nimmt die übrigen aus [base]; ohne [base] alles. */
+    /** Re-reads the parts whose tables are in [changed] and takes the others from [base]; without [base], everything. */
     private suspend fun readMain(base: UserDataSnapshot?, changed: Set<String>): UserDataSnapshot {
         fun read(vararg tables: String) = base == null || tables.any { it in changed }
         val servers = read("sources")
@@ -639,13 +639,13 @@ class UserDataBackup @Inject constructor(
         val feeds = read("podcast_feeds")
         val stats = read("listening_stats")
         val days = read("listening_days")
-        // Welcher Fortschritt gesichert wird, hängt auch an den Audiobookshelf-Servern.
+        // Which progress is backed up also depends on the Audiobookshelf servers.
         val progress = read("book_progress", "spoken_servers")
         val bookmarks = read("bookmarks", "spoken_servers")
-        // Welche Downloads gesichert werden, hängt an den gesicherten Abos.
+        // Which downloads are backed up depends on the backed-up subscriptions.
         val downloads = read("book_tracks", "podcast_feeds")
         val stars = read("books")
-        // Die Teile der Bücher aus ARD Sounds ändern sich beim Abgleich.
+        // The parts of the books from ARD Sounds change on sync.
         val ards = read("books", "book_tracks")
         val musicData = if (read(*MUSIC_TABLES)) music.read() else null
         val fresh = UserDataSnapshot.ofMain(
@@ -703,13 +703,13 @@ class UserDataBackup @Inject constructor(
         val MIRRORED_TABLES = arrayOf(
             "sources", "spoken_servers", "podcast_feeds", "listening_stats", "listening_days", "book_progress", "bookmarks",
             "songs", "albums", "artists", "playlists", "playlist_entries", "play_events", "wear_selections", "book_tracks",
-            // Nur für die gemerkten Folgen; gelesen wird dann allein deren Teil.
+            // Only for the saved episodes; then only their part is read.
             "books",
         )
     }
 }
 
-/** Server, Abos und Playlists einer Komplett-Sicherung; beim Einspielen die neu angelegten. */
+/** Servers, subscriptions and playlists of a full backup; on restore, the newly created ones. */
 data class BackupCounts(
     val musicServers: Int = 0,
     val audiobookServers: Int = 0,
@@ -717,10 +717,10 @@ data class BackupCounts(
     val playlists: Int = 0,
 )
 
-/** Ausgang von [UserDataBackup.import]: was neu dazukam, und Kennungen der Sicherung, die hier anders heißen (gesicherte → hiesige). */
+/** Result of [UserDataBackup.import]: what was newly added, and IDs from the backup that are named differently here (backed-up → local). */
 data class BackupImport(val counts: BackupCounts, val ids: Map<String, String>)
 
-/** Gesichertes, dessen Buch, Folge, Song, Album oder Playlist es (noch) nicht gibt; Playlists über ihren Schlüssel. */
+/** Backed-up data whose book, episode, song, album or playlist does not exist (yet); playlists by their key. */
 internal data class Pending(
     val progress: List<UserBookProgressEntity> = emptyList(),
     val bookmarks: List<UserBookmarkEntity> = emptyList(),
@@ -732,7 +732,7 @@ internal data class Pending(
     val episodeDownloads: List<UserEpisodeDownloadEntity> = emptyList(),
     val episodeStars: List<UserEpisodeStarEntity> = emptyList(),
     val ardBooks: List<UserArdBookEntity> = emptyList(),
-    /** Zurückgespielte Abos, deren Folgen noch nicht da sind (siehe `PodcastDao.excludeAllFromAutomatic`). */
+    /** Restored subscriptions whose episodes are not there yet (see `PodcastDao.excludeAllFromAutomatic`). */
     val restoredFeeds: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean

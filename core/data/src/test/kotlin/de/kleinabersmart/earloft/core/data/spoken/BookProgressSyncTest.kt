@@ -32,7 +32,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** Position speichern gegenüber Tempo und Effekten, die gleichzeitig geändert werden (Review F33). */
+/** Saving the position versus speed and effects changed at the same time (review F33). */
 @RunWith(RobolectricTestRunner::class)
 class BookProgressSyncTest {
 
@@ -46,7 +46,7 @@ class BookProgressSyncTest {
         try {
             WorkManager.initialize(context, Configuration.Builder().build())
         } catch (e: IllegalStateException) {
-            // schon initialisiert
+            // already initialized
         }
         db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         val api = AbsApi(OkHttpClient())
@@ -57,7 +57,7 @@ class BookProgressSyncTest {
         }
         val dao = db.bookDao()
         sync = BookProgressSync(context, dao, testAudiobookshelfServers(dao, secrets, api), api, PlaybackPolicy())
-        // Ein Buch vom Gerät: kein Server, also kein Netz im Test.
+        // A book from the device: no server, so no network in the test.
         bookId = dao.upsertBook(
             BookEntity(
                 serverId = LOCAL_BOOK_SERVER_ID,
@@ -121,7 +121,7 @@ class BookProgressSyncTest {
 
     @Test
     fun `hiding a book finished without a recorded time keeps its last change as the time it was finished`() = runBlocking {
-        // So kommt ein beendetes Buch aus einer alten Zeile oder einer fremden Quelle: ohne `finishedAt`.
+        // This is how a finished book comes from an old row or a foreign source: without `finishedAt`.
         db.bookDao().upsertProgress(BookProgressEntity(bookId, 3_600_000, 3_600_000, finished = true, updatedAt = 1_000))
         val other = db.bookDao().upsertBook(
             BookEntity(
@@ -177,7 +177,7 @@ class BookProgressSyncTest {
 
         repeat(100) { round ->
             val speed = 1f + (round + 1) / 100f
-            // Mehrere Speicherungen sind gleichzeitig unterwegs, wenn das Tempo geändert wird.
+            // Several saves are in flight at the same time when the speed is changed.
             val saves = List(8) { n -> async(Dispatchers.IO) { sync.record(bookId, 2_000L + round * 10 + n, 3_600_000, finished = false) } }
             val change = async(Dispatchers.IO) { db.bookDao().setEffects(bookId, speed, null, null) }
             (saves + change).awaitAll()

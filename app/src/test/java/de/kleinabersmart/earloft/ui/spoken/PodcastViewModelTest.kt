@@ -22,7 +22,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import javax.inject.Inject
 
-/** Abspielen auf der Podcast-Seite (Review A3); Abonnieren steht in [AddPodcastViewModelTest]. */
+/** Playing on the podcast page (review A3); subscribing is in [AddPodcastViewModelTest]. */
 @HiltAndroidTest
 @Config(application = HiltTestApplication::class)
 @RunWith(RobolectricTestRunner::class)
@@ -63,7 +63,7 @@ class PodcastViewModelTest {
 
         viewModel.playOrPause(8)
 
-        // Ohne gespeicherte Stelle: Der Launcher übergibt keinen Start, die Wiedergabe nimmt den gespeicherten Stand.
+        // No saved position: the launcher passes no start, playback uses the saved state.
         assertEquals(listOf(Command.PlayBook(8, null)), playback.awaitCommands())
     }
 

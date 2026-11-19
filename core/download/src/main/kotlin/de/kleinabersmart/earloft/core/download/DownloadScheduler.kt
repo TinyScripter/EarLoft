@@ -13,25 +13,25 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Startet die Abarbeitung der Download-Warteschlange. */
+/** Starts processing the download queue. */
 interface DownloadScheduler {
     /**
-     * Ein laufender Worker holt neu eingereihte Downloads selbst ab; der angehängte Auftrag deckt
-     * den Fall ab, dass er gerade endet. Mit [replace] wird ein wartender Auftrag ersetzt, z. B.
-     * nach Ändern der WLAN-Einstellung (ein laufender wird dabei abgebrochen und neu gestartet).
+     * A running worker picks up newly enqueued downloads itself; the appended job covers
+     * the case that it is just finishing. With [replace] a waiting job is replaced, e.g.
+     * after changing the Wi-Fi setting (a running one is cancelled and restarted).
      */
     suspend fun enqueue(replace: Boolean = false)
 
     /**
-     * Nach einem Prozessende: nur einreihen, wenn kein Auftrag wartet oder läuft. Hat der Worker selbst den Prozess
-     * gestartet, hängte [enqueue] sonst einen zweiten an, der danach mit leerer Warteschlange startet.
+     * After a process death: only enqueue if no job is waiting or running. If the worker itself started the process,
+     * [enqueue] would otherwise append a second one, which then starts with an empty queue.
      */
     suspend fun resume() = enqueue()
 }
 
 /**
- * Startet den [DownloadWorker]; es läuft immer höchstens einer. Die Handy-App bindet ihn als
- * [DownloadScheduler], die Uhr hat einen eigenen.
+ * Starts the [DownloadWorker]; at most one ever runs. The phone app binds it as
+ * [DownloadScheduler], the watch has its own.
  */
 @Singleton
 class WorkManagerDownloadScheduler @Inject constructor(

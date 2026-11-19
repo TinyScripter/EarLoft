@@ -18,7 +18,7 @@ private const val SELECT_PLAYLIST_ROWS = """
     LEFT JOIN songs s ON s.songId = e.songId AND $SONG_VISIBLE
 """
 
-/** Playlists (Konzept 5.4); lokale und mit genau einem Server verknüpfte. */
+/** Playlists (concept 5.4); local ones and those linked to exactly one server. */
 @Dao
 interface PlaylistDao {
 
@@ -28,7 +28,7 @@ interface PlaylistDao {
     @Query("$SELECT_PLAYLIST_ROWS WHERE p.playlistId = :playlistId GROUP BY p.playlistId")
     fun observePlaylistRow(playlistId: Long): Flow<PlaylistRow?>
 
-    /** `missingOnServer`: Der Song hat keine Quelle auf dem Server, mit dem die Playlist verknüpft ist. */
+    /** `missingOnServer`: the song has no source on the server the playlist is linked to. */
     @Query(
         """
         SELECT e.entryId, s.songId, s.title, s.artistDisplay, s.albumId, a.title AS albumTitle,
@@ -61,7 +61,7 @@ interface PlaylistDao {
     @Query("UPDATE playlists SET updatedAt = :updatedAt WHERE playlistId = :playlistId")
     suspend fun touch(playlistId: Long, updatedAt: Long)
 
-    /** Nach dem Senden: Stand des Servers merken (Konflikterkennung). @return 0, wenn die Playlist inzwischen gelöscht ist. */
+    /** After sending: remembers the server's state (conflict detection). @return 0 if the playlist has been deleted in the meantime. */
     @Query("UPDATE playlists SET remotePlaylistId = :remoteId, remoteUpdatedAt = :remoteUpdatedAt WHERE playlistId = :playlistId")
     suspend fun setRemoteState(playlistId: Long, remoteId: String, remoteUpdatedAt: Long): Int
 
@@ -74,7 +74,7 @@ interface PlaylistDao {
     @Query("DELETE FROM playlists WHERE boundSourceId = :sourceId")
     suspend fun deleteBoundTo(sourceId: String)
 
-    // --- Einträge ---
+    // --- Entries ---
 
     @Insert
     suspend fun insertEntries(entries: List<PlaylistEntryEntity>)
@@ -95,8 +95,8 @@ interface PlaylistDao {
     suspend fun getSongIds(playlistId: Long): List<Long>
 
     /**
-     * Die Remote-IDs der Einträge auf [sourceId] in Playlist-Reihenfolge; Songs, die dort fehlen, entfallen.
-     * Liefert ein Server einen Song doppelt, wird stets dieselbe Quelle gewählt.
+     * The remote IDs of the entries on [sourceId] in playlist order; songs missing there are dropped.
+     * If a server returns a song twice, the same source is always chosen.
      */
     @Query(
         """

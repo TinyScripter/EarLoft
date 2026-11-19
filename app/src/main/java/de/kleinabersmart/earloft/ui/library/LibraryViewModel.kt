@@ -38,7 +38,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Wo der Chip „Favoriten“ steht; jeder Reiter merkt ihn sich für sich. */
+/** Where the "Favorites" chip is; each tab remembers it for itself. */
 enum class FavoritesChip { ALBUMS, GENRES, ARTISTS }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -56,7 +56,7 @@ class LibraryViewModel @Inject constructor(
     val artistSort: StateFlow<ArtistSort> = librarySettings.artistSort.stateInViewModel(ArtistSort.NAME)
     val songSort: StateFlow<SongSort> = librarySettings.songSort.stateInViewModel(SongSort.TITLE)
 
-    // Erst nach der gespeicherten Reihenfolge laden, sonst blitzt die Standard-Reihenfolge auf.
+    // Load only after the stored order, otherwise the default order flashes up.
     val albums: StateFlow<LoadState<List<Album>>> = librarySettings.albumSort.distinctUntilChanged()
         .flatMapLatest { libraryRepository.albums(it) }.stateInViewModel()
     val artists: StateFlow<LoadState<List<Artist>>> = librarySettings.artistSort.distinctUntilChanged()
@@ -66,7 +66,7 @@ class LibraryViewModel @Inject constructor(
     val genres: StateFlow<LoadState<List<Genre>>> = libraryRepository.genres().stateInViewModel()
     val decades: StateFlow<List<Decade>> = libraryRepository.decades().stateInViewModel(emptyList())
 
-    // Gewählte Chips (an/aus, mehrere zugleich); keiner gewählt = alle Alben. Was es nicht mehr gibt, zählt nicht mehr.
+    // Selected chips (on/off, several at once); none selected = all albums. Whatever no longer exists doesn't count anymore.
     private val chosenDecades = MutableStateFlow(emptySet<Int>())
     private val chosenGenres = MutableStateFlow(emptySet<String>())
 
@@ -75,26 +75,26 @@ class LibraryViewModel @Inject constructor(
 
     private val chosenFavorites = MutableStateFlow(emptySet<FavoritesChip>())
 
-    /** Reiter, in denen der Chip „Favoriten“ an ist; er schränkt zusätzlich zu den übrigen Chips ein. */
+    /** Tabs in which the "Favorites" chip is on; it filters in addition to the other chips. */
     val favoritesOnly: StateFlow<Set<FavoritesChip>> = chosenFavorites.asStateFlow()
 
     val selectedDecades: StateFlow<Set<Int>> = combine(chosenDecades, decades) { chosen, all ->
         chosen.intersect(all.mapTo(HashSet()) { it.startYear })
     }.stateInViewModel(emptySet())
 
-    /** Gewählte Genres als [Genre.key]. */
+    /** Selected genres as [Genre.key]. */
     val selectedGenres: StateFlow<Set<String>> = combine(chosenGenres, genres) { chosen, all ->
         chosen.intersect(all.valueOrNull.orEmpty().mapTo(HashSet()) { it.key })
     }.stateInViewModel(emptySet())
 
-    /** Die Alben (in ihrer Sortierung) aus den gewählten Jahrzehnten. */
+    /** The albums (in their sort order) from the selected decades. */
     val albumsOfDecades: StateFlow<LoadState<List<Album>>> =
         combine(albums, selectedDecades, favoritesOnly, favoriteAlbumIds) { state, chosen, favoritesOnly, favorites ->
             state.filterAlbums(chosen.isNotEmpty()) { album -> album.year?.takeIf { it >= 1000 }?.let { it / 10 * 10 in chosen } == true }
                 .filterAlbums(FavoritesChip.ALBUMS in favoritesOnly) { it.id in favorites }
         }.stateInViewModel(LoadState.Loading)
 
-    /** Die Alben (in ihrer Sortierung) mit mindestens einem Song aus den gewählten Genres. */
+    /** The albums (in their sort order) with at least one song from the selected genres. */
     val albumsOfGenres: StateFlow<LoadState<List<Album>>> =
         combine(albums, selectedGenres, libraryRepository.albumGenreKeys(), favoritesOnly, favoriteAlbumIds) {
                 state, chosen, genresOf, favoritesOnly, favorites ->
@@ -102,7 +102,7 @@ class LibraryViewModel @Inject constructor(
                 .filterAlbums(FavoritesChip.GENRES in favoritesOnly) { it.id in favorites }
         }.stateInViewModel(LoadState.Loading)
 
-    /** Die Künstler (in ihrer Sortierung), mit dem Chip „Favoriten“ nur die favorisierten. */
+    /** The artists (in their sort order), with the "Favorites" chip only the favorited ones. */
     val artistsShown: StateFlow<LoadState<List<Artist>>> =
         combine(artists, favoritesOnly, favoriteArtistIds) { state, favoritesOnly, favorites ->
             if (FavoritesChip.ARTISTS in favoritesOnly && state is LoadState.Ready) {
@@ -114,7 +114,7 @@ class LibraryViewModel @Inject constructor(
 
     fun toggleFavoritesOnly(chip: FavoritesChip) = chosenFavorites.update { if (chip in it) it - chip else it + chip }
 
-    /** Alle Songs der gezeigten [artists], Künstler für Künstler (jeder Song einmal) oder gemischt. */
+    /** All songs of the shown [artists], artist by artist (each song once) or shuffled. */
     fun playArtists(artists: List<Artist>, shuffle: Boolean) {
         viewModelScope.launch {
             val songs = artists.flatMap { libraryRepository.songsOfArtist(it.id) }.distinctBy { it.id }
@@ -122,7 +122,7 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    /** Alle Songs der gezeigten (gefilterten) [albums], Album für Album in ihrer Reihenfolge oder gemischt. */
+    /** All songs of the shown (filtered) [albums], album by album in their order or shuffled. */
     fun playAlbums(albums: List<Album>, shuffle: Boolean) {
         viewModelScope.launch {
             val songs = libraryRepository.songsOfAlbums(albums.map { it.id })
@@ -138,7 +138,7 @@ class LibraryViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), 0)
     val playlists: StateFlow<LoadState<List<Playlist>>> = playlistRepository.playlists().stateInViewModel()
 
-    /** `null`, solange noch geladen wird; nur für die Auswahl beim Anlegen einer Playlist. */
+    /** `null` while still loading; only for the selection when creating a playlist. */
     val servers: StateFlow<List<ServerInfo>?> = serverRepository.servers()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 

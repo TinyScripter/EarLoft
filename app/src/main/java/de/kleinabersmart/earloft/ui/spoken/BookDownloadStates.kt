@@ -24,7 +24,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class BookDownloadStatesViewModel @Inject constructor(books: BookRepository, podcasts: PodcastRepository) : ViewModel() {
-    /** Bücher und Folgen; bei Folgen ohne Größe (die braucht hier niemand). */
+    /** Books and episodes; for episodes without size (nobody needs it here). */
     val states: StateFlow<Map<Long, BookDownload>> = combine(books.downloads(), podcasts.episodeDownloadStates()) { books, episodes ->
         books + episodes.mapValues { (_, state) -> BookDownload(state, 0) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
@@ -33,10 +33,10 @@ class BookDownloadStatesViewModel @Inject constructor(books: BookRepository, pod
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 }
 
-/** Download-Stand der Bücher und Folgen für alle Kacheln und Listen; ohne Eintrag gilt [TrackDownload.NONE]. */
+/** Download state of books and episodes for all tiles and lists; without an entry, [TrackDownload.NONE] applies. */
 val LocalBookDownloads: ProvidableCompositionLocal<Map<Long, BookDownload>> = compositionLocalOf { emptyMap() }
 
-/** Zahl der geladenen Folgen je Podcast (Abo-Kacheln); ohne Eintrag keine. */
+/** Number of downloaded episodes per podcast (subscription tiles); without an entry, none. */
 val LocalFeedDownloads: ProvidableCompositionLocal<Map<String, Int>> = compositionLocalOf { emptyMap() }
 
 @Composable
@@ -51,7 +51,7 @@ fun rememberFeedDownloads(viewModel: BookDownloadStatesViewModel = hiltViewModel
     return counts
 }
 
-/** Markierung eines Buchs oder einer Folge; entfernte und nie geladene haben keine. */
+/** Marker of a book or episode; removed and never-downloaded ones have none. */
 val TrackDownload.offlineMark: OfflineMark?
     get() = when (this) {
         TrackDownload.DONE -> OfflineMark.DONE
@@ -60,17 +60,17 @@ val TrackDownload.offlineMark: OfflineMark?
         TrackDownload.NONE, TrackDownload.REMOVED -> null
     }
 
-/** Markierung eines Buchs: wie [TrackDownload.offlineMark], teilweise geladene wie Alben. */
+/** Marker of a book: like [TrackDownload.offlineMark], partially downloaded ones like albums. */
 val BookDownload.offlineMark: OfflineMark?
     get() = if (partial) OfflineMark.PARTIAL else state.offlineMark
 
-/** [OfflineBadge] eines Buchs oder einer Folge, unten links auf das Cover zu setzen. */
+/** [OfflineBadge] of a book or episode, to be placed at the bottom left of the cover. */
 @Composable
 fun BookDownloadBadge(bookId: Long, modifier: Modifier = Modifier) {
     OfflineBadge(LocalBookDownloads.current[bookId]?.offlineMark, modifier)
 }
 
-/** [OfflineBadge] eines Abos mit der Zahl der geladenen Folgen. */
+/** [OfflineBadge] of a subscription with the number of downloaded episodes. */
 @Composable
 fun FeedDownloadBadge(feedId: String, modifier: Modifier = Modifier) {
     val count = LocalFeedDownloads.current[feedId] ?: return

@@ -38,7 +38,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-/** Anmeldung per OpenID und Erneuerung der Tokens (Konzept 12.11) gegen einen nachgebauten Audiobookshelf. */
+/** OpenID sign-in and token renewal (concept 12.11) against a mocked Audiobookshelf. */
 @RunWith(RobolectricTestRunner::class)
 class AbsOpenIdTest {
 
@@ -50,7 +50,7 @@ class AbsOpenIdTest {
     private val registry = AbsServerRegistry()
     private val secrets = MemorySecrets()
 
-    // Zustand des nachgebauten Servers.
+    // State of the mocked server.
     private val validAccess = ConcurrentHashMap.newKeySet<String>()
     private val refreshCalls = AtomicInteger()
 
@@ -60,7 +60,7 @@ class AbsOpenIdTest {
     @Volatile
     private var challenge: String? = null
 
-    /** Erneuerung angekommen bzw. darf antworten; `null` = sofort. */
+    /** Renewal arrived or may respond; `null` = immediately. */
     @Volatile
     private var refreshGate: Pair<CountDownLatch, CountDownLatch>? = null
 
@@ -88,7 +88,7 @@ class AbsOpenIdTest {
 
     private val baseUrl get() = server.url("/").toString()
 
-    /** Anmelden wie im Formular: Server fragen, „Browser“ (hier direkt die Rückleitung), abschließen. */
+    /** Sign in as in the form: ask the server, "browser" (here directly the redirect), complete. */
     private suspend fun signIn(serverId: String? = null): String {
         val started = servers.beginOpenId(baseUrl, AbsAuthApi.DEFAULT_REDIRECT_URI) as BeginOpenIdResult.Started
         val state = started.login.authorizationUrl.queryParameter("state")
@@ -130,7 +130,7 @@ class AbsOpenIdTest {
     @Test
     fun `an expired access token is renewed once for parallel requests`() = runTest {
         val id = signIn()
-        validAccess.clear() // Der Access-Token ist abgelaufen.
+        validAccess.clear() // The access token has expired.
 
         val me = (1..4).map { async(Dispatchers.IO) { api.me(registry[id]!!) } }.awaitAll()
 
@@ -146,8 +146,8 @@ class AbsOpenIdTest {
         val id = signIn()
         val stale = registry[id]!!
         validAccess.clear()
-        api.me(stale) // erneuert
-        api.me(stale) // läuft noch mit dem alten Token: wiederholt ohne neue Erneuerung
+        api.me(stale) // renews
+        api.me(stale) // still runs with the old token: retried without a new renewal
         assertEquals(1, refreshCalls.get())
     }
 
@@ -206,7 +206,7 @@ class AbsOpenIdTest {
     @Test
     fun `fresh renews an access token that expires soon`() = runTest {
         val id = signIn()
-        servers.server(id) // lädt die Registry, sonst ersetzte das der erste Aufruf von freshToken
+        servers.server(id) // loads the registry, otherwise the first call to freshToken would replace it
         val soon = System.currentTimeMillis() / 1000 + 60
         registry.register(registry[id]!!.copy(token = jwt("access-1", soon)))
 
@@ -250,7 +250,7 @@ class AbsOpenIdTest {
     @Test
     fun `the server decides whether the token for the watch is still valid`() = runTest {
         val id = signIn()
-        // Die Uhr des Handys geht nach: Laut JWT gilt der Token noch, der Server lehnt ihn ab.
+        // The phone's clock is behind: according to the JWT the token is still valid, the server rejects it.
         validAccess.clear()
 
         assertEquals(jwt("access-2"), servers.apiKey(id))
@@ -263,7 +263,7 @@ class AbsOpenIdTest {
         servers.server(id)
         assertTrue(servers.withExpiringToken(5 * 60).isEmpty())
 
-        // Auf der Uhr: nur der Access-Token vom Handy, kein Refresh-Token.
+        // On the watch: only the access token from the phone, no refresh token.
         secrets.values.remove(AbsSecrets.refresh(id))
         registry.register(registry[id]!!.copy(token = jwt("access-1", System.currentTimeMillis() / 1000 + 60)))
         assertEquals(listOf(id), servers.withExpiringToken(5 * 60))
@@ -373,7 +373,7 @@ class AbsOpenIdTest {
 
         val inOneHour = System.currentTimeMillis() / 1000 + 3600
 
-        /** Ein JWT, wie Audiobookshelf es ausgibt (Signatur egal). */
+        /** A JWT as Audiobookshelf issues it (signature irrelevant). */
         fun jwt(id: String, exp: Long = inOneHour): String {
             val header = encoder.encodeToString("""{"alg":"HS256","typ":"JWT"}""".toByteArray())
             val payload = encoder.encodeToString("""{"userId":"user-1","jti":"$id","exp":$exp}""".toByteArray())

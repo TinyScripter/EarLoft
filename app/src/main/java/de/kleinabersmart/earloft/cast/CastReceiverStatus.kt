@@ -23,18 +23,18 @@ import javax.net.ssl.SSLSocket
 import javax.net.ssl.X509TrustManager
 
 /**
- * Fragt einen Cast-Empfänger direkt, welche Sitzungen bei ihm laufen – nur lesend, über das Cast-Protokoll (TLS auf dem Port
- * des Geräts, Nachrichten als Protobuf `CastMessage` mit vier Byte Länge davor). Die Cast-Bibliothek kann das nur, indem sie
- * eine Sitzung startet, und das startet unsere App auf dem Empfänger. Den Statustext der Route (Zeile unter dem Namen)
- * aktualisieren die Play-Dienste nicht verlässlich: Am Emulator stand dort noch „Casting: <alter Titel>“, während längst eine
- * andere App lief (2026-11-15).
+ * Asks a cast receiver directly which sessions are running on it – read-only, via the Cast protocol (TLS on the
+ * device's port, messages as protobuf `CastMessage` prefixed with a four-byte length). The Cast library can only do this by
+ * starting a session, and that launches our app on the receiver. Play services don't reliably update the route's status
+ * text (the line below the name): on the emulator it still said "Casting: <old title>" while another app had long
+ * been running (2026-11-15).
  *
- * Der Empfänger weist sich mit einem selbst signierten Zertifikat aus, dessen CN seine Geräte-ID ist (mit Bindestrichen, am
- * Gerät gesehen); nur das wird angenommen ([DeviceCertificate]).
+ * The receiver identifies itself with a self-signed certificate whose CN is its device ID (with hyphens, seen on the
+ * device); only that is accepted ([DeviceCertificate]).
  */
 internal object CastReceiverStatus {
 
-    /** IO. Die Kennungen der Sitzungen, die bei [device] laufen; `null`, wenn er nicht antwortet. */
+    /** IO. The IDs of the sessions running on [device]; `null` if it doesn't answer. */
     suspend fun sessionIds(device: CastDevice): Set<String>? = withContext(Dispatchers.IO) {
         try {
             query(device)
@@ -58,7 +58,7 @@ internal object CastReceiverStatus {
             output.writeMessage(NAMESPACE_RECEIVER, """{"type":"GET_STATUS","requestId":1}""")
             output.flush()
             val input = DataInputStream(socket.inputStream.buffered())
-            // Dazwischen können andere Nachrichten kommen (etwa PING).
+            // Other messages (such as PING) can arrive in between.
             repeat(MAX_MESSAGES) {
                 val length = input.readInt()
                 if (length !in 0..MAX_MESSAGE_BYTES) throw IOException("Nachricht mit $length Byte")
@@ -89,8 +89,8 @@ internal object CastReceiverStatus {
 }
 
 /**
- * Nimmt nur das Zertifikat des Empfängers [deviceId] an: selbst signiert, gültig, CN gleich der Geräte-ID (ohne Bindestriche
- * verglichen, so meldet sie [CastDevice.getDeviceId]).
+ * Accepts only the certificate of the receiver [deviceId]: self-signed, valid, CN equal to the device ID (compared
+ * without hyphens, which is how [CastDevice.getDeviceId] reports it).
  */
 private class DeviceCertificate(private val deviceId: String) : X509TrustManager {
 
@@ -115,7 +115,7 @@ private class DeviceCertificate(private val deviceId: String) : X509TrustManager
 
 internal class CastMessage(val namespace: String?, val payload: String?)
 
-/** `CastMessage` mit Protokoll CASTV2_1_0, von `sender-0` an `receiver-0`, Text-Nutzlast. */
+/** `CastMessage` with protocol CASTV2_1_0, from `sender-0` to `receiver-0`, text payload. */
 internal fun encodeCastMessage(namespace: String, payload: String): ByteArray {
     val out = ByteArrayOutputStream()
     fun varint(value: Int) {
@@ -143,7 +143,7 @@ internal fun encodeCastMessage(namespace: String, payload: String): ByteArray {
     return out.toByteArray()
 }
 
-/** Liest Namensraum (Feld 4) und Text-Nutzlast (Feld 6) einer `CastMessage`; alles andere wird übersprungen. */
+/** Reads the namespace (field 4) and text payload (field 6) of a `CastMessage`; everything else is skipped. */
 internal fun decodeCastMessage(bytes: ByteArray): CastMessage {
     var position = 0
     fun varint(): Long {
@@ -184,7 +184,7 @@ internal fun decodeCastMessage(bytes: ByteArray): CastMessage {
     return CastMessage(namespace, payload)
 }
 
-/** Aus einer Nachricht `RECEIVER_STATUS` die Kennungen der laufenden Sitzungen; `null` bei einer anderen Nachricht. */
+/** The IDs of the running sessions from a `RECEIVER_STATUS` message; `null` for any other message. */
 internal fun receiverSessionIds(payload: String?): Set<String>? {
     val root = try {
         Json.parseToJsonElement(payload ?: return null) as? JsonObject

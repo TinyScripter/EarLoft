@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Treffer einer Suche über Musik, Podcasts und Bücher; Bereiche, die nicht durchsucht wurden, sind leer. */
+/** Results of a search across music, podcasts and books; sections that were not searched are empty. */
 data class AreaSearchResults(
     val music: SearchResults = SearchResults.EMPTY,
     val feeds: List<PodcastFeed> = emptyList(),
@@ -35,8 +35,8 @@ data class AreaSearchResults(
 }
 
 /**
- * Die eine Suche für App, Android Auto und Sprachbefehle (Konzept 7.1/12.5). Ausgeschaltete Bereiche (Allgemein → Bereiche)
- * werden nie durchsucht, auch wenn der Aufrufer sie verlangt.
+ * The single search for the app, Android Auto and voice commands (concept 7.1/12.5). Disabled sections (General → Sections)
+ * are never searched, even if the caller requests them.
  */
 @Singleton
 class LibrarySearch @Inject constructor(
@@ -45,7 +45,7 @@ class LibrarySearch @Inject constructor(
     private val podcastRepository: PodcastRepository,
     private val spokenSettings: SpokenSettings,
 ) {
-    /** Sucht [query] in [areas] (Standard: alle), soweit sie eingeschaltet sind. */
+    /** Searches [query] in [areas] (default: all), as far as they are enabled. */
     suspend fun search(query: String, areas: Collection<SpokenMode> = SpokenMode.entries): AreaSearchResults {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) return AreaSearchResults.EMPTY

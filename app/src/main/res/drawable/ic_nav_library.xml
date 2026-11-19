@@ -6,7 +6,7 @@
     android:viewportWidth="512"
     android:viewportHeight="512">
 
-    <!-- Schallwellenbögen Links -->
+    <!-- Sound wave arcs left -->
     <path
         android:pathData="M 125,120 C 70,195 70,317 125,392"
         android:strokeWidth="14"
@@ -31,7 +31,7 @@
         </aapt:attr>
     </path>
 
-    <!-- Schallwellenbögen Rechts -->
+    <!-- Sound wave arcs right -->
     <path
         android:pathData="M 387,120 C 442,195 442,317 387,392"
         android:strokeWidth="14"
@@ -56,7 +56,7 @@
         </aapt:attr>
     </path>
 
-    <!-- Buch 1 (Links) -->
+    <!-- Book 1 (left) -->
     <path
         android:pathData="M 185,170 L 215,170 A 10,10 0 0,1 225,180 L 225,370 A 10,10 0 0,1 215,380 L 185,380 A 10,10 0 0,1 175,370 L 175,180 A 10,10 0 0,1 185,170 Z"
         android:strokeWidth="8">
@@ -67,14 +67,14 @@
             </gradient>
         </aapt:attr>
     </path>
-    <!-- Binnenlinien Buch 1 -->
+    <!-- Inner lines book 1 -->
     <path
         android:pathData="M 192,185 V 365 M 208,185 V 365"
         android:strokeColor="#FF00F5D4"
         android:strokeWidth="2.5"
         android:strokeAlpha="0.4" />
 
-    <!-- Buch 2 (Mitte) -->
+    <!-- Book 2 (middle) -->
     <path
         android:pathData="M 245,170 L 275,170 A 10,10 0 0,1 285,180 L 285,370 A 10,10 0 0,1 275,380 L 245,380 A 10,10 0 0,1 235,370 L 235,180 A 10,10 0 0,1 245,170 Z"
         android:strokeWidth="8">
@@ -85,14 +85,14 @@
             </gradient>
         </aapt:attr>
     </path>
-    <!-- Binnenlinien Buch 2 -->
+    <!-- Inner lines book 2 -->
     <path
         android:pathData="M 252,185 V 365 M 268,185 V 365"
         android:strokeColor="#FF9D4EDD"
         android:strokeWidth="2.5"
         android:strokeAlpha="0.4" />
 
-    <!-- Buch 3 (Geneigt rechts) -->
+    <!-- Book 3 (tilted right) -->
     <path
         android:pathData="M 305,174 L 333,180 A 10,10 0 0,1 340,193 L 305,376 A 10,10 0 0,1 292,383 L 264,377 A 10,10 0 0,1 257,364 L 292,181 A 10,10 0 0,1 305,174 Z"
         android:strokeWidth="8">
@@ -103,7 +103,7 @@
             </gradient>
         </aapt:attr>
     </path>
-    <!-- Binnenlinien Buch 3 -->
+    <!-- Inner lines book 3 -->
     <path
         android:pathData="M 295,190 L 268,365 M 310,193 L 283,368"
         android:strokeColor="#FFFF0055"

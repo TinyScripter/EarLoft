@@ -14,14 +14,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Die Uhr im Einrichtungsassistenten: ob es eine gibt und die wichtigsten Einstellungen der Uhr-Seite. */
+/** The watch in the setup wizard: whether there is one, and the most important settings of the watch page. */
 @HiltViewModel
 class SetupWatchViewModel @Inject constructor(
     connection: WatchConnection,
     private val watchSettings: WatchSettingsRepository,
 ) : ViewModel() {
 
-    /** `null`, solange noch nicht bekannt ist, ob es eine Uhr gibt. */
+    /** `null` as long as it isn't known yet whether there is a watch. */
     val watch: StateFlow<WatchSetup?> = connection.setup
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), connection.lastSetup)
 

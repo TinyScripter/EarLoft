@@ -18,7 +18,7 @@ dependencies {
     implementation(libs.androidx.media3.inspector)
 
     testImplementation(libs.okhttp.mockwebserver)
-    // XmlPullParser für `metadata.opf` (android.jar hat nur Stubs).
+    // XmlPullParser for `metadata.opf` (android.jar only has stubs).
     testImplementation(libs.kxml2)
     testImplementation(libs.kotlinx.coroutines.test)
 }

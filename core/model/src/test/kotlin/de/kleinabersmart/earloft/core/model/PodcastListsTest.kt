@@ -3,7 +3,7 @@ package de.kleinabersmart.earloft.core.model
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Filter, Reihenfolge und „Folgen behalten“ der Podcast-Listen. */
+/** Filter, order and "Keep episodes" of the podcast lists. */
 class PodcastListsTest {
 
     private fun episode(id: Long, feed: String = "f", progress: BookProgress? = null) = BookWithProgress(
@@ -16,7 +16,7 @@ class PodcastListsTest {
 
     private fun feed(id: String) = PodcastFeed(id, "https://example.org/$id", id, "", "", null, autoDownload = false, lastRefreshAt = 0)
 
-    // Neueste zuerst: 5 neu, 4 angefangen, 3 gehört, 2 neu, 1 geladen.
+    // Newest first: 5 new, 4 started, 3 played, 2 new, 1 downloaded.
     private val episodes = listOf(
         episode(5),
         episode(4, progress = progress(300)),
@@ -53,7 +53,7 @@ class PodcastListsTest {
             it.progress == null || (!it.progress.finished && it.progress.positionMs <= 0)
         }
 
-        // Von „f“ die zwei neuesten, dazu die angefangene und die gehörte; „g“ behält alles.
+        // From "f" the two newest, plus the started and the played one; "g" keeps everything.
         assertEquals(listOf(9L, 5L, 4L, 3L, 8L), kept.map { it.book.id })
         assertEquals(mixed, mixed.keepNewest({ it.book.serverId }, { 0 }) { true })
     }

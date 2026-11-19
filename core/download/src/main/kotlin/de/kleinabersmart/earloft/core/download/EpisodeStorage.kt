@@ -7,11 +7,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Ablage der heruntergeladenen Podcast-Folgen, getrennt von der Musik (`downloads`). Wie dort in `noBackupFilesDir`:
- * weder gesichert noch per Geräteübertragung kopiert.
+ * Storage for downloaded podcast episodes, separate from music (`downloads`). As there, in `noBackupFilesDir`:
+ * neither backed up nor copied by device transfer.
  *
- * Eine unterbrochene Datei bleibt als `.part` liegen, solange die Folge wartet; daneben das Merkmal der Serverdatei
- * (`.part.meta`, siehe [ResumableTransfer]).
+ * An interrupted file stays as `.part` while the episode is waiting; next to it the server file's fingerprint
+ * (`.part.meta`, see [ResumableTransfer]).
  */
 @Singleton
 class EpisodeStorage internal constructor(val directory: File) : PartFiles {
@@ -22,27 +22,27 @@ class EpisodeStorage internal constructor(val directory: File) : PartFiles {
     fun fileFor(bookId: Long, mimeType: String?): File =
         File(directory, "episode-$bookId.${DownloadStorage.extensionFor(mimeType)}")
 
-    /** Ziel während des Ladens; wird erst nach vollständigem Download umbenannt. */
+    /** Target during the download; only renamed after a complete download. */
     fun partFileFor(bookId: Long): File = File(directory, "episode-$bookId$PART_SUFFIX")
 
-    /** Merkmal der Serverdatei, zu der die Teildatei gehört. */
+    /** Fingerprint of the server file the partial file belongs to. */
     fun metaFileFor(bookId: Long): File = File(directory, "episode-$bookId$META_SUFFIX")
 
     override fun partFileFor(bookId: Long, trackIndex: Int): File = partFileFor(bookId)
 
     override fun metaFileFor(bookId: Long, trackIndex: Int): File = metaFileFor(bookId)
 
-    /** Teildatei einer Übertragung vom Handy (Uhr), wie [DownloadStorage.phonePartFileFor]. */
+    /** Partial file of a transfer from the phone (watch), like [DownloadStorage.phonePartFileFor]. */
     fun phonePartFileFor(bookId: Long): File = File(directory, "episode-$bookId${DownloadStorage.PHONE_PART_SUFFIX}")
 
-    /** Gesamtlänge der Datei laut Handy, zu [phonePartFileFor]. */
+    /** Total length of the file according to the phone, for [phonePartFileFor]. */
     fun phoneLengthFileFor(bookId: Long): File = File(directory, "episode-$bookId${DownloadStorage.PHONE_LENGTH_SUFFIX}")
 
     override fun ensureDirectory(): File = directory.apply { mkdirs() }
 
     override fun freeBytes(): Long = ensureDirectory().usableSpace
 
-    /** Löscht Datei und Teildatei der Folge. */
+    /** Deletes the episode's file and partial file. */
     fun delete(bookId: Long, filePath: String?) {
         filePath?.let { File(it).delete() }
         partFileFor(bookId).delete()
@@ -51,7 +51,7 @@ class EpisodeStorage internal constructor(val directory: File) : PartFiles {
         phoneLengthFileFor(bookId).delete()
     }
 
-    /** Löscht Dateien, die zu keinem Eintrag mehr gehören (z. B. nach Abo-Ende). @return Anzahl. */
+    /** Deletes files that no longer belong to any entry (e.g. after a subscription ends). @return count. */
     fun deleteOrphans(knownFilePaths: Collection<String>, bookIdsWithPart: Collection<Long>): Int {
         val keep = HashSet<String>()
         knownFilePaths.mapTo(keep) { File(it).name }

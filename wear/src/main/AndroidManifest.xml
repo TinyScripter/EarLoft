@@ -4,19 +4,19 @@
 
     <uses-feature android:name="android.hardware.type.watch" />
 
-    <!-- WLAN für Downloads ausdrücklich anfordern (Wear-Konzept 8.2); Vordergrund-Rechte kommen aus :core:download. -->
+    <!-- Explicitly request Wi-Fi for downloads (Wear concept 8.2); foreground permissions come from :core:download. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- Ab Android 17 (targetSdk 37) erreicht die App Geräte im Heimnetz, z. B. den Navidrome, nur mit dieser Laufzeitberechtigung. -->
+    <!-- From Android 17 (targetSdk 37) on, the app reaches devices on the home network, e.g. Navidrome, only with this runtime permission. -->
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
 
-    <!-- Ohne sie bleibt die Download-Benachrichtigung unsichtbar und mit ihr das Symbol der laufenden Downloads auf dem
-         Zifferblatt (Ongoing Activity, WO-V4). Die Wiedergabe braucht sie nicht, Medien-Benachrichtigungen sind ausgenommen. -->
+    <!-- Without it the download notification stays invisible, and with it the icon of running downloads on the
+         watch face (Ongoing Activity, WO-V4). Playback does not need it, media notifications are exempt. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Kommen aus :core:datasource; die Uhr scannt keine eigene Musik (Wear-Konzept 7.3). -->
+    <!-- Come from :core:datasource; the watch does not scan any music of its own (Wear concept 7.3). -->
     <uses-permission
         android:name="android.permission.READ_MEDIA_AUDIO"
         tools:node="remove" />
@@ -24,9 +24,9 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         tools:node="remove" />
 
-    <!-- largeHeap: Die Uhr spielt lange M4B mit demselben ExoPlayer wie das Handy; er hält die Sample-Tabelle der ganzen Datei
-         im Java-Heap (ein 17-h-Buch etwa 85 MB, beim Einlesen kurz das Doppelte), die normale Grenze liegt auch am
-         Uhr-Emulator bei 192 MB (mit largeHeap 512 MB). -->
+    <!-- largeHeap: The watch plays long M4B files with the same ExoPlayer as the phone; it keeps the sample table of the whole file
+         in the Java heap (a 17 h book about 85 MB, briefly double that while parsing); the normal limit is 192 MB even on
+         the watch emulator (512 MB with largeHeap). -->
     <application
         android:name=".WearApplication"
         android:allowBackup="false"
@@ -38,8 +38,8 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault">
 
-        <!-- Nicht eigenständig: Server, Zugangsdaten und Auswahl kommen nur von der Handy-App (auf der Uhr gibt es keine
-             Anmeldung, WO-P6). Danach spielt und lädt die Uhr auch ohne Handy. -->
+        <!-- Not standalone: server, credentials and selection only come from the phone app (there is no login on the
+             watch, WO-P6). After that the watch plays and downloads without the phone too. -->
         <meta-data
             android:name="com.google.android.wearable.standalone"
             android:value="false" />
@@ -55,15 +55,15 @@
             </intent-filter>
         </activity>
 
-        <!-- Der Worker startet einen dataSync-Vordergrunddienst; :core:download deklariert ihn auch, aber Lint prüft nur dieses Manifest. -->
+        <!-- The worker starts a dataSync foreground service; :core:download declares it too, but Lint only checks this manifest. -->
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
 
-        <!-- Änderungen und Nachrichten vom Handy (Wear-Konzept 4); die Play-Dienste starten den Dienst bei Bedarf. Nur die
-             Pfade, die der Dienst verarbeitet: Fernsteuerung, Cover und Handy-Info liest nur die offene App, und jedes
-             Item startete sonst den Prozess (samt Abgleich, Planer und Status ans Handy). -->
+        <!-- Changes and messages from the phone (Wear concept 4); Play services start the service when needed. Only the
+             paths the service handles: remote control, covers and phone info are read only by the open app, and every
+             item would otherwise start the process (including sync, planner and status to the phone). -->
         <service
             android:name=".sync.WatchListenerService"
             android:exported="true">
@@ -76,7 +76,7 @@
                 <data android:path="/earloft/settings" />
                 <data android:path="/earloft/podcasts" />
             </intent-filter>
-            <!-- Zugangsdaten und die Antwort des Handys, wenn der Download-Auftrag auf es wartet (/earloft/phone-back, Review V1). -->
+            <!-- Credentials and the phone's answer when the download job is waiting for it (/earloft/phone-back, Review V1). -->
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
                 <data android:scheme="wear" />

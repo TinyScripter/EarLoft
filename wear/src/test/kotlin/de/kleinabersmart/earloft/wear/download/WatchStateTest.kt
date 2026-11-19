@@ -58,7 +58,7 @@ class WatchStateTest {
         assertTrue(state.isMarkedViaPhone("nd:1"))
         assertTrue(state.isMarkedViaPhone("nd:2"))
         assertFalse(state.isMarkedViaPhone("nd:3"))
-        // Der Server wird weiter zuerst gefragt.
+        // The server is still asked first.
         assertFalse(state.hasServerFailedTooOften("nd:1"))
     }
 

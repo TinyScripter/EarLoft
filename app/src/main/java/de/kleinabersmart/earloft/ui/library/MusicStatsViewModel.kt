@@ -26,16 +26,16 @@ class MusicStatsViewModel @Inject constructor(
 ) : ViewModel() {
     private val year = MutableStateFlow<Int?>(null)
 
-    /** `null`, solange die Zahlen noch geladen werden (oder nicht lesbar waren). */
+    /** `null` while the numbers are still loading (or couldn't be read). */
     val stats: StateFlow<MusicStats?> =
         year.flatMapLatest { repository.musicStats(it).orOnError(null) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Zeigt die Zahlen dieses Jahres; `null` für „Gesamt“. */
+    /** Shows the numbers of this year; `null` for "All time". */
     fun selectYear(value: Int?) {
         year.value = value
     }
 
-    /** Spielt die meistgehörten Songs ab dem angetippten. */
+    /** Plays the most played songs starting from the tapped one. */
     fun playTopSongs(songIds: List<Long>, songId: Long) {
         viewModelScope.launch {
             val songs = libraryRepository.songs(songIds)

@@ -40,7 +40,7 @@ class WearSelectionRepositoryTest {
         listOf(track("c", "C", 3, sizeBytes = 3_000), track("a", "A", 1, sizeBytes = 1_000), track("b", "B", 2, sizeBytes = 2_000)),
     )
 
-    /** „A“ gibt es auch lokal (wird mit dem Server-Song zusammengeführt), „Sommerlied“ nur lokal. */
+    /** "A" also exists locally (merged with the server song), "Sommerlied" only locally. */
     private val local = FakeLocalSource(
         listOf(track("1", "A", 1, sizeBytes = 9_000), track("2", "Sommerlied", 1, album = "Lokal", sizeBytes = 4_000)),
     )

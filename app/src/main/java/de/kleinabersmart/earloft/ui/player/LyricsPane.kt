@@ -37,9 +37,9 @@ import de.kleinabersmart.earloft.core.model.LyricLine
 import de.kleinabersmart.earloft.core.model.Lyrics
 
 /**
- * Songtext statt Cover. [lyrics] ist `null`, solange geladen wird. Synchronisierte Zeilen
- * folgen der Wiedergabe und springen beim Antippen an ihre Stelle. Stammt der Text von LRCLIB ([fromLrclib]),
- * steht die Quelle darunter.
+ * Lyrics instead of the cover. [lyrics] is `null` while loading. Synced lines
+ * follow playback and seek to their position when tapped. If the text comes from LRCLIB ([fromLrclib]),
+ * the source is shown below.
  */
 @Composable
 fun LyricsPane(
@@ -67,7 +67,7 @@ fun LyricsPane(
     }
 }
 
-/** Quelle am Ende eines Textes aus dem Internet. */
+/** Source at the end of a text from the internet. */
 @Composable
 private fun SourceNote() {
     Text(
@@ -95,11 +95,11 @@ private fun Hint(text: String, modifier: Modifier, retry: (() -> Unit)? = null) 
 
 @Composable
 private fun SyncedLyrics(lines: List<LyricLine>, fromLrclib: Boolean, positionMs: () -> Long, onSeek: (Long) -> Unit, modifier: Modifier) {
-    // Nur wenn die aktive Zeile wechselt, wird neu zusammengesetzt, nicht bei jedem Positions-Tick.
+    // Recompose only when the active line changes, not on every position tick.
     val currentPositionMs by rememberUpdatedState(positionMs)
     val active by remember(lines) { derivedStateOf { lines.indexOfLast { it.startMs <= currentPositionMs() } } }
     val listState = rememberLazyListState()
-    // Die aktive Zeile steht an zweiter Stelle, davor bleibt die vorige sichtbar; Polster unten erlaubt das auch bei den letzten Zeilen.
+    // The active line is in second place, the previous one stays visible above it; bottom padding allows this for the last lines too.
     BoxWithConstraints(modifier.fillMaxSize()) {
         LaunchedEffect(lines, active) {
             if (active >= 0) listState.animateScrollToItem((active - 1).coerceAtLeast(0))

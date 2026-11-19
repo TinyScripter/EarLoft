@@ -20,7 +20,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** Favoriten von Alben und Künstlern zwischen App und Servern (Konzept 6.4). */
+/** Album and artist favorites between the app and the servers (concept 6.4). */
 @RunWith(RobolectricTestRunner::class)
 class CollectionFavoritesSyncTest {
 
@@ -83,7 +83,7 @@ class CollectionFavoritesSyncTest {
         assertTrue(db.syncQueueProcessor(nd).process())
         assertEquals(listOf("favorite artist ar1 true"), nd.calls)
 
-        // Der Server nennt den Künstler (wieder) nicht: auf einem anderen Gerät entsternt.
+        // The server (again) doesn't list the artist: unstarred on another device.
         assertTrue(syncer.quickSync(nd))
 
         assertFalse(favorites.isArtistFavorite(artistId()).first())
@@ -136,13 +136,13 @@ class CollectionFavoritesSyncTest {
         syncer.syncAdding(db, nd)
         favorites.setCollectionFavorite(FavoriteKind.ALBUM, albumId(), true)
 
-        // Der Server führt das Album jetzt unter neuer ID; die alte gibt es nicht mehr.
+        // The server now lists the album under a new ID; the old one no longer exists.
         nd.tracks = listOf(track("a", albumRemoteId = "al2"))
         syncer.syncAdding(db, nd)
         assertNull(db.mergeDao().getAlbumSource("nd", "al1"))
 
         assertTrue(db.syncQueueProcessor(nd).process())
-        // Die neue ID ist eine neue Quelle des favorisierten Albums und bekommt den Stern.
+        // The new ID is a new source of the favorited album and gets the star.
         assertEquals(listOf("favorite album al2 true"), nd.calls)
     }
 

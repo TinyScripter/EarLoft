@@ -11,17 +11,17 @@ import javax.inject.Singleton
 
 private const val COVER_SIZE_PX = 128
 
-/** Grundfarbe eines Albums für das Farbschema; wird einmal aus dem Cover berechnet und in `albums.seedColor` gespeichert. */
+/** Seed color of an album for the color scheme; computed once from the cover and stored in `albums.seedColor`. */
 @Singleton
 class AlbumColorRepository @Inject constructor(
     private val libraryDao: LibraryDao,
     private val artwork: ArtworkRepository,
 ) {
-    /** Die gespeicherte Farbe (ARGB), `null` solange sie fehlt; fehlt sie, wird sie berechnet und der Fluss liefert sie danach. */
+    /** The stored color (ARGB), `null` while missing; if missing, it is computed and the flow emits it afterwards. */
     fun seedColor(albumId: Long): Flow<Int?> =
         libraryDao.observeSeedColor(albumId).onEach { if (it == null) compute(albumId) }
 
-    /** Einmalige Abfrage (z. B. für das Widget): gespeicherte Farbe oder – falls nötig – frisch berechnet. */
+    /** One-off query (e.g. for the widget): stored color or – if necessary – freshly computed. */
     suspend fun seedColorNow(albumId: Long): Int? =
         libraryDao.observeSeedColor(albumId).first() ?: compute(albumId)
 

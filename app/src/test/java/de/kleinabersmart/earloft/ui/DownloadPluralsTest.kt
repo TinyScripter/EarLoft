@@ -9,7 +9,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Die beiden Download-Zeilen mit Mehrzahl: „1 von 1 Song“ statt „1 von 1 Songs“ (Englisch und Deutsch). */
+/** The two download lines with plurals: "1 of 1 song" instead of "1 of 1 songs" (English and German). */
 @RunWith(RobolectricTestRunner::class)
 class DownloadPluralsTest {
 

@@ -75,7 +75,7 @@ class SongDataSourceTest {
         dataSource(home, office).open(spec(songId = 1, position = 5000))
         assertEquals(listOf("office"), upstream.opened)
 
-        // Mitten in der Datei wird nicht gewechselt, auch wenn die Quelle ausfällt.
+        // No switching in the middle of the file, even if the source fails.
         upstream.unreachable += "office"
         upstream.opened.clear()
         assertThrows(IOException::class.java) { dataSource(home, office).open(spec(songId = 1, position = 5000)) }
@@ -102,7 +102,7 @@ class SongDataSourceTest {
         dataSource(local, home).open(spec(songId = 3))
         assertEquals(PlayedFrom(PlayedFrom.Kind.DEVICE, "local"), playing.bySong.value[3L])
 
-        // Gemeldet wird nur der Anfang: Ein Sprung mitten in die Datei sagt nichts darüber, woher der Titel spielt.
+        // Only the start is reported: a jump into the middle of the file says nothing about where the title plays from.
         dataSource(home).open(spec(songId = 4, position = 5000))
         assertEquals(null, playing.bySong.value[4L])
     }
@@ -116,7 +116,7 @@ class SongDataSourceTest {
             SongDataSource(upstream, { candidates.toList() }, health, onResolved = { _, _ -> }, onOpened = playing::record, isFullyCached = { it in cached })
                 .open(spec(songId, position))
 
-        // Das Original liegt schon ganz im Cache: kostet nichts, also das.
+        // The original is already completely in the cache: costs nothing, so that one.
         open(1, 0, setOf("home:1"), opus, home)
         assertEquals(listOf("home"), upstream.opened)
         assertEquals(PlayedFrom(PlayedFrom.Kind.STREAM, "home"), playing.bySong.value[1L])
@@ -126,7 +126,7 @@ class SongDataSourceTest {
         assertEquals(listOf("home-opus"), upstream.opened)
         assertEquals(PlayedFrom(PlayedFrom.Kind.STREAM, "home", "opus" to 128), playing.bySong.value[2L])
 
-        // Ins WLAN gewechselt, die Umwandlung ist kein Kandidat mehr: Spulen bleibt trotzdem bei ihr.
+        // Switched to Wi-Fi, the transcode is no longer a candidate: seeking still stays with it.
         upstream.opened.clear()
         open(2, 5000, emptySet(), home)
         assertEquals(listOf("home-opus"), upstream.opened)
@@ -137,7 +137,7 @@ class SongDataSourceTest {
         val download = ResolvedPlayback(PlaybackLocation.LocalFile(Uri.parse("file:///dl/1.flac")), null, sourceId = null)
         val opus = home.copy(location = PlaybackLocation.Remote(Uri.parse("http://home-opus/stream"), "home:1:opus-128"), transcodedTo = "opus" to 128)
         assertEquals(listOf(download, office, opus, home), listOf(download, opus, home, office).preferCachedOriginals { it == "office:1" })
-        // Ohne Umwandlung bleibt alles, wie es ist.
+        // Without a transcode everything stays as it is.
         assertEquals(listOf(home, office), listOf(home, office).preferCachedOriginals { it == "office:1" })
     }
 
@@ -147,7 +147,7 @@ class SongDataSourceTest {
     private fun stream(host: String, key: String, replayGain: ReplayGain) =
         ResolvedPlayback(PlaybackLocation.Remote(Uri.parse("http://$host/stream"), key), replayGain, sourceId = host)
 
-    /** Öffnet alles außer den Hosts bzw. Dateinamen in [unreachable]. */
+    /** Opens everything except the hosts or file names in [unreachable]. */
     private class FakeUpstream : DataSource {
         val unreachable = mutableSetOf<String>()
         val opened = mutableListOf<String>()

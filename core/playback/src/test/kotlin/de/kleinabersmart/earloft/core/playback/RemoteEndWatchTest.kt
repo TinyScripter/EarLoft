@@ -28,7 +28,7 @@ class RemoteEndWatchTest {
     @Test
     fun `speed is taken into account`() {
         watch.playing(bookId = 7, isEpisode = false, positionMs = 3_570_000, durationMs = 3_600_000, speed = 2f)
-        now += 12_000 // 24 s Inhalt: 6 s vor dem Ende
+        now += 12_000 // 24 s of content: 6 s before the end
 
         assertEquals(7L, watch.ended()?.bookId)
     }

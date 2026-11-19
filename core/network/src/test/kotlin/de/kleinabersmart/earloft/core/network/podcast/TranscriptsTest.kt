@@ -70,7 +70,7 @@ class TranscriptsTest {
         val srt = "1\r\n00:00:01,000 --> 00:00:02,000\r\nDas ist ein ziemlich langer Satz, der über\r\n\r\n" +
             "2\r\n00:00:02,000 --> 00:00:04,000\r\nmehrere Untertitel geht und dann endlich aufhört, wie man sieht.\r\n\r\n" +
             "3\r\n00:00:04,000 --> 00:00:05,000\r\nNeuer Absatz.\r\n"
-        // Als Text angekündigt, aber der Inhalt ist SRT.
+        // Announced as text, but the content is SRT.
         val segments = parseTranscript(srt, TranscriptFormat.TEXT).segments
         assertEquals(2, segments.size)
         assertEquals("Das ist ein ziemlich langer Satz, der über mehrere Untertitel geht und dann endlich aufhört, wie man sieht.", segments[0].text)

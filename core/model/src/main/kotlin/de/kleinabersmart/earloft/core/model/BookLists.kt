@@ -1,13 +1,13 @@
 package de.kleinabersmart.earloft.core.model
 
-/** Reihenfolge des Reiters „Alle“ der Bücher. [AUTHOR]: darin nach Serie und Band, dann Titel. */
+/** Sort order of the books' "All" tab. [AUTHOR]: within that by series and volume, then title. */
 enum class BookSort { TITLE, AUTHOR, RECENTLY_ADDED, RECENTLY_PLAYED, DURATION, YEAR }
 
-/** Filter des Reiters „Alle“; [DOWNLOADED] schließt Bücher vom Gerät ein (sie liegen ohnehin da). */
+/** Filter of the "All" tab; [DOWNLOADED] includes books from the device (they're there anyway). */
 enum class BookFilter { ALL, NOT_STARTED, STARTED, FINISHED, DOWNLOADED }
 
-/** Reihenfolge des Reiters „Serien“: nach Name oder zuletzt gehört (irgendein Band der Serie). */
+/** Sort order of the "Series" tab: by name or last played (any volume of the series). */
 enum class SeriesSort { NAME, RECENTLY_PLAYED }
 
-/** Reihenfolge des Reiters „Autoren“: nach Name oder Anzahl der Bücher. */
+/** Sort order of the "Authors" tab: by name or number of books. */
 enum class AuthorSort { NAME, BOOK_COUNT }

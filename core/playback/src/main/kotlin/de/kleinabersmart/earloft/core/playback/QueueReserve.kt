@@ -1,20 +1,20 @@
 package de.kleinabersmart.earloft.core.playback
 
 /**
- * Der Teil einer Warteschlange, der gerade nicht im Player liegt (Cast: der Empfänger hält nur etwa 50 Titel).
- * [after] wird stückweise nachgereicht ([take]), wenn der Player sich dem Ende nähert; dafür gehen gespielte Titel aus dem
- * Player nach [before] ([keepBefore]). [before] (was vor dem Fenster lag) und der Rest kommen beim Wechsel zurück aufs
- * Handy wieder dazu ([complete]). Nur Main-Thread.
+ * The part of a queue that is currently not in the player (cast: the receiver only holds about 50 titles).
+ * [after] is handed over piece by piece ([take]) as the player approaches the end; in return played titles move from the
+ * player to [before] ([keepBefore]). [before] (what lay before the window) and the rest are added back when switching back
+ * to the phone ([complete]). Main thread only.
  */
 class QueueReserve<T> {
 
     private var before: List<T> = emptyList()
     private val after = ArrayDeque<T>()
 
-    /** Wie viele Titel noch nachgereicht werden können. */
+    /** How many titles can still be handed over. */
     val remaining: Int get() = after.size
 
-    /** Weder etwas davor noch etwas dahinter. */
+    /** Neither anything before nor anything after. */
     fun isEmpty(): Boolean = before.isEmpty() && after.isEmpty()
 
     fun reset(before: List<T> = emptyList(), after: List<T> = emptyList()) {
@@ -25,30 +25,30 @@ class QueueReserve<T> {
 
     fun clear() = reset()
 
-    /** Was noch nachgereicht werden sollte, fällt weg; was vor dem Fenster lag, bleibt. */
+    /** Whatever still was to be handed over is dropped; what lay before the window stays. */
     fun clearAfter() = after.clear()
 
-    /** Gespielte Titel, die aus dem Player genommen wurden, um Platz zu machen: Sie gehören hinter das bisherige [before]. */
+    /** Played titles removed from the player to make room: they belong after the existing [before]. */
     fun keepBefore(items: List<T>) {
         before = before + items
     }
 
-    /** Hängt [items] hinter alles an, was noch aussteht. */
+    /** Appends [items] after everything still pending. */
     fun append(items: List<T>) {
         after.addAll(items)
     }
 
-    /** Die nächsten höchstens [count] Titel, ohne sie zu entnehmen. */
+    /** The next at most [count] titles, without taking them. */
     fun peek(count: Int): List<T> = after.take(count)
 
-    /** Entnimmt die nächsten höchstens [count] Titel. */
+    /** Takes the next at most [count] titles. */
     fun take(count: Int): List<T> {
         val taken = ArrayList<T>(minOf(count, after.size))
         while (taken.size < count && after.isNotEmpty()) taken.add(after.removeFirst())
         return taken
     }
 
-    /** Die vollständige Liste um [window] herum und der Index von [windowIndex] darin. */
+    /** The complete list around [window] and the index of [windowIndex] in it. */
     fun complete(window: List<T>, windowIndex: Int): Pair<List<T>, Int> {
         val index = if (windowIndex < 0) windowIndex else windowIndex + before.size
         return (before + window + after) to index

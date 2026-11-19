@@ -124,7 +124,7 @@ class SyncQueueProcessorTest {
         repository.recordPlay(songId, playedAt = 100_000, listenedMs = 40_000)
         assertTrue(processor().process())
 
-        // „home“ hat die höhere Priorität; die lokale Quelle zählt nicht.
+        // "home" has the higher priority; the local source doesn't count.
         assertEquals(listOf("scrobble h 60000"), home.calls)
         assertTrue(office.calls.isEmpty())
     }
@@ -189,12 +189,12 @@ class SyncQueueProcessorTest {
         var queuedDuringReport = -1
         val live = LiveServer(home).apply { onReport = { queuedDuringReport = db.syncDao().countActions() } }
 
-        // Echte Zeit: Die Room-Abfrage in der Meldung liefe sonst gegen die virtuelle Zeitgrenze von 10 s.
+        // Real time: otherwise the Room query in the report would run against the virtual 10 s time limit.
         withContext(Dispatchers.IO) {
             reporter(live, office).report(songId, playedAt = System.currentTimeMillis(), listenedMs = 40_000)
         }
 
-        // Endet der Prozess während der Meldung, bleibt sie so erhalten; danach ist sie wieder weg.
+        // If the process ends during the report, it is kept as is; afterwards it's gone again.
         assertEquals(1, queuedDuringReport)
         assertEquals(0, db.syncDao().countActions())
     }
@@ -208,7 +208,7 @@ class SyncQueueProcessorTest {
         sources = FixedSources(*sources),
     )
 
-    /** Wie [FakeServer], nimmt aber Wiedergaben live an (Jellyfin). */
+    /** Like [FakeServer], but accepts plays live (Jellyfin). */
     private class LiveServer(private val server: FakeServer) :
         MusicDataSource by server, RemoteLibraryActions by server, RemotePlaybackReporting {
         val reports = mutableListOf<String>()

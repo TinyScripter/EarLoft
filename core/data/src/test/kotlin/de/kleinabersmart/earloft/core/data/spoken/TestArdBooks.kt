@@ -11,7 +11,7 @@ import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdSoundsBooks
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 
-/** [ArdBooks] für Tests, die ihre Daten von [graphql] holen. */
+/** [ArdBooks] for tests that get their data from [graphql]. */
 fun testArdBooks(context: Context, db: EarLoftDatabase, graphql: HttpUrl, settings: SpokenSettings = SpokenSettings(context)): ArdBooks {
     val client = OkHttpClient()
     val secrets = object : SecretStore {

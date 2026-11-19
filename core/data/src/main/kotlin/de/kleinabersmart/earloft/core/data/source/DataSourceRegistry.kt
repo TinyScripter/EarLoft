@@ -26,7 +26,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Zugriff auf alle Musikquellen per `sourceId`. */
+/** Access to all music sources by `sourceId`. */
 interface MusicDataSources {
     suspend fun all(): List<MusicDataSource>
 
@@ -34,9 +34,9 @@ interface MusicDataSources {
 }
 
 /**
- * Lokale Quelle (wenn eingeschaltet, [LibrarySettings.useLocalMedia]) plus alle eingerichteten Server. Server werden beim ersten Zugriff aus der
- * Datenbank und dem [SecretStore] geladen und zugleich in der [SubsonicServerRegistry] bzw. [JellyfinServerRegistry]
- * angemeldet, damit Streams und Cover authentifiziert werden.
+ * Local source (if enabled, [LibrarySettings.useLocalMedia]) plus all configured servers. Servers are loaded on first access from the
+ * database and the [SecretStore] and at the same time registered in the [SubsonicServerRegistry] or [JellyfinServerRegistry],
+ * so streams and covers are authenticated.
  */
 @Singleton
 class DataSourceRegistry @Inject constructor(
@@ -58,13 +58,13 @@ class DataSourceRegistry @Inject constructor(
     private val unusable = MutableStateFlow<Set<String>>(emptySet())
 
     /**
-     * Server, die sich nicht nutzen lassen, weil das gespeicherte Passwort fehlt oder sich nicht mehr
-     * entschlüsseln lässt (z. B. nach Wiederherstellung auf einem anderen Gerät). Sie werden beim Abgleich
-     * übersprungen; der Nutzer muss sie neu einrichten.
+     * Servers that can't be used because the stored password is missing or can no longer be
+     * decrypted (e.g. after restoring on another device). They are skipped during sync;
+     * the user has to set them up again.
      */
     val unusableServers: StateFlow<Set<String>> = unusable.asStateFlow()
 
-    /** Ausgeschaltete Server; sie bleiben über [get] erreichbar (Cover, Downloads), werden aber nicht abgeglichen. */
+    /** Disabled servers; they remain reachable via [get] (covers, downloads), but are not synced. */
     @Volatile
     private var disabled: Set<String> = emptySet()
 
@@ -74,18 +74,18 @@ class DataSourceRegistry @Inject constructor(
     override suspend fun get(sourceId: String): MusicDataSource? =
         if (sourceId == localDataSource.sourceId) localDataSource else loadedServers()[sourceId]
 
-    /** Die eingeschalteten Server. */
+    /** The enabled servers. */
     suspend fun servers(): List<MusicDataSource> {
         val all = loadedServers()
         return all.filterKeys { it !in disabled }.values.toList()
     }
 
-    /** Eingeschaltete Server ohne gespeichertes Passwort bzw. Token (nach dem Wiederherstellen auf einem neuen Gerät). */
+    /** Enabled servers without a stored password or token (after restoring on a new device). */
     suspend fun withoutPassword(): List<String> = sourceDao.getServers()
         .filter { it.enabled && secretStore.get(passwordKey(it.sourceId)) == null }
         .map { it.sourceId }
 
-    /** Nach dem Hinzufügen, Entfernen, Ein- oder Ausschalten eines Servers aufrufen. */
+    /** Call after adding, removing, enabling or disabling a server. */
     suspend fun reload() {
         mutex.withLock { servers = load() }
     }
@@ -123,7 +123,7 @@ class DataSourceRegistry @Inject constructor(
         return JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token, flavor, jellyfinDeviceId(entity.sourceId))
     }
 
-    /** Das Gerät, als das diese Installation bei Jellyfin bzw. Emby angemeldet ist (siehe [deviceIdKey]). */
+    /** The device this installation is logged in as with Jellyfin or Emby (see [deviceIdKey]). */
     suspend fun jellyfinDeviceId(sourceId: String): String =
         secretStore.get(deviceIdKey(sourceId)) ?: JellyfinServer.legacyDeviceId(sourceId)
 
@@ -139,7 +139,7 @@ class DataSourceRegistry @Inject constructor(
             sourceId = entity.sourceId,
             baseUrl = baseUrl,
             credentials = SubsonicCredentials.Password(username, password),
-            // JSON-Liste der OpenSubsonic-Extensions, siehe ServerRepository.addServer.
+            // JSON list of OpenSubsonic extensions, see ServerRepository.addServer.
             supportsFormPost = entity.serverCapabilities?.contains("\"formPost\"") == true,
         )
     }
@@ -147,12 +147,12 @@ class DataSourceRegistry @Inject constructor(
     companion object {
         private const val TAG = "DataSourceRegistry"
 
-        /** Das Secret eines Servers: bei Subsonic das Passwort, bei Jellyfin und Emby [JellyfinSecret] (Benutzer-ID und Token). */
+        /** A server's secret: with Subsonic the password, with Jellyfin and Emby [JellyfinSecret] (user ID and token). */
         fun passwordKey(sourceId: String) = "server:$sourceId:password"
 
         /**
-         * Jellyfin und Emby: das Gerät der Anmeldung. Liegt wie das Secret nicht in der Sicherung, damit ein zweites Gerät mit
-         * derselben Sicherung sich als eigenes anmeldet. Fehlt bei Anmeldungen von vorher ([JellyfinServer.legacyDeviceId]).
+         * Jellyfin and Emby: the device of the login. Like the secret, not part of the backup, so that a second device with
+         * the same backup logs in as its own. Missing for logins from before ([JellyfinServer.legacyDeviceId]).
          */
         fun deviceIdKey(sourceId: String) = "server:$sourceId:device"
     }

@@ -8,7 +8,7 @@ import org.junit.Test
 
 class SetupPagesTest {
 
-    /** Die Benachrichtigungsseite hängt von der Android-Version ab und bleibt hier außen vor. */
+    /** The notification page depends on the Android version and is left out here. */
     private fun pages(vararg areas: SpokenMode, watch: Boolean = false) =
         visibleSetupPages(areas.toList(), watch) - SetupPage.NOTIFICATIONS
 

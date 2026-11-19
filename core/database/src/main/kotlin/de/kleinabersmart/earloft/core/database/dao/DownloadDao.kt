@@ -13,15 +13,15 @@ import de.kleinabersmart.earloft.core.database.model.SongOfflineRow
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Zugriff auf die Tabelle `downloads` (Konzept 5.3).
+ * Access to the `downloads` table (concept 5.3).
  *
- * Downloads werden immer über `song_sources` mit Songs verknüpft, nicht über die gespeicherte
- * `songId`: Ein Abgleich kann eine Quelle einem anderen Song zuordnen.
+ * Downloads are always linked to songs via `song_sources`, not via the stored
+ * `songId`: a sync can assign a source to a different song.
  */
 /**
- * Der Song (Alias `s`) ist für die Favoriten-Automatik gewollt: selbst Favorit, aus einem favorisierten Album oder – mit
- * `:withArtists` – von einem favorisierten Künstler (seine Alben ganz und die Songs, die er auf anderen Alben singt bzw.
- * spielt, wie auf der Künstlerseite).
+ * The song (alias `s`) is wanted by the favorites automation: a favorite itself, from a favorited album or – with
+ * `:withArtists` – by a favorited artist (all of their albums and the songs they sing or play on other albums,
+ * as on the artist page).
  */
 private const val FAVORITE_WANTED = """(
     s.isFavorite = 1
@@ -37,7 +37,7 @@ private const val FAVORITE_WANTED = """(
 @Dao
 interface DownloadDao {
 
-    /** Vorhandene Einträge (auch fehlgeschlagene) bleiben unverändert. */
+    /** Existing entries (including failed ones) stay unchanged. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIfAbsent(downloads: List<DownloadEntity>)
 
@@ -47,7 +47,7 @@ interface DownloadDao {
     @Query("SELECT * FROM song_sources WHERE uid = :uid")
     suspend fun getSongSource(uid: String): SongSourceEntity?
 
-    /** Songs unter [songIds], die schon einen Download haben (egal in welchem Zustand). */
+    /** Songs among [songIds] that already have a download (in whatever state). */
     @Query(
         """
         SELECT DISTINCT ss.songId FROM downloads d JOIN song_sources ss ON ss.uid = d.sourceUid
@@ -56,11 +56,11 @@ interface DownloadDao {
     )
     suspend fun getSongIdsWithDownload(songIds: List<Long>): List<Long>
 
-    /** Ältester wartender Download (Reihenfolge des Einreihens). */
+    /** Oldest waiting download (order of queuing). */
     @Query("SELECT * FROM downloads WHERE state = 'QUEUED' ORDER BY rowid LIMIT 1")
     suspend fun nextQueued(): DownloadEntity?
 
-    /** Wie [nextQueued], aber nur Quellen vom Typ `PHONE` (Uhr: Songs, die nur das Handy schicken kann). */
+    /** Like [nextQueued], but only sources of type `PHONE` (watch: songs only the phone can send). */
     @Query(
         """
         SELECT d.* FROM downloads d
@@ -72,7 +72,7 @@ interface DownloadDao {
     )
     suspend fun nextQueuedFromPhone(): DownloadEntity?
 
-    /** Die wartenden Downloads aus [sourceId]. */
+    /** The waiting downloads from [sourceId]. */
     @Query(
         """
         SELECT d.sourceUid FROM downloads d JOIN song_sources ss ON ss.uid = d.sourceUid
@@ -81,7 +81,7 @@ interface DownloadDao {
     )
     suspend fun queuedUidsOfSource(sourceId: String): List<String>
 
-    /** Wie [nextQueued], aber ohne Quellen vom Typ `PHONE`. */
+    /** Like [nextQueued], but without sources of type `PHONE`. */
     @Query(
         """
         SELECT d.* FROM downloads d
@@ -96,7 +96,7 @@ interface DownloadDao {
     @Query("UPDATE downloads SET state = 'RUNNING', bytesDone = 0 WHERE sourceUid = :sourceUid AND state = 'QUEUED'")
     suspend fun markRunning(sourceUid: String): Int
 
-    /** @return 0, wenn der Download inzwischen entfernt wurde – dann abbrechen. */
+    /** @return 0 if the download has been removed in the meantime – then abort. */
     @Query(
         """
         UPDATE downloads SET bytesDone = :bytesDone, bytesTotal = :bytesTotal
@@ -105,7 +105,7 @@ interface DownloadDao {
     )
     suspend fun updateProgress(sourceUid: String, bytesDone: Long, bytesTotal: Long?): Int
 
-    /** @return 0, wenn der Download inzwischen entfernt wurde – dann die Datei löschen. */
+    /** @return 0 if the download has been removed in the meantime – then delete the file. */
     @Query(
         """
         UPDATE downloads SET state = 'DONE', filePath = :filePath, bytesDone = :sizeBytes, bytesTotal = :sizeBytes
@@ -117,11 +117,11 @@ interface DownloadDao {
     @Query("UPDATE downloads SET state = 'FAILED' WHERE sourceUid = :sourceUid AND state = 'RUNNING'")
     suspend fun markFailed(sourceUid: String)
 
-    /** Zurück in die Warteschlange, z. B. wenn das Netz weg ist oder der Worker abgebrochen wurde. */
+    /** Back into the queue, e.g. when the network is gone or the worker was cancelled. */
     @Query("UPDATE downloads SET state = 'QUEUED', bytesDone = 0 WHERE sourceUid = :sourceUid AND state = 'RUNNING'")
     suspend fun requeue(sourceUid: String)
 
-    /** Nach einem Prozess-Tod hängengebliebene Downloads wieder einreihen. */
+    /** Requeues downloads that got stuck after process death. */
     @Query("UPDATE downloads SET state = 'QUEUED', bytesDone = 0 WHERE state = 'RUNNING'")
     suspend fun requeueRunning()
 
@@ -131,18 +131,18 @@ interface DownloadDao {
     @Query("UPDATE downloads SET state = 'QUEUED', bytesDone = 0 WHERE state = 'FAILED' AND sourceUid IN (:sourceUids)")
     suspend fun retryFailed(sourceUids: List<String>): Int
 
-    /** Abgelehnte Zugangsdaten: alle wartenden Downloads des Servers auf einmal, statt jeden einzeln anzufragen. */
+    /** Rejected credentials: all waiting downloads of the server at once, instead of requesting each one individually. */
     @Query("UPDATE downloads SET state = 'FAILED' WHERE state = 'QUEUED' AND sourceUid LIKE :sourceId || ':%'")
     suspend fun failQueuedOfSource(sourceId: String): Int
 
-    /** Nach neuen Zugangsdaten: die gescheiterten Downloads des Servers wieder einreihen. */
+    /** After new credentials: requeues the server's failed downloads. */
     @Query("UPDATE downloads SET state = 'QUEUED', bytesDone = 0 WHERE state = 'FAILED' AND sourceUid LIKE :sourceId || ':%'")
     suspend fun retryFailedOfSource(sourceId: String): Int
 
     @Query("SELECT COUNT(*) FROM downloads WHERE state IN ('QUEUED', 'RUNNING')")
     suspend fun countPending(): Int
 
-    // --- Entfernen ---
+    // --- Removal ---
 
     @Query("SELECT * FROM downloads WHERE sourceUid IN (SELECT uid FROM song_sources WHERE songId IN (:songIds))")
     suspend fun getForSongs(songIds: List<Long>): List<DownloadEntity>
@@ -165,16 +165,16 @@ interface DownloadDao {
     @Query("DELETE FROM downloads")
     suspend fun deleteAll()
 
-    // --- Favoriten-Downloads (Smart-Downloads) ---
+    // --- Favorite downloads (smart downloads) ---
 
-    /** Songs, die die Favoriten-Automatik laden soll (siehe [FAVORITE_WANTED]). */
+    /** Songs the favorites automation should download (see [FAVORITE_WANTED]). */
     @Query("SELECT s.songId FROM songs s WHERE $FAVORITE_WANTED")
     suspend fun getFavoriteSongIds(withArtists: Boolean): List<Long>
 
     @Query("SELECT s.songId FROM songs s WHERE $FAVORITE_WANTED")
     fun observeFavoriteSongIds(withArtists: Boolean): Flow<List<Long>>
 
-    /** Automatisch (wegen eines Favoriten) geladene Downloads, deren Song die Automatik nicht mehr will. */
+    /** Downloads made automatically (because of a favorite) whose song the automation no longer wants. */
     @Query(
         """
         SELECT d.* FROM downloads d
@@ -185,7 +185,7 @@ interface DownloadDao {
     )
     suspend fun getPinnedByWithoutFavorite(pinnedBy: String, withArtists: Boolean): List<DownloadEntity>
 
-    /** Ein Download, den der Nutzer nun selbst angefordert hat, gehört nicht mehr der Automatik. */
+    /** A download the user has now requested themselves no longer belongs to the automation. */
     @Query(
         """
         UPDATE downloads SET pinnedBy = :to
@@ -197,18 +197,18 @@ interface DownloadDao {
     @Query("UPDATE downloads SET pinnedBy = :to WHERE pinnedBy = :from")
     suspend fun repinAll(from: String, to: String)
 
-    // --- Server komplett herunterladen ---
+    // --- Download an entire server ---
 
     @Query("SELECT DISTINCT songId FROM song_sources WHERE sourceId = :sourceId")
     suspend fun getSongIdsOfSource(sourceId: String): List<Long>
 
-    /** Alle vorkommenden `pinnedBy`-Werte mit diesem Anfang, z. B. `server:`. */
+    /** All occurring `pinnedBy` values with this prefix, e.g. `server:`. */
     @Query("SELECT DISTINCT pinnedBy FROM downloads WHERE pinnedBy LIKE :prefix || '%'")
     suspend fun getPinnedByWithPrefix(prefix: String): List<String>
 
-    // --- Neueste und meistgehörte Alben automatisch herunterladen ---
+    // --- Automatically download newest and most played albums ---
 
-    /** Die zuletzt hinzugefügten sichtbaren Alben mit Songs ohne Datei auf dem Gerät (nur die zählen beim Laden). */
+    /** The most recently added visible albums with songs that have no file on the device (only those count when downloading). */
     @Query(
         """
         SELECT a.albumId FROM albums a
@@ -221,8 +221,8 @@ interface DownloadDao {
     fun observeNewestServerAlbumIds(limit: Int): Flow<List<Long>>
 
     /**
-     * Wie das Regal „Meistgehört“: die seit [since] am häufigsten gehörten Alben mit mindestens [minPlays] Wiedergaben, bei
-     * Gleichstand das zuletzt gehörte zuerst; gezählt nur Songs ohne Datei auf dem Gerät.
+     * Like the "Most played" shelf: the albums played most often since [since] with at least [minPlays] plays, on a
+     * tie the most recently played first; only songs without a file on the device are counted.
      */
     @Query(
         """
@@ -238,8 +238,8 @@ interface DownloadDao {
     fun observeMostPlayedServerAlbumIds(since: Long, minPlays: Int, limit: Int): Flow<List<Long>>
 
     /**
-     * Downloads mit [pinnedBy], deren Song zu keinem der [albumIds] gehört. Downloads ausgeschalteter Server fehlen: Deren Alben
-     * fallen nur aus der Auswahl, weil sie ausgeblendet sind, und ausgeschaltet bleibt alles erhalten.
+     * Downloads with [pinnedBy] whose song belongs to none of the [albumIds]. Downloads of disabled servers are missing: their
+     * albums only drop out of the selection because they are hidden, and while disabled everything is kept.
      */
     @Query(
         """
@@ -252,7 +252,7 @@ interface DownloadDao {
     )
     suspend fun getPinnedByOutsideAlbums(pinnedBy: String, albumIds: List<Long>): List<DownloadEntity>
 
-    /** Wie [getPinnedByOutsideAlbums], aber nur, was die Favoriten-Automatik will; das geht an [to] über. */
+    /** Like [getPinnedByOutsideAlbums], but only what the favorites automation wants; that is handed over to [to]. */
     @Query(
         """
         UPDATE downloads SET pinnedBy = :to
@@ -264,9 +264,9 @@ interface DownloadDao {
     )
     suspend fun repinFavoritesOutsideAlbums(from: String, to: String, albumIds: List<Long>, withArtists: Boolean)
 
-    // --- Wiedergabe ---
+    // --- Playback ---
 
-    /** Fertig geladene Dateien eines Songs (meist höchstens eine). */
+    /** Fully downloaded files of a song (usually at most one). */
     @Query(
         """
         SELECT d.filePath FROM downloads d JOIN song_sources ss ON ss.uid = d.sourceUid
@@ -275,7 +275,7 @@ interface DownloadDao {
     )
     suspend fun getDoneFilePaths(songId: Long): List<String>
 
-    /** Alle Songs mit fertiger Datei (Uhr: „Alles zufällig“). */
+    /** All songs with a finished file (watch: "Shuffle all"). */
     @Query(
         """
         SELECT DISTINCT ss.songId FROM downloads d JOIN song_sources ss ON ss.uid = d.sourceUid
@@ -284,7 +284,7 @@ interface DownloadDao {
     )
     suspend fun getDoneSongIds(): List<Long>
 
-    /** Alben, von denen mindestens ein Song fertig geladen ist (Cover-Dateien der Uhr). */
+    /** Albums of which at least one song is fully downloaded (watch cover files). */
     @Query(
         """
         SELECT DISTINCT s.albumId FROM downloads d
@@ -295,11 +295,11 @@ interface DownloadDao {
     )
     suspend fun getAlbumIdsWithDoneDownload(): List<Long>
 
-    // --- Anzeige ---
+    // --- Display ---
 
     /**
-     * Offline-Zustand aller Songs eines Albums: ob es eine lokale Quelle gibt und ggf. der Download.
-     * Hat ein Song mehrere Downloads (selten), wird einer davon geliefert.
+     * Offline state of all songs of an album: whether there is a local source and, if any, the download.
+     * If a song has several downloads (rare), one of them is returned.
      */
     @Query(
         """
@@ -318,7 +318,7 @@ interface DownloadDao {
     )
     fun observeOfflineRowsOfAlbum(albumId: Long): Flow<List<SongOfflineRow>>
 
-    /** Wie [observeOfflineRowsOfAlbum], für alle Alben, deren Album-Künstler [artistId] ist. */
+    /** Like [observeOfflineRowsOfAlbum], for all albums whose album artist is [artistId]. */
     @Query(
         """
         SELECT s.songId,
@@ -340,8 +340,8 @@ interface DownloadDao {
     suspend fun getAlbumIdsOfArtist(artistId: Long): List<Long>
 
     /**
-     * Download-Zustand aller Songs mit Download (einer je Song); lokale Songs liefert [observeLocalSongIds].
-     * Zusammen ergibt das den Offline-Zustand jedes Songs, ohne die ganze Bibliothek zu laden.
+     * Download state of all songs with a download (one per song); local songs come from [observeLocalSongIds].
+     * Together this gives the offline state of every song without loading the whole library.
      */
     @Query(
         """
@@ -360,7 +360,7 @@ interface DownloadDao {
     )
     fun observeLocalSongIds(): Flow<List<Long>>
 
-    /** Alben mit mindestens einem Download; Songs ohne Download zählen in `songCount` mit. */
+    /** Albums with at least one download; songs without a download are counted in `songCount` too. */
     @Query(
         """
         SELECT a.albumId, a.title, a.albumArtistDisplay, a.year,
@@ -379,7 +379,7 @@ interface DownloadDao {
     )
     fun observeAlbumRows(): Flow<List<AlbumDownloadRow>>
 
-    /** Download-Stand aller Alben mit mindestens einem Download, für die Markierung auf Kacheln und Zeilen. */
+    /** Download state of all albums with at least one download, for the badge on tiles and rows. */
     @Query(
         """
         SELECT s.albumId,

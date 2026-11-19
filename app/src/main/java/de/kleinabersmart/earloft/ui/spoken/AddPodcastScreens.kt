@@ -81,9 +81,9 @@ import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Seite „Podcast hinzufügen“ (Konzept 12.10): oben Feed-Adresse und OPML-Import, darunter die Suche in den eingeschalteten
- * Verzeichnissen. Gesucht wird erst auf die Lupe (oder die Such-Taste der Tastatur). Solange nichts gesucht ist, stehen
- * dort die beliebten Podcasts der Verzeichnisse mit Charts („Entdecken“) mit Kategorien als Chips.
+ * "Add podcast" page (concept 12.10): feed address and OPML import at the top, below that the search in the enabled
+ * directories. The search only runs on the magnifier (or the keyboard's search key). As long as nothing has been searched,
+ * the popular podcasts of the directories with charts ("Discover") are shown there, with categories as chips.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,7 +106,7 @@ fun AddPodcastScreen(
     var url by rememberSaveable { mutableStateOf("") }
     var term by rememberSaveable { mutableStateOf("") }
     var opmlToImport by rememberSaveable { mutableStateOf<Uri?>(null) }
-    /** Treffer (nach [feedKey]), für den gerade gewählt wird, ob das Abo über den Feed oder über ARD Sounds läuft. */
+    /** Result (by [feedKey]) for which the user is currently choosing whether the subscription runs via the feed or via ARD Sounds. */
     var choosingSource by rememberSaveable { mutableStateOf<String?>(null) }
     var choosingDirectories by rememberSaveable { mutableStateOf(false) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { opmlToImport = it }
@@ -130,11 +130,11 @@ fun AddPodcastScreen(
         focus.clearFocus()
         viewModel.search(term)
     }
-    // Ohne Suchbegriff wieder die beliebten Podcasts; sie laden, sobald ein Verzeichnis mit Charts an ist.
+    // Without a search term, back to the popular podcasts; they load as soon as a directory with charts is enabled.
     LaunchedEffect(term.isBlank()) { if (term.isBlank()) viewModel.clearSearch() }
     LaunchedEffect(discoverable) { discoverable?.let { viewModel.discover(viewModel.discover.value?.category, it) } }
     val openHit: (DirectoryPodcast) -> Unit = { hit ->
-        // Abonniert ist der Treffer, wenn es eine der beiden Quellen ist; dann öffnet er gleich das Abo.
+        // The result counts as subscribed if it is one of the two sources; then it opens the subscription right away.
         val feedId = subscribed[feedKey(hit.feedUrl)] ?: hit.ardSoundsUrl?.let { subscribed[feedKey(it)] }
         when {
             feedId != null -> onOpenFeed(feedId)
@@ -175,7 +175,7 @@ fun AddPodcastScreen(
             val enabled = directories
             when {
                 enabled == null -> Unit
-                // Eingeschaltet wird über das Zahnrad neben der Überschrift, darauf verweist der Hinweis.
+                // Enabling happens via the gear next to the heading, which the hint points to.
                 enabled.isEmpty() -> item(key = "no-directory") {
                     Text(
                         stringResource(R.string.podcast_directory_none),
@@ -273,7 +273,7 @@ fun AddPodcastScreen(
         )
     }
     choosingSource?.let { key ->
-        // Eine neue Suche ersetzt die Treffer; ist der gewählte weg, bleibt der Dialog zu.
+        // A new search replaces the results; if the selected one is gone, the dialog stays closed.
         val shown = (search as? DirectorySearchState.Done)?.hits ?: (discover as? DiscoverState.Done)?.hits
         shown?.firstOrNull { feedKey(it.feedUrl) == key }?.let { hit ->
             SourceDialog(
@@ -306,8 +306,8 @@ private fun DirectoryPodcast.isSubscribed(subscribed: Map<String, String>): Bool
 private const val DiscoverHeaderKey = "discover-header"
 
 /**
- * Nach einem Kategoriewechsel beginnt die Liste wieder direkt unter den Chips, wenn sie schon darunter gescrollt war;
- * sonst stünde man mitten in der neuen Liste (oder hinter ihrem Ende).
+ * After a category change the list starts again directly below the chips if it was already scrolled past them;
+ * otherwise you'd end up in the middle of the new list (or past its end).
  */
 private suspend fun LazyListState.showDiscoverStart() {
     val header = layoutInfo.visibleItemsInfo.firstOrNull { it.key == DiscoverHeaderKey } ?: return
@@ -316,9 +316,9 @@ private suspend fun LazyListState.showDiscoverStart() {
 }
 
 /**
- * „Entdecken“ unter dem leeren Suchfeld (Konzept 12.10): Überschrift „Beliebt in <Land>“ (mit Apple, sonst „Gerade
- * gefragt“ aus Podcast Index), Kategorien als Chips und die Treffer wie bei der Suche. Überschrift und Chips bleiben
- * beim Scrollen oben stehen, damit sich die Kategorie jederzeit wechseln lässt.
+ * "Discover" below the empty search field (concept 12.10): heading "Popular in <country>" (with Apple, otherwise
+ * "Trending" from Podcast Index), categories as chips and the results as in the search. Heading and chips stay
+ * pinned at the top while scrolling, so the category can be changed at any time.
  */
 private fun LazyListScope.discoverSection(
     directories: List<PodcastDirectory>,
@@ -334,7 +334,7 @@ private fun LazyListScope.discoverSection(
         } else {
             stringResource(R.string.podcast_discover_trending)
         }
-        // Eigener Hintergrund, damit die Treffer darunter durchlaufen statt durchzuscheinen.
+        // Own background, so the results below scroll underneath instead of showing through.
         Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(bottom = 8.dp)) {
             SectionHeader(title)
             val scroll = rememberScrollState()
@@ -351,8 +351,8 @@ private fun LazyListScope.discoverSection(
         }
     }
     when (state) {
-        // So hoch wie die Liste: Nach einem Kategoriewechsel bleiben die Chips oben stehen, statt dass die kurze Liste
-        // beim Laden zurück an den Seitenanfang springt.
+        // As tall as the list: after a category change the chips stay at the top instead of the short list
+        // jumping back to the top of the page while loading.
         null, is DiscoverState.Loading -> item(key = "discover-loading") {
             Box(Modifier.fillParentMaxHeight()) {
                 Row(Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -406,7 +406,7 @@ private val PodcastCategory.label: Int
         PodcastCategory.RELIGION -> R.string.podcast_category_religion
     }
 
-/** Rückfrage, wenn ein Podcast abonniert werden soll, dessen Abo schon besteht, aber archiviert ist. */
+/** Confirmation when subscribing to a podcast whose subscription already exists but is archived. */
 @Composable
 private fun ReactivateDialog(title: String, onReactivate: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
@@ -419,12 +419,12 @@ private fun ReactivateDialog(title: String, onReactivate: () -> Unit, onDismiss:
 }
 
 /**
- * Auswahl, woher ein Treffer kommt, den ARD Sounds und sein RSS-Feed beide liefern (Konzept 12.10): der Feed (wie in
- * anderen Apps, mit den Verzeichnissen, die ihn kennen) oder ARD Sounds (eigene Bilder und Folgenliste).
+ * Choice of where a result comes from that both ARD Sounds and its RSS feed provide (concept 12.10): the feed (as in
+ * other apps, with the directories that know it) or ARD Sounds (own images and episode list).
  */
 /**
- * Verzeichnisse direkt auf der Seite ein- und ausschalten, ohne Umweg über die Einstellungen (dieselbe Einstellung wie
- * Einstellungen → Podcasts → Verzeichnisse). Das Land für Apple gibt es nur dort.
+ * Turn directories on and off directly on the page, without a detour through the settings (the same setting as
+ * Settings → Podcasts → Directories). The country for Apple is only available there.
  */
 @Composable
 private fun DirectoriesDialog(
@@ -503,7 +503,7 @@ private fun SourceDialog(hit: DirectoryPodcast, onChoose: (String) -> Unit, onDi
     )
 }
 
-/** Feld für die Feed-Adresse mit Hinweis bei `http://`, Fehlermeldung und „Abonnieren“. */
+/** Field for the feed address with a hint for `http://`, error message and "Subscribe". */
 @Composable
 private fun FeedUrlForm(url: String, onUrlChange: (String) -> Unit, state: AddPodcastState, onSubscribe: () -> Unit) {
     val working = state == AddPodcastState.Working
@@ -540,7 +540,7 @@ private fun FeedUrlForm(url: String, onUrlChange: (String) -> Unit, state: AddPo
     }
 }
 
-/** „Abonnieren“; während des Ladens mit Kreis statt Text. */
+/** "Subscribe"; while loading, a spinner instead of text. */
 @Composable
 private fun SubscribeButton(working: Boolean, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     FilledTonalButton(onClick = onClick, enabled = enabled && !working, modifier = modifier) {
@@ -553,7 +553,7 @@ private fun SubscribeButton(working: Boolean, enabled: Boolean, onClick: () -> U
     }
 }
 
-/** Ein Treffer: Bild, Titel, Autor und die Verzeichnisse, die ihn kennen; abonnierte mit Häkchen. */
+/** A result: image, title, author and the directories that know it; subscribed ones with a check mark. */
 @Composable
 private fun DirectoryHitRow(hit: DirectoryPodcast, subscribed: Boolean, onClick: () -> Unit) {
     val resources = LocalResources.current
@@ -586,8 +586,8 @@ private fun DirectoryHitRow(hit: DirectoryPodcast, subscribed: Boolean, onClick:
 }
 
 /**
- * Vorschau eines Treffers (Konzept 12.10): lädt den Feed als Probeabo und übergibt dann an die normale Podcast-Seite
- * ([onOpened] mit der Id, auch wenn er schon abonniert ist). Bis dahin der Kopf mit den Angaben des Verzeichnisses.
+ * Preview of a result (concept 12.10): loads the feed as a trial subscription and then hands over to the regular podcast page
+ * ([onOpened] with the id, even if it is already subscribed). Until then, the header with the directory's details.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -632,7 +632,7 @@ fun PodcastPreviewScreen(
                 Text(stringResource(current.message), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                 TextButton(onClick = viewModel::load) { Text(stringResource(R.string.podcast_preview_retry)) }
             }
-            // Abbrechen führt zurück zu den Treffern.
+            // Cancel leads back to the results.
             is PreviewState.Archived -> ReactivateDialog(
                 current.title,
                 onReactivate = { viewModel.reactivate(current.feedId) },

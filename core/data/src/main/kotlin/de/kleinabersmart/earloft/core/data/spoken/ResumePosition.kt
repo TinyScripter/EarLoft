@@ -4,15 +4,15 @@ import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.model.BookProgress
 
 /**
- * Wie das Fortsetzen einer Folge bzw. eines Buchs einsetzt: War die Pause länger als [afterSeconds], geht es
- * [rewindSeconds] früher weiter. [rewindSeconds] = 0 schaltet das Zurückspulen aus.
+ * How resuming an episode or book kicks in: if the pause was longer than [afterSeconds], playback continues
+ * [rewindSeconds] earlier. [rewindSeconds] = 0 disables rewinding.
  */
 data class ResumeRule(val afterSeconds: Int, val rewindSeconds: Int) {
     companion object {
-        /** Wahlmöglichkeiten in Sekunden für die Pause, ab der zurückgespult wird. */
+        /** Options in seconds for the pause after which playback rewinds. */
         val AFTER_CHOICES = listOf(30, 60, 120, 300, 600, 900, 1800, 3600)
 
-        /** Wahlmöglichkeiten in Sekunden für das Zurückspulen; 0 = aus. */
+        /** Options in seconds for rewinding; 0 = off. */
         val REWIND_CHOICES = listOf(0, 5, 10, 15, 30, 60)
 
         const val DEFAULT_AFTER_S = 300
@@ -21,11 +21,11 @@ data class ResumeRule(val afterSeconds: Int, val rewindSeconds: Int) {
 }
 
 /**
- * Position, an der die Wiedergabe fortgesetzt wird. [BookProgress.updatedAt] ist der Zeitpunkt, an dem zuletzt gehört
- * wurde (der Player schreibt ihn bei Pause, Ende und alle 15 s). Ein beendetes Stück beginnt von vorn.
+ * Position at which playback resumes. [BookProgress.updatedAt] is the time of the last listening
+ * (the player writes it on pause, at the end and every 15 s). A finished item starts from the beginning.
  *
- * Mit [restartChapter] beginnt ein Kapitel von vorn, wenn die Wiedergabe weniger als [CHAPTER_RESTART_WINDOW_MS] nach
- * dessen Anfang beendet wurde – unabhängig von der Länge der Pause.
+ * With [restartChapter] a chapter starts from the beginning if playback was stopped less than [CHAPTER_RESTART_WINDOW_MS] after
+ * its start – regardless of the length of the pause.
  */
 fun resumePosition(
     progress: BookProgress?,

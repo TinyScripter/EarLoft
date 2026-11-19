@@ -19,9 +19,9 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 
 /**
- * „Sicherung wiederherstellen“ (Einstellungen → Allgemein und Einrichtungsassistent): Datei wählen, nachfragen (die
- * Einstellungen werden ersetzt), einspielen. Liefert den Aufruf, der die Dateiauswahl öffnet. Fehler meldet
- * [FullBackupMessagesEffect], das Ergebnis `RestoreNoticeEffect` an der Wurzel.
+ * "Restore backup" (Settings → General and setup wizard): pick a file, confirm (the
+ * settings are replaced), restore. Returns the call that opens the file picker. Errors are reported by
+ * [FullBackupMessagesEffect], the result by `RestoreNoticeEffect` at the root.
  */
 @Composable
 fun rememberFullBackupImport(viewModel: FullBackupViewModel): () -> Unit {
@@ -48,7 +48,7 @@ fun rememberFullBackupImport(viewModel: FullBackupViewModel): () -> Unit {
     return { launcher.launch(arrayOf("*/*")) }
 }
 
-/** Die Meldungen von [viewModel] (Sicherung gespeichert bzw. gescheitert) als Snackbar. */
+/** The messages of [viewModel] (backup saved or failed) as a snackbar. */
 @Composable
 fun FullBackupMessagesEffect(viewModel: FullBackupViewModel) {
     val snackbars = LocalSnackbars.current

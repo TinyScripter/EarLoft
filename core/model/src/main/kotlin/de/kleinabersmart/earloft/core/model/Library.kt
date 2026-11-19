@@ -31,7 +31,7 @@ data class Genre(
     val albumCount: Int,
     val songCount: Int,
 ) {
-    /** Schreibweisen, die sich nur in Groß-/Kleinschreibung unterscheiden, sind ein Genre. */
+    /** Spellings that differ only in upper/lower case are one genre. */
     val key: String get() = key(name)
 
     companion object {
@@ -39,7 +39,7 @@ data class Genre(
     }
 }
 
-/** Ein Jahrzehnt der Album-Jahre, z. B. [startYear] 1980 für 1980–1989. */
+/** A decade of the album years, e.g. [startYear] 1980 for 1980–1989. */
 data class Decade(
     val startYear: Int,
     val albumCount: Int,
@@ -70,16 +70,16 @@ data class SearchResults(
     }
 }
 
-/** Reihenfolge der Alben in der Bibliothek. */
+/** Sort order of the albums in the library. */
 enum class AlbumSort { TITLE, ARTIST, YEAR, RECENTLY_ADDED, RECENTLY_PLAYED }
 
-/** Reihenfolge der Künstler in der Bibliothek. */
+/** Sort order of the artists in the library. */
 enum class ArtistSort { NAME, ALBUM_COUNT }
 
-/** Reihenfolge der Songs in der Bibliothek. */
+/** Sort order of the songs in the library. */
 enum class SongSort { TITLE, ARTIST, ALBUM, RECENTLY_ADDED }
 
-/** Eine Quelle eines Songs, für die Titel-Info; [bitRate] in bit/s, Gain in dB. */
+/** One source of a song, for the track info; [bitRate] in bit/s, gain in dB. */
 data class SongSourceInfo(
     val sourceId: String,
     val sourceName: String,
@@ -89,6 +89,6 @@ data class SongSourceInfo(
     val sizeBytes: Long?,
     val trackGainDb: Float?,
     val albumGainDb: Float?,
-    /** Von dieser Quelle liegt ein fertiger Download auf dem Gerät. */
+    /** A finished download from this source is on the device. */
     val isDownloaded: Boolean,
 )

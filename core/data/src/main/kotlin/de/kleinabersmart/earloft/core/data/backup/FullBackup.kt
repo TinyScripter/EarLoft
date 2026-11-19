@@ -19,27 +19,27 @@ import java.util.zip.ZipOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Ausgang von [FullBackup.import]. */
+/** Outcome of [FullBackup.import]. */
 data class FullBackupResult(
-    /** Neu angelegte Server, Abos und Playlists. */
+    /** Newly created servers, subscriptions and playlists. */
     val added: BackupCounts,
-    /** Übernommene Einstellungs-Bereiche (DataStores). */
+    /** Adopted settings sections (DataStores). */
     val settings: Int,
-    /** Quellen auf dem Gerät waren in der Sicherung an, hier fehlt die Berechtigung; sie blieben aus. */
+    /** Sources on the device were on in the backup, but the permission is missing here; they stayed off. */
     val localSourcesSkipped: Boolean,
 )
 
-/** Die Datei ist keine Komplett-Sicherung ([newerVersion] `false`) oder stammt aus einer neueren Version der App. */
+/** The file is not a full backup ([newerVersion] `false`) or comes from a newer version of the app. */
 class FullBackupException(val newerVersion: Boolean, message: String, cause: Throwable? = null) : IOException(message, cause)
 
 /**
- * Komplett-Sicherung als Datei (Einstellungen → Allgemein → Sicherung, Konzept 10 „Sicherheit“): die Nutzerdaten wie in
- * `user.db` und die Einstellungen, **ohne** Passwörter, API-Keys und Anmeldungen – der DataStore `secrets` gehört nie dazu.
- * Feed-Adressen kommen unverändert mit, auch wenn ein Anbieter einen persönlichen Schlüssel hineinschreibt (Review D34).
- * Ein ZIP mit `earloft-backup.json` (Format, Zeitpunkt, Schemaversion), `user.db` (eigene Kopie; ältere Fassungen werden
- * beim Einlesen migriert) und `settings.json` ([SettingsBackup]).
+ * Full backup as a file (Settings → General → Backup, concept 10 "Security"): the user data as in
+ * `user.db` and the settings, **without** passwords, API keys and logins – the `secrets` DataStore is never included.
+ * Feed addresses come along unchanged, even if a provider writes a personal key into them (review D34).
+ * A ZIP with `earloft-backup.json` (format, timestamp, schema version), `user.db` (own copy; older versions are
+ * migrated on import) and `settings.json` ([SettingsBackup]).
  *
- * Einspielen ergänzt die Nutzerdaten ([UserDataBackup.import]) und ersetzt die Einstellungen der enthaltenen Bereiche.
+ * Importing adds to the user data ([UserDataBackup.import]) and replaces the settings of the included sections.
  */
 @Singleton
 class FullBackup @Inject constructor(
@@ -48,7 +48,7 @@ class FullBackup @Inject constructor(
     private val settings: SettingsBackup,
     private val restoreNotice: RestoreNotice,
 ) {
-    /** Schreibt die Sicherung nach [output] (bleibt offen); liefert, was sie enthält. */
+    /** Writes the backup to [output] (stays open); returns what it contains. */
     suspend fun export(output: OutputStream): BackupCounts {
         val snapshot = userData.exportSnapshot()
         val settingsJson = settings.read()
@@ -57,7 +57,7 @@ class FullBackup @Inject constructor(
                 val db = File(dir, USER_DB)
                 val database = UserDatabase.openFile(context, db)
                 try {
-                    // Auch eine leere Sicherung braucht die Datei.
+                    // Even an empty backup needs the file.
                     database.openHelper.writableDatabase
                     database.userDataDao().apply(snapshot.changesSince(UserDataSnapshot()))
                 } finally {
@@ -87,8 +87,8 @@ class FullBackup @Inject constructor(
     }
 
     /**
-     * Liest die Sicherung aus [input] und spielt sie ein. Das Ergebnis geht samt fehlender Passwörter auch an [RestoreNotice].
-     * @throws FullBackupException wenn es keine Komplett-Sicherung ist oder sie aus einer neueren Version stammt.
+     * Reads the backup from [input] and imports it. The result, including missing passwords, also goes to [RestoreNotice].
+     * @throws FullBackupException if it is not a full backup or comes from a newer version.
      */
     suspend fun import(input: InputStream): FullBackupResult = withWorkDir { dir ->
         val db = File(dir, USER_DB)
@@ -107,10 +107,10 @@ class FullBackup @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: IllegalArgumentException) {
-            // Room: unbekannter Wert eines Enums bei gleichem Schema, also aus einer neueren Version.
+            // Room: unknown enum value with the same schema, so from a newer version.
             throw FullBackupException(true, "user.db mit unbekanntem Wert", e)
         } catch (e: RuntimeException) {
-            // `SQLException`; Room: Schema passt nicht, keine Migration (`IllegalStateException`); sonst Unlesbares.
+            // `SQLException`; Room: schema doesn't match, no migration (`IllegalStateException`); otherwise unreadable.
             throw FullBackupException(false, "user.db nicht lesbar", e)
         }
         val imported = userData.import(snapshot)
@@ -118,7 +118,7 @@ class FullBackup @Inject constructor(
         FullBackupResult(imported.counts, restored.stores, restored.localSourcesSkipped).also { restoreNotice.backupRestored(it) }
     }
 
-    /** Legt `user.db` nach [db] und liefert Manifest und Einstellungen; Unbekanntes wird übergangen. */
+    /** Places `user.db` at [db] and returns manifest and settings; unknown entries are skipped. */
     private fun unpack(input: InputStream, db: File): Pair<JSONObject?, JSONObject?> {
         var manifest: JSONObject? = null
         var settingsJson: JSONObject? = null
@@ -137,7 +137,7 @@ class FullBackup @Inject constructor(
         return manifest to settingsJson
     }
 
-    /** Ein eigenes Verzeichnis je Auftrag, danach wieder weg. */
+    /** A separate directory per job, removed afterwards. */
     private suspend fun <T> withWorkDir(block: suspend (File) -> T): T {
         val dir = File(context.cacheDir, "full-backup-${UUID.randomUUID()}")
         withContext(Dispatchers.IO) { dir.mkdirs() }

@@ -74,11 +74,11 @@ import javax.inject.Inject
 
 data class ServerItem(
     val server: ServerInfo,
-    /** Grund des letzten fehlgeschlagenen Abgleichs. */
+    /** Reason for the last failed sync. */
     val error: SyncFailure?,
-    /** Das gespeicherte Passwort ist nicht mehr lesbar; der Nutzer muss es beim Bearbeiten neu eingeben. */
+    /** The stored password is no longer readable; the user has to re-enter it when editing. */
     val passwordLost: Boolean = false,
-    /** Von diesem Server wird alles automatisch heruntergeladen. */
+    /** Everything from this server is downloaded automatically. */
     val autoDownload: Boolean = false,
 )
 
@@ -89,20 +89,20 @@ data class SettingsUiState(
     val alwaysShowNavigationBar: Boolean = true,
     val useLocalMedia: Boolean = false,
     val useLocalBooks: Boolean = false,
-    /** Hörbücher und Hörspiele aus ARD Sounds (`books_improvements.md` M9). */
+    /** Audiobooks and radio plays from ARD Sounds (`books_improvements.md` M9). */
     val ardSoundsBooks: Boolean = false,
-    /** Der Ordner „Audiobooks“ ist freigegeben (Cover und Texte der Buchordner, `books_improvements.md` M7). */
+    /** The "Audiobooks" folder has been granted (covers and texts of the book folders, `books_improvements.md` M7). */
     val localBooksFolderShared: Boolean = false,
     val useLocalPodcasts: Boolean = false,
     val servers: List<ServerItem> = emptyList(),
-    /** Bis die Quellen geantwortet haben; so blitzt „Keine Server“ beim Öffnen nicht auf. */
+    /** Until the sources have answered; that way "No servers" doesn't flash up on opening. */
     val isLoading: Boolean = true,
     val isFailed: Boolean = false,
     val audiobookServerCount: Int = 0,
     val podcastFeedCount: Int = 0,
-    /** Archivierte Abos, nach Titel; unter Einstellungen → Podcasts reaktivierbar. */
+    /** Archived subscriptions, by title; can be reactivated under Settings → Podcasts. */
     val archivedPodcasts: List<PodcastFeed> = emptyList(),
-    /** Abos, deren Abgleich seit mehreren Versuchen scheitert (Konzept 12.10). */
+    /** Subscriptions whose sync has been failing for several attempts (concept 12.10). */
     val problemPodcasts: List<PodcastFeed> = emptyList(),
     val syncIntervalDays: Int = LibrarySettings.DEFAULT_SYNC_DAYS,
     val mobileStreamQuality: MobileStreamQuality = MobileStreamQuality.ORIGINAL,
@@ -130,30 +130,30 @@ data class SettingsUiState(
     val bookResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val podcastResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val restartChapter: Boolean = false,
-    /** Knöpfe in Benachrichtigung und Auto bei Büchern: Spulen oder Kapitel. */
+    /** Buttons in the notification and Auto for books: seek or chapter. */
     val bookButtons: BookButtons = BookButtons.SEEK,
-    /** Schütteln verlängert den Sleep-Timer (Bücher und Podcasts, ein gemeinsamer Schalter). */
+    /** Shaking extends the sleep timer (books and podcasts, one shared switch). */
     val shakeToExtend: Boolean = true,
     val bookSeek: SeekSteps = SeekSteps.DEFAULT,
     val podcastSeek: SeekSteps = SeekSteps.DEFAULT,
-    /** Vorgaben für Tempo, Stille kürzen und Lautstärke anheben (Konzept 12.4). */
+    /** Defaults for speed, trim silence and volume boost (concept 12.4). */
     val bookEffects: SpokenEffects = SpokenEffects.DEFAULT,
     val podcastEffects: SpokenEffects = SpokenEffects.DEFAULT,
     val bookMobileData: Boolean = false,
-    /** Buch-Automatik und Aufräumen (Konzept 12.8). */
+    /** Book auto-download and cleanup (concept 12.8). */
     val bookAutoStarted: Boolean = false,
     val bookAutoNextInSeries: Boolean = false,
     val bookLoadExpiring: Boolean = true,
     val bookDeleteFinishedDays: Int = PodcastSettings.DELETE_HEARD_NEVER,
-    /** Vor dem Streamen von Büchern und Folgen über mobile Daten fragen. */
+    /** Ask before streaming books and episodes over mobile data. */
     val askBeforeMobileStreaming: Boolean = false,
-    /** Verzeichnisse, die dieser Build kennt, und die eingeschalteten (Konzept 12.10). */
+    /** Directories this build knows, and the enabled ones (concept 12.10). */
     val podcastDirectories: List<PodcastDirectory> = emptyList(),
     val enabledPodcastDirectories: Set<PodcastDirectory> = emptySet(),
     val appleCountry: String = "",
-    /** RSS-Bridge für Sendungen aus ARD Sounds im OPML-Export; leer = sie fehlen dort. */
+    /** RSS bridge for ARD Sounds shows in the OPML export; empty = they are missing there. */
     val rssBridge: String = "",
-    /** Eingeschaltete Bereiche (Allgemein → Bereiche); die Unterseiten der anderen entfallen. */
+    /** Enabled areas (General → Areas); the subpages of the others are omitted. */
     val areas: List<SpokenMode> = SpokenMode.entries,
 )
 
@@ -164,7 +164,7 @@ private data class GeneralSettings(
     val albumCovers: Boolean,
 )
 
-/** Ausgang eines OPML-Im- oder -Exports. */
+/** Outcome of an OPML import or export. */
 sealed interface TransferMessage {
     data class Imported(val result: OpmlImportResult) : TransferMessage
     data object ImportFailed : TransferMessage
@@ -215,7 +215,7 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     init {
-        // Die Server werden sonst erst beim ersten Zugriff geladen; ohne das fehlte der Hinweis auf verlorene Passwörter.
+        // Otherwise the servers are only loaded on first access; without this the hint about lost passwords would be missing.
         viewModelScope.launch { registry.servers() }
     }
 
@@ -319,32 +319,32 @@ class SettingsViewModel @Inject constructor(
         .orOnError(SettingsUiState(isLoading = false, isFailed = true))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
-    /** Holt ein archiviertes Abo zurück; im App-Scope, damit der Abgleich auch nach Verlassen der Seite fertig wird. */
+    /** Brings back an archived subscription; in the app scope so the sync also finishes after leaving the page. */
     fun reactivatePodcast(feedId: String) {
         applicationScope.launch { podcastRepository.reactivate(feedId) }
     }
 
-    /** Beendet ein archiviertes Abo endgültig (Folgen und Fortschritt weg; Downloads gibt es seit dem Archivieren keine). */
+    /** Ends an archived subscription for good (episodes and progress gone; there have been no downloads since archiving). */
     fun deleteArchivedPodcast(feedId: String) {
         applicationScope.launch { podcastRepository.unsubscribe(feedId) }
     }
 
-    /** Die Planung des periodischen Auftrags folgt der Einstellung (PodcastRefresher). */
+    /** Scheduling of the periodic job follows the setting (PodcastRefresher). */
     fun setPodcastRefreshHours(hours: Int) {
         viewModelScope.launch { podcastSettings.setRefreshHours(hours) }
     }
 
-    /** Die Aufräum-Automatik (EpisodeDownloads) folgt der Einstellung. */
+    /** The auto-cleanup (EpisodeDownloads) follows the setting. */
     fun setPodcastDeleteHeardDays(days: Int) {
         viewModelScope.launch { podcastSettings.setDeleteHeardAfterDays(days) }
     }
 
-    /** Die Download-Automatik (EpisodeDownloads) holt bei einer größeren Zahl sofort Folgen nach. */
+    /** With a larger number, the auto-download (EpisodeDownloads) fetches episodes right away. */
     fun setPodcastAutoDownloadCount(count: Int) {
         viewModelScope.launch { podcastSettings.setAutoDownloadCount(count) }
     }
 
-    /** Vorgabe nur für künftige Abos; bestehende behalten ihre Einstellung. */
+    /** Default only for future subscriptions; existing ones keep their setting. */
     fun setPodcastAutoDownloadNew(enabled: Boolean) {
         viewModelScope.launch { podcastSettings.setAutoDownloadNew(enabled) }
     }
@@ -373,7 +373,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { spokenSettings.setPodcastSeek(steps) }
     }
 
-    /** Wartende Buch-Downloads bekommen die neue Netzbedingung sofort (BookDownloads). */
+    /** Waiting book downloads get the new network constraint immediately (BookDownloads). */
     fun setBookMobileData(enabled: Boolean) {
         viewModelScope.launch { spokenSettings.setBookMobileData(enabled) }
     }
@@ -410,12 +410,12 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { spokenSettings.setShakeToExtend(enabled) }
     }
 
-    /** Vorgabe für Tempo und Effekte der Bücher; Bücher mit eigenen Werten behalten sie. */
+    /** Default for the books' speed and effects; books with their own values keep them. */
     fun setBookEffects(effects: SpokenEffects) {
         viewModelScope.launch { spokenSettings.setBookEffects(effects) }
     }
 
-    /** Vorgabe für Tempo und Effekte der Podcasts; Abos und Folgen mit eigenen Werten behalten sie. */
+    /** Default for the podcasts' speed and effects; subscriptions and episodes with their own values keep them. */
     fun setPodcastEffects(effects: SpokenEffects) {
         viewModelScope.launch { spokenSettings.setPodcastEffects(effects) }
     }
@@ -436,7 +436,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { podcastSettings.setRssBridge(url) }
     }
 
-    /** Die Planung des periodischen Auftrags folgt der Einstellung ([de.kleinabersmart.earloft.core.data.sync.LibraryRefresher]). */
+    /** Scheduling of the periodic job follows the setting ([de.kleinabersmart.earloft.core.data.sync.LibraryRefresher]). */
     fun setSyncIntervalDays(days: Int) {
         viewModelScope.launch { librarySettings.setSyncIntervalDays(days) }
     }
@@ -461,17 +461,17 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { themeSettings.setAlwaysShowNavigationBar(enabled) }
     }
 
-    /** Blendet einen Bereich ein oder aus; der letzte eingeschaltete bleibt an ([SpokenSettings.setAreaEnabled]). */
+    /** Shows or hides an area; the last enabled one stays on ([SpokenSettings.setAreaEnabled]). */
     fun setAreaEnabled(area: SpokenMode, enabled: Boolean) {
         viewModelScope.launch { spokenSettings.setAreaEnabled(area, enabled) }
     }
 
-    /** Einlesen bzw. Entfernen der lokalen Songs übernimmt der [LibraryRefresher]. */
+    /** Scanning or removing the local songs is handled by the [LibraryRefresher]. */
     fun setUseLocalMedia(enabled: Boolean) {
         viewModelScope.launch { librarySettings.setUseLocalMedia(enabled) }
     }
 
-    /** Einlesen bzw. Entfernen der Bücher vom Gerät übernimmt der [SpokenRefresher]. */
+    /** Scanning or removing the books from the device is handled by the [SpokenRefresher]. */
     fun setUseLocalBooks(enabled: Boolean) {
         viewModelScope.launch { spokenSettings.setUseLocalBooks(enabled) }
     }
@@ -480,15 +480,15 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { spokenSettings.setArdSoundsBooks(enabled) }
     }
 
-    /** Hier beginnt die Auswahl des Ordners „Audiobooks“. */
+    /** This is where selecting the "Audiobooks" folder starts. */
     val localBooksFolderStart: Uri get() = localBooks.folderPickerStart
 
     private val _folderRejected = Channel<Unit>(Channel.CONFLATED)
 
-    /** Die gewählte Freigabe war nicht „Audiobooks“ (einmalig anzuzeigen). */
+    /** The chosen grant wasn't "Audiobooks" (to be shown once). */
     val folderRejected: Flow<Unit> = _folderRejected.receiveAsFlow()
 
-    /** Gewählter Ordner aus der Auswahl; die Bücher werden danach im Hintergrund neu gelesen. */
+    /** Folder chosen in the picker; the books are then re-read in the background. */
     fun shareLocalBooksFolder(tree: Uri) {
         applicationScope.launch { if (!localBooks.shareFolder(tree)) _folderRejected.trySend(Unit) }
     }
@@ -497,12 +497,12 @@ class SettingsViewModel @Inject constructor(
         applicationScope.launch { localBooks.unshareFolder() }
     }
 
-    /** Einlesen bzw. Entfernen der Podcast-Dateien vom Gerät übernimmt der [SpokenRefresher]. */
+    /** Scanning or removing the podcast files from the device is handled by the [SpokenRefresher]. */
     fun setUseLocalPodcasts(enabled: Boolean) {
         viewModelScope.launch { spokenSettings.setUseLocalPodcasts(enabled) }
     }
 
-    /** Beim Ausschalten werden die schon geladenen Bilder gelöscht. */
+    /** When turned off, the images already downloaded are deleted. */
     fun setArtistImages(enabled: Boolean) {
         viewModelScope.launch {
             artworkSettings.setArtistImages(enabled)
@@ -517,12 +517,12 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Das Repository vergisst dabei die Texte, die sich dadurch ändern können. */
+    /** The repository forgets the texts that may change as a result. */
     fun setOnlineLyrics(enabled: Boolean) {
         viewModelScope.launch { lyricsRepository.setOnlineLyrics(enabled) }
     }
 
-    /** Beim Ausschalten werden die schon geladenen Autorenbilder aus dem Internet gelöscht. */
+    /** When turned off, the author images already downloaded from the internet are deleted. */
     fun setAuthorImages(enabled: Boolean) {
         viewModelScope.launch {
             artworkSettings.setAuthorImages(enabled)
@@ -532,7 +532,7 @@ class SettingsViewModel @Inject constructor(
 
     fun syncNow(sourceId: String) = serverRepository.syncNow(sourceId)
 
-    /** Lokale Musik und alle Navidrome-Server. */
+    /** Local music and all Navidrome servers. */
     fun refreshMusic() = refresher.refreshAll()
 
     fun refreshAudiobooks() = spokenRefresher.refreshAll()
@@ -541,12 +541,12 @@ class SettingsViewModel @Inject constructor(
 
     private val _transferMessages = Channel<TransferMessage>(Channel.BUFFERED)
 
-    /** Ergebnis des letzten OPML-Im- oder -Exports, einmalig anzuzeigen. */
+    /** Result of the last OPML import or export, to be shown once. */
     val transferMessages: Flow<TransferMessage> = _transferMessages.receiveAsFlow()
 
     /**
-     * Liest die Abos aus [uri] und übernimmt sie ([replace]: alle anderen Abos entfallen); danach werden die Feeds abgeglichen.
-     * Im- und Exporte laufen im App-Scope: Verlässt der Nutzer die Seite, bräche er sonst mitten im Löschen bzw. Schreiben ab.
+     * Reads the subscriptions from [uri] and adopts them ([replace]: all other subscriptions are dropped); then the feeds are synced.
+     * Imports and exports run in the app scope: otherwise, if the user left the page, it would abort mid-delete or mid-write.
      */
     fun importOpml(uri: Uri, replace: Boolean) {
         viewModelScope.launch {
@@ -558,8 +558,8 @@ class SettingsViewModel @Inject constructor(
     private var backupRunning = false
 
     /**
-     * Liest die Datenbank-Datei aus [uri]: fehlende aktive Abos, Hörfortschritt und gehörte Zeit (Statistik).
-     * Dauert, weil neue Feeds abgeglichen werden; ein zweiter Aufruf in der Zwischenzeit wird ignoriert.
+     * Reads the database file from [uri]: missing active subscriptions, listening progress and listening time (statistics).
+     * Takes a while because new feeds are synced; a second call in the meantime is ignored.
      */
     fun importImportData(uri: Uri) {
         if (backupRunning) return
@@ -567,7 +567,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 _transferMessages.send(TransferMessage.DatabaseImportStarted)
-                // Die Datei gehört dem Auftrag im App-Scope; er räumt sie selbst weg, auch wenn die Seite vorher geht.
+                // The file belongs to the job in the app scope; it cleans it up itself, even if the page goes away first.
                 val imported = applicationScope.async {
                     val file = File(context.cacheDir, "import.db")
                     try {
@@ -593,7 +593,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Löscht die von der App gezählte Hörzeit der Bücher; die Zahlen des Servers bleiben. */
+    /** Deletes the books' listening time counted by the app; the server's numbers remain. */
     fun resetBookStats() {
         viewModelScope.launch {
             statsRepository.resetBookStats()
@@ -601,7 +601,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Löscht die gesamte Podcast-Statistik (gezählte und importierte Hörzeit). */
+    /** Deletes the entire podcast statistics (counted and imported listening time). */
     fun resetPodcastStats() {
         viewModelScope.launch {
             statsRepository.resetPodcastStats()
@@ -609,7 +609,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Schreibt Abos, Hörfortschritt und gehörte Zeit als Datenbank-Datei nach [uri]. */
+    /** Writes subscriptions, listening progress and listening time as a database file to [uri]. */
     fun exportDatabase(uri: Uri) {
         viewModelScope.launch {
             val result = databaseExport.export(uri)
@@ -617,7 +617,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Schreibt die Abos als OPML nach [uri]. */
+    /** Writes the subscriptions as OPML to [uri]. */
     fun exportOpml(uri: Uri, title: String) {
         viewModelScope.launch {
             val message = try {
@@ -638,7 +638,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Gleicht die eingeschalteten Bereiche ab. */
+    /** Syncs the enabled areas. */
     fun refreshAll() {
         val areas = state.value.areas
         if (SpokenMode.MUSIC in areas) refreshMusic()
@@ -653,7 +653,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Die Downloads selbst stößt [de.kleinabersmart.earloft.core.download.AutoDownloads] an. */
+    /** The downloads themselves are triggered by [de.kleinabersmart.earloft.core.download.AutoDownloads]. */
     fun setAutoDownloadFavorites(enabled: Boolean) {
         viewModelScope.launch { downloadSettings.setAutoDownloadFavorites(enabled) }
     }

@@ -57,8 +57,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Einstellungen eines Widgets beim Anlegen und später über „Widget anpassen“ des Launchers (Notiz 8.14): Bereiche und
- * Farben ([WidgetConfig]). Zurück bzw. „Abbrechen“ beim Anlegen entfernt das Widget wieder (so will es Android).
+ * Settings of a widget when it is added and later via the launcher's "Customize widget" (note 8.14): sections and
+ * colors ([WidgetConfig]). Back or "Cancel" while adding removes the widget again (that is what Android expects).
  */
 @AndroidEntryPoint
 class WidgetConfigActivity : ComponentActivity() {
@@ -73,8 +73,8 @@ class WidgetConfigActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setResult(RESULT_CANCELED, result())
-        // Die Activity ist exportiert (der Launcher startet sie): Eine fremde oder ungültige Kennung ließ Glance werfen, und der
-        // Absturz nahm die Wiedergabe im selben Prozess mit (Review D29).
+        // The activity is exported (the launcher starts it): a foreign or invalid ID made Glance throw, and the
+        // crash took playback in the same process down with it (review D29).
         val provider = AppWidgetManager.getInstance(this).getAppWidgetInfo(appWidgetId)?.provider
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID || provider?.packageName != packageName) {
             finish()
@@ -86,7 +86,7 @@ class WidgetConfigActivity : ComponentActivity() {
             val systemColors by themeSettings.systemColors.collectAsStateWithLifecycle(initialValue = null)
             val areas by spokenSettings.areas.collectAsStateWithLifecycle(initialValue = null)
             val saved by produceState<SavedConfig?>(null) { value = SavedConfig(savedConfig()) }
-            // Bis alles gelesen ist (wenige Millisekunden): nichts zeichnen statt kurz falsch.
+            // Until everything is read (a few milliseconds): draw nothing rather than briefly something wrong.
             val mode = themeMode ?: return@setContent
             val enabledAreas = areas ?: return@setContent
             val loaded = saved ?: return@setContent
@@ -108,7 +108,7 @@ class WidgetConfigActivity : ComponentActivity() {
 
     private class SavedConfig(val config: WidgetConfig?)
 
-    /** Beim Anpassen die bisherigen Einstellungen; beim Anlegen `null`. */
+    /** When customizing, the previous settings; when adding, `null`. */
     private suspend fun savedConfig(): WidgetConfig? {
         val glanceId = GlanceAppWidgetManager(this).getGlanceIdBy(appWidgetId)
         return getAppWidgetState(this, PreferencesGlanceStateDefinition, glanceId).widgetConfig()
@@ -128,8 +128,8 @@ class WidgetConfigActivity : ComponentActivity() {
 }
 
 /**
- * Bereiche (nur die in der App eingeschalteten; mindestens einer) und Farben. Bereiche, die in der App ausgeschaltet sind,
- * bleiben beim Anpassen so gewählt, wie sie waren.
+ * Sections (only those enabled in the app; at least one) and colors. Sections that are disabled in the app
+ * stay selected as they were when customizing.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -177,7 +177,7 @@ private fun WidgetConfigScreen(
             }
             SectionTitle(R.string.widget_config_colors)
             WidgetColors.entries
-                // Material You gibt es erst ab Android 12.
+                // Material You only exists from Android 12 on.
                 .filter { it != WidgetColors.SYSTEM || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S }
                 .forEach { option ->
                     val selected = option == colors

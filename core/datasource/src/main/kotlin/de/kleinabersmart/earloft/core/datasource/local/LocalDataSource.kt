@@ -33,7 +33,7 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Musik auf dem Gerät, gelesen über MediaStore (Konzept 6.2). */
+/** Music on the device, read via MediaStore (concept 6.2). */
 @Singleton
 class LocalDataSource @Inject constructor(
     @param:ApplicationContext private val context: Context,
@@ -48,8 +48,8 @@ class LocalDataSource @Inject constructor(
     override fun fullScan(): Flow<SourceBatch> = fullScan { _, _ -> false }
 
     override fun fullScan(isUnchanged: suspend (String, Long) -> Boolean): Flow<SourceBatch> = flow {
-        // Ohne Berechtigung liefert MediaStore eine leere Liste statt eines Fehlers – der
-        // Abgleich würde dann die ganze Bibliothek löschen.
+        // Without permission MediaStore returns an empty list instead of an error – the
+        // sync would then delete the whole library.
         if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} fehlt")
         val rows = queryRows()
         MediaStoreTrackMapper.map(rows, FallbackNames.from(context))
@@ -57,7 +57,7 @@ class LocalDataSource @Inject constructor(
             .forEach { emit(SourceBatch(withTags(it, isUnchanged))) }
     }.flowOn(Dispatchers.IO)
 
-    /** Liest die Tags nur für neue oder geänderte Dateien (mit wenigen Lesevorgängen gleichzeitig). */
+    /** Reads the tags only for new or changed files (with few reads at a time). */
     private suspend fun withTags(
         tracks: List<RawTrack>,
         isUnchanged: suspend (String, Long) -> Boolean,
@@ -69,7 +69,7 @@ class LocalDataSource @Inject constructor(
                     track
                 } else {
                     val tags = limit.withPermit { tagReader.read(contentUri(track.remoteId)) }
-                    // Nicht lesbar: ohne Tags weiter – lastModified bleibt, die Datei wird nicht bei jedem Lauf neu versucht.
+                    // Not readable: continue without tags – lastModified stays, so the file isn't retried on every run.
                     if (tags == null) track else MediaStoreTrackMapper.applyTags(track, tags)
                 }
             }
@@ -102,7 +102,7 @@ class LocalDataSource @Inject constructor(
         } catch (_: IOException) {
             null
         } catch (_: RuntimeException) {
-            // MediaMetadataRetriever wirft bei defekten Dateien IllegalArgumentException/RuntimeException.
+            // MediaMetadataRetriever throws IllegalArgumentException/RuntimeException on broken files.
             null
         }
     }

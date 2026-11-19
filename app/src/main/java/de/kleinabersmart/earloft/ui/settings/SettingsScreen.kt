@@ -32,8 +32,8 @@ import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Übersicht der Einstellungen: Allgemein, Musik, Podcasts, Bücher, Uhr (nur mit gekoppelter Uhr), Über.
- * Jeder Eintrag öffnet eine Unterseite und zeigt eine Zeile Status.
+ * Settings overview: General, Music, Podcasts, Books, Watch (only with a paired watch), About.
+ * Each entry opens a subpage and shows a one-line status.
  */
 @Composable
 fun SettingsScreen(
@@ -87,7 +87,7 @@ private fun SettingsContent(
                         onClick = onOpenGeneral,
                     )
                 }
-                // Ausgeblendete Bereiche (Allgemein → Bereiche) haben keine Unterseite.
+                // Hidden areas (General → Areas) have no subpage.
                 if (SpokenMode.MUSIC in state.areas) row("music") {
                     val servers = pluralStringResource(R.plurals.settings_server_count, state.servers.size, state.servers.size)
                     NavRow(
@@ -125,7 +125,7 @@ private fun SettingsContent(
                         onClick = onOpenAudiobooks,
                     )
                 }
-                // Nur mit gekoppelter Uhr, auf der EarLoft installiert ist (Wear-Konzept 5).
+                // Only with a paired watch that has EarLoft installed (Wear concept 5).
                 if (watchAvailable) {
                     row("watch") {
                         NavRow(

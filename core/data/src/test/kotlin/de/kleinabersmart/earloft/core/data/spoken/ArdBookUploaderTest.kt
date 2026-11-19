@@ -43,7 +43,7 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
-/** Hochladen eines Buchs aus ARD Sounds (`books_improvements.md` M9) gegen einen nachgebauten Audiobookshelf-Server. */
+/** Uploading a book from ARD Sounds (`books_improvements.md` M9) against a mocked Audiobookshelf server. */
 @RunWith(RobolectricTestRunner::class)
 class ArdBookUploaderTest {
 
@@ -58,31 +58,31 @@ class ArdBookUploaderTest {
     private lateinit var serverId: String
     private lateinit var audio: File
 
-    /** Was der Server als Upload erhalten hat: Formularfelder und Dateinamen. */
+    /** What the server received as upload: form fields and file names. */
     private val uploads = CopyOnWriteArrayList<String>()
 
-    /** Antwort auf `POST /api/upload`. */
+    /** Response to `POST /api/upload`. */
     @Volatile
     private var uploadStatus = 200
 
-    /** Einträge der Bibliothek auf dem Server (Kennung → Titel); ein erfolgreicher Upload legt einen an. */
+    /** Entries of the library on the server (id → title); a successful upload creates one. */
     private val items = ConcurrentHashMap<String, String>()
 
-    /** Laufzeit je Eintrag in Sekunden; ohne Angabe 60. */
+    /** Duration per entry in seconds; 60 if not specified. */
     private val durations = ConcurrentHashMap<String, Int>()
 
-    /** Titel, unter dem der Server den Upload meldet (Audio-Tags vor Ordnername); `null`: wie hochgeladen. */
+    /** Title under which the server reports the upload (audio tags before folder name); `null`: as uploaded. */
     @Volatile
     private var reportedTitle: String? = null
 
-    /** Der Server meldet statt des Uploads ein Buch einer anderen Person (Titel „Fremdes Buch“, eine Stunde). */
+    /** Instead of the upload, the server reports a book of another person (title "Fremdes Buch", one hour). */
     @Volatile
     private var foreignInstead = false
 
     @Volatile
     private var canUpload = true
 
-    /** Der Server scannt den Upload erst später: Er landet hier statt in [items]. */
+    /** The server only scans the upload later: it lands here instead of in [items]. */
     @Volatile
     private var scanLater = false
     private val scannedLater = ConcurrentHashMap<String, String>()
@@ -95,7 +95,7 @@ class ArdBookUploaderTest {
         try {
             WorkManager.initialize(context, Configuration.Builder().build())
         } catch (e: IllegalStateException) {
-            // schon initialisiert
+            // already initialized
         }
         db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         dao = db.bookDao()
@@ -136,7 +136,7 @@ class ArdBookUploaderTest {
         server.close()
     }
 
-    /** Ein vollständig geladenes Buch aus ARD Sounds mit Fortschritt, Tempo und einem Lesezeichen. */
+    /** A fully downloaded book from ARD Sounds with progress, speed and a bookmark. */
     private suspend fun ardBook(title: String = "Der Krieg der Welten", author: String = "H. G. Wells", downloaded: Boolean = true): Long {
         val id = dao.insertBook(
             BookEntity(
@@ -189,7 +189,7 @@ class ArdBookUploaderTest {
         assertEquals(1.5f, progress.speed)
         assertEquals(3, progress.volumeBoostDb)
         assertEquals(listOf("Stelle"), dao.bookmarksOf(listOf(newBookId)).map { it.title })
-        // Die Fassung aus ARD Sounds bleibt, bis der Aufrufer sie entfernt.
+        // The ARD Sounds version stays until the caller removes it.
         assertTrue(dao.book(bookId) != null)
     }
 
@@ -211,7 +211,7 @@ class ArdBookUploaderTest {
         assertTrue(opf, "<dc:language>de</dc:language>" in opf)
         assertTrue(opf, "<dc:subject>Krimi</dc:subject>" in opf && "<dc:subject>Hörspiel</dc:subject>" in opf)
         assertFalse(opf, "dc:date" in opf)
-        // Wohlgeformt: Ein XML-Parser liest Titel und Autor zurück.
+        // Well-formed: an XML parser reads back title and author.
         val document = javax.xml.parsers.DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
             .newDocumentBuilder().parse(opf.byteInputStream())
         val dc = "http://purl.org/dc/elements/1.1/"
@@ -257,7 +257,7 @@ class ArdBookUploaderTest {
     fun `a book already on the server is not uploaded again`() = runTest {
         items["li_old"] = "Der Krieg der Welten"
         val bookId = ardBook()
-        // Der Abgleich kennt das Buch auf dem Server.
+        // The sync knows the book on the server.
         syncer.syncSafely(servers.server(serverId)!!)
 
         assertEquals(UploadResult.Exists, uploader.upload(bookId, target()))
@@ -278,7 +278,7 @@ class ArdBookUploaderTest {
     @Test
     fun `a book somebody else uploaded in the meantime is not taken for the upload`() = runTest {
         val bookId = ardBook()
-        // Das Buch der anderen Person kennt die App noch nicht; ohne vorherigen Abgleich gelte es als neu.
+        // The app doesn't know the other person's book yet; without a prior sync it would count as new.
         items["li_foreign"] = "Fremdes Buch"
         durations["li_foreign"] = 3_600
         foreignInstead = true
@@ -316,7 +316,7 @@ class ArdBookUploaderTest {
         val bookId = ardBook()
         scanLater = true
 
-        // Der Server meldet das Buch während des Wartens nicht (oder der Nutzer bricht ab).
+        // The server doesn't report the book while waiting (or the user cancels).
         assertEquals(UploadResult.Done(null), uploader.upload(bookId, target()))
         items.putAll(scannedLater)
         syncer.syncSafely(servers.server(serverId)!!)
@@ -324,12 +324,12 @@ class ArdBookUploaderTest {
         val newBook = dao.booksOf(serverId).single { it.remoteId == "li_new" }
         assertEquals(30_000L, dao.progress(newBook.bookId)!!.positionMs)
         assertEquals(listOf("Stelle"), dao.bookmarksOf(listOf(newBook.bookId)).map { it.title })
-        // Nur einmal: Ein weiterer Abgleich legt das Lesezeichen nicht noch einmal an.
+        // Only once: another sync doesn't create the bookmark again.
         syncer.syncSafely(servers.server(serverId)!!)
         assertEquals(1, dao.bookmarksOf(listOf(newBook.bookId)).size)
     }
 
-    /** `/ping`, `/api/me`, `/api/libraries` mit Ordner, die Einträge je Bibliothek, Details je Eintrag und `POST /api/upload`. */
+    /** `/ping`, `/api/me`, `/api/libraries` with folder, the entries per library, details per entry and `POST /api/upload`. */
     private inner class FakeServer : Dispatcher() {
         override fun dispatch(request: RecordedRequest): MockResponse {
             val path = request.url.encodedPath
@@ -352,7 +352,7 @@ class ArdBookUploaderTest {
                         val fields = Regex("""name="([a-z]+)"\r\n\r\n([^\r]*)""").findAll(body).joinToString(" ") { "${it.groupValues[1]}=${it.groupValues[2]}" }
                         val files = Regex("""filename="([^"]+)"""").findAll(body).joinToString(" ") { "file=${it.groupValues[1]}" }
                         uploads += "$fields $files"
-                        // Der Server scannt und meldet das Buch danach.
+                        // The server scans and reports the book afterwards.
                         if (foreignInstead) {
                             items["li_foreign"] = "Fremdes Buch"
                             durations["li_foreign"] = 3_600

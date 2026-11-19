@@ -20,19 +20,19 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-/** Ablauf von „Quelle wechseln“ (Konzept 12.10). */
+/** Flow of "Switch source" (concept 12.10). */
 sealed interface SourceSwitchState {
     data object Idle : SourceSwitchState
     data object Checking : SourceSwitchState
     data class Failed(@param:StringRes val message: Int, val detail: String? = null) : SourceSwitchState
 
-    /** Geprüft; wartet auf die Bestätigung. */
+    /** Checked; waiting for confirmation. */
     data class Ready(val episodes: Int, val matched: Int, val keptUnmatched: Int) : SourceSwitchState
     data object Switching : SourceSwitchState
     data object Done : SourceSwitchState
 }
 
-/** Ergebnis des Datenbank-Exports im Dialog; `null` = fehlgeschlagen. */
+/** Result of the database export in the dialog; `null` = failed. */
 data class SwitchExport(val result: DatabaseExportResult?)
 
 @HiltViewModel(assistedFactory = SourceSwitchViewModel.Factory::class)
@@ -54,7 +54,7 @@ class SourceSwitchViewModel @AssistedInject constructor(
 
     private var checked: SourceCheck.Ready? = null
 
-    /** Lädt die neue Quelle und ordnet die Folgen zu; geändert wird noch nichts. */
+    /** Loads the new source and matches the episodes; nothing is changed yet. */
     fun check(input: String) {
         _state.value = SourceSwitchState.Checking
         viewModelScope.launch {
@@ -71,8 +71,8 @@ class SourceSwitchViewModel @AssistedInject constructor(
     }
 
     /**
-     * Beim Schließen des Dialogs: Das ViewModel gehört zur Seite und überlebt ihn; ohne Zurücksetzen schlösse sich der
-     * nächste Dialog nach einem Wechsel sofort wieder („Done“), und alte Fehler und Export-Ergebnisse stünden darin.
+     * When the dialog closes: the ViewModel belongs to the page and outlives it; without a reset the
+     * next dialog would close again immediately after a switch ("Done"), and old errors and export results would be in it.
      */
     fun reset() {
         checked = null
@@ -80,13 +80,13 @@ class SourceSwitchViewModel @AssistedInject constructor(
         _export.value = null
     }
 
-    /** Zurück zur Eingabe. */
+    /** Back to input. */
     fun back() {
         checked = null
         _state.value = SourceSwitchState.Idle
     }
 
-    /** Führt den geprüften Wechsel aus; im App-Scope, damit er nicht halb stehen bleibt, wenn die Seite geht. */
+    /** Performs the checked switch; in the app scope so it doesn't stop halfway when the page goes away. */
     fun switch() {
         val ready = checked ?: return
         _state.value = SourceSwitchState.Switching
@@ -97,7 +97,7 @@ class SourceSwitchViewModel @AssistedInject constructor(
         }
     }
 
-    /** Sicherung vor dem Wechsel: dieselbe Datei wie Einstellungen → Podcasts → „Datenbank exportieren“. */
+    /** Backup before the switch: the same file as Settings → Podcasts → "Export database". */
     fun exportDatabase(uri: Uri) {
         _exporting.value = true
         viewModelScope.launch {

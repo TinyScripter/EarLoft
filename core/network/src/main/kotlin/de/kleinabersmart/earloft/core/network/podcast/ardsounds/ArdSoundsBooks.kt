@@ -11,13 +11,13 @@ import java.time.OffsetDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Die Rubriken von ARD Sounds, aus denen Bücher kommen (`books_improvements.md` M9); [id] ist die der Schnittstelle. */
+/** The ARD Sounds categories books come from (`books_improvements.md` M9); [id] is the interface's one. */
 enum class ArdCategory(val id: String) {
     AUDIOBOOK("42914713"),
     RADIO_PLAY("42914712"),
 }
 
-/** Eine Sendung einer Rubrik: ein Buch in Teilen oder eine Reihe mit vielen Büchern. */
+/** A show of a category: a book in parts or a series with many books. */
 data class ArdShow(
     val id: String,
     val title: String,
@@ -27,8 +27,8 @@ data class ArdShow(
 )
 
 /**
- * Ein Buch in einer Liste (Sendung, Suche). [key] ist die Kennung des Buchs ([ardBookKey]); [parts] die Zahl der Teile, soweit
- * bekannt, [durationMs] nur, wenn alle Teile in der Liste stehen.
+ * A book in a list (show, search). [key] is the book's ID ([ardBookKey]); [parts] the number of parts, if
+ * known, [durationMs] only if all parts are in the list.
  */
 data class ArdBookSummary(
     val key: String,
@@ -43,7 +43,7 @@ data class ArdBookSummary(
     val publishedAt: Long,
 )
 
-/** Ein Buch mit allen Teilen, wie es in die Bibliothek kommt. */
+/** A book with all parts, as it goes into the library. */
 data class ArdBook(
     val key: String,
     val title: String,
@@ -58,11 +58,11 @@ data class ArdBook(
 ) {
     val durationMs: Long get() = parts.sumOf { it.durationMs }
 
-    /** Bis wann das Buch ganz abrufbar ist: der früheste Teil mit Ablauf; `null` = unbefristet bzw. unbekannt. */
+    /** Until when the whole book is available: the earliest part with an expiry; `null` = unlimited or unknown. */
     val availableUntil: Long? get() = parts.mapNotNull { it.availableUntil }.minOrNull()
 }
 
-/** Ein Teil eines Buchs: eine Audiodatei. [title] ist der Name des Kapitels. */
+/** One part of a book: an audio file. [title] is the chapter's name. */
 data class ArdPart(
     val id: String,
     val title: String,
@@ -73,14 +73,14 @@ data class ArdPart(
 )
 
 /**
- * Hörbücher und Hörspiele aus ARD Sounds (`books_improvements.md` M9) über dieselbe GraphQL-Schnittstelle wie die Podcasts
- * ([ArdSoundsApi]). Was ein Buch ist, entscheidet [ardBookKey]; jeder Fehler kommt als `IOException`, auch eine Antwort, die neben
- * den Daten Fehler meldet (sonst gälte ein Buch mit fehlenden Daten als nicht mehr abrufbar).
+ * Audiobooks and radio plays from ARD Sounds (`books_improvements.md` M9) via the same GraphQL interface as the podcasts
+ * ([ArdSoundsApi]). What counts as a book is decided by [ardBookKey]; every error comes as an `IOException`, including a response that
+ * reports errors alongside the data (otherwise a book with missing data would count as no longer available).
  */
 @Singleton
 class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
 
-    /** Die Sendungen einer Rubrik in der Reihenfolge von ARD Sounds. */
+    /** The shows of a category in ARD Sounds' order. */
     suspend fun shows(category: ArdCategory): List<ArdShow> {
         val data = api.query(CATEGORY_QUERY, buildJsonObject { put("id", category.id) }, CategoryData.serializer(), strict = true)
         return data.editorialCategory?.sections.orEmpty()
@@ -100,7 +100,7 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
             .distinctBy { it.id }
     }
 
-    /** Die Bücher der Sendung [showId], neueste zuerst. */
+    /** The books of the show [showId], newest first. */
     suspend fun showBooks(showId: String): List<ArdBookSummary> {
         val variables = buildJsonObject {
             put("id", showId)
@@ -110,7 +110,7 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
         return summaries(items.filterNot(::isTrailer))
     }
 
-    /** Bücher zu [term] aus den Rubriken Hörbuch und Hörspiel (die Suche von ARD Sounds findet einzelne Titel). */
+    /** Books for [term] from the audiobook and radio play categories (the ARD Sounds search finds individual titles). */
     suspend fun search(term: String): List<ArdBookSummary> {
         val variables = buildJsonObject {
             put("query", term)
@@ -120,7 +120,7 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
         return summaries(items.filter { it.category() != null })
     }
 
-    /** Das Buch [key] mit allen veröffentlichten Teilen; `null`, wenn es keine (mehr) gibt. */
+    /** The book [key] with all published parts; `null` if there are none (anymore). */
     suspend fun book(key: String): ArdBook? {
         val parsed = ArdBookKey.parse(key) ?: return null
         val parts = itemsOf(parsed).filter { ardBookKey(it.toKeyInput()) == key }
@@ -128,10 +128,10 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
     }
 
     /**
-     * Der neue Schlüssel des Buchs [key], wenn ARD Sounds seine Titel inzwischen anders zuordnet ([book] findet es dann nicht mehr).
-     * Zuerst über die Kennungen seiner Titel ([itemIds], [ArdPart.id]); so fällt auch auf, dass eine Gruppe jetzt anders heißt. Ohne
-     * sie bzw. wenn ARD Sounds keinen davon mehr führt (neu veröffentlicht): Ein einzelner Titel oder eine nummerierte Reihe ohne
-     * Gruppe gehört jetzt zu einer Gruppe. `null`, wenn es die Titel nicht mehr gibt oder sie sich auf mehrere Bücher verteilen.
+     * The new key of the book [key] if ARD Sounds now assigns its titles differently ([book] then no longer finds it).
+     * First via the IDs of its titles ([itemIds], [ArdPart.id]); this also catches a group that is now named differently. Without
+     * them, or if ARD Sounds no longer lists any of them (republished): a single title or a numbered series without a
+     * group now belongs to a group. `null` if the titles no longer exist or are spread across several books.
      */
     suspend fun movedKey(key: String, itemIds: Collection<String> = emptyList()): String? {
         val parsed = ArdBookKey.parse(key) ?: return null
@@ -148,7 +148,7 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
         return items.map { ardBookKey(it.toKeyInput()) }.distinct().singleOrNull()?.takeIf { it != key }
     }
 
-    /** Die Titel, die zum Schlüssel [parsed] passen (ohne zu prüfen, ob sie noch zu diesem Buch gehören). */
+    /** The titles matching the key [parsed] (without checking whether they still belong to this book). */
     private suspend fun itemsOf(parsed: ArdBookKey): List<ItemNode> = when (parsed) {
         is ArdBookKey.Group -> fetchItems(buildJsonObject { put("groupId", buildJsonObject { put("equalTo", parsed.groupId) }) })
         is ArdBookKey.Item -> fetchItems(buildJsonObject { put("coreId", buildJsonObject { put("equalTo", parsed.coreId) }) })
@@ -193,7 +193,7 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
         val first = ordered.firstOrNull() ?: return null
         val meta = bookMeta(first)
         val show = first.programSet
-        // Ist das Buch die ganze Sendung, beschreibt die Sendung das Buch; sonst der erste Teil.
+        // If the book is the whole show, the show describes the book; otherwise the first part does.
         val wholeShow = key == ArdBookKey.Group(show?.coreId.orEmpty()).value
         val description = (if (wholeShow) show?.description?.ifBlank { null } ?: show?.synopsis else null)
             ?: first.description?.ifBlank { null } ?: first.summary.orEmpty()
@@ -227,7 +227,7 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
         val grouped = first.groupId != null && first.group?.type != SEASON
         val raw = if (grouped) first.group?.title ?: first.programSet?.title else null
         val own = parseArdTitle(raw ?: numberedTitle(first.title.orEmpty())?.book ?: first.title.orEmpty())
-        // Ohne Autor im Titel („Späte Rache“) nennt ihn oft die Sendung („Arthur Conan Doyle: Sherlock Holmes …“).
+        // Without an author in the title ("Späte Rache") the show often names them ("Arthur Conan Doyle: Sherlock Holmes …").
         val author = own.author.ifEmpty { parseArdTitle(first.programSet?.title.orEmpty()).author }
             .ifEmpty { first.programSet?.publicationService?.title?.trim().orEmpty() }
         val narrator = own.narrator.ifEmpty { parseArdTitle(first.title.orEmpty()).narrator }
@@ -290,21 +290,21 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
     }
 }
 
-/** Kennung eines Buchs aus ARD Sounds in `books.remoteId`. */
+/** ID of a book from ARD Sounds in `books.remoteId`. */
 internal sealed class ArdBookKey {
     abstract val value: String
 
-    /** Die Teile einer Gruppe (`MULTIPART`, `SERIES`): ein Werk in Folgen. */
+    /** The parts of a group (`MULTIPART`, `SERIES`): one work in episodes. */
     data class Group(val groupId: String) : ArdBookKey() {
         override val value get() = "group:$groupId"
     }
 
-    /** Nummerierte Titel einer Sendung ohne Gruppe („Tyll (3/8)“). [title] ohne Nummer. */
+    /** Numbered titles of a show without a group ("Tyll (3/8)"). [title] without the number. */
     data class Title(val programSetId: Long, val title: String) : ArdBookKey() {
         override val value get() = "title:$programSetId:$title"
     }
 
-    /** Ein einzelner Titel. */
+    /** A single title. */
     data class Item(val coreId: String) : ArdBookKey() {
         override val value get() = "item:$coreId"
     }
@@ -320,7 +320,7 @@ internal sealed class ArdBookKey {
     }
 }
 
-/** Was [ardBookKey] von einem Titel braucht. */
+/** What [ardBookKey] needs from a title. */
 internal data class ArdKeyInput(
     val coreId: String?,
     val title: String,
@@ -330,9 +330,9 @@ internal data class ArdKeyInput(
 )
 
 /**
- * Zu welchem Buch ein Titel gehört (`books_improvements.md` M9): Gruppen außer Staffeln (`SEASON`, dort ist jeder Titel ein
- * Buch) fassen ihre Teile zusammen; ohne Gruppe nummerierte Titel einer Sendung („… (3/8)“, „…, Folge 3“) über den Titel ohne
- * Nummer; sonst ist der Titel selbst ein Buch.
+ * Which book a title belongs to (`books_improvements.md` M9): groups other than seasons (`SEASON`, where every title is a
+ * book) combine their parts; numbered titles of a show without a group ("… (3/8)", "…, Folge 3") via the title without the
+ * number; otherwise the title itself is a book.
  */
 internal fun ardBookKey(input: ArdKeyInput): String {
     if (input.groupId != null && input.groupType != "SEASON") return ArdBookKey.Group(input.groupId).value
@@ -341,10 +341,10 @@ internal fun ardBookKey(input: ArdKeyInput): String {
     return ArdBookKey.Item(input.coreId.orEmpty()).value
 }
 
-/** Ein nummerierter Titel: das Buch, die Nummer des Teils und, was danach steht („Tyll (3/8): Minnesänger …“). */
+/** A numbered title: the book, the part's number and what follows ("Tyll (3/8): Minnesänger …"). */
 internal data class NumberedTitle(val book: String, val number: Int, val label: String?, val rest: String)
 
-/** „Buch (3/8)“, „Buch (3)“, „Buch, Folge 3“, „Buch – Teil 3“, jeweils mit optionalem Rest nach „:“ oder „–“. */
+/** "Book (3/8)", "Book (3)", "Book, Folge 3", "Book – Teil 3", each with an optional rest after ":" or "–". */
 internal fun numberedTitle(title: String): NumberedTitle? {
     val text = title.trim()
     PARENTHESIS_NUMBER.matchEntire(text)?.let { m ->
@@ -361,12 +361,12 @@ internal fun numberedTitle(title: String): NumberedTitle? {
 private val PARENTHESIS_NUMBER = Regex("""^(.*?)\s*\((\d{1,3})(?:\s*/\s*\d{1,3})?\)\s*(?:[:–-]\s*(.*))?$""")
 private val LABEL_NUMBER = Regex("""^(.*?)\s*(?:[,:–-]\s*)?\b(Folge|Teil|Kapitel|Episode)\s+(\d{1,3})\b\s*(?:[:–-]\s*(.*))?$""", RegexOption.IGNORE_CASE)
 
-/** Autor, Titel und Sprecher eines Titels aus ARD Sounds; fehlt eine Angabe, ist sie leer. */
+/** Author, title and narrator of a title from ARD Sounds; a missing detail is empty. */
 internal data class ArdTitle(val author: String, val title: String, val narrator: String)
 
 /**
- * Liest Autor, Titel und Sprecher aus den üblichen Schreibweisen: „Autor: Titel“, „Autor: "Titel" | Gelesen von Sprecher“,
- * „"Titel" von Autor“; Zusätze des Senders („ - WDR 5 Hörbuch“, „| WDR“) fallen weg.
+ * Reads author, title and narrator from the usual notations: `Author: Title`, `Author: "Title" | Gelesen von Narrator`,
+ * `"Title" von Author`; the broadcaster's additions (` - WDR 5 Hörbuch`, `| WDR`) are dropped.
  */
 internal fun parseArdTitle(raw: String): ArdTitle {
     var text = raw.trim()
@@ -390,7 +390,7 @@ internal fun parseArdTitle(raw: String): ArdTitle {
     return ArdTitle("", unquote(text), narrator)
 }
 
-/** Der Sprecher aus „Gelesen von …“, „Lesung mit …“, „Es liest …“; `null` ohne solche Angabe. */
+/** The narrator from "Gelesen von …", "Lesung mit …", "Es liest …"; `null` without such a detail. */
 internal fun narratorIn(text: String): String? =
     NARRATOR_PHRASE.find(text)?.groupValues?.get(1)?.trim()?.trimEnd('.', ',', ';')?.trim()?.takeIf { it.isNotEmpty() && it.length <= 80 }
 
@@ -403,7 +403,7 @@ private val BY_AUTHOR = Regex("""^[„"“”]([^"“”„]+)[„"“”]\s+(?:
 
 private fun unquote(text: String): String = text.trim().trim('"', '„', '“', '”', '»', '«').trim()
 
-/** Ein Name hat zwei bis fünf Wörter und keine Ziffern („H. G. Wells“, „Emily Brontë“), nicht „Tatort“ oder „1001 Nacht“. */
+/** A name has two to five words and no digits ("H. G. Wells", "Emily Brontë"), not "Tatort" or "1001 Nacht". */
 private fun looksLikeName(text: String): Boolean {
     val words = text.split(' ').filter { it.isNotBlank() }
     return words.size in 2..5 && text.none { it.isDigit() } && words.all { it.first().isUpperCase() || it in NAME_PARTICLES }
@@ -411,7 +411,7 @@ private fun looksLikeName(text: String): Boolean {
 
 private val NAME_PARTICLES = setOf("von", "van", "de", "der", "den", "du", "di", "da", "le", "la", "zu", "y")
 
-/** Teile in der Reihenfolge des Buchs: nach Nummer, ohne Nummer nach Veröffentlichung; unnummerierte fallen weg, wenn es nummerierte gibt. */
+/** Parts in the book's order: by number, without a number by publication; unnumbered ones are dropped if there are numbered ones. */
 private fun orderParts(parts: List<ItemNode>): List<ItemNode> {
     val numbered = parts.filter { it.partNumber() != null }
     return if (numbered.isEmpty()) {
@@ -423,7 +423,7 @@ private fun orderParts(parts: List<ItemNode>): List<ItemNode> {
 
 private fun ItemNode.partNumber(): Int? = episodeNumber?.takeIf { groupId != null && group?.type != "SEASON" } ?: numberedTitle(title.orEmpty())?.number
 
-/** Name des Kapitels: was im Titel nach der Nummer steht, sonst „Teil n“ (bzw. die Bezeichnung des Titels, „Folge n“). */
+/** Name of the chapter: what follows the number in the title, otherwise "Teil n" (or the title's label, "Folge n"). */
 private fun partTitle(item: ItemNode, index: Int, count: Int): String {
     val title = item.title.orEmpty().trim()
     if (count == 1) return title
@@ -432,7 +432,7 @@ private fun partTitle(item: ItemNode, index: Int, count: Int): String {
     return title.ifEmpty { "Teil ${index + 1}" }
 }
 
-/** Die Fassung zum Herunterladen, sonst die zum Streamen (beides gewöhnliche Dateien), MP3 vor AAC. */
+/** The download version, otherwise the streaming one (both regular files), MP3 before AAC. */
 private fun ItemNode.audio(): Pair<String, String?>? {
     val all = audios.orEmpty()
     val chosen = all.firstOrNull { it.allowDownload == true && it.downloadUrl != null }?.let { it.downloadUrl!! to it.mimeType }
@@ -449,7 +449,7 @@ private fun ItemNode.availableUntil(): Long? =
     (coreDocument?.get("availableTo") as? JsonPrimitive)?.takeIf { it.isString }?.content
         ?.let { runCatching { OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() }
 
-/** Hörbuch vor Hörspiel; `null`, wenn die Sendung in keiner der beiden Rubriken steht. */
+/** Audiobook before radio play; `null` if the show is in neither of the two categories. */
 private fun ItemNode.category(): ArdCategory? {
     val ids = buildSet {
         programSet?.editorialCategoryId?.let(::add)

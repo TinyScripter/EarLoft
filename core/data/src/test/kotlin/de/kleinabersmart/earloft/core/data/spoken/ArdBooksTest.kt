@@ -92,7 +92,7 @@ class ArdBooksTest {
         assertEquals(listOf(0L, 1_000_000L), dao.tracks(bookId).map { it.startMs })
         assertEquals(listOf("https://a.example/1.mp3", "https://a.example/2.mp3"), dao.tracks(bookId).map { it.remoteFileId })
         assertEquals(listOf("Teil 1", "Teil 2"), dao.chapters(bookId).map { it.title })
-        // Schon in der Bibliothek: kein zweiter Abruf.
+        // Already in the library: no second fetch.
         assertEquals(bookId, ardBooks.add(KEY))
         assertEquals(1, server.requestCount)
     }
@@ -122,7 +122,7 @@ class ArdBooksTest {
         dao.markBookTrackRunning(bookId, 0)
         dao.markBookTrackDone(bookId, 0, "/files/1.mp3", 42)
 
-        // ARD Sounds führt Teil 1 nicht mehr.
+        // ARD Sounds no longer lists part 1.
         server.enqueue(answer(part(2)))
         ardBooks.refresh()
 
@@ -136,7 +136,7 @@ class ArdBooksTest {
         val bookId = ardBooks.add(KEY)!!
         dao.upsertProgress(BookProgressEntity(bookId, positionMs = 1_500_000, durationMs = 3_000_000, updatedAt = 1))
 
-        // ARD Sounds führt Teil 1 nicht mehr; geladen war er nie.
+        // ARD Sounds no longer lists part 1; it was never downloaded.
         server.enqueue(answer(part(2), part(3, availableTo = "2099-01-01T00:00:00+01:00")))
         assertTrue(ardBooks.refresh().ok)
 
@@ -147,9 +147,9 @@ class ArdBooksTest {
         assertNull(tracks[1].unavailableSince)
         assertEquals(listOf("Teil 1", "Teil 2", "Teil 3"), dao.chapters(bookId).map { it.title })
         assertEquals(3_000_000L, dao.book(bookId)!!.durationMs)
-        // Ablauf des Buchs: der nächste Teil, der noch nicht geladen ist und abläuft.
+        // Expiry of the book: the next part that isn't downloaded yet and expires.
         assertEquals(OffsetDateTime.parse("2099-01-01T00:00:00+01:00").toInstant().toEpochMilli(), dao.book(bookId)!!.availableUntil)
-        // Laden lässt den weggefallenen Teil aus; ohne ihn gilt das Buch als ganz geladen.
+        // Downloading skips the disappeared part; without it the book counts as fully downloaded.
         assertEquals(2, dao.queueBookDownload(bookId))
         listOf(1, 2).forEach { index ->
             dao.markBookTrackRunning(bookId, index)
@@ -220,10 +220,10 @@ class ArdBooksTest {
         assertNull(dao.tracks(bookId).single().unavailableSince)
     }
 
-    /** Die erste leere Antwort liegt länger zurück, als eine Bestätigung mindestens braucht. */
+    /** The first empty response lies further back than a confirmation needs at least. */
     private suspend fun firstEmptyAnswerLongAgo() = settings.setArdMissing(KEY, System.currentTimeMillis() - 7 * HOUR_MS)
 
-    /** ARD Sounds führt das Buch nicht mehr: nichts unter seinem Schlüssel und keinen seiner Titel. */
+    /** ARD Sounds no longer lists the book: nothing under its key and none of its titles. */
     private fun enqueueGone() {
         server.enqueue(answer())
         server.enqueue(answer())
@@ -234,7 +234,7 @@ class ArdBooksTest {
         server.enqueue(answer(part(1)))
         val bookId = ardBooks.add(KEY)!!
 
-        // Eine leere Antwort allein kann ein Aussetzer sein: nur vermerkt.
+        // An empty response alone can be a hiccup: only noted.
         enqueueGone()
         assertTrue(ardBooks.refresh().ok)
         assertNull(dao.book(bookId)!!.availableUntil)
@@ -279,7 +279,7 @@ class ArdBooksTest {
 
         assertTrue(settings.ardMissing().isEmpty())
         assertEquals(2, dao.tracks(bookId).size)
-        // Eine spätere leere Antwort fängt wieder von vorn an.
+        // A later empty response starts over.
         enqueueGone()
         ardBooks.refresh()
         assertNull(dao.book(bookId)!!.availableUntil)
@@ -314,7 +314,7 @@ class ArdBooksTest {
         assertTrue(ardBooks.refresh().ok)
 
         assertEquals(asked, server.requestCount)
-        // Nach einer Woche wieder: Taucht es auf, gilt es nicht mehr als abgelaufen.
+        // Again after a week: if it shows up, it no longer counts as expired.
         settings.setArdGoneCheck(KEY, System.currentTimeMillis() - 8 * 24 * 60 * 60 * 1000L)
         server.enqueue(answer(part(1), part(2)))
         ardBooks.refresh()
@@ -343,7 +343,7 @@ class ArdBooksTest {
         val bookId = ardBooks.add("item:solo")!!
         dao.upsertProgress(BookProgressEntity(bookId, positionMs = 500_000, durationMs = 1_000_000, updatedAt = 1))
 
-        // Der Titel gehört jetzt als zweiter Teil zu einer Reihe: unter seinem alten Schlüssel gibt es kein Buch mehr.
+        // The title now belongs to a series as its second part: there's no book under its old key anymore.
         server.enqueue(itemsAnswer(grouped("solo", 2)))
         server.enqueue(itemsAnswer(grouped("solo", 2)))
         server.enqueue(itemsAnswer(grouped("eins", 1), grouped("solo", 2)))
@@ -353,7 +353,7 @@ class ArdBooksTest {
         assertEquals("group:$GROUP", book.remoteId)
         assertNull(book.availableUntil)
         assertEquals(500_000L, dao.progress(bookId)!!.positionMs)
-        // Angefangen: Der bekannte Teil bleibt vorn, der neue kommt dazu.
+        // Started: the known part stays in front, the new one is added.
         assertEquals(listOf("https://a.example/solo.mp3", "https://a.example/eins.mp3"), dao.tracks(bookId).map { it.remoteFileId })
         assertEquals(1, dao.booksOf(ARD_BOOK_SERVER_ID).size)
     }
@@ -365,7 +365,7 @@ class ArdBooksTest {
         assertEquals(listOf("urn:ard:publication:1", "urn:ard:publication:2"), dao.tracks(bookId).map { it.remoteItemId })
         dao.upsertProgress(BookProgressEntity(bookId, positionMs = 1_500_000, durationMs = 2_000_000, updatedAt = 1))
 
-        // Unter der alten Gruppe gibt es nichts mehr; dieselben Titel stehen jetzt in einer anderen.
+        // There's nothing under the old group anymore; the same titles are now in a different one.
         server.enqueue(answer())
         server.enqueue(answer(part(1, group = MOVED), part(2, group = MOVED)))
         server.enqueue(answer(part(1, group = MOVED), part(2, group = MOVED), part(3, group = MOVED)))
@@ -378,7 +378,7 @@ class ArdBooksTest {
         assertEquals(listOf("https://a.example/1.mp3", "https://a.example/2.mp3", "https://a.example/3.mp3"), dao.tracks(bookId).map { it.remoteFileId })
         assertTrue(settings.ardMissing().isEmpty())
         assertEquals(1, dao.booksOf(ARD_BOOK_SERVER_ID).size)
-        // Warteschlange, Statistik und Sicherung ziehen mit.
+        // Queue, statistics and backup move along.
         assertEquals(listOf(ARD_BOOK_SERVER_ID to mapOf(KEY to "group:$MOVED")), moves)
     }
 
@@ -418,7 +418,7 @@ class ArdBooksTest {
 
         val bookId = ardBooks.restore(KEY, addedAt = 7, saved = saved)!!
 
-        // Unter dem gesicherten Schlüssel finden Fortschritt und Lesezeichen der Sicherung ihr Buch.
+        // Under the backed-up key, the backup's progress and bookmarks find their book.
         assertEquals(KEY, dao.book(bookId)!!.remoteId)
         assertEquals(7L, dao.book(bookId)!!.addedAt)
         assertEquals(listOf("urn:ard:publication:1", "urn:ard:publication:2"), dao.tracks(bookId).map { it.remoteItemId })
@@ -458,7 +458,7 @@ class ArdBooksTest {
             listOf(1, 2, 3).joinToString("\n") { "https://a.example/$it.mp3\t1000000\taudio/mp3\t\tTeil $it" },
         )
 
-        // Teil 1 ist inzwischen abgelaufen.
+        // Part 1 has expired in the meantime.
         server.enqueue(answer(part(2), part(3)))
         val bookId = ardBooks.add(KEY, addedAt = 7, saved = saved)!!
 
@@ -486,12 +486,12 @@ class ArdBooksTest {
         ardBooks.subscribe(SHOW, "Reihe")
         assertEquals(listOf(ArdSubscription(SHOW, "Reihe")), ardBooks.subscriptions.first())
 
-        // Nichts Neues: Das Buch, das es beim Abonnieren schon gab, kommt nicht in die Bibliothek.
+        // Nothing new: the book that already existed when subscribing doesn't go into the library.
         server.enqueue(showAnswer(single("old", "Alt")))
         assertEquals(emptyList<String>(), ardBooks.refresh().newBooks.map { it.title })
         assertTrue(dao.booksOf(ARD_BOOK_SERVER_ID).isEmpty())
 
-        // Ein neues Buch erscheint.
+        // A new book appears.
         server.enqueue(showAnswer(single("new", "Neu"), single("old", "Alt")))
         server.enqueue(itemsAnswer(single("new", "Neu")))
         val result = ardBooks.refresh()
@@ -499,10 +499,10 @@ class ArdBooksTest {
         assertEquals(listOf("Neu"), result.newBooks.map { it.title })
         val bookId = dao.bookByRemote(ARD_BOOK_SERVER_ID, "item:new")!!.bookId
         assertEquals(bookId, result.newBooks.single().bookId)
-        // Die Sendung steht dabei, damit die Benachrichtigung auf sie führen kann.
+        // The show is included so the notification can lead to it.
         assertEquals(NewShow(SHOW, "Reihe"), result.newBooks.single().ardShow)
 
-        // Wer es aus der Bibliothek nimmt, bekommt es nicht wieder.
+        // Whoever removes it from the library doesn't get it back.
         ardBooks.remove(bookId)
         server.enqueue(showAnswer(single("new", "Neu"), single("old", "Alt")))
         assertTrue(ardBooks.refresh().newBooks.isEmpty())
@@ -514,7 +514,7 @@ class ArdBooksTest {
         server.enqueue(showAnswer(single("old", "Alt")))
         ardBooks.subscribe(SHOW, "Reihe")
 
-        // Das Buch ist angekündigt, hat aber noch keine Teile: Es bleibt unbekannt und kommt beim nächsten Mal.
+        // The book is announced but has no parts yet: it stays unknown and comes next time.
         server.enqueue(showAnswer(single("new", "Neu")))
         server.enqueue(itemsAnswer())
         assertTrue(ardBooks.refresh().newBooks.isEmpty())
@@ -532,7 +532,7 @@ class ArdBooksTest {
 
         assertTrue(ardBooks.subscriptions.first().isEmpty())
         assertTrue(ardBooks.refresh().newBooks.isEmpty())
-        // Kein Abruf der Sendung.
+        // No fetch of the show.
         assertEquals(1, server.requestCount)
     }
 
@@ -542,7 +542,7 @@ class ArdBooksTest {
     private fun itemsAnswer(vararg items: String) =
         MockResponse.Builder().body("""{"data":{"items":{"nodes":[${items.joinToString(",")}]}}}""").build()
 
-    /** Ein einzelner Titel der Sendung [SHOW] (ein Buch für sich, ohne Gruppe und Nummer). */
+    /** A single title of show [SHOW] (a book on its own, without group and number). */
     private fun single(coreId: String, title: String) = """
         {"id":"$coreId","coreId":"$coreId","title":"$title","groupId":null,"duration":1000,"publishDate":"2026-11-01T10:00:00+01:00",
          "audios":[{"url":"https://a.example/$coreId.mp3","downloadUrl":null,"allowDownload":false,"mimeType":"audio/mp3"}],
@@ -550,7 +550,7 @@ class ArdBooksTest {
                        "editorialCategoryId":"42914713","editorialCategoriesList":[{"id":"42914713"}]}}
     """.trimIndent()
 
-    /** Teil [number] der Reihe [GROUP] der Sendung [SHOW]. */
+    /** Part [number] of series [GROUP] of show [SHOW]. */
     private fun grouped(coreId: String, number: Int) = """
         {"id":"$coreId","coreId":"$coreId","title":"Reihe ($number/2)","groupId":"$GROUP","episodeNumber":$number,"maxGroupNumber":2,
          "duration":1000,"publishDate":"2026-11-0${number}T10:00:00+01:00","group":{"type":"MULTIPART","title":"Reihe","count":2},

@@ -20,8 +20,8 @@ import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import de.kleinabersmart.earloft.wear.R
 
 /**
- * Menü Musik der Uhr: Alles zufällig, Alben, Künstler, Favoriten und Playlists. Favoriten sind ausgegraut, solange sie
- * nicht auf der Uhr sind.
+ * The watch's music menu: shuffle all, albums, artists, favorites and playlists. Favorites are grayed out as long as they
+ * are not on the watch.
  */
 @Composable
 fun MusicScreen(
@@ -46,9 +46,9 @@ fun MusicScreen(
 }
 
 /**
- * Menü Musik des Handys (Bereich „Telefon“, Wear-Konzept 17): gegliedert wie das der Uhr, aber mit allem, was das Handy hat.
- * „Favoriten“ führt zu den Songs ([onFavoriteSongsClick]) bzw., wenn das Handy auch Alben oder Künstler favorisiert hat, zum
- * Untermenü ([onFavoritesMenuClick]).
+ * The phone's music menu ("Phone" section, Wear concept 17): structured like the watch's, but with everything the phone has.
+ * "Favorites" leads to the songs ([onFavoriteSongsClick]) or, if the phone has also favorited albums or artists, to the
+ * submenu ([onFavoritesMenuClick]).
  */
 @Composable
 fun PhoneMusicScreen(
@@ -73,8 +73,8 @@ fun PhoneMusicScreen(
 }
 
 /**
- * Favoriten des Handys: Songs, dazu Alben und Künstler, soweit es welche gibt, und „Download“ für alle Favoriten (Songs und
- * Lieblingsalben, wie die Auswahl am Handy; Review V17).
+ * The phone's favorites: songs, plus albums and artists if there are any, and "Download" for all favorites (songs and
+ * favorite albums, like the selection on the phone; Review V17).
  */
 @Composable
 fun PhoneFavoritesScreen(

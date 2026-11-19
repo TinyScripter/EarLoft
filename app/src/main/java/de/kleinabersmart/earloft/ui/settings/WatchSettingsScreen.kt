@@ -227,7 +227,7 @@ private fun WatchSettingsContent(
     }
 }
 
-/** Speicher der Uhr und Hinweise aus ihrem letzten Bericht. */
+/** The watch's storage and the notes from its last report. */
 @Composable
 private fun WatchStatusRows(status: WearStatusDto?) {
     val context = LocalContext.current
@@ -266,7 +266,7 @@ private fun WatchStatusRows(status: WearStatusDto?) {
     }
 }
 
-/** `null` = automatisch (W1). */
+/** `null` = automatic (W1). */
 private val STORAGE_LIMITS_GB = listOf(null, 2, 4, 8, 16, 32)
 
 @Composable

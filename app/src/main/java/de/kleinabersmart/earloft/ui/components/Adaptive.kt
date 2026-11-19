@@ -11,19 +11,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Ab dieser Breite stehen Seiten wie Album oder Wiedergabe zweispaltig (Fensterklasse „expanded“). */
+/** From this width on, pages like album or playback use two columns (window class "expanded"). */
 val TwoColumnMinWidth: Dp = 840.dp
 
 /**
- * Begrenzt Einstellungen und Formulare auf breiten Fenstern auf eine lesbare Breite ([max]) und zentriert sie,
- * damit Schalter nicht weit weg von ihrem Text stehen. Auf dem Handy und in einer Detailspalte ohne Wirkung.
+ * Limits settings and forms on wide windows to a readable width ([max]) and centers them,
+ * so switches don't sit far away from their text. No effect on the phone and in a detail pane.
  */
 fun Modifier.readableWidth(max: Dp = 720.dp): Modifier =
     fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = max)
 
 /**
- * Gibt [content] das größte Quadrat, das in den freien Platz passt (höchstens [maxSide]), und zentriert es. Ein Cover mit
- * `aspectRatio` allein wächst bei zu wenig Höhe über den Platz hinaus und liegt dann über den Nachbarn.
+ * Gives [content] the largest square that fits into the available space (at most [maxSide]) and centers it. A cover with
+ * `aspectRatio` alone grows beyond the space when height is insufficient and then overlaps its neighbors.
  */
 @Composable
 fun FitSquare(modifier: Modifier = Modifier, maxSide: Dp = Dp.Infinity, content: @Composable (Modifier) -> Unit) {

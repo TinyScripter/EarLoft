@@ -61,7 +61,7 @@ class QuickSyncTest {
 
         assertEquals(listOf("Erstes"), titles())
         assertEquals(before.syncGeneration, db.sourceDao().get("nd")!!.syncGeneration)
-        // Das nächste Vollabgleich räumt wie gewohnt auf.
+        // The next full sync cleans up as usual.
         syncer.syncAdding(db, nd)
         assertEquals(emptyList<String>(), titles())
     }

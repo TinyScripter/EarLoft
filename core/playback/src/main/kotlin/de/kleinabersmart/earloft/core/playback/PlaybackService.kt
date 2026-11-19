@@ -79,12 +79,12 @@ import javax.inject.Inject
 import de.kleinabersmart.earloft.core.network.podcast.PODCAST_USER_AGENT
 
 /**
- * Extra am Start-Intent der Sitzungs-Aktivität (Tipp auf Benachrichtigung bzw. auf den Chip der laufenden Musik auf
- * dem Zifferblatt): Die App soll direkt die Wiedergabe-Ansicht öffnen. Wer sie nicht kennt, startet normal.
+ * Extra on the start intent of the session activity (tap on the notification or on the now-playing chip on
+ * the watch face): the app should open the now playing view directly. Whoever doesn't know it starts normally.
  */
 const val EXTRA_OPEN_NOW_PLAYING = "de.kleinabersmart.earloft.OPEN_NOW_PLAYING"
 
-/** Wiedergabe-Service mit Media3-Session (Konzept 7.1). */
+/** Playback service with a Media3 session (concept 7.1). */
 @OptIn(UnstableApi::class)
 @AndroidEntryPoint
 class PlaybackService : MediaLibraryService() {
@@ -120,10 +120,10 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var audioEffectSession: AudioEffectSession
     @Inject internal lateinit var browseTree: BrowseTree
 
-    /** Für Datenbankarbeit, die das Beenden des Service überleben darf (nur suspendierende DataStore-/Room-Aufrufe). */
+    /** For database work that may outlive the service (only suspending DataStore/Room calls). */
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
-    /** Für Player-Zugriffe (Main-Thread). */
+    /** For player access (main thread). */
     private val mainScope = MainScope() + LoggingExceptionHandler
     private var restoreJob: Job? = null
 
@@ -134,10 +134,10 @@ class PlaybackService : MediaLibraryService() {
     private var shakeDetector: ShakeDetector? = null
     private var audioEffects: SpokenAudioEffects? = null
 
-    /** Name des laufenden Kapitels für Benachrichtigung und Widget; `null` ohne Kapitel. */
+    /** Name of the current chapter for notification and widget; `null` without chapters. */
     private var chapterTitle: String? = null
 
-    /** Das geladene Buch bzw. die Folge hat Kapitel; mit [bookButtons] bestimmt das die Knöpfe ([bindFavoriteButton]). */
+    /** The loaded book or episode has chapters; together with [bookButtons] this determines the buttons ([bindFavoriteButton]). */
     private var hasChapters = false
     private var bookButtons = BookButtons.SEEK
     private var updateButtons: (() -> Unit)? = null
@@ -146,11 +146,11 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
-        // earloft://song/<id> → Datei, content:// oder Stream (Konzept 7.2). Streams laufen über den
-        // gemeinsamen OkHttpClient (Auth) und einen LRU-Cache, dessen Schlüssel die sourceUid ist.
+        // earloft://song/<id> → file, content:// or stream (concept 7.2). Streams go through the
+        // shared OkHttpClient (auth) and an LRU cache keyed by the sourceUid.
         val streamFactory = CacheDataSource.Factory()
             .setCache(streamCache)
-            // Eigener User-Agent: Manche Podcast-Hoster lehnen den von OkHttp mit 403 ab (Downloads schicken ihn schon).
+            // Own user agent: some podcast hosters reject OkHttp's with 403 (downloads already send it).
             .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(okHttpClient).setUserAgent(PODCAST_USER_AGENT))
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
         val dataSourceFactory = SongDataSource.Factory(
@@ -162,7 +162,7 @@ class PlaybackService : MediaLibraryService() {
             playingSources::record,
             streamCache::isFullyCached,
         )
-        // Gesparte Zeit beim Stille-Kürzen zählt die Prozessorkette selbst mit (Statistik, SkippedSilence).
+        // The processor chain itself counts the time saved by skipping silence (statistics, SkippedSilence).
         val skippedSilence = SkippedSilence()
         val renderersFactory = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
@@ -187,14 +187,14 @@ class PlaybackService : MediaLibraryService() {
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             .setAudioAttributes(audioAttributes(C.AUDIO_CONTENT_TYPE_MUSIC), /* handleAudioFocus = */ true)
             .setHandleAudioBecomingNoisy(true)
-            // Uhr: nicht über den Lautsprecher; Wear OS bietet stattdessen die Bluetooth-Ausgabe an (Wear-Konzept 9).
+            // Watch: not over the speaker; Wear OS offers the Bluetooth output instead (Wear concept 9).
             .setSuppressPlaybackOnUnsuitableOutput(playbackPolicy.requireSuitableOutput)
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
         localPlayer.addListener(SourceErrorRecovery(localPlayer))
         audioEffectSession.attach(this, localPlayer)
         val audioEffects = SpokenAudioEffects(localPlayer).also { this.audioEffects = it }
-        // Uhr: keine Streams, also nichts vorzuladen.
+        // Watch: no streams, so nothing to preload.
         if (playbackPolicy.allowStreaming) {
             streamPreloader = StreamPreloader(
                 localPlayer,
@@ -213,7 +213,7 @@ class PlaybackService : MediaLibraryService() {
             }
         })
 
-        // Handy: Cast-fähiger Player um den ExoPlayer; Hörverlauf und Warteschlange folgen dem jeweils aktiven Player.
+        // Phone: cast-capable player around the ExoPlayer; listening history and queue follow whichever player is active.
         val factory = sessionPlayerFactory.orElse(null)
         val player = factory?.create(this, localPlayer) ?: localPlayer
         playTracker = PlayTracker(player) { songId, playedAt, listenedMs ->
@@ -229,14 +229,14 @@ class PlaybackService : MediaLibraryService() {
                 chapterTitle = chapter?.let { it.title.ifBlank { getString(R.string.spoken_chapter_number, it.index + 1) } }
                 sessionPlayer?.chapterTitle = chapterTitle
                 if (!player.awaitsRemoteQueue) notifyObservers(nowPlayingOf(player))
-                // Kapitelknöpfe nur, wenn das Buch Kapitel hat (M4); ohne Kapitel bleiben die Spulen-Knöpfe.
+                // Chapter buttons only if the book has chapters (M4); without chapters the seek buttons stay.
                 if ((chapter != null) != hasChapters) {
                     hasChapters = chapter != null
                     updateButtons?.invoke()
                 }
             },
             effects = spokenEffects,
-            // Ein Cast-Empfänger spielt ohne Effekte; der lokale Player behält sie, bis wieder lokal gespielt wird.
+            // A cast receiver plays without effects; the local player keeps them until playing locally again.
             applyAudio = audioEffects::apply,
             skippedSilenceMs = skippedSilence::drainMs,
         )
@@ -252,11 +252,11 @@ class PlaybackService : MediaLibraryService() {
                 .collect { (mode, preAmpDb) -> replayGain.setSettings(mode, preAmpDb) }
         }
 
-        // Bei Büchern und Folgen gelten eigene, einstellbare Sprungweiten, siehe SpokenAwarePlayer.
+        // Books and episodes have their own configurable skip distances, see SpokenAwarePlayer.
         val sessionPlayer = SpokenAwarePlayer(player).also { this.sessionPlayer = it }
         sessionPlayer.chapterTitle = chapterTitle
-        // Kopfhörer: Doppelklick bzw. „Weiter“ ins nächste Kapitel, ohne weiteres Kapitel bei Folgen in die nächste. Dieselben
-        // Sprünge machen die Kapitelknöpfe in Benachrichtigung und Auto (M4).
+        // Headphones: double click or "next" to the next chapter; for episodes without a further chapter to the next episode. The
+        // chapter buttons in the notification and Auto make the same jumps (M4).
         val nextChapter = {
             if (!bookListener.skipChapter(forward = true)) player.currentMediaItem?.takeIf { it.isEpisode }?.bookId?.let { skipToNextEpisode(player, it) }
         }
@@ -276,7 +276,7 @@ class PlaybackService : MediaLibraryService() {
         ) {
             restoreJob?.join()
         }
-        // Vor der ersten Wiedergabe: Medien-Karte und Sperrbildschirm laden das Cover über den CoverProvider.
+        // Before the first playback: the media card and lock screen load the cover via the CoverProvider.
         callback.grantSystemUiCoverAccess()
         session = MediaLibrarySession.Builder(this, sessionPlayer, callback)
             .setBitmapLoader(CacheBitmapLoader(ArtworkBitmapLoader(this, artworkRepository, bookCovers, mainScope)))
@@ -290,8 +290,8 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /**
-     * „Endlos weiterspielen“: am Ende der Warteschlange ein Mix ([EndlessMix]), am aktiven Player (auch beim Casten). Ohne Netz
-     * nur aus Geladenem und Lokalem, sonst endete die Wiedergabe am ersten nicht spielbaren Titel (Review V9).
+     * "Keep playing endlessly": a mix at the end of the queue ([EndlessMix]), on the active player (also while casting). Without a network
+     * only from downloaded and local content, otherwise playback would end at the first unplayable title (review V9).
      */
     private fun bindEndlessMix(player: Player, factory: SessionPlayerFactory?) {
         var enabled = false
@@ -311,7 +311,7 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
-    /** Ein Netz mit geprüftem Internetzugang (nicht nur verbunden, z. B. WLAN ohne Anmeldung am Portal). */
+    /** A network with validated internet access (not merely connected, e.g. Wi-Fi without captive portal sign-in). */
     private fun hasInternet(): Boolean {
         val manager = getSystemService(ConnectivityManager::class.java) ?: return false
         val capabilities = manager.getNetworkCapabilities(manager.activeNetwork) ?: return false
@@ -320,12 +320,12 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /**
-     * Bereiche ein- oder ausgeschaltet: Die Tabs der Wurzel und „Zuletzt“ ändern sich. Android Auto lädt sie daraufhin neu
-     * (ob sofort oder erst beim nächsten Verbinden, entscheidet Auto).
+     * Areas toggled: the root tabs and "Recent" change. Android Auto then reloads them
+     * (whether immediately or only on the next connection is up to Auto).
      */
     /**
-     * „Zuletzt“ und die Weiterhören-Ordner ändern sich mit dem, was läuft. Android Auto merkt sich jede Antwort bis zur nächsten
-     * Meldung: Eine Abfrage direkt nach dem Start des Dienstes (vor der wiederhergestellten Warteschlange) blieb sonst leer.
+     * "Recent" and the continue-listening folders change with what's playing. Android Auto remembers every answer until the next
+     * notification: a query right after the service started (before the restored queue) would otherwise stay empty.
      */
     private fun notifyContentChanges(session: MediaLibrarySession, player: Player) {
         fun notifyAll() {
@@ -347,8 +347,8 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /**
-     * Folge-für-Folge (Konzept 12.4): Ist eine Podcast-Folge zu Ende, wird die nächste erst jetzt geladen. Wurde in der
-     * Zwischenzeit etwas anderes gestartet, bleibt es dabei.
+     * Episode by episode (concept 12.4): when a podcast episode ends, the next one is only loaded now. If something else was
+     * started in the meantime, that stays.
      */
     private fun continueWithNextEpisode(player: Player, endedId: Long) {
         mainScope.launch {
@@ -360,7 +360,7 @@ class PlaybackService : MediaLibraryService() {
             } ?: return@launch
             val stillWaiting = when (player.playbackState) {
                 Player.STATE_ENDED -> player.currentMediaItem?.bookId == endedId
-                // Cast: Der Empfänger steht nach dem Ende still und hat die Folge meist schon entladen.
+                // Cast: the receiver stands still after the end and has usually already unloaded the episode.
                 Player.STATE_IDLE -> player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE &&
                     player.currentMediaItem?.bookId.let { it == null || it == endedId }
                 else -> false
@@ -370,8 +370,8 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /**
-     * Kopfhörertaste ohne weiteres Kapitel: die nächste Folge der Warteschlange wie „Nächste Folge“ im Player
-     * (unabhängig vom automatischen Weiterspielen); sie spielt, wenn die bisherige lief.
+     * Headphone button without a further chapter: the next episode of the queue, like "Next episode" in the player
+     * (independent of auto-play); it plays if the previous one was playing.
      */
     private fun skipToNextEpisode(player: Player, currentId: Long, autoPlay: Boolean = player.playWhenReady, orElse: () -> Unit = {}) {
         mainScope.launch {
@@ -381,15 +381,15 @@ class PlaybackService : MediaLibraryService() {
                     bookPlaybackSource.prepare(next)
                 }
             }
-            // Inzwischen etwas anderes gestartet: dabei bleiben.
+            // Something else was started in the meantime: keep it.
             if (player.currentMediaItem?.bookId != currentId) return@launch
             if (prepared != null) player.playBook(prepared, autoPlay = autoPlay) else orElse()
         }
     }
 
     /**
-     * „Als gehört markieren“ für das geladene Buch bzw. die Folge ([ServicePlayer.markFinished]): Stand auf fertig, dann
-     * anhalten oder bei [playNext] die nächste Folge der Warteschlange spielen (ohne nächste ebenfalls anhalten).
+     * "Mark as played" for the loaded book or episode ([ServicePlayer.markFinished]): set the state to finished, then
+     * pause, or with [playNext] play the next episode of the queue (pause as well if there is no next one).
      */
     private fun markFinished(player: Player, bookId: Long, playNext: Boolean): Boolean {
         if (!bookListener.markFinished(bookId)) return false
@@ -402,9 +402,9 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /**
-     * Schütteln verlängert den Sleep-Timer ([SleepTimer.extend]): Der Sensor läuft nur, solange der Timer es zulässt
-     * (kurz vor und nach dem Ablauf), die Einstellung an ist und ein Buch oder eine Folge geladen ist. Ein kurzes Vibrieren
-     * bestätigt es.
+     * Shaking extends the sleep timer ([SleepTimer.extend]): the sensor only runs while the timer allows it
+     * (shortly before and after expiry), the setting is on and a book or episode is loaded. A short vibration
+     * confirms it.
      */
     private fun bindShakeToExtend(player: Player) {
         if (!playbackPolicy.shakeToExtendSleepTimer) return
@@ -419,20 +419,20 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun confirmShake() {
-        @Suppress("DEPRECATION") // VibratorManager erst ab API 31; für einen kurzen Impuls genügt der Standard-Vibrator.
+        @Suppress("DEPRECATION") // VibratorManager only from API 31; the default vibrator is enough for a short pulse.
         val vibrator = getSystemService(Vibrator::class.java) ?: return
         vibrator.vibrate(VibrationEffect.createOneShot(SHAKE_VIBRATION_MS, VibrationEffect.DEFAULT_AMPLITUDE))
     }
 
     /**
-     * Herz neben den Wiedergabetasten (Android Auto, Benachrichtigung); zeigt den Favoriten-Zustand des aktuellen Songs.
-     * Bei Büchern und Folgen stattdessen die Spulen-Knöpfe an Stelle von ⏮/⏭; der Pfeil ohne Zahl, weil die
-     * Sprungweite einstellbar ist und Media3 nicht für jede ein Symbol hat. Bücher mit Kapiteln bekommen nach Wahl
-     * ([BookButtons.CHAPTERS], `books_improvements.md` M4) stattdessen Kapitel zurück/vor als eigene Befehle der Session.
+     * Heart next to the playback buttons (Android Auto, notification); shows the favorite state of the current song.
+     * For books and episodes the seek buttons instead of ⏮/⏭; the arrow without a number because the
+     * skip distance is configurable and Media3 doesn't have an icon for each. Books with chapters optionally get
+     * ([BookButtons.CHAPTERS], `books_improvements.md` M4) chapter back/forward as the session's own commands instead.
      *
-     * Über `setMediaButtonPreferences`, nicht `setCustomLayout`: Nur dann macht Media3 aus Knöpfen mit Player-Befehl
-     * (Spulen) Custom Actions der Plattform-Session. Sonst fehlen sie in der Mediensteuerung des Systems und in Android
-     * Auto, die nur diese Session sehen.
+     * Via `setMediaButtonPreferences`, not `setCustomLayout`: only then does Media3 turn buttons with a player command
+     * (seeking) into custom actions of the platform session. Otherwise they are missing from the system's media controls and from Android
+     * Auto, which only see that session.
      */
     private fun bindFavoriteButton(player: SpokenAwarePlayer, session: MediaLibrarySession) {
         var favoriteJob: Job? = null
@@ -503,19 +503,19 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /**
-     * Lädt die letzte Warteschlange pausiert, damit die App nach einem Neustart dort weitermacht.
-     * Hat inzwischen jemand anderes etwas geladen (z. B. per [LibrarySessionCallback.onPlaybackResumption]),
-     * bleibt es dabei. Ebenso, wenn die App sich beim Start wieder an eine laufende Cast-Sitzung gehängt hat: Der
-     * Empfänger meldet seine Warteschlange erst kurz danach, und die gespeicherte ersetzte sie sonst. War es nicht mehr
-     * dieselbe Sitzung, löst sich die App wieder; dann kommt die gespeicherte doch noch aufs Handy.
+     * Loads the last queue paused, so the app continues there after a restart.
+     * If someone else has loaded something in the meantime (e.g. via [LibrarySessionCallback.onPlaybackResumption]),
+     * that stays. Likewise if the app reattached to a running cast session on start: the
+     * receiver only reports its queue shortly afterwards, and the saved one would otherwise replace it. If it was no longer
+     * the same session, the app detaches again; then the saved queue does end up on the phone after all.
      */
     private fun restoreQueue(player: Player) {
         restoreJob = mainScope.launch {
             suspend fun taken() = !awaitLocal(player, REJOIN_WAIT_MS) || player.mediaItemCount > 0
-            // Lief zuletzt ein Buch oder eine Folge, wird diese (pausiert) geladen statt der Musik-Warteschlange.
+            // If a book or episode played last, it is loaded (paused) instead of the music queue.
             val lastBookId = queuePersistence.lastBookId()
             if (lastBookId != null) {
-                // Ohne Zurückspulen und ohne Schreiben: Auf diesen Start folgt nicht unbedingt ein Abspielen.
+                // Without rewinding and without writing: this start isn't necessarily followed by playback.
                 val prepared = withContext(Dispatchers.IO) { bookPlaybackSource.restore(lastBookId) }
                 if (taken()) return@launch
                 if (prepared != null) {
@@ -532,7 +532,7 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
-    /** Nimmt Titel aus der Warteschlange, deren Song es nicht mehr gibt (z. B. Server entfernt). */
+    /** Removes titles from the queue whose song no longer exists (e.g. server removed). */
     private suspend fun removeMissingSongs(player: Player) {
         val songIds = (0 until player.mediaItemCount).mapNotNull { player.getMediaItemAt(it).songId }.distinct()
         if (songIds.isEmpty()) return
@@ -559,7 +559,7 @@ class PlaybackService : MediaLibraryService() {
         session?.let { session ->
             playTracker.finishCurrent()
             bookListener.finish()
-            // Mit einem Buch im Player gehörten dessen Datei und Position sonst in den Stand der Musik-Warteschlange.
+            // With a book in the player, its file and position would otherwise end up in the music queue's state.
             if (session.player.currentMediaItem?.isSpoken != true) saveMusicPosition(session.player)
             session.player.release()
             session.release()
@@ -572,7 +572,7 @@ class PlaybackService : MediaLibraryService() {
 
     private fun sessionActivity(): PendingIntent? {
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: return null
-        // SINGLE_TOP: Ist die App schon offen, bekommt die Activity den Intent per onNewIntent, statt dass er verloren geht.
+        // SINGLE_TOP: if the app is already open, the activity receives the intent via onNewIntent instead of losing it.
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(EXTRA_OPEN_NOW_PLAYING, true)
         return PendingIntent.getActivity(
             this,
@@ -587,10 +587,10 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /**
-     * Bricht eine Quelle mitten im Titel weg, meldet ExoPlayer nach eigenen Wiederholungen einen
-     * Fehler. Ein erneutes `prepare()` lädt den Titel von vorn an der aktuellen Position, und
-     * [SongDataSource] kann dabei auf eine andere Quelle ausweichen. Einmal je Titel, damit es bei
-     * ganz fehlendem Netz keine Endlosschleife gibt.
+     * If a source drops out mid-title, ExoPlayer reports an error after its own
+     * retries. A new `prepare()` reloads the title from the current position, and
+     * [SongDataSource] can fall back to another source. Once per title, so that there is no endless loop
+     * when the network is completely gone.
      */
     private class SourceErrorRecovery(private val player: Player) : Player.Listener {
         private var retriedItem: Int? = null
@@ -614,9 +614,9 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /**
-     * Während der Wiedergabe hält Media3 die CPU wach; mit [C.WAKE_MODE_NETWORK] zusätzlich das WLAN (High-Perf-Lock), das nur
-     * Streams brauchen. Die Uhr streamt nie, Bücher und Folgen aus Dateien auch nicht. Songs (`earloft://song/…`) werden erst
-     * beim Laden aufgelöst und können Streams sein; dafür bleibt es beim Netz-Modus.
+     * During playback Media3 keeps the CPU awake; with [C.WAKE_MODE_NETWORK] also the Wi-Fi (high-perf lock), which only
+     * streams need. The watch never streams, and neither do books and episodes from files. Songs (`earloft://song/…`) are only
+     * resolved on load and may be streams; for them the network mode stays.
      */
     private class WakeModeListener(private val player: ExoPlayer, private val allowStreaming: Boolean) : Player.Listener {
         private var currentMode = C.WAKE_MODE_LOCAL
@@ -639,8 +639,8 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /**
-     * Bücher und Folgen als Sprache: Bei kurzem Fokusverlust (Navigationsansage) pausiert ExoPlayer dann, statt nur leiser
-     * zu werden; bei Sprache ginge sonst Inhalt verloren. Musik wird weiter nur leiser.
+     * Books and episodes as speech: on short focus loss (navigation announcement) ExoPlayer then pauses instead of just getting
+     * quieter; with speech, content would otherwise be lost. Music still only gets quieter.
      */
     private class ContentTypeListener(private val player: ExoPlayer) : Player.Listener {
         private var currentType = C.AUDIO_CONTENT_TYPE_MUSIC
@@ -655,8 +655,8 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /**
-     * Speichert die Stelle der Musik; beim Casten nur Song und Stelle (in der gespeicherten Warteschlange gesucht), weil der
-     * Cast-Player nur ein Fenster der Warteschlange hält und keinen Zufall kennt. Nur aufrufen, wenn Musik im Player liegt.
+     * Saves the music position; while casting only song and position (looked up in the saved queue), because the
+     * cast player only holds a window of the queue and knows no shuffle. Only call when music is in the player.
      */
     private fun saveMusicPosition(player: Player) {
         if (player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) {
@@ -667,16 +667,16 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
-    /** Hält Warteschlange, Position und Beobachter (Widget) aktuell. */
+    /** Keeps queue, position and observers (widget) up to date. */
     private inner class PersistenceListener(private val player: Player) : Player.Listener {
 
-        // Hörbücher haben ihren Fortschritt in der Datenbank (BookPlaybackListener); die gespeicherte Musik-Warteschlange
-        // darf dadurch weder geleert noch auf ihre Position zurückgesetzt werden. Ebenso wenig durch die kurz leere
-        // Warteschlange beim Wechsel aufs Cast-Gerät.
+        // Audiobooks keep their progress in the database (BookPlaybackListener); the saved music queue
+        // must neither be cleared nor reset to its position by them. Nor by the briefly empty
+        // queue when switching to the cast device.
         private val holdsSpoken: Boolean get() = player.currentMediaItem?.isSpoken == true || player.awaitsRemoteQueue
 
-        // Beim Casten hält der Player nur ein Fenster der Warteschlange und kennt keinen Zufall (Media3 `RemoteCastPlayer`);
-        // gespeichert bleibt der Stand vom Handy, siehe [QueuePersistence.saveRemotePosition].
+        // While casting, the player only holds a window of the queue and knows no shuffle (Media3 `RemoteCastPlayer`);
+        // the phone's state stays saved, see [QueuePersistence.saveRemotePosition].
         private val isRemote: Boolean get() = player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
 
         override fun onTimelineChanged(timeline: Timeline, reason: Int) {
@@ -686,8 +686,8 @@ class PlaybackService : MediaLibraryService() {
         }
 
         /**
-         * Beim Casten: Song und Stelle, die eine neue Warteschlange abgelöst hat ([onPositionDiscontinuity]). Der Empfänger meldet
-         * erst eine leere Warteschlange und danach die neue; was es war, zeigt erst der folgende Titelwechsel.
+         * While casting: song and position replaced by a new queue ([onPositionDiscontinuity]). The receiver first reports
+         * an empty queue and then the new one; what it was only shows with the following title change.
          */
         private var replacedRemoteSong: Pair<Long, Long>? = null
 
@@ -703,15 +703,15 @@ class PlaybackService : MediaLibraryService() {
         }
 
         /**
-         * Ein Buch bzw. eine Folge löst laufende Musik ab (`setMediaItems`): Danach hält der Player schon das Gesprochene, die
-         * Stelle des Songs kennt nur noch [oldPosition]. Ohne das begann „Musik fortsetzen“ den Song von vorn bzw. an der
-         * zuletzt gespeicherten Stelle. Zufall und Wiederholen sind hier noch die der Musik (`playBook` setzt sie danach).
+         * A book or episode replaces playing music (`setMediaItems`): afterwards the player already holds the spoken content, and only
+         * [oldPosition] knows the song's position. Without this, "Resume music" started the song from the beginning or at the
+         * last saved position. Shuffle and repeat are still the music's here (`playBook` sets them afterwards).
          */
         override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
             if (reason != Player.DISCONTINUITY_REASON_REMOVE) return
             val songId = oldPosition.mediaItem?.songId ?: return
             if (isRemote) {
-                // Beim Casten ist der neue Eintrag hier noch leer (am Chromecast gesehen); gespeichert wird beim Titelwechsel.
+                // While casting, the new entry is still empty here (observed on the Chromecast); saving happens on the title change.
                 replacedRemoteSong = songId to oldPosition.positionMs
             } else if (newPosition.mediaItem?.isSpoken == true) {
                 queuePersistence.saveMusicPosition(
@@ -728,7 +728,7 @@ class PlaybackService : MediaLibraryService() {
             if (!isPlaying && !holdsSpoken) saveMusicPosition(player)
         }
 
-        // Beim Casten meldet der Player beim Verbinden „Zufall aus“ (kennt keinen); das ist nicht der Modus der Musik.
+        // While casting, the player reports "shuffle off" on connect (it knows none); that's not the music's mode.
         override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
             if (!holdsSpoken && !isRemote) queuePersistence.savePosition(player, applicationScope)
         }
@@ -738,8 +738,8 @@ class PlaybackService : MediaLibraryService() {
         }
 
         override fun onEvents(player: Player, events: Player.Events) {
-            // Bis der Empfänger die Warteschlange meldet, zeigen Widget und Co. weiter den letzten Titel. Kommt stattdessen
-            // nichts zurück aufs Handy (eine andere App hat den Empfänger übernommen), meldet der Gerätewechsel den Stand.
+            // Until the receiver reports the queue, the widget and co. keep showing the last title. If instead
+            // nothing comes back to the phone (another app took over the receiver), the device switch reports the state.
             if (player.awaitsRemoteQueue) return
             if (events.containsAny(
                     Player.EVENT_MEDIA_ITEM_TRANSITION,
@@ -773,10 +773,10 @@ class PlaybackService : MediaLibraryService() {
 
 private const val SHAKE_VIBRATION_MS = 40L
 
-/** So lange kann das Wiederanhängen an eine Cast-Sitzung nach dem Start dauern (Suche und Verbinden). */
+/** Reattaching to a cast session after start can take this long (discovery and connecting). */
 private const val REJOIN_WAIT_MS = 45_000L
 
-/** Main-Thread. Wartet höchstens [timeoutMs], bis [player] wieder auf dem Gerät spielt; `false`, wenn er gecastet bleibt. */
+/** Main thread. Waits at most [timeoutMs] until [player] plays on the device again; `false` if it stays cast. */
 private suspend fun awaitLocal(player: Player, timeoutMs: Long): Boolean = withTimeoutOrNull(timeoutMs) {
     callbackFlow {
         val listener = object : Player.Listener {
@@ -791,7 +791,7 @@ private suspend fun awaitLocal(player: Player, timeoutMs: Long): Boolean = withT
     true
 } ?: false
 
-/** Ordner im Browse-Tree, deren Inhalt von der letzten Wiedergabe abhängt. */
+/** Folders in the browse tree whose content depends on the last playback. */
 private val CONTENT_FOLDERS = listOf(
     MediaIds.HOME,
     MediaIds.RECENT,

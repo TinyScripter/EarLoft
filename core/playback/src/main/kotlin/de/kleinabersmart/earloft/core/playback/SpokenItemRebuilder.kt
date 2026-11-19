@@ -8,17 +8,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Hängt sich die App nach einem Neustart an eine laufende Cast-Sitzung, kennt Media3 nur noch die Einträge des Empfängers:
- * Bücher und Folgen kommen ohne Adresse auf dem Handy zurück, und beim Wechsel aufs Handy fielen sie weg („Nichts wird
- * gespielt“). Hier werden sie aus der Datenbank neu gebaut, mit derselben `mediaId` und Datei, samt geladener Datei,
- * Cover und Cast-Adressen.
+ * If the app attaches to a running cast session after a restart, Media3 only knows the receiver's entries:
+ * books and episodes come back to the phone without an address, and when switching to the phone they'd be dropped ("Nothing
+ * playing"). Here they are rebuilt from the database, with the same `mediaId` and file, including downloaded file,
+ * cover and cast addresses.
  */
 @Singleton
 class SpokenItemRebuilder @Inject constructor(private val source: BookPlaybackSource) {
 
     /**
-     * [items] mit neu gebauten Büchern und Folgen, wo die Adresse fehlt; alles andere bleibt. Synchron für den Wechsel
-     * von Media3, liest nur die Datenbank. Was sich nicht bauen lässt (Buch gelöscht), bleibt, wie es war.
+     * [items] with rebuilt books and episodes where the address is missing; everything else stays. Synchronous for Media3's
+     * switch, only reads the database. Whatever can't be built (book deleted) stays as it was.
      */
     fun playable(items: List<MediaItem>): List<MediaItem> {
         val missing = items.filter { it.localConfiguration == null }.mapNotNullTo(LinkedHashSet()) { it.bookId }

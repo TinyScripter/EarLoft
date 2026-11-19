@@ -44,29 +44,29 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Chromecast (Default Media Receiver): [CastPlayer] wechselt beim Verbinden selbst zwischen dem lokalen
- * ExoPlayer und dem Empfänger. Der Empfänger lädt direkt vom Server; Songs, Bücher und Folgen, die nur auf dem Handy liegen,
- * liefert das Handy selbst aus ([PhoneMediaServer], nur im WLAN und in Formaten, die der Empfänger kennt; sonst werden sie
- * übersprungen). Bücher und Folgen spielt der Empfänger sonst von Audiobookshelf bzw. aus dem Feed. ReplayGain und Gapless gibt es dort nicht.
+ * Chromecast (Default Media Receiver): [CastPlayer] switches between the local ExoPlayer and the receiver by itself
+ * when connecting. The receiver loads directly from the server; songs, books and episodes that exist only on the phone
+ * are served by the phone itself ([PhoneMediaServer], only on Wi-Fi and in formats the receiver knows; otherwise they are
+ * skipped). Otherwise the receiver plays books and episodes from Audiobookshelf or from the feed. ReplayGain and gapless aren't available there.
  *
- * Die Warteschlange geht als eine Nachricht an den Empfänger, und Cast-Nachrichten dürfen höchstens
- * 64 KB groß sein – ein Eintrag braucht etwa 700 Byte (zwei URLs mit Zugangsdaten plus Metadaten).
- * Größere Nachrichten verwirft der Empfänger ohne Fehlermeldung (am Gerät gesehen: 620 Titel). Sein Status trägt außerdem
- * jedes Mal die ganze Warteschlange (etwa 820 Byte je Titel); über etwa 75 Titel kommt keiner mehr an.
- * Deshalb hält der Empfänger höchstens [MAX_REMOTE_QUEUE] Titel; der Rest liegt in [reserve] und wird in kleinen Stücken
- * ([REFILL_CHUNK]) angehängt, sobald weniger als [REFILL_BELOW] Titel folgen und der Empfänger die vorige Warteschlange
- * gemeldet hat ([refillIfNeeded]); dafür gehen die am längsten gespielten Titel aus dem Empfänger in die [reserve]
- * ([makeRoom]). Beim Wechsel zurück aufs Handy kommt die ganze Warteschlange wieder zusammen.
+ * The queue goes to the receiver as a single message, and cast messages may be at most
+ * 64 KB – one entry needs about 700 bytes (two URLs with credentials plus metadata).
+ * The receiver silently discards larger messages (seen on the device: 620 titles). Its status also carries
+ * the whole queue every time (about 820 bytes per title); beyond roughly 75 titles none get through anymore.
+ * That's why the receiver holds at most [MAX_REMOTE_QUEUE] titles; the rest sits in [reserve] and is appended in small chunks
+ * ([REFILL_CHUNK]) as soon as fewer than [REFILL_BELOW] titles follow and the receiver has reported the previous queue
+ * ([refillIfNeeded]); in exchange, the longest-played titles move from the receiver into the [reserve]
+ * ([makeRoom]). When switching back to the phone, the whole queue is reassembled.
  *
- * Kann der Empfänger die Titel nicht laden (zum Beispiel weil er den Server nicht erreicht oder dessen
- * Zertifikat ablehnt), bleibt seine Warteschlange leer und der Player zeigt nichts mehr an ([RemoteQueueWatch], beim
- * Verbinden wie bei jeder neuen Warteschlange während der Sitzung). Liegen die Songs auch auf einem anderen Server, geht
- * die Warteschlange noch einmal von dort hinaus ([watchRemoteLoad]); sonst endet die Sitzung und die ursprüngliche
- * Warteschlange kommt pausiert aufs Handy zurück. Ein Empfänger ohne Warteschlange lehnte sonst auch alles Weitere ab
- * („Invalid Request“), und ein danach gestartetes Buch ginge ins Leere.
+ * If the receiver can't load the titles (for example because it can't reach the server or rejects its
+ * certificate), its queue stays empty and the player shows nothing anymore ([RemoteQueueWatch], when
+ * connecting as well as for every new queue during the session). If the songs also exist on another server,
+ * the queue is sent once more from there ([watchRemoteLoad]); otherwise the session ends and the original
+ * queue returns to the phone paused. A receiver without a queue would otherwise reject everything else as well
+ * ("Invalid Request"), and a book started afterwards would go nowhere.
  *
- * Lief beim letzten Ende des Prozesses eine Sitzung, hängt sich der Player beim Start wieder an ([CastRejoin]) und übernimmt
- * den Stand des Empfängers. Was nur in der [reserve] lag, ist dann verloren.
+ * If a session was running when the process last ended, the player rejoins it on start ([CastRejoin]) and takes over
+ * the receiver's state. Whatever was only in the [reserve] is lost then.
  */
 @OptIn(UnstableApi::class)
 @Singleton
@@ -86,25 +86,25 @@ internal class CastSessionPlayerFactory @Inject constructor(
     private val handOver = HandOver()
     private val reserve = QueueReserve<MediaItem>()
 
-    /** Zählt jede neue Warteschlange; ein Nachladen, das auf eine ältere zurückgeht, wird verworfen. */
+    /** Counts every new queue; a refill that stems from an older one is discarded. */
     private var generation = 0
     private var refilling = false
 
     /**
-     * Media-IDs der Warteschlange, die zuletzt an den Empfänger ging, bis er sie meldet. So lange zeigt der Player eine leere
-     * (oder kurz noch die alte) Zeitachse; ein Nachladen darauf hielte jedes Stück für das letzte, hängte die ganze Reserve
-     * auf einmal an, und der Empfänger verwarf die Stücke mitten im Laden (am Gerät gesehen, 2026-11-18: 1401 Titel, nach
-     * dem Verbinden blieb es bei 50).
+     * Media IDs of the queue last sent to the receiver, until it reports it. Until then the player shows an empty
+     * (or briefly still the old) timeline; a refill based on that would take every chunk for the last one, append the whole reserve
+     * at once, and the receiver discarded the chunks mid-load (seen on the device, 2026-11-18: 1401 titles, after
+     * connecting it stayed at 50).
      */
     private var awaitedQueue: Set<String>? = null
 
-    /** Kennungen (Item-IDs des Empfängers) der Titel, die [makeRoom] gerade aus dem Empfänger nimmt, bis er es meldet. */
+    /** IDs (receiver item IDs) of the titles [makeRoom] is currently removing from the receiver, until it reports that. */
     private var removing: List<Any>? = null
     private var sessionPlayer: DeferredRemotePlayPlayer? = null
     private var refillHandler: Handler? = null
     private val removalTimeout = Runnable { finishRemoval() }
 
-    /** Startet die Prüfung von [watchRemoteLoad] für eine während der Sitzung gesetzte Warteschlange. */
+    /** Starts the [watchRemoteLoad] check for a queue set during the session. */
     private var watchQueue: (PlayerTransferState) -> Unit = {}
 
     override fun create(context: Context, localPlayer: ExoPlayer): Player {
@@ -116,7 +116,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
             .setRemotePlayer(remotePlayer)
             .setTransferCallback(
                 CastTransferCallback(cache, handOver, reserve, spokenItems::playable, ::showSkipped, ::awaitQueue) {
-                    // Wieder angehängt: Der Player des Handys ist nach dem Neustart leer, der Zufall der Musik steht im Gespeicherten.
+                    // Rejoined: the phone's player is empty after the restart; the music shuffle state is in the stored state.
                     scope.launch { handOver.phoneShuffle = queuePersistence.savedShuffle() }
                 },
             )
@@ -152,13 +152,13 @@ internal class CastSessionPlayerFactory @Inject constructor(
 
     override fun appendPending(items: List<MediaItem>) {
         reserve.append(items)
-        // Hatte der Empfänger keinen Platz mehr (Endlos-Mix beim letzten Titel), kommt sonst erst beim nächsten Wechsel etwas.
+        // If the receiver had no room left (endless mix at the last title), nothing would come until the next transition otherwise.
         castPlayer?.let(::refillIfNeeded)
     }
 
     /**
-     * Alles hinter dem laufenden Titel ist entfernt (Mix): Auch was noch nicht beim Empfänger war, fällt weg, sonst käme es
-     * vor den neuen Titeln (Review D8). Ein laufendes Nachladen gehört zur alten Warteschlange.
+     * Everything after the current title has been removed (mix): whatever hasn't reached the receiver yet is dropped too, otherwise it
+     * would come before the new titles (review D8). A refill in progress belongs to the old queue.
      */
     private fun clearPending() {
         generation++
@@ -184,7 +184,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         })
     }
 
-    /** Main-Thread. Das Entfernen von [makeRoom] ist gemeldet (oder überholt): Zurückgehaltene Sprünge laufen jetzt. */
+    /** Main thread. The removal by [makeRoom] has been reported (or superseded): held-back seeks run now. */
     private fun finishRemoval() {
         if (removing == null) return
         removing = null
@@ -193,9 +193,9 @@ internal class CastSessionPlayerFactory @Inject constructor(
     }
 
     /**
-     * Übernimmt eine andere App den Empfänger, ist seine Warteschlange leer, und beim Wechsel zurück aufs Handy käme nichts
-     * an. Deshalb merkt sich [HandOver.lastRemote] den Stand des Empfängers bei jedem Ereignis und alle [SNAPSHOT_MS], solange
-     * er etwas hat; die Position ist dann höchstens so alt. Zugleich erfährt [CastRejoin], bis wann er noch spielt.
+     * If another app takes over the receiver, its queue is empty and switching back to the phone would bring nothing
+     * back. That's why [HandOver.lastRemote] remembers the receiver's state on every event and every [SNAPSHOT_MS] while
+     * it has something; the position is then at most that old. At the same time [CastRejoin] learns until when it will keep playing.
      */
     private fun rememberRemoteState(player: Player) {
         val handler = Handler(player.applicationLooper)
@@ -221,12 +221,12 @@ internal class CastSessionPlayerFactory @Inject constructor(
         })
     }
 
-    /** Main-Thread. [items] ging gerade als neue Warteschlange an den Empfänger. */
+    /** Main thread. [items] has just been sent to the receiver as a new queue. */
     private fun awaitQueue(items: List<MediaItem>) {
         awaitedQueue = items.mapTo(HashSet()) { it.mediaId }.takeIf { it.isNotEmpty() }
     }
 
-    /** Main-Thread. Ob der Empfänger die zuletzt gesendete Warteschlange gemeldet hat ([awaitedQueue]). */
+    /** Main thread. Whether the receiver has reported the most recently sent queue ([awaitedQueue]). */
     private fun hasReportedQueue(player: Player): Boolean {
         if (player.currentTimeline.isEmpty) return false
         val awaited = awaitedQueue ?: return true
@@ -235,7 +235,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         return true
     }
 
-    /** Main-Thread. Hängt das nächste Stück der [reserve] an, sobald dem Empfänger die Titel auszugehen drohen. */
+    /** Main thread. Appends the next chunk of the [reserve] as soon as the receiver is about to run out of titles. */
     private fun refillIfNeeded(player: Player) {
         if (refilling || reserve.remaining == 0 || player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE) return
         if (!hasReportedQueue(player) || itemsAhead(player) >= REFILL_BELOW) return
@@ -243,29 +243,29 @@ internal class CastSessionPlayerFactory @Inject constructor(
         val expected = generation
         val songIds = reserve.peek(REFILL_CHUNK).mapNotNull { it.songId }
         scope.launch {
-            // Der Konverter muss synchron liefern; die Adressen werden deshalb vorher aufgelöst.
+            // The converter has to return synchronously; that's why the addresses are resolved beforehand.
             cache.prepare(songIds)
             withContext(Dispatchers.Main) {
                 refilling = false
                 val stillValid = expected == generation && player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
                 if (!stillValid || !hasReportedQueue(player)) return@withContext
-                // Erst wenn der Empfänger das Entfernen gemeldet hat, ist Platz; dann geht es über [onTimelineChanged] weiter.
+                // Only once the receiver has reported the removal is there room; then it continues via [onTimelineChanged].
                 if (!makeRoom(player)) return@withContext
                 val room = MAX_REMOTE_QUEUE - player.mediaItemCount
                 val next = reserve.take(minOf(REFILL_CHUNK, room))
                 if (next.isEmpty()) return@withContext
                 player.addMediaItems(next)
-                // Erst weiter nachladen, wenn der Empfänger das Stück gemeldet hat; bis dahin zählt [itemsAhead] es nicht mit.
+                // Only refill further once the receiver has reported the chunk; until then [itemsAhead] doesn't count it.
                 awaitQueue(next)
             }
         }
     }
 
     /**
-     * Main-Thread. Der Empfänger schickt in jedem Status alle Titel seiner Warteschlange mit (etwa 820 Byte je Titel, 2026-11-18
-     * gemessen); über etwa 75 Titel passt der Status nicht mehr in eine Nachricht, und die App erfährt nichts mehr vom Empfänger.
-     * Deshalb bleibt die Warteschlange dort bei höchstens [MAX_REMOTE_QUEUE]: Damit ein Stück ([REFILL_CHUNK]) Platz hat, gehen die am
-     * längsten gespielten Titel aus dem Empfänger in die [reserve] (vor das Fenster) und kommen beim Wechsel aufs Handy zurück.
+     * Main thread. The receiver includes all titles of its queue in every status (about 820 bytes per title, measured
+     * 2026-11-18); beyond roughly 75 titles the status no longer fits in one message and the app hears nothing from the receiver anymore.
+     * That's why the queue there stays at most [MAX_REMOTE_QUEUE]: to make room for a chunk ([REFILL_CHUNK]), the
+     * longest-played titles move from the receiver into the [reserve] (before the window) and come back when switching to the phone.
      */
     private fun makeRoom(player: Player): Boolean {
         if (removing != null) return false
@@ -277,7 +277,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
             timeline.getPreviousWindowIndex(index, Player.REPEAT_MODE_OFF, shuffle)
         }
         if (drop.isEmpty()) return true
-        // Nicht, solange ein Sprung noch unbestätigt sein kann (siehe [DeferredRemotePlayPlayer.holdSeeks]).
+        // Not while a seek may still be unconfirmed (see [DeferredRemotePlayPlayer.holdSeeks]).
         val sinceSeek = SystemClock.elapsedRealtime() - (sessionPlayer?.lastSeekAtMs ?: 0L)
         if (sinceSeek < SEEK_SETTLE_MS) {
             refillHandler?.postDelayed({ refillIfNeeded(player) }, SEEK_SETTLE_MS - sinceSeek)
@@ -288,12 +288,12 @@ internal class CastSessionPlayerFactory @Inject constructor(
         sessionPlayer?.holdSeeks()
         refillHandler?.postDelayed(removalTimeout, REMOVAL_TIMEOUT_MS)
         reserve.keepBefore(drop.map(player::getMediaItemAt))
-        // Von hinten, damit die Indizes davor stimmen; zusammenhängende Stücke in einer Nachricht.
+        // From the back so the indices before stay correct; contiguous chunks in one message.
         drop.ranges().asReversed().forEach { range -> player.removeMediaItems(range.first, range.last + 1) }
         return false
     }
 
-    /** Wie viele Titel nach dem aktuellen noch kommen (in Wiedergabereihenfolge), gezählt bis [REFILL_BELOW]. */
+    /** How many titles still follow the current one (in playback order), counted up to [REFILL_BELOW]. */
     private fun itemsAhead(player: Player): Int {
         val timeline = player.currentTimeline
         if (timeline.isEmpty) return 0
@@ -308,9 +308,9 @@ internal class CastSessionPlayerFactory @Inject constructor(
     }
 
     /**
-     * Beim Verbinden übergibt [CastPlayer] die Warteschlange sofort und synchron. Zwischen „verbindet“
-     * und „verbunden“ startet der Empfänger seine App (meist über eine Sekunde) – Zeit genug, die
-     * Adressen aufzulösen.
+     * When connecting, [CastPlayer] hands over the queue immediately and synchronously. Between "connecting"
+     * and "connected" the receiver starts its app (usually over a second) – enough time to
+     * resolve the addresses.
      */
     private fun prepareOnSessionStart(player: Player) {
         val cast = Cast.getSingletonInstance(appContext)
@@ -320,7 +320,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
                 handOver.resuming = rejoin.isRejoining(session)
                 handOver.checkRejoin = handOver.resuming
                 handOver.rejected = false
-                // Vor dem Auflösen: Adressen vom Handy gelten nur in dieser Sitzung.
+                // Before resolving: addresses served by the phone are valid only in this session.
                 phone.newSession()
                 prepareQueue()
             }
@@ -328,13 +328,13 @@ internal class CastSessionPlayerFactory @Inject constructor(
             override fun onSessionResuming(session: CastSession, sessionId: String) = prepareQueue()
 
             override fun onSessionStarted(session: CastSession, sessionId: String) {
-                // Nicht `resuming`: Das setzt `transferState` zurück, und das läuft je nach Reihenfolge der Listener schon vorher
-                // (im `onSessionStarted` von RemoteCastPlayer).
+                // Not `resuming`: that resets `transferState`, and depending on the listener order it may already run earlier
+                // (in RemoteCastPlayer's `onSessionStarted`).
                 val checkRejoin = handOver.checkRejoin
                 handOver.checkRejoin = false
                 if (checkRejoin && !rejoin.isOurs(sessionId)) {
-                    // Nicht mehr die Sitzung von vorher: Lief beim Empfänger nichts, hat das Auswählen die App dort
-                    // gestartet, und sie wird wieder beendet; sonst gehört sie einer anderen App und läuft weiter.
+                    // No longer the previous session: if nothing was running on the receiver, selecting launched the app there
+                    // and it gets stopped again; otherwise it belongs to another app and keeps running.
                     val launched = session.applicationConnectionResult?.wasLaunched == true
                     Log.i(TAG, "Sitzung $sessionId ist nicht die von vorher (neu gestartet: $launched), löse mich wieder")
                     handOver.rejected = true
@@ -379,13 +379,13 @@ internal class CastSessionPlayerFactory @Inject constructor(
     }
 
     /**
-     * Hat der Empfänger eine Warteschlange verworfen, die beim Verbinden oder während der Sitzung an ihn ging
-     * ([RemoteQueueWatch], Frist [QUEUE_WATCH_MS]), erreicht er vermutlich den Server des aktuellen Songs nicht. Der Server
-     * bleibt dann für die Sitzung außen vor ([CastMediaCache.exclude]), und die Warteschlange geht noch einmal mit den
-     * Songs hinaus, die auch auf einem anderen Server liegen (`retryElsewhere`; am Gerät: Jellyfin per öffentlicher Adresse
-     * unerreichbar, derselbe Song von Emby im LAN). Bleibt nichts übrig, endet die Sitzung und die Warteschlange kommt
-     * pausiert aufs Handy zurück. Bis 2026-11-04 galt beim Verbinden „nach 8 s noch leer“; Bücher von Audiobookshelf
-     * brauchen am Empfänger aber etwa 9 s, und das Verbinden scheiterte daran.
+     * If the receiver has discarded a queue sent to it when connecting or during the session
+     * ([RemoteQueueWatch], deadline [QUEUE_WATCH_MS]), it probably can't reach the server of the current song. The server
+     * then stays excluded for the session ([CastMediaCache.exclude]), and the queue goes out once more with the
+     * songs that also exist on another server (`retryElsewhere`; on the device: Jellyfin via public address
+     * unreachable, the same song from Emby on the LAN). If nothing is left, the session ends and the queue returns
+     * to the phone paused. Until 2026-11-04, "still empty after 8 s" applied when connecting; but books from Audiobookshelf
+     * take about 9 s on the receiver, and connecting failed because of that.
      */
     private fun watchRemoteLoad(player: Player) {
         val handler = Handler(player.applicationLooper)
@@ -430,13 +430,13 @@ internal class CastSessionPlayerFactory @Inject constructor(
         watch = { state ->
             handler.removeCallbacks(timeout)
             queueWatch.start(state.mediaItems.map { it.mediaId })
-            // Der Stand vor dem Senden (beim Verbinden: leer) zählt schon mit.
+            // The state before sending (when connecting: empty) already counts.
             queueWatch.onItems(itemIds())
             handler.postDelayed(timeout, QUEUE_WATCH_MS)
         }
         watchQueue = { state ->
             awaitQueue(state.mediaItems)
-            // Was nicht in die Nachricht passte, liegt in der Reserve (gerade erst neu gesetzt); zurück aufs Handy geht alles.
+            // Whatever didn't fit into the message is in the reserve (just newly set); everything goes back to the phone.
             handOver.state = if (reserve.isEmpty()) {
                 state
             } else {
@@ -463,7 +463,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         })
     }
 
-    /** Main-Thread. */
+    /** Main thread. */
     private fun showSkipped(skipped: Int, total: Int) {
         if (skipped <= 0) return
         val text = if (skipped == total) {
@@ -480,10 +480,10 @@ internal class CastSessionPlayerFactory @Inject constructor(
         private const val REFILL_CHUNK = 25
         private const val QUEUE_WATCH_MS = 20_000L
 
-        /** So lange nach einem Sprung kann er beim Empfänger noch unbestätigt sein. */
+        /** For this long after a seek it may still be unconfirmed by the receiver. */
         private const val SEEK_SETTLE_MS = 2_000L
 
-        /** Spätestens dann laufen zurückgehaltene Sprünge, auch ohne Meldung des Empfängers. */
+        /** At the latest then, held-back seeks run, even without a report from the receiver. */
         private const val REMOVAL_TIMEOUT_MS = 3_000L
         private const val SNAPSHOT_MS = 5_000L
         private const val TAG = "CastSession"
@@ -491,9 +491,9 @@ internal class CastSessionPlayerFactory @Inject constructor(
 }
 
 /**
- * Was vom Stand [state] an den Empfänger geht: nur Songs, die er laden kann (Adressen in [cache] vorbereitet), höchstens
- * [CastSessionPlayerFactory.MAX_REMOTE_QUEUE] um den aktuellen herum; der Rest kommt in die [reserve]. Meldet übersprungene
- * Songs über [onSkipped].
+ * What goes to the receiver from state [state]: only songs it can load (addresses prepared in [cache]), at most
+ * [CastSessionPlayerFactory.MAX_REMOTE_QUEUE] around the current one; the rest goes into the [reserve]. Reports skipped
+ * songs via [onSkipped].
  */
 @OptIn(UnstableApi::class)
 private fun castableState(
@@ -520,7 +520,7 @@ private fun castableState(
         .build()
 }
 
-/** Aufsteigende Indizes als zusammenhängende Bereiche. */
+/** Ascending indices as contiguous ranges. */
 private fun List<Int>.ranges(): List<IntRange> {
     val ranges = mutableListOf<IntRange>()
     for (index in this) {
@@ -531,8 +531,8 @@ private fun List<Int>.ranges(): List<IntRange> {
 }
 
 /**
- * Bis wann (Wanduhr) [player] mit seiner Warteschlange voraussichtlich spielt: Rest des aktuellen und alle folgenden Titel
- * beim aktuellen Tempo; mit Wiederholung einen Tag. `null`, wenn er nicht spielt oder die Dauer unbekannt ist.
+ * Until when (wall clock) [player] will probably play its queue: the rest of the current title and all following ones
+ * at the current speed; one day with repeat. `null` if it isn't playing or the duration is unknown.
  */
 private fun playingUntil(player: Player): Long? {
     if (!player.isPlaying || player.duration == C.TIME_UNSET) return null
@@ -549,13 +549,13 @@ private fun playingUntil(player: Player): Long? {
 }
 
 /**
- * [state]: was zuletzt an den Empfänger ging (nur wenn nicht leer). [rescue]: nach einem gescheiterten
- * Laden – beim Zurückwechseln aufs Handy wird daraus die Warteschlange wiederhergestellt. [lastRemote]: der letzte
- * Stand des Empfängers mit Warteschlange, falls eine andere App ihn übernimmt. [resuming]: Die App hängt sich nach einem
- * Neustart wieder an ([CastRejoin]) – der Empfänger behält dann seinen Stand. [checkRejoin]: Beim Start der Sitzung ist zu
- * prüfen, ob es die von vorher ist; anders als [resuming] setzt das `transferState` nicht zurück. [rejected]: Dabei kam eine
- * andere Sitzung heraus, das Handy behält seinen Stand. [phoneShuffle]: Zufall am Handy bei der Übergabe; der Cast-Player
- * kennt keinen und gibt „aus“ zurück, beim Zurückwechseln gilt wieder dieser Wert.
+ * [state]: what was last sent to the receiver (only if not empty). [rescue]: after a failed
+ * load – the queue is restored from this when switching back to the phone. [lastRemote]: the receiver's last
+ * state with a queue, in case another app takes it over. [resuming]: the app rejoins after a
+ * restart ([CastRejoin]) – the receiver then keeps its state. [checkRejoin]: when the session starts, check
+ * whether it's the previous one; unlike [resuming] this doesn't reset `transferState`. [rejected]: that turned out to be a
+ * different session; the phone keeps its state. [phoneShuffle]: shuffle on the phone at handover; the cast player
+ * has none and returns "off", so this value applies again when switching back.
  */
 @OptIn(UnstableApi::class)
 private class HandOver {
@@ -569,9 +569,9 @@ private class HandOver {
 }
 
 /**
- * Was vom Empfänger aufs Handy zurückgeht: Einträge ohne Adresse auf dem Handy baut [rebuild] neu (Bücher und Folgen nach
- * einem Neustart der App, siehe [SpokenItemRebuilder]); was danach noch keine hat, fällt weg wie bei
- * `TransferCallback.DEFAULT` (fremde Sitzung).
+ * What goes back from the receiver to the phone: [rebuild] rebuilds entries without an address on the phone (books and episodes after
+ * an app restart, see [SpokenItemRebuilder]); whatever still has none after that is dropped, as with
+ * `TransferCallback.DEFAULT` (foreign session).
  */
 @OptIn(UnstableApi::class)
 internal fun PlayerTransferState.playableOnPhone(rebuild: (List<MediaItem>) -> List<MediaItem>): PlayerTransferState {
@@ -590,7 +590,7 @@ internal fun PlayerTransferState.playableOnPhone(rebuild: (List<MediaItem>) -> L
         .build()
 }
 
-/** Übergibt nur Songs mit Server-Quelle an den Empfänger; zurück aufs Handy geht alles, was das Handy abspielen kann. */
+/** Hands only songs with a server source to the receiver; everything the phone can play goes back to the phone. */
 @OptIn(UnstableApi::class)
 private class CastTransferCallback(
     private val cache: CastMediaCache,
@@ -598,15 +598,15 @@ private class CastTransferCallback(
     private val reserve: QueueReserve<MediaItem>,
     private val rebuild: (List<MediaItem>) -> List<MediaItem>,
     private val onSkipped: (skipped: Int, total: Int) -> Unit,
-    /** Was als Warteschlange an den Empfänger geht (Fenster ohne Reserve). */
+    /** What goes to the receiver as the queue (window without reserve). */
     private val onSent: (List<MediaItem>) -> Unit,
-    /** Die App hat sich an eine laufende Sitzung gehängt ([HandOver.resuming]); setzt [HandOver.phoneShuffle] nachträglich. */
+    /** The app has rejoined a running session ([HandOver.resuming]); sets [HandOver.phoneShuffle] afterwards. */
     private val onRejoined: () -> Unit,
 ) : CastPlayer.TransferCallback {
 
     override fun transferState(sourcePlayer: Player, targetPlayer: Player) {
         if (targetPlayer !is RemoteCastPlayer && handOver.rejected) {
-            // Der lokale Player wurde beim Wechsel nur angehalten und hat seine Warteschlange noch.
+            // The local player was only paused during the switch and still has its queue.
             handOver.rejected = false
             handOver.resuming = false
             return
@@ -619,7 +619,7 @@ private class CastTransferCallback(
             handOver.lastRemote = null
             val remaining = reserve.takeUnless { it.isEmpty() }
             val source = PlayerTransferState.fromPlayer(sourcePlayer)
-            // Leer, weil eine andere App den Empfänger übernommen hat: der letzte Stand kommt pausiert aufs Handy.
+            // Empty because another app has taken over the receiver: the last state returns to the phone paused.
             val takenOver = source.mediaItems.isEmpty() && lastRemote != null
             val state = if (takenOver) lastRemote.buildUpon().setPlayWhenReady(false).build() else source
             val back = if (rescue != null) {
@@ -630,7 +630,7 @@ private class CastTransferCallback(
             } else {
                 state
             }
-            // Nur für Musik: Ein Buch bzw. eine Folge, die beim Casten gestartet wurde, spielt ohne Zufall.
+            // Music only: a book or episode started while casting plays without shuffle.
             val shuffle = handOver.phoneShuffle
             handOver.phoneShuffle = null
             val music = back.mediaItems.getOrNull(back.currentMediaItemIndex)?.songId != null
@@ -643,8 +643,8 @@ private class CastTransferCallback(
         handOver.rescue = null
         handOver.lastRemote = null
         reserve.clear()
-        // Wieder angehängt: Der Empfänger spielt weiter, was er hat. Die Warteschlange des Handys (nach dem Neustart leer
-        // oder ein älterer Stand) würde sie sonst ersetzen oder anhalten.
+        // Rejoined: the receiver keeps playing what it has. The phone's queue (empty after the restart
+        // or an older state) would otherwise replace or pause it.
         if (handOver.resuming || handOver.rejected) {
             handOver.phoneShuffle = null
             if (handOver.resuming) onRejoined()

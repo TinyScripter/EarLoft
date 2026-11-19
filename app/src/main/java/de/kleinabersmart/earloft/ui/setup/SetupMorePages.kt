@@ -21,7 +21,7 @@ import de.kleinabersmart.earloft.wear.WatchSettings
 import de.kleinabersmart.earloft.wear.WatchSetup
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Was die Seiten Uhr und Darstellung schalten. */
+/** What the watch and appearance pages toggle. */
 internal class SetupMoreActions(
     val setWatchQuality: (WearQuality) -> Unit,
     val setWatchRequireCharging: (Boolean) -> Unit,
@@ -31,8 +31,8 @@ internal class SetupMoreActions(
 )
 
 /**
- * Die Uhr, nur wenn es eine gibt: mit EarLoft darauf die wichtigsten Einstellungen der Uhr-Seite, sonst der Hinweis, die
- * Uhr-App zu installieren (einen Store-Eintrag gibt es noch nicht).
+ * The watch, only if there is one: with EarLoft on it, the most important settings of the watch page; otherwise the hint
+ * to install the watch app (there is no store listing yet).
  */
 internal fun LazyListScope.watchPage(watch: WatchSetup, settings: WatchSettings, actions: SetupMoreActions) {
     if (watch != WatchSetup.APP_INSTALLED) {
@@ -61,7 +61,7 @@ internal fun LazyListScope.watchPage(watch: WatchSetup, settings: WatchSettings,
     pageHint("watch-hint", R.string.setup_watch_hint)
 }
 
-/** Hell, dunkel oder wie das System, dazu die Farben; wirkt sofort, auch auf den Assistenten. */
+/** Light, dark or follow the system, plus the colors; takes effect immediately, including on the wizard. */
 internal fun LazyListScope.designPage(state: SettingsUiState, actions: SetupMoreActions) {
     pageHeader(R.string.settings_section_appearance, R.string.setup_design_text, icon = DesignR.drawable.ic_palette)
     group("theme", R.string.settings_theme) {
@@ -72,7 +72,7 @@ internal fun LazyListScope.designPage(state: SettingsUiState, actions: SetupMore
         }
     }
     group("colors", R.string.setup_section_colors) {
-        // Material You gibt es erst ab Android 12; davor gelten immer die App-Farben.
+        // Material You only exists from Android 12; before that, the app colors always apply.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             row("system-colors") {
                 SwitchRow(
@@ -96,7 +96,7 @@ internal fun LazyListScope.designPage(state: SettingsUiState, actions: SetupMore
     }
 }
 
-/** Eine Wahl aus wenigen; die ganze Zeile wählt (ein Element für Screenreader). */
+/** A choice among a few; the whole row selects (one element for screen readers). */
 @Composable
 private fun RadioRow(label: String, selected: Boolean, onSelect: () -> Unit) {
     ListItem(

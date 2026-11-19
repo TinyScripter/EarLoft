@@ -6,7 +6,7 @@
     android:viewportWidth="512"
     android:viewportHeight="512">
 
-    <!-- Feine Wellenkontur im Hintergrund -->
+    <!-- Fine wave outline in the background -->
     <path
         android:pathData="M 60,260 C 120,180 392,180 452,260"
         android:strokeWidth="5"
@@ -19,7 +19,7 @@
         </aapt:attr>
     </path>
 
-    <!-- Hauskörper mit Kamin und weichen Ecken -->
+    <!-- House body with chimney and soft corners -->
     <path
         android:pathData="M 256,95 L 115,215 A 14,14 0 0,0 125,235 L 140,235 V 390 A 20,20 0 0,0 160,410 H 352 A 20,20 0 0,0 372,390 V 235 L 387,235 A 14,14 0 0,0 397,215 L 362,185 V 135 A 8,8 0 0,0 354,127 H 332 A 8,8 0 0,0 324,135 V 152 Z"
         android:strokeWidth="14"
@@ -34,7 +34,7 @@
         </aapt:attr>
     </path>
 
-    <!-- Zentrums-Ring (Speaker/Tür) -->
+    <!-- Center ring (speaker/door) -->
     <path
         android:pathData="M 256,268 A 30,30 0 1,0 256,328 A 30,30 0 1,0 256,268 Z"
         android:strokeColor="#FF00F5D4"

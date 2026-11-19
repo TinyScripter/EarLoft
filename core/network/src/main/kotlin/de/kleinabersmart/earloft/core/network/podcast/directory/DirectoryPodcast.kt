@@ -2,17 +2,17 @@ package de.kleinabersmart.earloft.core.network.podcast.directory
 
 import de.kleinabersmart.earloft.core.network.podcast.normalizeFeedUrl
 
-/** Öffentliche Podcast-Verzeichnisse, in denen die Seite „Podcast hinzufügen“ sucht (Konzept 12.10); in Anzeigereihenfolge. */
+/** Public podcast directories searched by the "Add podcast" page (concept 12.10); in display order. */
 enum class PodcastDirectory {
     APPLE, PODCAST_INDEX, FYYD, ARD_SOUNDS;
 
-    /** Hat Charts bzw. Trends für „Entdecken“ (Apple: Top-Podcasts je Land, Podcast Index: Trending). */
+    /** Has charts or trends for "Discover" (Apple: top podcasts per country, Podcast Index: trending). */
     val discoverable: Boolean get() = this == APPLE || this == PODCAST_INDEX
 }
 
 /**
- * Kategorien fürs Entdecken, in Anzeigereihenfolge: die Hauptgenres von Apple Podcasts ([appleGenre]) und die passenden
- * Kategorien von Podcast Index ([podcastIndex], Namen durch Komma getrennt).
+ * Categories for discovering, in display order: the main genres of Apple Podcasts ([appleGenre]) and the matching
+ * categories of Podcast Index ([podcastIndex], names separated by commas).
  */
 enum class PodcastCategory(val appleGenre: Int, val podcastIndex: String) {
     NEWS(1489, "News"),
@@ -36,25 +36,25 @@ enum class PodcastCategory(val appleGenre: Int, val podcastIndex: String) {
     RELIGION(1314, "Religion,Spirituality"),
 }
 
-/** Ein Treffer der Verzeichnissuche. */
+/** A hit of the directory search. */
 data class DirectoryPodcast(
     val title: String,
     val author: String,
-    /** Abo-Adresse: meist eine http(s)-Adresse, bei Sendungen aus ARD Sounds ohne RSS-Feed `ardsounds:<Kennung>` (Konzept 12.10). */
+    /** Subscription URL: usually an http(s) URL, for shows from ARD Sounds without an RSS feed `ardsounds:<id>` (concept 12.10). */
     val feedUrl: String,
     val imageUrl: String?,
-    /** Alle Verzeichnisse, die diesen Feed kennen. */
+    /** All directories that know this feed. */
     val directories: Set<PodcastDirectory>,
     /**
-     * Abo-Adresse `ardsounds:<Kennung>`, wenn ARD Sounds die Sendung kennt und [feedUrl] ihr RSS-Feed ist: Dann wählt der
-     * Nutzer, ob das Abo über den Feed oder über ARD Sounds läuft (Konzept 12.10).
+     * Subscription URL `ardsounds:<id>` if ARD Sounds knows the show and [feedUrl] is its RSS feed: then the user
+     * chooses whether the subscription runs via the feed or via ARD Sounds (concept 12.10).
      */
     val ardSoundsUrl: String? = null,
 )
 
 /**
- * Vergleichsschlüssel einer Feed-Adresse: ohne Schema, `www.` und Schrägstrich am Ende, Host klein. Verzeichnisse
- * schreiben denselben Feed oft verschieden, und die App speichert `http://`-Feeds nach Möglichkeit als `https://`.
+ * Comparison key of a feed URL: without scheme, `www.` and trailing slash, host lower-cased. Directories
+ * often write the same feed differently, and the app stores `http://` feeds as `https://` where possible.
  */
 fun feedKey(url: String): String {
     val http = normalizeFeedUrl(url) ?: return url.trim().lowercase()
@@ -67,9 +67,9 @@ fun feedKey(url: String): String {
 private fun defaultPort(scheme: String) = if (scheme == "https") 443 else 80
 
 /**
- * Mischt die Treffer mehrerer Verzeichnisse reihum (der erste jedes Verzeichnisses, dann der zweite …), damit die
- * besten Treffer aller Verzeichnisse oben stehen. Derselbe Feed erscheint nur einmal, mit allen Verzeichnissen, die ihn
- * kennen; fehlende Angaben (Autor, Bild) übernimmt er aus den späteren Treffern.
+ * Interleaves the hits of several directories round-robin (the first of each directory, then the second …), so that the
+ * best hits of all directories are at the top. The same feed appears only once, with all directories that
+ * know it; missing details (author, image) are taken from the later hits.
  */
 fun mergeDirectoryResults(results: List<List<DirectoryPodcast>>): List<DirectoryPodcast> {
     val merged = LinkedHashMap<String, DirectoryPodcast>()

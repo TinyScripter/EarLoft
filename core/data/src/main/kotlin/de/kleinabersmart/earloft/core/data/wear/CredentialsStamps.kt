@@ -8,16 +8,16 @@ import javax.crypto.spec.SecretKeySpec
 import javax.inject.Inject
 
 /**
- * Stempel der Zugangsdaten eines Servers ([MirroredServer.credentialsStamp], bei Audiobookshelf
- * `MirroredAbsServer.credentialsStamp`): Das Handy berechnet ihn ([stamp], [absStamp]), die Uhr verwirft damit Zugangsdaten,
- * die am Handy inzwischen andere sind ([renewChanged], [changedAbs]), statt erst an einer Ablehnung des Servers zu merken,
- * dass ihre veraltet sind (neues Passwort, neu angemeldet, neuer API-Schlüssel).
+ * Stamp of a server's credentials ([MirroredServer.credentialsStamp], for Audiobookshelf
+ * `MirroredAbsServer.credentialsStamp`): the phone computes it ([stamp], [absStamp]); the watch uses it to discard credentials
+ * that have since changed on the phone ([renewChanged], [changedAbs]), instead of only noticing from a server rejection
+ * that its own are outdated (new password, signed in again, new API key).
  */
 class CredentialsStamps @Inject constructor(private val secretStore: SecretStore) {
 
     /**
-     * Handy: HMAC über Secret und Gerät mit einem Schlüssel, der nur auf dem Handy liegt. Ändert sich mit den Zugangsdaten, lässt
-     * aber keinen Rückschluss auf ein (schwaches) Passwort zu. `null` ohne Zugangsdaten.
+     * Phone: HMAC over secret and device with a key that only lives on the phone. Changes with the credentials, but
+     * allows no inference about a (weak) password. `null` without credentials.
      */
     suspend fun stamp(sourceId: String): String? {
         val secret = secretStore.get(DataSourceRegistry.passwordKey(sourceId)) ?: return null
@@ -25,12 +25,12 @@ class CredentialsStamps @Inject constructor(private val secretStore: SecretStore
         return hmac("$sourceId\n$secret\n$deviceId")
     }
 
-    /** Handy: wie [stamp] für den API-Schlüssel [apiKey] eines Audiobookshelf-Servers. */
+    /** Phone: like [stamp] for the API key [apiKey] of an Audiobookshelf server. */
     suspend fun absStamp(serverId: String, apiKey: String?): String? = apiKey?.let { hmac("abs\n$serverId\n$it") }
 
     /**
-     * Uhr: verwirft die Zugangsdaten der Server, deren Stempel sich geändert hat, und merkt sich die neuen. Ohne gemerkten Stempel
-     * (erste Übernahme) bleiben sie. @return die Server mit verworfenen Zugangsdaten.
+     * Watch: discards the credentials of the servers whose stamp has changed, and remembers the new ones. Without a remembered
+     * stamp (first adoption) they stay. @return the servers with discarded credentials.
      */
     suspend fun renewChanged(servers: List<MirroredServer>): Set<String> {
         val renewed = changed(servers.associate { it.sourceId to it.credentialsStamp }, ::stampKey)
@@ -42,15 +42,15 @@ class CredentialsStamps @Inject constructor(private val secretStore: SecretStore
     }
 
     /**
-     * Uhr, Audiobookshelf: merkt sich die Stempel ([stamps] je Server) wie [renewChanged]; den Schlüssel verwirft der Aufrufer.
-     * @return die Server, deren Stempel sich geändert hat.
+     * Watch, Audiobookshelf: remembers the stamps ([stamps] per server) like [renewChanged]; the caller discards the key.
+     * @return the servers whose stamp has changed.
      */
     suspend fun changedAbs(stamps: Map<String, String?>): Set<String> = changed(stamps, ::absStampKey)
 
-    /** Uhr: Der Server ist weg. */
+    /** Watch: the server is gone. */
     suspend fun forget(sourceId: String) = secretStore.remove(stampKey(sourceId))
 
-    /** Uhr: Der Audiobookshelf-Server ist weg. */
+    /** Watch: the Audiobookshelf server is gone. */
     suspend fun forgetAbs(serverId: String) = secretStore.remove(absStampKey(serverId))
 
     private suspend fun changed(stamps: Map<String, String?>, stampKey: (String) -> String): Set<String> {

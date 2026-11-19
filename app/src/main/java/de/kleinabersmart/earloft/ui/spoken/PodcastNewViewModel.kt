@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Reiter „Neu“ der Podcast-Bibliothek: die neuesten Folgen aller Abos mit Download und Warteschlange je Zeile. */
+/** "New" tab of the podcast library: the newest episodes of all subscriptions with download and queue per row. */
 @HiltViewModel
 class PodcastNewViewModel @Inject constructor(
     podcasts: PodcastRepository,
@@ -49,35 +49,35 @@ class PodcastNewViewModel @Inject constructor(
 
     val progress: StateFlow<Map<Long, Float>> = downloadProgress.fractions
 
-    /** Tempo je Abo (sonst die Vorgabe der Podcasts) für die Restzeit, wie auf der Seite der Warteschlange. */
+    /** Speed per subscription (otherwise the podcasts default) for the remaining time, as on the queue page. */
     val feedSpeeds: StateFlow<Map<String, Float>> = combine(podcasts.feeds, spokenSettings.podcastEffects) { feeds, area ->
         feeds.associate { it.id to (it.effects.speed ?: area.speed) }
     }
         .orOnError(emptyMap())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    /** Folgen, die gerade in „Weiterhören“ (der Warteschlange) stehen, auch die von selbst dort stehenden. */
+    /** Episodes currently in "Continue listening" (the queue), including those that got there automatically. */
     val queued: StateFlow<Set<Long>> = continueListening.episodes
         .map { list -> list.mapTo(HashSet()) { it.book.id } }
         .orOnError(emptySet())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    /** Die Folge, die gerade läuft (nicht: pausiert). */
+    /** The episode currently playing (not: paused). */
     val playingBookId: StateFlow<Long?> = playback.state
         .map { if (it.isPlaying) it.spoken?.bookId else null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val _messages = MutableSharedFlow<Int>(extraBufferCapacity = 2)
 
-    /** Hinweise wie auf der Abo-Seite, etwa dass ein Download auf WLAN wartet. */
+    /** Messages as on the subscription page, e.g. that a download is waiting for Wi-Fi. */
     val messages: SharedFlow<Int> = _messages.asSharedFlow()
 
-    /** Wie [PodcastViewModel.playOrPause]. */
+    /** Like [PodcastViewModel.playOrPause]. */
     fun playOrPause(bookId: Long) {
         if (playback.state.value.spoken?.bookId == bookId) playback.togglePlayPause() else launcher.play(bookId)
     }
 
-    /** Ans Ende der Warteschlange bzw. heraus, wie im Folgenmenü. */
+    /** To the end of the queue or out of it, as in the episode menu. */
     fun toggleQueued(bookId: Long) {
         val inQueue = bookId in queued.value
         viewModelScope.launch { if (inQueue) continueListening.remove(bookId) else continueListening.append(bookId) }

@@ -29,11 +29,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Meldet dem Handy, was auf der Uhr an Folgen und Büchern gehört wurde (Wear-Konzept 16.1/16.2): neuere Fortschritte und die
- * seit der letzten Meldung gehörte Zeit, als DataItem `/earloft/episodes/<uuid>` (kommt auch an, wenn das Handy gerade fehlt).
- * Während etwas spielt, schreibt der Player alle 15 s; gemeldet wird erst nach einer Ruhepause, sonst weckte jede Meldung
- * das Handy. Hält der Player den Stand fest (Pause, Titelwechsel, Stop), geht er nach [HELD_SETTLE_MS] hinaus, damit man
- * gleich am Handy weiterhören kann. Bei Büchern ist der Schlüssel `serverId`/`remoteId` statt `feedId`/guid.
+ * Reports to the phone what was listened to on the watch in episodes and books (Wear concept 16.1/16.2): newer progress and the
+ * time listened since the last report, as DataItem `/earloft/episodes/<uuid>` (arrives even if the phone is currently missing).
+ * While something is playing, the player writes every 15 s; reporting only happens after a quiet period, otherwise every report would wake
+ * the phone. When the player saves the position (pause, track change, stop), it goes out after [HELD_SETTLE_MS] so that you
+ * can continue listening on the phone right away. For books the key is `serverId`/`remoteId` instead of `feedId`/guid.
  */
 @Singleton
 class WatchEpisodeReporter @Inject constructor(
@@ -49,8 +49,8 @@ class WatchEpisodeReporter @Inject constructor(
     @OptIn(FlowPreview::class)
     fun start(scope: CoroutineScope) {
         scope.launch {
-            // Beim Start einmal: Was beim letzten Mal nicht mehr hinausging (Prozess beendet), holt das nach. Die Ruhepause
-            // bleibt auch nach einer Pause wirksam: Sie nimmt die Hörzeit mit, falls die Statistik erst nach der Meldung schrieb.
+            // Once at startup: catches up on whatever did not go out last time (process ended). The quiet period
+            // remains in effect after a pause too: it takes the listening time along in case the statistics wrote only after the report.
             merge(
                 bookDao.observeAllProgress().debounce(QUIET_MS).map { },
                 progressSync.held.debounce(HELD_SETTLE_MS).map { },
@@ -62,19 +62,19 @@ class WatchEpisodeReporter @Inject constructor(
         val feeds = podcastDao.feeds()
         val feedIdsByUrl = feeds.associate { it.url to it.feedId }
 
-        // Auf der Uhr gibt es nur Gespiegeltes: jede Folge und jedes Buch stammt vom Handy.
+        // The watch only has mirrored items: every episode and every book comes from the phone.
         val progress = bookDao.keyedProgress()
             .filter { it.progress.updatedAt > reported.progressAt(it.serverId, it.remoteId) }
         val listening = statsDao.all()
             .filter { it.source == ListeningStatEntity.SOURCE_APP }
             .mapNotNull { stat ->
-                // Folgen zählen unter der Adresse des Feeds, Bücher unter ihrer `serverId` (StatsRepository).
+                // Episodes count under the feed address, books under their `serverId` (StatsRepository).
                 val feedId = when (stat.kind) {
                     BookKind.EPISODE -> feedIdsByUrl[stat.groupKey]
                     BookKind.BOOK -> stat.groupKey
                 } ?: return@mapNotNull null
                 val delta = stat.listenedMs - reported.listenedMs(stat.groupKey, stat.itemKey)
-                // Kleiner als gemeldet: Die Statistik der Uhr wurde geleert; ab hier neu zählen.
+                // Smaller than reported: the watch's statistics were cleared; start counting anew from here.
                 if (delta < 0) reported.markListened(stat.groupKey, stat.itemKey, stat.listenedMs)
                 if (delta <= 0) null else stat to WearEpisodeListeningDto(feedId, stat.itemKey, delta, stat.lastListenedAt)
             }
@@ -98,7 +98,7 @@ class WatchEpisodeReporter @Inject constructor(
         const val TAG = "WatchEpisodeReporter"
         const val QUIET_MS = 30_000L
 
-        /** Kurz warten, bis der Player beim Pausieren auch die gehörte Zeit verbucht hat; sie geht im selben Paket mit. */
+        /** Wait briefly until the player has also booked the listened time on pause; it goes out in the same package. */
         const val HELD_SETTLE_MS = 1_000L
     }
 }

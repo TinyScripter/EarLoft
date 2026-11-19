@@ -34,8 +34,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Titel-Info (Konzept 1 „Klangtreue“): woher der Song gerade spielt (Gerät, Download, Stream) und welche Quellen ihn liefern,
- * je mit Format, Bitrate, Größe und ReplayGain. Die gespielte Quelle trägt einen Haken.
+ * Track info (concept 1 "Fidelity"): where the song is currently playing from (device, download, stream) and which sources provide it,
+ * each with format, bitrate, size and ReplayGain. The source being played has a check mark.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,7 +100,7 @@ private fun playedFromText(info: TrackInfo): String {
                 R.string.track_info_from_stream,
                 info.sources.firstOrNull { it.sourceId == played.sourceId }?.sourceName ?: played.sourceId.orEmpty(),
             )
-            // Über mobile Daten (Konzept 7.4): Der Server wandelt um, Format und Bitrate der Quelle gelten dann nicht.
+            // Over mobile data (concept 7.4): the server transcodes, so the source's format and bitrate don't apply.
             played.transcodedTo?.let { (codec, kbps) ->
                 stringResource(R.string.track_info_transcoded, stream, formatLabel("audio/$codec") ?: codec, kbps)
             } ?: stream
@@ -115,7 +115,7 @@ private fun sourceTitle(source: SongSourceInfo): String = when {
     else -> source.sourceName
 }
 
-/** „FLAC · 1 012 kbit/s · 34,2 MB · ReplayGain −6,3 dB (Album −7,1 dB)“; was fehlt, entfällt. */
+/** "FLAC · 1 012 kbit/s · 34,2 MB · ReplayGain −6,3 dB (Album −7,1 dB)"; whatever is missing is omitted. */
 @Composable
 private fun sourceDetails(source: SongSourceInfo): String {
     val locale = LocalConfiguration.current.locales[0]
@@ -137,7 +137,7 @@ private fun isPlayed(source: SongSourceInfo, played: PlayedFrom?): Boolean = whe
     null -> false
 }
 
-/** Kurzname des Formats aus dem MIME-Typ, z. B. `audio/flac` → „FLAC“. */
+/** Short name of the format from the MIME type, e.g. `audio/flac` → "FLAC". */
 internal fun formatLabel(mimeType: String?): String? {
     val subtype = mimeType?.substringAfter('/', "")?.lowercase()?.removePrefix("x-")?.takeIf { it.isNotBlank() } ?: return null
     return when (subtype) {

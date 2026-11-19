@@ -43,7 +43,7 @@ class BookAutomationTest {
             book(5, "Wisting #3"),
         )
 
-        // Hole: 79 % reicht nicht. Wisting: Band 2 ist schon gehört, also Band 3 – und nach dem beendeten Band 2 ebenso.
+        // Hole: 79 % isn't enough. Wisting: volume 2 is already played, so volume 3 – and likewise after the finished volume 2.
         assertEquals(listOf(5L), automaticBookDownloads(emptyList(), all, started = false, nextInSeries = true, now = now))
     }
 
@@ -52,13 +52,13 @@ class BookAutomationTest {
         val all = listOf(
             book(1, serverId = ARD_BOOK_SERVER_ID, availableUntil = now + days(6)),
             book(2, serverId = ARD_BOOK_SERVER_ID, availableUntil = now + days(2)),
-            // Noch lange da, schon abgelaufen, beendet, ohne Frist und von einem Server: nicht.
+            // Still available for a long time, already expired, finished, without deadline and from a server: no.
             book(3, serverId = ARD_BOOK_SERVER_ID, availableUntil = now + days(30)),
             book(4, serverId = ARD_BOOK_SERVER_ID, availableUntil = now - 1),
             book(5, serverId = ARD_BOOK_SERVER_ID, availableUntil = now + days(1), progress = at(1000, finished = true)),
             book(6, serverId = ARD_BOOK_SERVER_ID),
             book(7, availableUntil = now + days(1)),
-            // Angefangen zählt wie nicht angefangen: Es steht in der Bibliothek, also soll es bleiben.
+            // Started counts like not started: it's in the library, so it should stay.
             book(8, serverId = ARD_BOOK_SERVER_ID, availableUntil = now + days(3), progress = at(100)),
         )
 

@@ -27,20 +27,20 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Die Antwort kam nicht von einem Server der erwarteten Art (falsche Adresse, anderer Server, Fehlerseite). */
+/** The response didn't come from a server of the expected kind (wrong URL, different server, error page). */
 class NotJellyfinException(message: String, cause: Throwable? = null) : UnexpectedResponseException(message, cause)
 
 /**
- * Die Jellyfin- und Emby-REST-Aufrufe für Musik (Konzept 14); wo Emby abweicht, entscheidet [JellyfinServer.flavor].
- * Fehler kommen als HTTP-Status ([HttpStatusException], 401 = Token ungültig). Den Token setzt
- * [JellyfinAuthInterceptor] (Emby nimmt dieselbe Kopfzeile an); URLs enthalten ihn nur für Cast.
+ * The Jellyfin and Emby REST calls for music (concept 14); where Emby differs, [JellyfinServer.flavor] decides.
+ * Errors come as HTTP status ([HttpStatusException], 401 = token invalid). The token is set by
+ * [JellyfinAuthInterceptor] (Emby accepts the same header); URLs only contain it for cast.
  */
 @Singleton
 class JellyfinApi @Inject constructor(
     private val client: OkHttpClient,
     private val clientInfo: JellyfinClientInfo,
 ) {
-    /** Ohne Anmeldung: Ist unter [baseUrl] ein Server der Art [flavor]? Jellyfin nennt sich, Emby nennt keinen Namen. */
+    /** Without login: is there a server of kind [flavor] at [baseUrl]? Jellyfin names itself, Emby gives no name. */
     suspend fun publicInfo(baseUrl: HttpUrl, flavor: JellyfinFlavor = JellyfinFlavor.JELLYFIN): JfPublicSystemInfo {
         val url = baseUrl.newBuilder().addPathSegments("System/Info/Public").build()
         val info = decode<JfPublicSystemInfo>(execute(Request.Builder().url(url).build()), "System/Info/Public")
@@ -51,7 +51,7 @@ class JellyfinApi @Inject constructor(
         return info
     }
 
-    /** Meldet das Gerät [deviceId] an; ein früherer Token desselben Geräts wird dabei ungültig. */
+    /** Signs in the device [deviceId]; an earlier token of the same device becomes invalid. */
     suspend fun authenticate(baseUrl: HttpUrl, deviceId: String, username: String, password: String): JfAuthResult {
         val url = baseUrl.newBuilder().addPathSegments("Users/AuthenticateByName").build()
         val body = JSON.encodeToString(JfAuthenticate.serializer(), JfAuthenticate(username, password))
@@ -64,20 +64,20 @@ class JellyfinApi @Inject constructor(
     }
 
     /**
-     * Für die Anmeldung: Das Passwort steht im Body, und den schickte OkHttp bei 307/308 an jedes Ziel mit, auch von
-     * HTTPS auf HTTP und zu einem fremden Host (anders als die Kopfzeile mit dem Token). Eine Weiterleitung scheitert so.
+     * For the login: the password is in the body, and OkHttp would send it along to any target on 307/308, even from
+     * HTTPS to HTTP and to a foreign host (unlike the header with the token). A redirect therefore fails.
      */
     private val noRedirectClient by lazy { client.newBuilder().followRedirects(false).followSslRedirects(false).build() }
 
-    /** Prüft den Token. Emby kennt `Users/Me` nicht. */
+    /** Checks the token. Emby doesn't know `Users/Me`. */
     suspend fun me(server: JellyfinServer): JfUser = get(server, server.endpoint(server.choose("Users/Me", "Users/${server.userId}")).build())
 
-    /** Gibt den Token frei (beim Entfernen des Servers). */
+    /** Releases the token (when removing the server). */
     suspend fun logout(server: JellyfinServer) {
         execute(request(server, server.endpoint("Sessions/Logout").build()) { post(EMPTY_BODY) })
     }
 
-    /** Die Musik-Bibliotheken des Kontos; andere (Filme, Hörbücher) bleiben außen vor. */
+    /** The account's music libraries; others (movies, audiobooks) are left out. */
     suspend fun musicLibraries(server: JellyfinServer): List<JfItem> {
         val url = when (server.flavor) {
             JellyfinFlavor.JELLYFIN -> server.endpoint("UserViews").addQueryParameter("userId", server.userId).build()
@@ -87,8 +87,8 @@ class JellyfinApi @Inject constructor(
     }
 
     /**
-     * Eine Seite Songs, älteste zuerst: Neu hinzukommende Songs hängen hinten an und verschieben die
-     * Seiten eines laufenden Abgleichs nicht.
+     * One page of songs, oldest first: newly added songs are appended at the end and don't shift the
+     * pages of a running sync.
      */
     suspend fun songs(server: JellyfinServer, parentId: String, startIndex: Int, limit: Int): JfItemsPage =
         get(server, songsUrl(server, startIndex, limit) { addQueryParameter("parentId", parentId) }
@@ -96,14 +96,14 @@ class JellyfinApi @Inject constructor(
             .addQueryParameter("sortOrder", "Ascending")
             .build())
 
-    /** Neueste Songs der Bibliothek [parentId] zuerst (Zwischenabgleich). */
+    /** Newest songs of library [parentId] first (quick sync). */
     suspend fun newestSongs(server: JellyfinServer, parentId: String, startIndex: Int, limit: Int): JfItemsPage =
         get(server, songsUrl(server, startIndex, limit) { addQueryParameter("parentId", parentId) }
             .addQueryParameter("sortBy", "DateCreated")
             .addQueryParameter("sortOrder", "Descending")
             .build())
 
-    /** Alle favorisierten Songs (`Audio`), Alben (`MusicAlbum`) und Künstler (`MusicArtist`), über alle Bibliotheken. */
+    /** All favorited songs (`Audio`), albums (`MusicAlbum`) and artists (`MusicArtist`), across all libraries. */
     suspend fun favoriteMusicItems(server: JellyfinServer): List<JfItem> {
         val url = server.endpoint("Items")
             .addQueryParameter("userId", server.userId)
@@ -116,7 +116,7 @@ class JellyfinApi @Inject constructor(
         return get<JfItemsPage>(server, url).items
     }
 
-    /** IDs von bis zu [limit] Songs, die der Server zu [itemId] mischt (Instant Mix; Jellyfin und Emby). */
+    /** IDs of up to [limit] songs the server mixes for [itemId] (Instant Mix; Jellyfin and Emby). */
     suspend fun instantMix(server: JellyfinServer, itemId: String, limit: Int): List<String> {
         val url = server.endpoint("Items/$itemId/InstantMix")
             .addQueryParameter("userId", server.userId)
@@ -127,11 +127,11 @@ class JellyfinApi @Inject constructor(
         return get<JfItemsPage>(server, url).items.map { it.id }
     }
 
-    /** Original-Datei ohne Transcoding (Gapless, Klangtreue); kann `Range`. */
+    /** Original file without transcoding (gapless, fidelity); supports `Range`. */
     fun streamUrl(server: JellyfinServer, itemId: String): HttpUrl =
         server.endpoint("Audio/$itemId/stream").addQueryParameter("static", "true").build()
 
-    /** Vom Server umgewandelt; [maxKbps] in kbit/s. Die Größe steht vorher nicht fest. */
+    /** Transcoded by the server; [maxKbps] in kbit/s. The size isn't known in advance. */
     fun transcodedStreamUrl(server: JellyfinServer, itemId: String, codec: String, maxKbps: Int): HttpUrl =
         server.endpoint("Audio/$itemId/stream")
             .addQueryParameter("container", containerFor(codec))
@@ -139,7 +139,7 @@ class JellyfinApi @Inject constructor(
             .addQueryParameter("audioBitRate", (maxKbps * 1000).toString())
             .build()
 
-    /** [coverId] aus [JellyfinCover.id] oder eine reine Item-ID. */
+    /** [coverId] from [JellyfinCover.id] or a plain item ID. */
     fun imageUrl(server: JellyfinServer, coverId: String, sizePx: Int): HttpUrl {
         val tag = JellyfinCover.tag(coverId)
         return server.endpoint("Items/${JellyfinCover.itemId(coverId)}/Images/Primary")
@@ -150,7 +150,7 @@ class JellyfinApi @Inject constructor(
             .build()
     }
 
-    /** `null`, wenn der Eintrag kein Bild hat. */
+    /** `null` if the entry has no image. */
     suspend fun image(server: JellyfinServer, coverId: String, sizePx: Int): ByteArray? = withContext(Dispatchers.IO) {
         client.newCall(request(server, imageUrl(server, coverId, sizePx))).await().use { response ->
             when {
@@ -168,10 +168,10 @@ class JellyfinApi @Inject constructor(
     }
 
     /**
-     * Eine Wiedergabe wie ein Player: Start und Ende (bei [durationMs], also zu Ende gehört). Jellyfin und Emby zählen
-     * sie schon beim Start (`PlayCount`, „gespielt“ mit der Serverzeit); das Ende brauchen Scrobble-Plugins und die Sitzung.
-     * Ist der Start angekommen, gilt die Wiedergabe als gemeldet, auch wenn das Ende scheitert – nachgereicht zählte sie
-     * der Server doppelt.
+     * A play like a player does it: start and end (at [durationMs], i.e. fully played). Jellyfin and Emby already count
+     * it at the start (`PlayCount`, "played" with the server time); scrobble plugins and the session need the end.
+     * Once the start has arrived, the play counts as reported even if the end fails – reported again later, the server
+     * would count it twice.
      */
     suspend fun reportPlayback(server: JellyfinServer, itemId: String, durationMs: Long) {
         val session = UUID.randomUUID().toString()
@@ -183,7 +183,7 @@ class JellyfinApi @Inject constructor(
                 JfPlaybackReport(itemId, positionTicks = durationMs * TICKS_PER_MS, playSessionId = session),
             )
         } catch (e: IOException) {
-            // Der Start zählt schon; ohne Ende bleibt am Server höchstens die Sitzung offen.
+            // The start already counts; without an end at most the session stays open on the server.
         }
     }
 
@@ -192,18 +192,18 @@ class JellyfinApi @Inject constructor(
         execute(request(server, server.endpoint(path).build()) { post(body) })
     }
 
-    /** Markiert als gehört, mit dem Zeitpunkt [playedAt] (ms) – auch nachträglich aus der Sync-Queue. */
+    /** Marks as played, with the timestamp [playedAt] (ms) – also retroactively from the sync queue. */
     suspend fun markPlayed(server: JellyfinServer, itemId: String, playedAt: Long) {
         val playedAtText = when (server.flavor) {
             JellyfinFlavor.JELLYFIN -> Instant.ofEpochMilli(playedAt).toString()
-            // Emby nimmt kein ISO-8601, nur `yyyyMMddHHmmss` (UTC).
+            // Emby doesn't accept ISO-8601, only `yyyyMMddHHmmss` (UTC).
             JellyfinFlavor.EMBY -> EMBY_DATE.format(Instant.ofEpochMilli(playedAt))
         }
         val url = userItemEndpoint(server, "PlayedItems", itemId).addQueryParameter("datePlayed", playedAtText).build()
         execute(request(server, url) { post(EMPTY_BODY) })
     }
 
-    /** Alle Playlists, die das Konto sieht (eigene, geteilte, öffentliche). */
+    /** All playlists the account sees (own, shared, public). */
     suspend fun playlists(server: JellyfinServer): List<JfItem> {
         val url = server.endpoint("Items")
             .addQueryParameter("userId", server.userId)
@@ -215,18 +215,18 @@ class JellyfinApi @Inject constructor(
         return get<JfItemsPage>(server, url).items
     }
 
-    /** Ein einzelner Eintrag (z. B. Name einer Playlist). */
+    /** A single entry (e.g. name of a playlist). */
     suspend fun item(server: JellyfinServer, itemId: String): JfItem = get(server, itemUrl(server, itemId))
 
-    /** Die Song-IDs einer Playlist in Reihenfolge (Duplikate möglich). */
+    /** The song IDs of a playlist in order (duplicates possible). */
     suspend fun playlistItemIds(server: JellyfinServer, playlistId: String): List<String> = when (server.flavor) {
         JellyfinFlavor.JELLYFIN -> get<JfPlaylist>(server, server.endpoint("Playlists/$playlistId").build()).itemIds
         JellyfinFlavor.EMBY -> embyPlaylistEntries(server, playlistId).map { it.id }
     }
 
     /**
-     * `false` auch, wenn der Server das Konto gar nicht kennt (404/403). Emby zeigt jedem Konto nur die eigenen
-     * Playlists (am Server 4.10 geprüft); deren Rechte fragt es nicht ab.
+     * `false` also if the server doesn't know the account at all (404/403). Emby shows each account only its own
+     * playlists (checked on server 4.10); it doesn't query their permissions.
      */
     suspend fun canEditPlaylist(server: JellyfinServer, playlistId: String): Boolean {
         if (server.flavor == JellyfinFlavor.EMBY) return true
@@ -237,7 +237,7 @@ class JellyfinApi @Inject constructor(
         }
     }
 
-    /** Private Playlist (nicht öffentlich) mit [itemIds]. @return ihre ID. */
+    /** Private playlist (not public) with [itemIds]. @return its ID. */
     suspend fun createPlaylist(server: JellyfinServer, name: String, itemIds: List<String>): String {
         if (server.flavor == JellyfinFlavor.EMBY) return createEmbyPlaylist(server, name, itemIds)
         val body = JSON.encodeToString(JfCreatePlaylist.serializer(), JfCreatePlaylist(name, itemIds, server.userId))
@@ -245,14 +245,14 @@ class JellyfinApi @Inject constructor(
         return decode<JfCreated>(execute(request(server, server.endpoint("Playlists").build()) { post(body) }), "Playlists").id
     }
 
-    /** Ersetzt Name und Songs; Jellyfin in einem Aufruf, Emby Schritt für Schritt ([updateEmbyPlaylist]). */
+    /** Replaces name and songs; Jellyfin in one call, Emby step by step ([updateEmbyPlaylist]). */
     suspend fun updatePlaylist(server: JellyfinServer, playlistId: String, name: String, itemIds: List<String>) {
         if (server.flavor == JellyfinFlavor.EMBY) return updateEmbyPlaylist(server, playlistId, name, itemIds)
         val body = JSON.encodeToString(JfUpdatePlaylist.serializer(), JfUpdatePlaylist(name, itemIds)).toRequestBody(JSON_MEDIA_TYPE)
         execute(request(server, server.endpoint("Playlists/$playlistId").build()) { post(body) })
     }
 
-    // --- Emby-Playlists: Anlegen und Ändern nur über Query-Parameter, Einträge einzeln ---
+    // --- Emby playlists: creating and changing only via query parameters, entries one by one ---
 
     private suspend fun embyPlaylistEntries(server: JellyfinServer, playlistId: String): List<JfItem> {
         val url = server.endpoint("Playlists/$playlistId/Items")
@@ -264,8 +264,8 @@ class JellyfinApi @Inject constructor(
     }
 
     /**
-     * Emby nimmt beim Anlegen keinen JSON-Body; lange Listen gehen in Stücken, damit die URL kurz bleibt. Scheitert ein
-     * Stück, wird die halbe Playlist wieder gelöscht – der nächste Versuch legt sie neu an.
+     * Emby doesn't accept a JSON body when creating; long lists go in chunks so the URL stays short. If a
+     * chunk fails, the half-created playlist is deleted again – the next attempt creates it anew.
      */
     private suspend fun createEmbyPlaylist(server: JellyfinServer, name: String, itemIds: List<String>): String {
         val chunks = itemIds.chunked(EMBY_IDS_PER_REQUEST)
@@ -290,9 +290,9 @@ class JellyfinApi @Inject constructor(
     }
 
     /**
-     * Umbenennen geht bei Emby nur über den ganzen Eintrag (`POST Items/{id}`, auch ohne Admin-Rechte). Von den Songs
-     * bleibt der gemeinsame Anfang; der Rest wird entfernt und neu angehängt. Emby nummeriert die Einträge nach dem
-     * Entfernen neu, deshalb von hinten in Stücken.
+     * Renaming in Emby only works via the whole entry (`POST Items/{id}`, even without admin rights). Of the songs,
+     * the common prefix stays; the rest is removed and appended again. Emby renumbers the entries after
+     * removal, hence from the back in chunks.
      */
     private suspend fun updateEmbyPlaylist(server: JellyfinServer, playlistId: String, name: String, itemIds: List<String>) {
         val itemUrl = itemUrl(server, playlistId)
@@ -322,7 +322,7 @@ class JellyfinApi @Inject constructor(
         execute(request(server, server.endpoint("Items/$itemId").build()) { delete() })
     }
 
-    /** `null`, wenn der Song keinen Text hat. Nur Jellyfin; Emby siehe [embyLyricsText]. */
+    /** `null` if the song has no lyrics. Jellyfin only; for Emby see [embyLyricsText]. */
     suspend fun lyrics(server: JellyfinServer, itemId: String): JfLyrics? =
         try {
             get(server, server.endpoint("Audio/$itemId/Lyrics").build())
@@ -331,8 +331,8 @@ class JellyfinApi @Inject constructor(
         }
 
     /**
-     * Der Songtext bei Emby, als LRC oder reiner Text; `null` ohne Text. Emby führt ihn als Untertitel: eine `.lrc`
-     * neben der Datei (synchron, wird geladen) oder eingebettet im Tag (der Text steht schon im Eintrag).
+     * The lyrics on Emby, as LRC or plain text; `null` without lyrics. Emby keeps them as subtitles: an `.lrc`
+     * next to the file (synced, gets downloaded) or embedded in the tag (the text is already in the entry).
      */
     suspend fun embyLyricsText(server: JellyfinServer, itemId: String): String? {
         val media = item(server, itemId).mediaSources.firstOrNull() ?: return null
@@ -345,17 +345,17 @@ class JellyfinApi @Inject constructor(
         return streams.firstNotNullOfOrNull { stream -> stream.extradata?.removePrefix(BOM)?.takeIf { it.isNotBlank() } }
     }
 
-    /** Für Empfänger außerhalb unseres OkHttpClients (Cast): der Token in der URL. Nie speichern oder loggen. */
+    /** For receivers outside our OkHttpClient (cast): the token in the URL. Never store or log. */
     fun withToken(server: JellyfinServer, url: HttpUrl): HttpUrl =
         url.newBuilder().addQueryParameter(server.choose("ApiKey", "api_key"), server.token).build()
 
-    /** Bei Jellyfin `Items/{id}`, bei Emby `Users/{userId}/Items/{id}` (Jellyfin 12 kennt diesen Pfad nicht mehr). */
+    /** For Jellyfin `Items/{id}`, for Emby `Users/{userId}/Items/{id}` (Jellyfin 12 no longer knows this path). */
     private fun itemUrl(server: JellyfinServer, itemId: String): HttpUrl = when (server.flavor) {
         JellyfinFlavor.JELLYFIN -> server.endpoint("Items/$itemId").addQueryParameter("userId", server.userId).build()
         JellyfinFlavor.EMBY -> server.endpoint("Users/${server.userId}/Items/$itemId").build()
     }
 
-    /** Nutzerdaten eines Eintrags: Jellyfin ab 10.9 `UserFavoriteItems/{id}?userId=`, Emby `Users/{userId}/FavoriteItems/{id}`. */
+    /** User data of an entry: Jellyfin 10.9+ `UserFavoriteItems/{id}?userId=`, Emby `Users/{userId}/FavoriteItems/{id}`. */
     private fun userItemEndpoint(server: JellyfinServer, kind: String, itemId: String): HttpUrl.Builder = when (server.flavor) {
         JellyfinFlavor.JELLYFIN -> server.endpoint("User$kind/$itemId").addQueryParameter("userId", server.userId)
         JellyfinFlavor.EMBY -> server.endpoint("Users/${server.userId}/$kind/$itemId")
@@ -410,11 +410,11 @@ class JellyfinApi @Inject constructor(
         }
 
     internal companion object {
-        /** `MediaSources` liefert Größe und Bitrate; ohne Feld fehlen sie. */
+        /** `MediaSources` provides size and bitrate; without the field they are missing. */
         const val SONG_FIELDS = "ProviderIds,DateCreated,Genres,MediaSources"
         const val TICKS_PER_MS = 10_000L
 
-        /** IDs je Anfrage beim Ändern von Emby-Playlists (Query-Parameter). */
+        /** IDs per request when changing Emby playlists (query parameters). */
         const val EMBY_IDS_PER_REQUEST = 200
         private val BOM = Char(0xFEFF).toString()
         private val EMBY_DATE = DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(ZoneOffset.UTC)
@@ -428,7 +428,7 @@ class JellyfinApi @Inject constructor(
         val JSON_MEDIA_TYPE = "application/json".toMediaType()
         private val EMPTY_BODY: RequestBody = ByteArray(0).toRequestBody(null)
 
-        /** Behälter, in dem der Server den Codec ausliefert. */
+        /** Container in which the server delivers the codec. */
         fun containerFor(codec: String): String = when (codec.lowercase()) {
             "opus", "vorbis" -> "ogg"
             "aac" -> "m4a"
@@ -438,8 +438,8 @@ class JellyfinApi @Inject constructor(
 }
 
 /**
- * Cover-IDs für Jellyfin: Item-ID und Bild-Tag. Der Tag ändert sich mit dem Bild; steckt er in der ID, ändert sich mit
- * dem Cover auch dessen URL, und der lange HTTP-Cache für Cover (`CoverArtCacheInterceptor`) liefert kein altes Bild.
+ * Cover IDs for Jellyfin: item ID and image tag. The tag changes with the image; if it's part of the ID, the URL
+ * changes with the cover too, and the long HTTP cache for covers (`CoverArtCacheInterceptor`) doesn't deliver an old image.
  */
 object JellyfinCover {
     private const val SEPARATOR = ':'

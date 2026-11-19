@@ -11,5 +11,9 @@ Erledige grundsätzlich alles auf dem Pixel 10 Pro im Emulator. Wenn ein Emulato
 Falls ein Chromecast Gerät benötigt wird, frage welches genommen werden darf.
 Wenn du ein Problem nach 3 Iterationen nicht gelöst hast, stoppe und frage, wie weiter vorgegangen werden soll.
 
+# Sprache im Code
+Alles im Code ist immer zwingend Englisch: Kommentare, KDoc, Bezeichner, Log-Meldungen, Testnamen, Build-Skripte und Konfigurationsdateien.
+Abweichen darf nur der Inhalt von Übersetzungsdateien (z. B. `values-de/strings.xml`, `PRIVACY.de.md`).
+
 # Commits
 Alle Commits werden grundsätzlich in Englisch verfasst.

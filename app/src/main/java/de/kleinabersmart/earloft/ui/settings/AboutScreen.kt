@@ -40,7 +40,7 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.ui.library.BackButton
 
-/** Infoseite über die App mit Links zum Projekt und zum Issue-Tracker. */
+/** Info page about the app with links to the project and the issue tracker. */
 @Composable
 fun AboutScreen(onBack: () -> Unit, onOpenLicenses: () -> Unit, onOpenPrivacy: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -109,7 +109,7 @@ private fun AboutContent(
     }
 }
 
-/** Erklärtext mit darunter stehendem, anklickbarem Link. */
+/** Explanatory text with a clickable link below it. */
 @Composable
 private fun LinkBlock(@StringRes labelRes: Int, @StringRes urlRes: Int) {
     val url = stringResource(urlRes)

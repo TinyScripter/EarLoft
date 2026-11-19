@@ -88,7 +88,7 @@ internal object DatabaseModule {
     @Provides
     fun provideBackupDao(database: EarLoftDatabase): BackupDao = database.backupDao()
 
-    /** Nur das Handy nutzt sie; auf der Uhr wird sie nie angefordert und daher nie angelegt. */
+    /** Only the phone uses it; on the watch it is never requested and thus never created. */
     @Provides
     @Singleton
     fun provideUserDatabase(@ApplicationContext context: Context): UserDatabase =

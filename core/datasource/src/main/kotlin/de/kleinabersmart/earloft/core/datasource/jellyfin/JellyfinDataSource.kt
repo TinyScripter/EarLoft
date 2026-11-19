@@ -40,7 +40,7 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Ein Jellyfin- oder Emby-Server (Konzept 14); nur seine Musik-Bibliotheken. */
+/** A Jellyfin or Emby server (concept 14); only its music libraries. */
 class JellyfinDataSource internal constructor(
     val server: JellyfinServer,
     override val displayName: String,
@@ -52,22 +52,22 @@ class JellyfinDataSource internal constructor(
     override val sourceId: String get() = server.sourceId
     override val type: SourceType = server.flavor.sourceType
 
-    /** Playlist → darf dieses Konto sie bearbeiten, und wann gefragt (`nanoTime`). */
+    /** Playlist → may this account edit it, and when it was asked (`nanoTime`). */
     private val editable = ConcurrentHashMap<String, Pair<Boolean, Long>>()
 
-    /** Playlist → `Etag` und Einträge dazu. */
+    /** Playlist → `Etag` and its entries. */
     private val playlistItems = ConcurrentHashMap<String, CachedItems>()
 
     private class CachedItems(val etag: String, val ids: List<String>, val fetchedAt: Long)
 
     /**
-     * Bibliothek für Bibliothek in Seiten bis zur gemeldeten Gesamtzahl; Fehler brechen den Scan ab, damit der Abgleich
-     * nichts löscht. Kürzt ein Proxy die Seiten, geht es mit der nächsten weiter; bleibt eine Seite vor dem Ende leer,
-     * fehlen Songs, und der Scan bricht ab, statt sie lokal zu löschen.
+     * Library by library in pages up to the reported total; errors abort the scan so the sync
+     * deletes nothing. If a proxy shortens the pages, it continues with the next one; if a page stays empty before the end,
+     * songs are missing, and the scan aborts instead of deleting them locally.
      */
     override fun fullScan(): Flow<SourceBatch> = flow {
         api.musicLibraries(server).forEach { library ->
-            // Hat sich die Bibliothek unterwegs verschoben (Scan oder Löschen am Server), einmal von vorn.
+            // If the library shifted along the way (scan or deletion on the server), start over once.
             if (!scanLibrary(library) && !scanLibrary(library)) {
                 throw IOException("${library.name} hat sich während des Abgleichs geändert")
             }
@@ -75,9 +75,9 @@ class JellyfinDataSource internal constructor(
     }
 
     /**
-     * Ab der zweiten Seite beginnt jede Anfrage einen Song früher: Er muss der letzte der vorigen Seite sein. Sonst ist
-     * vor dem Offset etwas weggefallen, und der erste Song der Seite fehlte – der Abgleich löschte ihn samt Playlist-
-     * Einträgen, Verlauf und Favorit. @return `false` bei einer Verschiebung.
+     * From the second page on, each request starts one song earlier: it must be the last one of the previous page. Otherwise
+     * something was dropped before the offset, and the first song of the page would be missing – the sync would delete it
+     * along with playlist entries, history and favorite. @return `false` on a shift.
      */
     private suspend fun FlowCollector<SourceBatch>.scanLibrary(library: JfItem): Boolean {
         var start = 0
@@ -92,7 +92,7 @@ class JellyfinDataSource internal constructor(
             start += page.size
             lastId = page.lastOrNull()?.id ?: lastId
             val total = result.totalRecordCount.takeIf { it > 0 }
-                // Ohne Gesamtzahl wie früher: Eine kurze Seite ist die letzte.
+                // Without a total, as before: a short page is the last one.
                 ?: if (page.size < PAGE_SIZE) return true else continue
             if (start >= total) return true
             if (page.isEmpty()) throw IOException("Jellyfin lieferte nur $start von $total Songs aus ${library.name}")
@@ -100,8 +100,8 @@ class JellyfinDataSource internal constructor(
     }
 
     /**
-     * Neueste zuerst, wie der Vollabgleich nur aus den Musik-Bibliotheken (sonst löschte der nächste Vollabgleich wieder,
-     * was hier aus anderen Bibliotheken käme). Je Bibliothek ist beim ersten älteren Song Schluss.
+     * Newest first, like the full sync only from the music libraries (otherwise the next full sync would delete again
+     * what came from other libraries here). Per library it stops at the first older song.
      */
     override suspend fun tracksAddedSince(since: Long): List<RawTrack> {
         val tracks = mutableListOf<RawTrack>()
@@ -109,7 +109,7 @@ class JellyfinDataSource internal constructor(
             var start = 0
             while (start < MAX_NEW_SONGS) {
                 val page = api.newestSongs(server, library.id, start, NEWEST_PAGE_SIZE).items
-                // Ohne Zeitstempel lieber laden (der Merge erkennt Unverändertes).
+                // Without a timestamp, better to load (the merge detects unchanged items).
                 val fresh = page.takeWhile { item -> item.dateCreated?.toEpochMillis()?.let { it > since } ?: true }
                 fresh.filter(JellyfinTrackMapper::isMusic).mapTo(tracks) { JellyfinTrackMapper.map(it, names) }
                 if (fresh.size < page.size || page.size < NEWEST_PAGE_SIZE) break
@@ -119,7 +119,7 @@ class JellyfinDataSource internal constructor(
         return tracks
     }
 
-    /** Jellyfin merkt sich nicht, seit wann etwas Favorit ist. */
+    /** Jellyfin doesn't remember since when something has been a favorite. */
     override suspend fun starred(): RemoteStarred {
         val byType = api.favoriteMusicItems(server).groupBy({ it.type }, { it.id to 0L })
         return RemoteStarred(
@@ -129,7 +129,7 @@ class JellyfinDataSource internal constructor(
         )
     }
 
-    /** Unbekanntes (z. B. aus anderen Bibliotheken) verwirft der Mix ohnehin. */
+    /** The mix discards unknown items (e.g. from other libraries) anyway. */
     override suspend fun similarSongs(remoteId: String, count: Int): List<String> =
         api.instantMix(server, remoteId, count).filter { it != remoteId }
 
@@ -151,7 +151,7 @@ class JellyfinDataSource internal constructor(
         return api.withToken(server, url).toString()
     }
 
-    /** Jellyfin und Emby liefern Bilder ohne Anmeldung; der Token bleibt aus der URL für den Empfänger. */
+    /** Jellyfin and Emby deliver images without authentication; the token stays out of the URL for the receiver. */
     override fun externalCoverUrl(coverRemoteId: String, sizePx: Int): String =
         api.imageUrl(server, coverRemoteId, sizePx).toString()
 
@@ -160,22 +160,22 @@ class JellyfinDataSource internal constructor(
         return withContext(Dispatchers.Default) { decodeSampled(bytes, sizePx) }
     }
 
-    /** Songs, Alben und Künstler sind Einträge desselben Aufrufs. */
+    /** Songs, albums and artists are entries of the same call. */
     override suspend fun setFavorite(remoteId: String, favorite: Boolean, kind: FavoriteKind) =
         api.setFavorite(server, remoteId, favorite)
 
     /**
-     * Nachgereicht: „gehört“ mit Zeitpunkt. Scrobble-Plugins des Servers sehen das nur, wenn sie auf geänderte
-     * Nutzerdaten hören (ListenBrainz: Modus `UserDataSaved`); live geht es über [reportPlayback] (Konzept 14).
+     * Submitted later: "played" with a timestamp. The server's scrobble plugins only see this if they listen to changed
+     * user data (ListenBrainz: mode `UserDataSaved`); live it goes through [reportPlayback] (concept 14).
      */
     override suspend fun scrobble(remoteId: String, playedAt: Long) = api.markPlayed(server, remoteId, playedAt)
 
     override suspend fun reportPlayback(remoteId: String, durationMs: Long) = api.reportPlayback(server, remoteId, durationMs)
 
     /**
-     * Nur Musik-Playlists, die das Konto ändern darf. Bei jedem Abgleich (auch dem schnellen nach dem Start) wären das zwei
-     * Anfragen je sichtbarer Playlist, auch je fremder öffentlicher: deshalb das Bearbeitungsrecht [EDIT_CHECK_MS] lang gemerkt
-     * und die Einträge nur neu geholt, wenn sich der `Etag` geändert hat. Der Änderungs-Hash bleibt derselbe (Name und Einträge).
+     * Only music playlists the account may change. On every sync (including the quick one after startup) that would be two
+     * requests per visible playlist, even per foreign public one: hence the edit permission is remembered for [EDIT_CHECK_MS]
+     * and the entries are only refetched when the `Etag` has changed. The change hash stays the same (name and entries).
      */
     override suspend fun playlists(): List<RemotePlaylistInfo> =
         api.playlists(server)
@@ -190,9 +190,9 @@ class JellyfinDataSource internal constructor(
     }
 
     /**
-     * Jellyfin 12.4 ändert den `Etag` einer Playlist mit Name und Einträgen, auch beim Umsortieren. Emby 4.10 ändert ihn beim
-     * Hinzufügen, Entfernen und Umbenennen, beim Umsortieren nicht (beides gemessen): Dort gelten die Einträge höchstens
-     * [EMBY_ITEMS_MAX_AGE_MS] lang, eine Umsortierung in einem anderen Programm kommt so spätestens danach an.
+     * Jellyfin 12.4 changes a playlist's `Etag` with name and entries, including on reordering. Emby 4.10 changes it on
+     * adding, removing and renaming, but not on reordering (both measured): there the entries are valid for at most
+     * [EMBY_ITEMS_MAX_AGE_MS], so a reordering in another program arrives after that at the latest.
      */
     private suspend fun itemIds(playlist: JfItem): List<String> {
         val etag = playlist.etag
@@ -215,16 +215,16 @@ class JellyfinDataSource internal constructor(
     override suspend fun createPlaylist(name: String, songRemoteIds: List<String>): RemotePlaylistInfo {
         val remoteId = api.createPlaylist(server, name, songRemoteIds)
         if (server.flavor == JellyfinFlavor.JELLYFIN) createdAt[remoteId] = System.nanoTime()
-        // Nicht zurücklesen: Scheiterte das, legte der nächste Versuch eine zweite Playlist an. Weicht der Server ab,
-        // holt der nächste Abgleich seinen Stand.
+        // Don't read back: if that failed, the next attempt would create a second playlist. If the server differs,
+        // the next sync fetches its state.
         return JellyfinTrackMapper.playlistInfo(remoteId, name, songRemoteIds)
     }
 
-    /** Jellyfin ersetzt Name und Einträge in einem Aufruf, Emby in mehreren. */
+    /** Jellyfin replaces name and entries in one call, Emby in several. */
     override suspend fun replacePlaylist(current: RemotePlaylist, name: String, songRemoteIds: List<String>): RemotePlaylistInfo {
         awaitSettled(current.info.remoteId)
-        // Eine eigene Umsortierung ändert bei Emby den `Etag` nicht: Die gemerkten Einträge sind danach veraltet und gälten
-        // beim nächsten Abgleich als Änderung auf dem Server.
+        // A reordering of our own doesn't change the `Etag` on Emby: the remembered entries are outdated afterwards and would
+        // count as a change on the server during the next sync.
         playlistItems.remove(current.info.remoteId)
         api.updatePlaylist(server, current.info.remoteId, name, songRemoteIds)
         return playlist(current.info.remoteId).info
@@ -241,10 +241,10 @@ class JellyfinDataSource internal constructor(
     }
 
     /**
-     * Jellyfin arbeitet eine neue Playlist kurz nach dem Anlegen noch einmal auf und setzt dabei Name und Einträge auf den
-     * Stand beim Anlegen zurück (am Testserver mit 12.4: Änderung sofort danach verloren, nach 2 s nicht mehr). Offline
-     * Angelegtes und Geändertes fasst die Sync-Queue zu einem Anlegen zusammen; betroffen ist eine Änderung gleich nach
-     * dem Anlegen. Emby 4.10 setzt nichts zurück (gemessen), dort wird nicht gewartet.
+     * Jellyfin processes a new playlist once more shortly after it is created and resets name and entries to the
+     * state at creation (on the test server with 12.4: a change right after was lost, after 2 s no longer). The sync queue
+     * coalesces offline creations and changes into one creation; affected is a change right after
+     * creation. Emby 4.10 resets nothing (measured), so there is no waiting there.
      */
     private suspend fun awaitSettled(remoteId: String) {
         val created = createdAt.remove(remoteId) ?: return
@@ -261,7 +261,7 @@ class JellyfinDataSource internal constructor(
         private const val EDIT_CHECK_MS = 6 * 60 * 60_000L
         private const val EMBY_ITEMS_MAX_AGE_MS = 30 * 60_000L
 
-        /** Je Prozess: Die Datenquelle wird beim Neuladen der Server neu erzeugt, die Playlist bleibt frisch. */
+        /** Per process: the data source is recreated when the servers are reloaded, the playlist stays fresh. */
         private val createdAt = ConcurrentHashMap<String, Long>()
     }
 }

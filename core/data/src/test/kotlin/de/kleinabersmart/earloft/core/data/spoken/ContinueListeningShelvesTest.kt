@@ -27,7 +27,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** Wohin ein Buch nach „ungehört“, „zurücksetzen“ und „Aus Weiterhören entfernen“ gehört (books_improvements F2, S5). */
+/** Where a book belongs after "unplayed", "reset" and "Remove from Continue listening" (books_improvements F2, S5). */
 @RunWith(RobolectricTestRunner::class)
 class ContinueListeningShelvesTest {
 
@@ -42,7 +42,7 @@ class ContinueListeningShelvesTest {
         try {
             WorkManager.initialize(context, Configuration.Builder().build())
         } catch (e: IllegalStateException) {
-            // schon initialisiert
+            // already initialized
         }
         db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         val client = OkHttpClient()
@@ -54,7 +54,7 @@ class ContinueListeningShelvesTest {
         }
         dao = db.bookDao()
         val servers = testAudiobookshelfServers(dao, secrets, api)
-        // Bücher vom Gerät: kein Server, also kein Netz im Test.
+        // Books from the device: no server, so no network in the test.
         progressSync = BookProgressSync(context, dao, servers, api, PlaybackPolicy())
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
@@ -121,7 +121,7 @@ class ContinueListeningShelvesTest {
 
         progressSync.hideFromContinueListening(id)
         assertEquals(emptyList<String>(), continueTitles())
-        // Mit Stand ist es nicht „neu“.
+        // With a state it isn't "new".
         assertEquals(emptyList<String>(), recentTitles())
         assertEquals(600_000L, dao.progress(id)?.positionMs)
 

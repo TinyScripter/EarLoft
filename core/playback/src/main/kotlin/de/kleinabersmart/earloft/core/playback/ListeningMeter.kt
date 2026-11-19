@@ -1,9 +1,9 @@
 package de.kleinabersmart.earloft.core.playback
 
 /**
- * Misst gehörte **Inhaltszeit**: Zeit, in der abgespielt wird, mal Geschwindigkeit (bei 2× zählt eine Minute Wanduhr
- * zwei Minuten Inhalt, also eine Stunde Inhalt immer eine Stunde). Pausen und Springen zählen nicht, weil nur die Dauer
- * zwischen [start] und [stop] eingeht, nicht die Position. Nicht threadsicher; der Aufrufer ist der Player-Thread.
+ * Measures listened **content time**: time during which playback runs, times speed (at 2× one minute of wall clock counts
+ * as two minutes of content, so one hour of content is always one hour). Pauses and seeking don't count because only the duration
+ * between [start] and [stop] is used, not the position. Not thread-safe; the caller is the player thread.
  */
 internal class ListeningMeter(private val clock: () -> Long = System::currentTimeMillis) {
     private var running = false
@@ -20,7 +20,7 @@ internal class ListeningMeter(private val clock: () -> Long = System::currentTim
         this.speed = speed
     }
 
-    /** Ein neues Tempo gilt ab jetzt; die Zeit davor zählt noch mit dem alten. */
+    /** A new speed applies from now on; the time before still counts with the old one. */
     fun setSpeed(speed: Float) {
         if (running) fold()
         this.speed = speed
@@ -31,12 +31,12 @@ internal class ListeningMeter(private val clock: () -> Long = System::currentTim
         running = false
     }
 
-    /** Inhalt, der ohne Abspielen vorüberging (gekürzte Stille): zählt als gehört, sonst wäre eine Stunde Inhalt weniger. */
+    /** Content that passed without playback (skipped silence): counts as listened, otherwise an hour of content would be less. */
     fun addContent(ms: Long) {
         if (ms > 0) pending += ms
     }
 
-    /** Die seit dem letzten Aufruf gemessene Zeit in ms; die Messung läuft weiter. Der Rest unter 1 ms bleibt stehen. */
+    /** The time measured since the last call in ms; measuring continues. The remainder below 1 ms is kept. */
     fun drain(): Long {
         if (running) fold()
         val whole = pending.toLong()

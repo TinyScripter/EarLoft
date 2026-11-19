@@ -6,11 +6,11 @@ import okhttp3.Response
 import javax.inject.Inject
 
 /**
- * Setzt `Authorization: MediaBrowser … Token="…"` für Anfragen an bekannte Jellyfin-Server (Konzept 14).
+ * Sets `Authorization: MediaBrowser … Token="…"` for requests to known Jellyfin servers (concept 14).
  *
- * Als *Network*-Interceptor registriert wie [de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthInterceptor]:
- * Stream-, Download- und Cover-URLs enthalten keine Secrets, Cache-Schlüssel bleiben stabil. Der Server kommt aus dem
- * Request-Tag [JellyfinServer] (gesetzt von [JellyfinApi], nach einer Weiterleitung nur auf denselben Host) oder aus der
+ * Registered as a *network* interceptor like [de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthInterceptor]:
+ * stream, download and cover URLs contain no secrets, cache keys stay stable. The server comes from the
+ * request tag [JellyfinServer] (set by [JellyfinApi], after a redirect only to the same host) or from the
  * [JellyfinServerRegistry].
  */
 class JellyfinAuthInterceptor @Inject constructor(

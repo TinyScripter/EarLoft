@@ -8,25 +8,25 @@ import de.kleinabersmart.earloft.wear.R
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Was die Wiedergabe-Ansicht braucht, damit sie die Uhr selbst ([PlayerViewModel]) oder das Handy
- * ([RemotePlayerViewModel]) bedienen kann.
+ * What the now playing view needs so that it can control the watch itself ([PlayerViewModel]) or the phone
+ * ([RemotePlayerViewModel]).
  */
 interface NowPlayingModel {
-    /** Bei einem Buch oder einer Folge ist [PlayerState.durationMs] die Länge des ganzen Buchs. */
+    /** For a book or episode, [PlayerState.durationMs] is the length of the whole book. */
     val state: StateFlow<PlayerState>
 
-    /** Position in Millisekunden, bei einem Buch oder einer Folge im ganzen Buch. */
+    /** Position in milliseconds; for a book or episode, within the whole book. */
     val positionMs: StateFlow<Long>
     val cover: StateFlow<Bitmap?>
 
-    /** Akzentfarbe des laufenden Albums (ARGB); `null`, solange sie fehlt. */
+    /** Accent color of the current album (ARGB); `null` as long as it is missing. */
     val seedColor: StateFlow<Int?>
 
-    /** 0..1 für die Anzeige beim Drehen der Krone. */
+    /** 0..1 for the display while turning the crown. */
     val volume: StateFlow<Float>
     val volumeVisible: StateFlow<Boolean>
 
-    /** Restzeit des Sleep-Timers; `null`, solange keiner läuft (oder er sich hier nicht stellen lässt). */
+    /** Remaining time of the sleep timer; `null` as long as none is running (or it cannot be set here). */
     val sleepTimerRemainingMs: StateFlow<Long?>
 
     fun togglePlayPause()
@@ -37,26 +37,26 @@ interface NowPlayingModel {
 
     fun toggleShuffle()
 
-    /** Wiederholen: aus → alle → Titel → aus. */
+    /** Repeat: off → all → track → off. */
     fun cycleRepeat()
 
-    /** Buch oder Folge: um die eingestellte Sprungweite zurück bzw. vor ([de.kleinabersmart.earloft.core.playback.SpokenEntry.seek]). */
+    /** Book or episode: skip back or forward by the configured interval ([de.kleinabersmart.earloft.core.playback.SpokenEntry.seek]). */
     fun skipBack()
 
     fun skipForward()
 
-    /** In der Zeit von [positionMs], bei einem Buch oder einer Folge also im ganzen Buch. */
+    /** In the time base of [positionMs], i.e. within the whole book for a book or episode. */
     fun seekTo(positionMs: Long)
 
     fun cancelSleepTimer()
 
-    /** Die Krone wurde um [pixels] gedreht: ändert die Lautstärke. */
+    /** The crown was turned by [pixels]: changes the volume. */
     fun onCrown(pixels: Float)
 }
 
-/** Was die Sleep-Timer-Ansichten brauchen: der Timer der Uhr selbst ([PlayerViewModel]) oder der des Handys ([RemotePlayerViewModel]). */
+/** What the sleep timer views need: the timer of the watch itself ([PlayerViewModel]) or that of the phone ([RemotePlayerViewModel]). */
 interface SleepTimerModel {
-    /** Text des ersten Eintrags „Ende des Kapitels“ bzw. „Ende der Folge“; `null`, wenn es ihn nicht gibt ([sleepToEndLabelFor]). */
+    /** Text of the first entry "End of chapter" or "End of episode"; `null` if there is none ([sleepToEndLabelFor]). */
     val sleepToEndLabel: StateFlow<Int?>
 
     fun startSleepTimer(minutes: Int)
@@ -65,8 +65,8 @@ interface SleepTimerModel {
 }
 
 /**
- * Erster Eintrag im Sleep-Timer (wie am Handy): Folgen bis zu ihrem Ende, Bücher mit Kapiteln bis zum Kapitelende; `null` bei
- * Musik und Büchern ohne Kapitel (die enden erst nach Stunden).
+ * First entry in the sleep timer (as on the phone): episodes until their end, books with chapters until the end of the chapter; `null` for
+ * music and books without chapters (those only end after hours).
  */
 internal fun sleepToEndLabelFor(spoken: SpokenEntry?, chapters: List<BookChapter>): Int? = when {
     spoken == null -> null
@@ -75,32 +75,32 @@ internal fun sleepToEndLabelFor(spoken: SpokenEntry?, chapters: List<BookChapter
     else -> null
 }
 
-/** Was die Kapitelliste braucht: Kapitel der Uhr selbst ([PlayerViewModel]) oder des Handys ([RemotePlayerViewModel]). */
+/** What the chapter list needs: chapters of the watch itself ([PlayerViewModel]) or of the phone ([RemotePlayerViewModel]). */
 interface ChaptersModel {
-    /** Kapitel des Buchs bzw. der Folge; leer bei Musik und ohne Kapitel. */
+    /** Chapters of the book or episode; empty for music and without chapters. */
     val chapters: StateFlow<List<BookChapter>>
 
-    /** Das laufende Kapitel. */
+    /** The current chapter. */
     val currentChapter: StateFlow<BookChapter?>
 
-    /** Springt an [bookPositionMs] (Position im ganzen Buch), z. B. den Beginn eines Kapitels. */
+    /** Seeks to [bookPositionMs] (position in the whole book), e.g. the start of a chapter. */
     fun seekToBook(bookPositionMs: Long)
 }
 
 /**
- * Der Ausschnitt des Buchs, den der Fortschrittsring zeigt: bei Büchern mit Kapiteln nur das laufende Kapitel, damit sich auch
- * in langen Büchern genau spulen lässt (wie der Kapitel-Regler am Handy). Rechnet zwischen Buchzeit und Zeit im Ring um.
+ * The section of the book the progress ring shows: for books with chapters only the current chapter, so that seeking is precise
+ * even in long books (like the chapter slider on the phone). Converts between book time and time within the ring.
  */
 internal data class RingWindow(val startMs: Long, val durationMs: Long) {
     fun toRing(bookPositionMs: Long): Long = (bookPositionMs - startMs).coerceIn(0, durationMs)
 
-    /** Knapp vor dem Ende bleiben, damit ein Sprung ans Ende nicht schon im nächsten Kapitel landet. */
+    /** Stay just before the end so that a seek to the end does not already land in the next chapter. */
     fun toBook(ringPositionMs: Long): Long = startMs + ringPositionMs.coerceIn(0, (durationMs - 1).coerceAtLeast(0))
 }
 
 /**
- * Das Kapitel [chapter] als Ausschnitt, wenn ein Buch läuft; `null` (der Ring zeigt alles) bei Musik, Folgen und ohne
- * Kapitel. Folgen bleiben ganz wie am Handy, wo sie nur den einen Regler haben.
+ * The chapter [chapter] as a section when a book is playing; `null` (the ring shows everything) for music, episodes and without
+ * chapters. Episodes stay whole as on the phone, where they only have the one slider.
  */
 internal fun ringWindow(spoken: SpokenEntry?, chapter: BookChapter?): RingWindow? {
     if (spoken == null || spoken.isEpisode || chapter == null || chapter.durationMs <= 0) return null

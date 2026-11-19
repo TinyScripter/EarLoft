@@ -58,7 +58,7 @@ class WearRemoteTest {
         assertEquals(false, none.sleepTimerDiffers(now = 6_000, remainingMs = null, toEnd = false))
         assertEquals(true, none.sleepTimerDiffers(now = 6_000, remainingMs = 900_000, toEnd = false))
         assertEquals(true, running.sleepTimerDiffers(now = 6_000, remainingMs = null, toEnd = false))
-        // Der Sekundentakt des Timers zählt nicht, ein Neustart mit anderer Dauer schon.
+        // The timer's per-second tick does not count, a restart with a different duration does.
         assertEquals(false, running.sleepTimerDiffers(now = 6_000, remainingMs = 594_000, toEnd = false))
         assertEquals(true, running.sleepTimerDiffers(now = 6_000, remainingMs = 1_800_000, toEnd = false))
         assertEquals(true, running.sleepTimerDiffers(now = 6_000, remainingMs = 595_000, toEnd = true))

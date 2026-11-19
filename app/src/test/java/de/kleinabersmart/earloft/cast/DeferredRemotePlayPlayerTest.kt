@@ -23,7 +23,7 @@ import java.time.Duration
 @RunWith(RobolectricTestRunner::class)
 class DeferredRemotePlayPlayerTest {
 
-    /** Ein Player, dessen Gerät und Zustand der Test setzt; merkt sich, ob abgespielt werden soll. */
+    /** A player whose device and state the test sets; remembers whether it should play. */
     private class FakePlayer : SimpleBasePlayer(Looper.getMainLooper()) {
         var remote = false
         var receiverState = Player.STATE_IDLE
@@ -46,9 +46,9 @@ class DeferredRemotePlayPlayerTest {
 
         override fun handleRemoveMediaItems(fromIndex: Int, toIndex: Int): ListenableFuture<*> = Futures.immediateVoidFuture()
 
-        /** Ändert den Zustand und stellt die Ereignisse zu (sie laufen über den Looper). */
+        /** Changes the state and delivers the events (they go through the looper). */
         fun update(block: FakePlayer.() -> Unit) {
-            // Der Zustand wird erst beim ersten Zugriff gelesen; ohne den hier gäbe es keinen Unterschied zu melden.
+            // The state is only read on first access; without this there would be no difference to report.
             deviceInfo
             block()
             invalidateState()
@@ -116,7 +116,7 @@ class DeferredRemotePlayPlayerTest {
         assertTrue(fake.wantsPlay)
     }
 
-    /** Fünf Titel a–e, der vierte läuft; merkt sich Sprünge und lässt sich vorn kürzen. */
+    /** Five tracks a–e, the fourth is playing; remembers skips and can be trimmed at the front. */
     private class PlaylistPlayer : SimpleBasePlayer(Looper.getMainLooper()) {
         var ids = listOf("a", "b", "c", "d", "e")
         var current = 3

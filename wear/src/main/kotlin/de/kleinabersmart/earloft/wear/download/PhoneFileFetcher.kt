@@ -30,11 +30,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Holt eine Datei im Original vom Handy (Wear-Konzept 8.4): für Songs, die nur das Handy hat, und als Ausweg,
- * wenn der Server nicht erreichbar ist; ebenso für Podcast-Folgen ([fetchEpisode], 16.1), Hörbücher ([fetchBookTrack], 16.2)
- * und deren Bilder ([fetchCover]). Die Datei entsteht als eigene Teildatei (`.phone.part`) und wird erst nach vollständigem
- * Empfang umbenannt. Bricht die Übertragung ab (Handy außer Reichweite, App am Handy beendet, Auftrag gestoppt), bleibt
- * sie liegen, und der nächste Versuch macht dort weiter; verworfen wird sie nur, wenn der Eintrag wegfällt.
+ * Fetches a file in its original form from the phone (Wear concept 8.4): for songs only the phone has, and as a fallback
+ * when the server is unreachable; likewise for podcast episodes ([fetchEpisode], 16.1), audiobooks ([fetchBookTrack], 16.2)
+ * and their images ([fetchCover]). The file is written as a separate partial file (`.phone.part`) and only renamed once
+ * fully received. If the transfer breaks off (phone out of range, app closed on the phone, job stopped), it stays
+ * in place and the next attempt resumes there; it is only discarded when the entry goes away.
  */
 @Singleton
 class PhoneFileFetcher @Inject constructor(
@@ -47,7 +47,7 @@ class PhoneFileFetcher @Inject constructor(
     private val episodeStorage: EpisodeStorage,
     private val bookStorage: BookStorage,
 ) {
-    /** Wie `Downloader.download`: Bei [DownloadOutcome.Retry] bleibt der Eintrag auf `RUNNING`, der Aufrufer entscheidet. */
+    /** Like `Downloader.download`: on [DownloadOutcome.Retry] the entry stays `RUNNING`, the caller decides. */
     suspend fun fetch(
         download: DownloadEntity,
         onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit = { _, _ -> },
@@ -56,7 +56,7 @@ class PhoneFileFetcher @Inject constructor(
         if (downloadDao.markRunning(uid) == 0) return DownloadOutcome.Cancelled
         val songSource = downloadDao.getSongSource(uid) ?: return DownloadOutcome.Cancelled
         val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Handy nicht verbunden"))
-        // Das Handy kennt die Quelle unter ihrer eigenen `sourceUid`; die Pseudo-Quelle der Uhr trägt sie als `remoteId`.
+        // The phone knows the source by its own `sourceUid`; the watch's pseudo source carries it as `remoteId`.
         val requestUid = if (songSource.sourceId == WearManifestSource.PHONE_SOURCE_ID) songSource.remoteId else uid
 
         val part = storage.phonePartFileFor(uid)
@@ -95,15 +95,15 @@ class PhoneFileFetcher @Inject constructor(
     }
 
     /**
-     * Holt die Datei einer Podcast-Folge vom Handy (Wear-Konzept 16.1): Folgen vom Gerät des Handys und als Ausweg, wenn
-     * der Feed nicht erreichbar ist. Wie [fetch]: Bei [DownloadOutcome.Retry] bleibt der Eintrag auf `RUNNING`.
+     * Fetches the file of a podcast episode from the phone (Wear concept 16.1): episodes from the phone's device and as a
+     * fallback when the feed is unreachable. Like [fetch]: on [DownloadOutcome.Retry] the entry stays `RUNNING`.
      */
     suspend fun fetchEpisode(
         track: BookTrackEntity,
         onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit = { _, _ -> },
     ): DownloadOutcome {
         val bookId = track.bookId
-        // Zurück auf QUEUED: aus RUNNING (Netzfehler) bzw. FAILED (Feed hat abgelehnt).
+        // Back to QUEUED: from RUNNING (network error) or FAILED (feed refused).
         podcastDao.requeueDownload(bookId)
         podcastDao.queueDownload(bookId)
         if (podcastDao.markDownloadRunning(bookId) == 0) return DownloadOutcome.Cancelled
@@ -148,9 +148,9 @@ class PhoneFileFetcher @Inject constructor(
     }
 
     /**
-     * Holt eine Datei eines Hörbuchs vom Handy (Wear-Konzept 16.2): Bücher vom Gerät des Handys und als Ausweg, wenn
-     * Audiobookshelf nicht erreichbar ist (dann nur, wenn das Handy das Buch geladen hat). Wie [fetch]: Bei
-     * [DownloadOutcome.Retry] bleibt die Datei auf `RUNNING`.
+     * Fetches a file of an audiobook from the phone (Wear concept 16.2): books from the phone's device and as a fallback when
+     * Audiobookshelf is unreachable (then only if the phone has downloaded the book). Like [fetch]: on
+     * [DownloadOutcome.Retry] the file stays `RUNNING`.
      */
     suspend fun fetchBookTrack(
         track: BookTrackEntity,
@@ -158,14 +158,14 @@ class PhoneFileFetcher @Inject constructor(
     ): DownloadOutcome {
         val bookId = track.bookId
         val index = track.trackIndex
-        // Zurück auf QUEUED: aus RUNNING (Netzfehler) bzw. FAILED (Server hat abgelehnt, betrifft das ganze Buch).
+        // Back to QUEUED: from RUNNING (network error) or FAILED (server refused, affects the whole book).
         bookDao.requeueBookTrack(bookId, index)
         bookDao.queueBookDownload(bookId)
         if (bookDao.markBookTrackRunning(bookId, index) == 0) return DownloadOutcome.Cancelled
         val book = bookDao.book(bookId) ?: return DownloadOutcome.Cancelled
         val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Handy nicht verbunden"))
         val requestUid = WearBookFile.uid(book.serverId, book.remoteId, index)
-        // Eine angefangene Server-Übertragung passt nicht zur Datei vom Handy; die vom Handy hat ihre eigene Teildatei.
+        // A started server transfer does not match the file from the phone; the one from the phone has its own partial file.
         bookStorage.deletePart(bookId, index)
         val part = bookStorage.phonePartFileFor(bookId, index)
         bookStorage.ensureDirectory()
@@ -205,18 +205,18 @@ class PhoneFileFetcher @Inject constructor(
     }
 
     /**
-     * Holt das Bild einer Folge oder eines Buchs vom Handy (Wear-Konzept 16.1/16.2): für Dateien vom Gerät des Handys und
-     * wenn die Uhr es nicht selbst laden kann. @return `null`, wenn das Handy kein Bild hat oder nicht erreichbar ist.
+     * Fetches the image of an episode or book from the phone (Wear concept 16.1/16.2): for files from the phone's device and
+     * when the watch cannot load it itself. @return `null` if the phone has no image or is unreachable.
      */
     suspend fun fetchCover(bookId: Long): ByteArray? {
         val book = bookDao.book(bookId) ?: return null
         return fetchBytes(WearCoverFile.uid(book.serverId, book.remoteId))
     }
 
-    /** Vorschaubild eines Albums, Abos, Buchs oder einer Folge des Handys für die Listen im Bereich „Telefon“ (Wear-Konzept 17). */
+    /** Thumbnail of a phone album, subscription, book or episode for the lists in the "Phone" section (Wear concept 17). */
     suspend fun fetchThumbnail(ref: WearThumbnailFile.Ref): ByteArray? = fetchBytes(WearThumbnailFile.uid(ref))
 
-    /** Eine kleine Datei vom Handy in den Speicher; `null` ohne Handy, ohne Datei oder bei Abbruch der Übertragung. */
+    /** A small file from the phone into memory; `null` without phone, without file or if the transfer breaks off. */
     private suspend fun fetchBytes(requestUid: String): ByteArray? {
         val nodeId = phone.connectedPhoneNodeId() ?: return null
         return try {
@@ -243,14 +243,14 @@ class PhoneFileFetcher @Inject constructor(
         return DownloadOutcome.Done
     }
 
-    /** Der Eintrag wurde während der Übertragung entfernt (Auswahl am Handy geändert). */
+    /** The entry was removed during the transfer (selection changed on the phone). */
     private class RemovedException : RuntimeException()
 
     companion object {
         private const val TAG = "PhoneFileFetcher"
         private const val PROGRESS_INTERVAL_NANOS = 500_000_000L
 
-        /** Fehlertext, wenn das Handy keine Datei hat (steht im Statusbericht). */
+        /** Error text when the phone has no file (appears in the status report). */
         const val MISSING_ON_PHONE = "Handy hat keine Kopie"
     }
 }

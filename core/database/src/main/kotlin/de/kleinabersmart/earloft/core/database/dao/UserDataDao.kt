@@ -22,7 +22,7 @@ import de.kleinabersmart.earloft.core.database.entity.UserPodcastEntity
 import de.kleinabersmart.earloft.core.database.entity.UserServerEntity
 import de.kleinabersmart.earloft.core.database.entity.UserSpokenServerEntity
 
-/** Lesen und Ändern der gesicherten Nutzerdaten in `user.db`. */
+/** Reading and changing the backed-up user data in `user.db`. */
 @Dao
 abstract class UserDataDao {
 
@@ -110,7 +110,7 @@ abstract class UserDataDao {
     @Delete
     protected abstract suspend fun deleteProgress(rows: List<UserBookProgressEntity>)
 
-    /** Gesicherter Fortschritt unter Kennungen, die es nach einem Wechsel der Quelle nicht mehr gibt (Konzept 12.10). */
+    /** Backed-up progress under IDs that no longer exist after switching the source (concept 12.10). */
     @Query("DELETE FROM book_progress WHERE serverId = :serverId AND remoteId IN (:remoteIds)")
     abstract suspend fun deleteProgressKeys(serverId: String, remoteIds: List<String>)
 
@@ -120,7 +120,7 @@ abstract class UserDataDao {
     @Delete
     protected abstract suspend fun deleteBookmarks(rows: List<UserBookmarkEntity>)
 
-    /** Wie [deleteProgressKeys] für die Lesezeichen. */
+    /** Like [deleteProgressKeys] for the bookmarks. */
     @Query("DELETE FROM bookmarks WHERE serverId = :serverId AND remoteId IN (:remoteIds)")
     abstract suspend fun deleteBookmarkKeys(serverId: String, remoteIds: List<String>)
 
@@ -178,7 +178,7 @@ abstract class UserDataDao {
     @Delete
     protected abstract suspend fun deleteArdBooks(rows: List<UserArdBookEntity>)
 
-    /** Wie [deleteProgressKeys] für die gemerkten Folgen. */
+    /** Like [deleteProgressKeys] for the starred episodes. */
     @Query("DELETE FROM episode_stars WHERE serverId = :serverId AND remoteId IN (:remoteIds)")
     abstract suspend fun deleteEpisodeStarKeys(serverId: String, remoteIds: List<String>)
 
@@ -195,9 +195,9 @@ abstract class UserDataDao {
     protected abstract suspend fun deleteEpisodeStarsOf(serverIds: List<String>)
 
     /**
-     * Schreibt alle Änderungen in einem Zug; [UserDataChanges.isEmpty] spart den Aufruf. Mit einem Abo oder
-     * Audiobookshelf-Server fallen auch sein Fortschritt und seine Lesezeichen weg, auch die noch nicht angewendeten; mit
-     * einem Abo auch seine Downloads und gemerkten Folgen.
+     * Writes all changes in one go; [UserDataChanges.isEmpty] saves the call. With a subscription or
+     * Audiobookshelf server, its progress and bookmarks are dropped too, including those not yet applied; with
+     * a subscription also its downloads and starred episodes.
      */
     @Transaction
     open suspend fun apply(changes: UserDataChanges) {
@@ -247,17 +247,17 @@ abstract class UserDataDao {
     }
 
     private companion object {
-        /** Unter der Grenze von SQLite für Parameter einer Abfrage. */
+        /** Below SQLite's limit for parameters of a query. */
         const val MAX_ARGS = 500
     }
 }
 
-/** Zu schreibende und zu löschende Zeilen einer Tabelle. */
+/** Rows of a table to write and to delete. */
 data class RowChanges<T>(val upserts: List<T> = emptyList(), val deletes: List<T> = emptyList()) {
     val isEmpty: Boolean get() = upserts.isEmpty() && deletes.isEmpty()
 }
 
-/** Änderungen an allen Tabellen von `user.db`. */
+/** Changes to all tables of `user.db`. */
 data class UserDataChanges(
     val servers: RowChanges<UserServerEntity> = RowChanges(),
     val spokenServers: RowChanges<UserSpokenServerEntity> = RowChanges(),

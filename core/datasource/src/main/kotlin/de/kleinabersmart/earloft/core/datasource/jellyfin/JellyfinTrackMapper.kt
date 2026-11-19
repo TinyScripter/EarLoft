@@ -15,7 +15,7 @@ import java.security.MessageDigest
 import java.time.OffsetDateTime
 import java.time.format.DateTimeParseException
 
-/** Wandelt Jellyfin-Songs (`Audio`) in [RawTrack]s um (Konzept 14). */
+/** Converts Jellyfin songs (`Audio`) into [RawTrack]s (concept 14). */
 internal object JellyfinTrackMapper {
 
     private const val TICKS_PER_MS = 10_000L
@@ -54,10 +54,10 @@ internal object JellyfinTrackMapper {
             year = item.productionYear?.takeIf { it > 0 },
             genre = item.genres.firstOrNull().orBlankNull(),
             genres = item.genres.mapNotNull { it.orBlankNull() },
-            // Wie bei Subsonic: die Aufnahme (Recording) und die Veröffentlichung (Release).
+            // As with Subsonic: the recording and the release.
             mbidTrack = ids[MBID_RECORDING].orBlankNull(),
             mbidAlbum = ids[MBID_ALBUM].orBlankNull(),
-            // Die Lautheit misst der Server selbst (LUFS-Scan); Peaks liefert er nicht.
+            // The server measures loudness itself (LUFS scan); it doesn't provide peaks.
             rgTrackGainDb = item.normalizationGain,
             rgAlbumGainDb = item.albumNormalizationGain,
             coverRemoteId = coverRemoteId(item),
@@ -71,9 +71,9 @@ internal object JellyfinTrackMapper {
     }
 
     /**
-     * Das Albumcover, sonst das eigene Bild des Songs; mit Bild-Tag, damit ein neues Cover eine neue URL bekommt. Emby
-     * nennt den Tag des Albums nie: Hat der Song kein eigenes Bild, bleibt das Album ohne Tag (am Emby-Testserver 11 von
-     * 1286 Songs, deren Alben alle ein Bild haben; ohne Bild antwortet der Server mit 404 = kein Cover).
+     * The album cover, otherwise the song's own image; with an image tag so a new cover gets a new URL. Emby
+     * never names the album's tag: if the song has no image of its own, the album stays without a tag (on the Emby test server 11 of
+     * 1286 songs, whose albums all have an image; without an image the server responds with 404 = no cover).
      */
     private fun coverRemoteId(item: JfItem): String? {
         val albumId = item.albumId
@@ -87,8 +87,8 @@ internal object JellyfinTrackMapper {
     }
 
     /**
-     * Wie bei Subsonic ein Hash über alle übernommenen Felder als `lastModified`, ohne den Favoriten
-     * (den setzt auch die App selbst; der Abgleich prüft ihn getrennt).
+     * As with Subsonic, a hash over all adopted fields as `lastModified`, without the favorite
+     * (the app sets that itself as well; the sync checks it separately).
      */
     private fun changeKey(item: JfItem): Long {
         val media = item.mediaSources.firstOrNull()
@@ -104,15 +104,15 @@ internal object JellyfinTrackMapper {
     }
 
     /**
-     * Jellyfin kennt kein Änderungsdatum für Playlists; ein Hash über Name und Einträge erkennt jede Änderung
-     * auf dem Server (Konflikterkennung, Konzept 6.4).
+     * Jellyfin has no modification date for playlists; a hash over name and entries detects every change
+     * on the server (conflict detection, concept 6.4).
      */
     fun playlistInfo(remoteId: String, name: String, itemIds: List<String>): RemotePlaylistInfo =
         RemotePlaylistInfo(remoteId = remoteId, name = name, changedAt = hash(name + "\u0000" + itemIds.joinToString(",")))
 
     /**
-     * Synchronisiert, wenn der Server es so kennzeichnet und Zeitstempel da sind; sonst als Text. Ein Offset des
-     * Servers (aus `[offset:]`) verschiebt wie bei LRC und Subsonic alle Zeilen: positiv = früher.
+     * Synced if the server marks it so and timestamps are present; otherwise as plain text. An offset from the
+     * server (from `[offset:]`) shifts all lines as with LRC and Subsonic: positive = earlier.
      */
     fun lyrics(dto: JfLyrics): Lyrics {
         val offsetMs = (dto.metadata?.offset ?: 0L) / TICKS_PER_MS
@@ -127,8 +127,8 @@ internal object JellyfinTrackMapper {
     }
 
     /**
-     * MIME-Typ zum Behälter der Datei. Jellyfin nennt bei MP4 alle Varianten (`mov,mp4,m4a,…`); unbekannte
-     * Behälter bleiben `null`.
+     * MIME type for the file's container. For MP4, Jellyfin names all variants (`mov,mp4,m4a,…`); unknown
+     * containers stay `null`.
      */
     fun mimeTypeFor(container: String?): String? {
         val kinds = container?.lowercase()?.split(',')?.map { it.trim() }.orEmpty()
@@ -149,7 +149,7 @@ internal object JellyfinTrackMapper {
         }
     }
 
-    /** Die MBID der Quelle gilt nur, wenn es genau einen Künstler gibt – sonst wäre unklar, zu wem sie gehört. */
+    /** The source's MBID only applies if there is exactly one artist – otherwise it would be unclear whom it belongs to. */
     private fun List<JfNameId>.toRawArtists(singleMbid: String?): List<RawArtist> {
         val named = filter { it.name.isNotBlank() }
         return named.map {

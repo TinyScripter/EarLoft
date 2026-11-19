@@ -8,8 +8,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Ablage der heruntergeladenen Dateien. Sie liegen in `noBackupFilesDir` und werden daher weder
- * gesichert noch per Geräteübertragung kopiert (Konzept 10, Sicherheit).
+ * Storage for downloaded files. They live in `noBackupFilesDir` and are therefore neither
+ * backed up nor copied by device transfer (concept 10, security).
  */
 @Singleton
 class DownloadStorage internal constructor(val directory: File) {
@@ -20,16 +20,16 @@ class DownloadStorage internal constructor(val directory: File) {
     fun fileFor(sourceUid: String, mimeType: String?): File =
         File(directory, "${safeName(sourceUid)}.${extensionFor(mimeType)}")
 
-    /** Ziel während des Ladens; wird erst nach vollständigem Download umbenannt. */
+    /** Target during the download; only renamed after a complete download. */
     fun partFileFor(sourceUid: String): File = File(directory, "${safeName(sourceUid)}$PART_SUFFIX")
 
     /**
-     * Teildatei einer Übertragung vom Handy (Uhr, Wear-Konzept 8.4). Getrennt von [partFileFor], weil der Server eine
-     * andere Fassung schicken kann (Opus); sie bleibt nach einem Abbruch liegen, damit der nächste Versuch weitermacht.
+     * Partial file of a transfer from the phone (watch, Wear concept 8.4). Separate from [partFileFor] because the server may
+     * send a different version (Opus); it stays after an interruption so the next attempt can continue.
      */
     fun phonePartFileFor(sourceUid: String): File = File(directory, "${safeName(sourceUid)}$PHONE_PART_SUFFIX")
 
-    /** Gesamtlänge der Datei laut Handy, zu [phonePartFileFor]. */
+    /** Total length of the file according to the phone, for [phonePartFileFor]. */
     fun phoneLengthFileFor(sourceUid: String): File = File(directory, "${safeName(sourceUid)}$PHONE_LENGTH_SUFFIX")
 
     fun ensureDirectory(): File = directory.apply { mkdirs() }
@@ -44,9 +44,9 @@ class DownloadStorage internal constructor(val directory: File) {
     }
 
     /**
-     * Löscht Dateien, zu denen es keinen Eintrag in `downloads` mehr gibt, und angefangene Übertragungen vom Handy zu
-     * Einträgen, die inzwischen fertig sind. Frische Dateien bleiben: Der Aufräumer läuft nach jedem Abgleich neben dem
-     * Download-Worker, und eine eben umbenannte Datei hat ihren Pfad in [downloads] vielleicht noch nicht. @return Anzahl.
+     * Deletes files that no longer have an entry in `downloads`, and started transfers from the phone for
+     * entries that have been finished in the meantime. Fresh files stay: the janitor runs after every sync alongside the
+     * download worker, and a just-renamed file may not have its path in [downloads] yet. @return count.
      */
     fun deleteOrphans(downloads: List<DownloadEntity>, nowMs: Long = System.currentTimeMillis()): Int {
         val keep = downloads.flatMapTo(HashSet()) { download ->

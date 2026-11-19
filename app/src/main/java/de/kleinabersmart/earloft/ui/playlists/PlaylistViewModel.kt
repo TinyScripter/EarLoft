@@ -61,7 +61,7 @@ class PlaylistViewModel @AssistedInject constructor(
         viewModelScope.launch { playlistRepository.rename(playlistId, name) }
     }
 
-    /** [onDeleted] erst danach – Zurücknavigieren beendet den `viewModelScope`. */
+    /** [onDeleted] only afterwards – navigating back ends the `viewModelScope`. */
     fun delete(onDeleted: () -> Unit) {
         viewModelScope.launch {
             playlistRepository.delete(playlistId)
@@ -73,7 +73,7 @@ class PlaylistViewModel @AssistedInject constructor(
         viewModelScope.launch { playlistRepository.removeEntry(playlistId, entryId) }
     }
 
-    /** Speichert die beim Umsortieren gewählte Reihenfolge der Einträge. */
+    /** Saves the entry order chosen while reordering. */
     fun reorder(entryIds: List<Long>) {
         viewModelScope.launch { playlistRepository.reorder(playlistId, entryIds) }
     }

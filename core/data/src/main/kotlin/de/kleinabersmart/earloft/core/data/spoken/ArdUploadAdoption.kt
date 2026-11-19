@@ -24,13 +24,13 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Singleton
 import kotlin.math.abs
 
-/** Merker dieses Geräts (nicht in der Sicherung): `bookId`s gehören zu dieser Installation. */
+/** Remembered on this device (not in the backup): `bookId`s belong to this installation. */
 private val Context.ardUploadsDataStore: DataStore<Preferences> by preferencesDataStore(name = "ard_uploads")
 
 /**
- * Ein hochgeladenes Buch aus ARD Sounds, dessen Gegenstück auf dem Server noch nicht übernommen ist: [bookId] (das Buch aus ARD Sounds)
- * in der Bibliothek [libraryId] von [serverId], [sentMs] Länge der hochgeladenen Teile. [before]: Bücher, die schon vor dem Upload dort
- * standen und nach Titel oder Länge passen würden; keins davon ist der Upload.
+ * An uploaded book from ARD Sounds whose counterpart on the server has not been adopted yet: [bookId] (the ARD Sounds book)
+ * in library [libraryId] of [serverId], [sentMs] the length of the uploaded parts. [before]: books that were already there
+ * before the upload and would match by title or length; none of them is the upload.
  */
 internal data class PendingUpload(
     val bookId: Long,
@@ -42,10 +42,10 @@ internal data class PendingUpload(
 )
 
 /**
- * Übernimmt nach einem Upload ([ArdBookUploader]) Fortschritt, Tempo und Effekte und Lesezeichen auf das Buch auf dem Server, sobald
- * der es meldet. Die offene Übernahme ist gespeichert ([remember]) und wird nach jedem Abgleich des Servers versucht ([settle]): Der
- * Server scannt ein hochgeladenes Buch erst danach, und das Warten darauf überlebt sonst weder „Abbrechen“ noch das Ende des Prozesses.
- * Nach [MAX_AGE_MS] wird sie verworfen.
+ * After an upload ([ArdBookUploader]), carries progress, speed and effects, and bookmarks over to the book on the server as soon
+ * as the server reports it. The pending adoption is stored ([remember]) and retried after every sync with the server ([settle]):
+ * the server only scans an uploaded book afterwards, and otherwise waiting for it would survive neither "Cancel" nor process death.
+ * It is discarded after [MAX_AGE_MS].
  */
 @Singleton
 class ArdUploadAdoption @Inject constructor(
@@ -56,10 +56,10 @@ class ArdUploadAdoption @Inject constructor(
 ) {
     private val mutex = Mutex()
 
-    /** Seit dem Start übernommen: `bookId` aus ARD Sounds → `bookId` auf dem Server. */
+    /** Adopted since startup: `bookId` from ARD Sounds → `bookId` on the server. */
     private val adopted = ConcurrentHashMap<Long, Long>()
 
-    /** Merkt den Upload von [book] nach [libraryId] auf [serverId]; [onServer] sind die Bücher des Servers vor dem Upload. */
+    /** Remembers the upload of [book] to [libraryId] on [serverId]; [onServer] are the server's books before the upload. */
     internal suspend fun remember(book: BookEntity, serverId: String, libraryId: String, sentMs: Long, onServer: List<BookEntity>) {
         val before = onServer
             .filter { it.libraryId == libraryId && (it.normTitle == book.normTitle || sameLength(it.durationMs, sentMs)) }
@@ -72,8 +72,8 @@ class ArdUploadAdoption @Inject constructor(
     }
 
     /**
-     * Übernimmt den Stand der offenen Uploads auf [serverId], deren Buch der Server inzwischen meldet ([BookSyncer] nach jedem
-     * Abgleich). Läuft zu Ende, auch wenn der Aufrufer abbricht.
+     * Carries over the state of the pending uploads on [serverId] whose book the server now reports ([BookSyncer] after every
+     * sync). Runs to completion even if the caller cancels.
      */
     internal suspend fun settle(serverId: String) = withContext(NonCancellable) {
         mutex.withLock {
@@ -97,12 +97,12 @@ class ArdUploadAdoption @Inject constructor(
         }
     }
 
-    /** Das Buch auf dem Server, auf das der Stand von [bookId] (aus ARD Sounds) seit dem Start übernommen wurde. */
+    /** The book on the server that the state of [bookId] (from ARD Sounds) has been carried over to since startup. */
     internal fun adoptedTo(bookId: Long): Long? = adopted[bookId]
 
     /**
-     * Das hochgeladene Buch auf dem Server. Der Server macht aus dem Ordnernamen den Titel (Audio-Tags gehen vor, Zeichen wie „:“ fallen
-     * weg). Notfalls gilt das einzige neue Buch mit passender Dauer: Sonst wäre es das einer anderen Person.
+     * The uploaded book on the server. The server derives the title from the folder name (audio tags take precedence, characters
+     * such as ":" are dropped). As a fallback, the only new book with a matching duration counts: otherwise it would be someone else's.
      */
     private suspend fun uploaded(old: BookEntity, pending: PendingUpload): BookEntity? {
         val fresh = dao.booksOf(pending.serverId).filter { it.libraryId == pending.libraryId && it.remoteId !in pending.before }
@@ -110,8 +110,8 @@ class ArdUploadAdoption @Inject constructor(
     }
 
     /**
-     * Übernimmt Fortschritt, Tempo und Effekte und Lesezeichen von [old] auf das Buch [new] auf dem Server. Die nicht mehr abrufbaren
-     * und nie geladenen Teile fehlen dort: Was danach kommt, rückt um sie vor.
+     * Carries progress, speed and effects, and bookmarks over from [old] to the book [new] on the server. The parts that are no
+     * longer available and were never downloaded are missing there: whatever comes after them moves up accordingly.
      */
     private suspend fun adopt(old: BookEntity, new: BookEntity) {
         val missing = dao.tracks(old.bookId).filter { it.isUnavailable }
@@ -138,7 +138,7 @@ class ArdUploadAdoption @Inject constructor(
         const val TAG = "ArdUploadAdoption"
         val KEY_PENDING = stringSetPreferencesKey("pending")
 
-        /** So lange wird auf das Buch auf dem Server gewartet (ohne Server-Watcher erscheint es erst nach einem Scan). */
+        /** How long to wait for the book on the server (without a server watcher it only appears after a scan). */
         const val MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000L
 
         fun encode(pending: PendingUpload): String = JSONObject()
@@ -166,5 +166,5 @@ class ArdUploadAdoption @Inject constructor(
 private const val LENGTH_TOLERANCE_MS = 10_000L
 private const val LENGTH_TOLERANCE_DIVISOR = 50
 
-/** Ob zwei Längen dieselbe Aufnahme sein können: höchstens 10 s oder 2 % Abweichung. */
+/** Whether two lengths can be the same recording: at most 10 s or 2 % difference. */
 internal fun sameLength(a: Long, b: Long): Boolean = abs(a - b) <= maxOf(LENGTH_TOLERANCE_MS, b / LENGTH_TOLERANCE_DIVISOR)

@@ -25,15 +25,15 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Reiht nach jedem Manifest-Abgleich und bei geänderten Einstellungen die fehlenden Songs der Auswahlen
- * zum Download ein (Wear-Konzept 8.1). Reihenfolge: Auswahlen in der Reihenfolge des Handys, darin die
- * Song-Reihenfolge. Was nicht mehr unter die Speichergrenze passt, bleibt draußen und wird gezählt
- * ([WatchState.missingForStorage]); gelöscht wird nichts. Songs, die nur auf dem Handy liegen, werden unter der
- * Pseudo-Quelle `phone` eingereiht und über das Handy übertragen (Wear-Konzept 8.4).
+ * After every manifest sync and on changed settings, queues the missing songs of the selections
+ * for download (Wear concept 8.1). Order: selections in the phone's order, within them the
+ * song order. Whatever no longer fits under the storage limit stays out and is counted
+ * ([WatchState.missingForStorage]); nothing is deleted. Songs that exist only on the phone are queued under the
+ * pseudo source `phone` and transferred via the phone (Wear concept 8.4).
  *
- * Die Podcast-Folgen vom Handy (16.1) kommen vor der Musik ins selbe Budget: Es sind wenige, und sie sind das, was gerade
- * gehört wird. Danach die Hörbücher (16.2), ebenfalls einzeln gewählt, aber groß; ein Buch kommt nur ganz oder gar nicht.
- * Reihenfolge wie in „Weiterhören“; Beendetes wird nicht mehr geladen.
+ * The podcast episodes from the phone (16.1) go into the same budget before the music: there are few of them, and they are
+ * what is being listened to right now. Then the audiobooks (16.2), also chosen individually, but large; a book comes entirely or not at all.
+ * Order as in "Continue listening"; finished items are no longer downloaded.
  */
 @Singleton
 class WearDownloadPlanner @Inject constructor(
@@ -51,7 +51,7 @@ class WearDownloadPlanner @Inject constructor(
 ) {
     private val mutex = Mutex()
 
-    /** @param replaceSchedule ersetzt einen wartenden Auftrag, z. B. wenn sich die Ladegerät-Bedingung geändert hat. */
+    /** @param replaceSchedule replaces a waiting job, e.g. when the charger constraint has changed. */
     suspend fun plan(replaceSchedule: Boolean = false) = mutex.withLock {
         val settings = state.settings.value
         val episodeOrder = episodeQueue.order.first()
@@ -99,19 +99,19 @@ class WearDownloadPlanner @Inject constructor(
             plan.toQueue.size + episodesFitting.size + booksFitting.size
         }
         if (queued > 0) Log.d(TAG, "$queued Downloads eingereiht")
-        // Auch wenn nichts mehr zu laden ist: Fehlende Cover holt derselbe Auftrag nach.
+        // Even if there is nothing left to download: the same job fetches missing covers.
         val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
-        // Neue Downloads ersetzen einen wartenden Auftrag: Sonst hängen sie hinter dem Backoff eines früheren Fehlversuchs.
-        // Ohne neue genügt ein wartender oder laufender Auftrag.
+        // New downloads replace a waiting job: otherwise they would be stuck behind the backoff of an earlier failed attempt.
+        // Without new ones a waiting or running job is enough.
         val pending = downloadDao.countPending() + podcastDao.countPendingDownloads() + bookDao.countPendingBookDownloads()
         if (pending > 0 || coversMissing) {
             if (replaceSchedule || queued > 0) scheduler.enqueue(replace = true) else scheduler.resume()
         }
     }
 
-    /** Noch nie geladene, nicht beendete Folgen in der Reihenfolge von „Weiterhören“, mit ihrer geschätzten Größe. */
+    /** Never downloaded, unfinished episodes in the order of "Continue listening", with their estimated size. */
     private suspend fun episodesToLoad(order: List<Long>): List<Pair<Long, Long>> = order.mapNotNull { bookId ->
-        // Die Reihenfolge enthält auch Bücher; deren erste Datei ist keine Folge.
+        // The order also contains books; their first file is not an episode.
         if (bookDao.book(bookId)?.kind != BookKind.EPISODE) return@mapNotNull null
         if (bookDao.progress(bookId)?.finished == true) return@mapNotNull null
         val track = podcastDao.trackOf(bookId)?.takeIf { it.downloadState == TrackDownload.NONE } ?: return@mapNotNull null
@@ -119,9 +119,9 @@ class WearDownloadPlanner @Inject constructor(
     }
 
     /**
-     * Nicht beendete Bücher mit noch nie geladenen Dateien in der Reihenfolge von „Weiterhören“, mit der geschätzten Größe
-     * dieser Dateien. Ein Buch mit fehlgeschlagener Datei wartet, bis das Handy es neu ins Manifest aufnimmt (wie bei Folgen).
-     * Dateien, die nicht mehr abrufbar sind, zählen nicht: Sie werden nie geladen.
+     * Unfinished books with never-downloaded files in the order of "Continue listening", with the estimated size of
+     * these files. A book with a failed file waits until the phone adds it to the manifest again (as with episodes).
+     * Files that are no longer available do not count: they will never be downloaded.
      */
     private suspend fun booksToLoad(order: List<Long>): List<Pair<Long, Long>> = order.mapNotNull { bookId ->
         val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.BOOK } ?: return@mapNotNull null
@@ -132,7 +132,7 @@ class WearDownloadPlanner @Inject constructor(
         bookId to missing.sumOf { estimateEpisodeBytes(it.durationMs) }
     }
 
-    /** Alle Songs der Auswahlen in Reihenfolge, jeder einmal, mit dem Schlüssel der ersten Auswahl, die ihn enthält. */
+    /** All songs of the selections in order, each once, with the key of the first selection that contains it. */
     private suspend fun orderedSongs(): List<Pair<Long, String>> {
         val seen = HashSet<Long>()
         val result = mutableListOf<Pair<Long, String>>()

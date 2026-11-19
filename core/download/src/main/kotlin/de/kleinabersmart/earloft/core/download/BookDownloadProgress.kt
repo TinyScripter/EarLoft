@@ -7,23 +7,23 @@ import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Übertragene Bytes eines ladenden Buchs; [totalBytes] ist `null`, solange der Server die Größe nicht nennt. */
+/** Transferred bytes of a downloading book; [totalBytes] is `null` as long as the server doesn't report the size. */
 data class BookTransfer(val doneBytes: Long, val totalBytes: Long?)
 
 /**
- * Fortschritt des gerade ladenden Buchs (nur im Speicher, der Worker meldet ihn alle halbe Sekunde), über alle seine
- * Dateien. Bei mehreren Dateien ist die Gesamtgröße eine Schätzung aus den bisher bekannten Dateien.
+ * Progress of the book currently downloading (in memory only, the worker reports it every half second), across all its
+ * files. With multiple files the total size is an estimate from the files known so far.
  */
 @Singleton
 class BookDownloadProgress @Inject constructor() {
     private val _transfers = MutableStateFlow<Map<Long, BookTransfer>>(emptyMap())
 
-    /** Buch → Stand; nur für Bücher, die gerade laden. */
+    /** Book → state; only for books currently downloading. */
     val transfers: StateFlow<Map<Long, BookTransfer>> = _transfers.asStateFlow()
 
     /**
-     * [filesDone] fertige Dateien von [filesTotal] mit zusammen [finishedBytes]; die laufende Datei hat [done] von
-     * [total] Bytes.
+     * [filesDone] finished files out of [filesTotal] with [finishedBytes] combined; the current file has [done] of
+     * [total] bytes.
      */
     internal fun report(bookId: Long, filesDone: Int, filesTotal: Int, finishedBytes: Long, done: Long, total: Long?) {
         val totalBytes = total?.let { (finishedBytes + it) * filesTotal / (filesDone + 1) }

@@ -15,23 +15,23 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Was sich teilen lässt (Konzept 13); Playlists bewusst nicht. */
+/** What can be shared (concept 13); deliberately not playlists. */
 sealed interface ShareTarget {
     data class Song(val songId: Long) : ShareTarget
     data class Album(val albumId: Long) : ShareTarget
     data class Artist(val artistId: Long) : ShareTarget
     data class Feed(val feedId: String) : ShareTarget
 
-    /** Buch oder Folge; mit [at] ab dieser Stelle. */
+    /** Book or episode; with [at] from this position. */
     data class Book(val bookId: Long, val at: SharePosition? = null) : ShareTarget
 }
 
-/** Stelle in einem Buch oder einer Folge; [label] („ab 12:34“) kommt so in den Text. */
+/** Position in a book or episode; [label] ("from 12:34") goes into the text as is. */
 data class SharePosition(val positionMs: Long, val label: String)
 
 /**
- * Baut Titel und Link fürs Teilen allein aus der Datenbank; `null`, wenn es den Eintrag nicht mehr gibt oder er sich
- * nicht teilen lässt (Podcasts vom Gerät).
+ * Builds title and link for sharing from the database alone; `null` if the entry no longer exists or it
+ * can't be shared (podcasts from the device).
  */
 @Singleton
 class ShareRepository @Inject constructor(
@@ -61,7 +61,7 @@ class ShareRepository @Inject constructor(
                 BookKind.BOOK -> content(
                     titleWithArtist(book.title, ShareLinks.mainAuthor(book.author) ?: book.author),
                     target.at?.label,
-                    // Bücher aus ARD Sounds: ihre Seite dort (wie bei den Abos von dort).
+                    // Books from ARD Sounds: their page there (as with the subscriptions from there).
                     book.webUrl?.takeIf { isArdSoundsBook(book.serverId) } ?: ShareLinks.openLibrary(book.isbn, book.title, book.author),
                 )
                 BookKind.EPISODE -> episode(book, target.at)
@@ -70,8 +70,8 @@ class ShareRepository @Inject constructor(
     }
 
     /**
-     * Mit [at] steht die Stelle im Text; zeigt der Link direkt auf die Audiodatei, trägt er sie auch als Zeitmarke
-     * (`#t=754`, Media Fragments – Browser springen dorthin). Ob Webseiten der Sender eine Zeitmarke kennen, ist offen.
+     * With [at], the position is in the text; if the link points directly to the audio file, it also carries it as a time marker
+     * (`#t=754`, Media Fragments – browsers jump there). Whether broadcasters' web pages understand a time marker is unknown.
      */
     private suspend fun episode(book: BookEntity, at: SharePosition?): ShareContent? {
         val feed = podcastDao.feed(book.serverId)?.takeIf(::isShareable) ?: return null
@@ -86,8 +86,8 @@ class ShareRepository @Inject constructor(
     }
 
     /**
-     * Seite der Sendung (ARD Sounds) bzw. Webseite und Feed-Adresse (RSS). Ein privater Feed (Zugangstoken, Heimnetz,
-     * eigener Server; [ShareLinks.isPrivateSource]) bleibt weg – Konzept 13: nie die eigenen Server.
+     * Page of the show (ARD Sounds) or website and feed URL (RSS). A private feed (access token, home network,
+     * own server; [ShareLinks.isPrivateSource]) is left out – concept 13: never the user's own servers.
      */
     private fun feedLinks(feed: PodcastFeedEntity, website: String?, ownHosts: Set<String>): Array<String?> {
         val show = ardSoundsShowId(feed.url)
@@ -97,14 +97,14 @@ class ShareRepository @Inject constructor(
     }
 
     /**
-     * Hosts der eingerichteten Musik- und Audiobookshelf-Server und der geschützten Feeds: Deren Feed- und Audio-Adressen
-     * nützen anderen ohne Passwort nichts und verraten, wo der Nutzer zahlt bzw. was er privat abonniert.
+     * Hosts of the configured music and Audiobookshelf servers and of the protected feeds: their feed and audio URLs
+     * are useless to others without a password and reveal where the user pays or what they subscribe to privately.
      */
     private suspend fun ownHosts(): Set<String> =
         (sourceDao.getServers().mapNotNull { it.baseUrl } + bookDao.servers().map { it.baseUrl })
             .mapNotNullTo(HashSet()) { it.toHttpUrlOrNull()?.host?.lowercase() } + feedAuth.hosts()
 
-    /** Podcasts vom Gerät (`local:`) haben keine öffentliche Adresse. */
+    /** Podcasts from the device (`local:`) have no public address. */
     private fun isShareable(feed: PodcastFeedEntity) = ardSoundsShowId(feed.url) != null || ShareLinks.sourceUrl(feed.url) != null
 
     private fun titleWithArtist(title: String, artist: String?) =

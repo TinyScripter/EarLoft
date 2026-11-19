@@ -41,15 +41,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Wann ein von Hand angeforderter Download beginnt. */
+/** When a manually requested download starts. */
 enum class DownloadStart { STARTED, WAITING_FOR_WIFI, OFFLINE }
 
-/** Fertig geladene Datei einer Folge; [mimeType] kann fehlen. */
+/** Fully downloaded file of an episode; [mimeType] may be missing. */
 data class DownloadedEpisodeFile(val file: File, val mimeType: String?)
 
 /**
- * Downloads von Podcast-Folgen: von Hand je Folge, automatisch für die neuesten ungehörten Folgen eines Podcasts mit
- * eingeschaltetem „Neue Folgen automatisch herunterladen“, und Aufräumen. Die Datei ersetzt beim Abspielen den Stream
+ * Podcast episode downloads: manually per episode, automatically for the newest unplayed episodes of a podcast with
+ * "Download new episodes automatically" switched on, and cleanup. During playback the file replaces the stream
  * (`BookPlaybackSource`).
  */
 @Singleton
@@ -63,12 +63,12 @@ class EpisodeDownloads @Inject constructor(
 ) {
     private val started = AtomicBoolean(false)
 
-    /** Die Folge bzw. das Buch, das im Player geladen ist (aus [start]); deren Datei bleibt beim Aufräumen gehörter Folgen. */
+    /** The episode or book loaded in the player (from [start]); its file is kept when cleaning up played episodes. */
     private var loadedBookId: Flow<Long?> = flowOf(null)
 
     /**
-     * Reiht die Folge ein, falls sie noch nicht geladen ist oder wird. Das Ergebnis sagt, ob der Download gleich
-     * beginnt oder auf eine Verbindung wartet (der Nutzer soll das erfahren).
+     * Enqueues the episode if it isn't downloaded or downloading yet. The result tells whether the download starts
+     * right away or waits for a connection (the user should be told).
      */
     suspend fun download(bookId: Long): DownloadStart {
         val mobileAllowed = settings.useMobileData.first()
@@ -86,51 +86,51 @@ class EpisodeDownloads @Inject constructor(
         }
     }
 
-    /** Die fertig geladene Datei der Folge samt Medientyp (zum Teilen); `null`, solange sie fehlt oder noch lädt. */
+    /** The fully downloaded file of the episode including media type (for sharing); `null` while it's missing or still downloading. */
     suspend fun downloadedFile(bookId: Long): DownloadedEpisodeFile? {
         val track = dao.trackOf(bookId) ?: return null
         val file = track.filePath?.let(::File)?.takeIf { it.isFile } ?: return null
         return DownloadedEpisodeFile(file, track.mimeType)
     }
 
-    /** Löscht die Datei der Folge (auch einen wartenden oder laufenden Download). Die Automatik lädt sie nicht neu. */
+    /** Deletes the episode's file (including a waiting or running download). The automation doesn't download it again. */
     suspend fun remove(bookId: Long) {
         val track = dao.trackOf(bookId)
         dao.markDownloadRemoved(bookId)
         storage.delete(bookId, track?.filePath)
     }
 
-    /** Löscht die Dateien aller geladenen Folgen eines Podcasts. @return Anzahl. */
+    /** Deletes the files of all downloaded episodes of a podcast. @return count. */
     suspend fun removeFeed(feedId: String): Int = dao.downloadedEpisodeIds(feedId).onEach { remove(it) }.size
 
-    /** Wie [removeFeed], dazu wartende und laufende Downloads (beim Archivieren eines Abos). @return Anzahl. */
+    /** Like [removeFeed], plus waiting and running downloads (when archiving a subscription). @return count. */
     suspend fun removeAllOf(feedId: String): Int = dao.episodeIdsWithDownload(feedId).onEach { remove(it) }.size
 
     /**
-     * Löscht Dateien ohne Folge (Abo beendet, OPML ersetzt, Folge aus dem Feed gefallen) – sonst räumt nur der nächste
-     * Download auf. Nur, wenn nichts lädt oder wartet: Eine gerade fertige Datei hätte ihren Pfad noch nicht. @return Anzahl.
+     * Deletes files without an episode (subscription ended, OPML replaced, episode dropped from the feed) – otherwise only the
+     * next download cleans up. Only when nothing is downloading or waiting: a just-finished file wouldn't have its path yet. @return count.
      */
     suspend fun deleteOrphans(): Int {
         if (dao.countPendingDownloads() > 0) return 0
-        // Nichts wartet: Teildateien setzt keiner mehr fort.
+        // Nothing is waiting: nobody resumes partial files anymore.
         return storage.deleteOrphans(dao.downloadedTracks().mapNotNull { it.filePath }, emptyList())
     }
 
-    /** Löscht die Dateien aller geladenen Folgen. @return Anzahl. */
+    /** Deletes the files of all downloaded episodes. @return count. */
     suspend fun removeAll(): Int = dao.allDownloadedEpisodeIds().onEach { remove(it) }.size
 
-    /** Löscht die Dateien aller zu Ende gehörten Folgen des Podcasts. @return Anzahl. */
+    /** Deletes the files of all fully played episodes of the podcast. @return count. */
     suspend fun removeHeard(feedId: String): Int =
         dao.finishedDownloads(feedId).onEach { remove(it.bookId) }.size
 
     /**
-     * Reiht die neuesten ungehörten Folgen ein, wenn der Podcast automatisch lädt. Vorher gilt, was die Sicherung zu den
-     * Folgen weiß (gehört, Download entfernt): Nach einem Gerätewechsel stehen sie erst nach dem Abgleich wieder da.
+     * Enqueues the newest unplayed episodes if the podcast downloads automatically. Before that, what the backup knows about the
+     * episodes applies (played, download removed): after a device change they only show up again after the sync.
      */
     suspend fun queueAutomatic(feedId: String) {
         val feed = dao.feed(feedId)?.takeIf { it.autoDownload } ?: return
         userData.applyWaiting()
-        // „Nur die neueste“ in Weiterhören: auch nur die neueste bereithalten; sonst die Anzahl des Abos oder die Vorgabe.
+        // "Only the newest" in Continue listening: keep only the newest ready as well; otherwise the subscription's count or the default.
         val newestOnly = feed.queueMode == FeedQueueMode.NEWEST_ONLY
         val count = if (newestOnly) 1 else feed.autoDownloadCount ?: settings.autoDownloadCount.first()
         if (dao.queueLatestUnheard(feedId, count) > 0) enqueueWorker()
@@ -138,15 +138,15 @@ class EpisodeDownloads @Inject constructor(
     }
 
     /**
-     * „Nur die neueste“: Ältere automatisch geladene, nie angefangene Folgen gehen, sobald eine neuere fertig ist (nach
-     * jedem Abgleich und jedem fertigen Download). Von Hand geladene und angefangene bleiben, ebenso die im Player.
+     * "Only the newest": older automatically downloaded, never started episodes go as soon as a newer one is finished (after
+     * every sync and every finished download). Manually downloaded and started ones stay, as does the one in the player.
      */
     suspend fun removeSuperseded(feedId: String) {
         val loaded = loadedBookId.first()
         dao.supersededAutomaticDownloads(feedId).filter { it != loaded }.forEach { remove(it) }
     }
 
-    /** Nach einem fertigen Download: bei „Nur die neueste“ die älteren automatisch geladenen weg ([removeSuperseded]). */
+    /** After a finished download: with "Only the newest", remove the older automatically downloaded ones ([removeSuperseded]). */
     suspend fun onDownloaded(bookId: Long) {
         val feedId = dao.feedIdOf(bookId) ?: return
         val feed = dao.feed(feedId) ?: return
@@ -154,8 +154,8 @@ class EpisodeDownloads @Inject constructor(
     }
 
     /**
-     * Hängt die Automatik an die Abgleiche und den Schalter; einmal beim Start der App. [loadedBookId]: was im Player
-     * geladen ist – eine Folge gilt schon beim Anhalten kurz vor dem Ende als gehört, lässt sich aber weiterhören.
+     * Attaches the automation to the syncs and the switch; once at app start. [loadedBookId]: what is loaded in the
+     * player – an episode already counts as played when paused shortly before the end, but can still be continued.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun start(scope: CoroutineScope, loadedBookId: Flow<Long?> = flowOf(null)) {
@@ -164,7 +164,7 @@ class EpisodeDownloads @Inject constructor(
         scope.launch {
             merge(
                 podcasts.refreshed,
-                // Eingeschaltet, Anzahl geändert oder „Nur die neueste“ gewählt: nur die geänderten Abos.
+                // Switched on, count changed or "Only the newest" chosen: only the changed subscriptions.
                 podcasts.feeds
                     .map { feeds -> feeds.filter { it.autoDownload }.associate { it.id to (it.autoDownloadCount to it.queueMode) } }
                     .distinctUntilChanged()
@@ -172,28 +172,28 @@ class EpisodeDownloads @Inject constructor(
                     .flatMapConcat { (before, now) -> now.filter { (id, value) -> before[id] != value }.keys.asFlow() },
             ).collect { queueAutomatic(it) }
         }
-        // Eine größere Anzahl holt sofort fehlende Folgen nach (eine kleinere löscht nichts).
+        // A larger count immediately fetches missing episodes (a smaller one deletes nothing).
         scope.launch {
             settings.autoDownloadCount.distinctUntilChanged().drop(1).collect {
                 dao.feeds().filter { it.autoDownload }.forEach { queueAutomatic(it.feedId) }
             }
         }
-        // Aus der Sicherung wieder eingereihte Downloads.
+        // Downloads re-enqueued from the backup.
         scope.launch { userData.downloadsQueued.collect { enqueueWorker() } }
-        // Die Einstellung „Mobilfunk“ gilt für wartende Downloads sofort: den Auftrag mit neuen Bedingungen ersetzen.
+        // The "mobile data" setting applies to waiting downloads immediately: replace the job with new constraints.
         scope.launch {
             settings.useMobileData.distinctUntilChanged().drop(1).collect {
                 if (dao.countPendingDownloads() > 0) enqueueWorker(ExistingWorkPolicy.REPLACE)
             }
         }
-        // Zu Ende gehörte Folgen: der Download verfällt nach der eingestellten Zeit. Solange die App läuft, prüft jede
-        // Änderung des Fortschritts, der Einstellung und des geladenen Titels („sofort“ löscht beim Ende der Folge bzw.
-        // sobald sie nicht mehr im Player liegt); abgelaufene Fristen räumt der tägliche HeardCleanupWorker auf.
+        // Fully played episodes: the download expires after the configured time. While the app is running, every
+        // change of the progress, the setting and the loaded track is checked ("immediately" deletes at the end of the episode or
+        // as soon as it's no longer in the player); expired periods are cleaned up by the daily HeardCleanupWorker.
         scope.launch {
             combine(dao.observeFinishedDownloads(), settings.deleteHeardAfterDays, loadedBookId, ::Triple)
                 .collectLatest { (finished, days, loaded) ->
                     removeExpired(finished, days, loaded)
-                    // „Sofort“ wartet, bis „Rückgängig“ nicht mehr geht; holt es die Folge zurück, ändert sich [finished] vorher.
+                    // "Immediately" waits until "Undo" is no longer possible; if that brings the episode back, [finished] changes first.
                     if (days == 0 && finished.isNotEmpty()) {
                         delay(HEARD_UNDO_GRACE_MS)
                         removeExpired(finished, days, loaded)
@@ -202,18 +202,18 @@ class EpisodeDownloads @Inject constructor(
         }
         scope.launch { HeardCleanupWorker.schedule(context) }
         scope.launch {
-            // Nach einem Prozessende stehen Einträge evtl. noch auf RUNNING/QUEUED. KEEP: Hat der Worker selbst den Prozess
-            // gestartet, hängte sich sonst ein zweiter an ihn, der danach nichts mehr findet.
+            // After a process death entries may still be RUNNING/QUEUED. KEEP: if the worker itself started the process,
+            // a second one would otherwise attach to it and then find nothing.
             if (dao.countPendingDownloads() > 0) enqueueWorker(ExistingWorkPolicy.KEEP)
         }
     }
 
-    /** Löscht die Downloads zu Ende gehörter Folgen, deren Frist abgelaufen ist. @return Anzahl. */
+    /** Deletes the downloads of fully played episodes whose period has expired. @return count. */
     suspend fun removeExpiredHeard(): Int =
         removeExpired(dao.observeFinishedDownloads().first(), settings.deleteHeardAfterDays.first(), loadedBookId.first())
 
     private suspend fun removeExpired(finished: List<FinishedDownloadRow>, days: Int, loaded: Long?): Int {
-        // Die Datei ist fertig, wenn sie zuletzt geschrieben wurde (Umbenennen ändert die Zeit nicht).
+        // The file is finished when it was last written (renaming doesn't change the time).
         val heard = finished.filter { it.bookId != loaded }.map { HeardDownload(it.bookId, it.finishedAt, it.filePath?.let(::File)?.lastModified() ?: 0L) }
         return expiredHeardDownloads(heard, days, System.currentTimeMillis()).onEach { remove(it) }.size
     }

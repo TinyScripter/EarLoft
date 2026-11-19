@@ -9,9 +9,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Cover als Dateien auf dem Gerät (Wear-Konzept 8.2): Die Uhr lädt sie einmal je Album mit den Downloads
- * und zeigt sie danach ohne Server. Das Handy lädt sie für alle Server-Alben vorab (`OfflineImages`) und mit den Downloads,
- * damit Cover auch offline da sind; sie bleiben, solange es das Album gibt.
+ * Covers as files on the device (Wear concept 8.2): the watch loads them once per album with the downloads
+ * and then shows them without a server. The phone preloads them for all server albums (`OfflineImages`) and with the downloads,
+ * so covers are available offline too; they stay as long as the album exists.
  */
 @Singleton
 class CoverFiles @Inject constructor(
@@ -21,13 +21,13 @@ class CoverFiles @Inject constructor(
 
     fun has(albumId: Long): Boolean = file(albumId).isFile
 
-    /** `null`, wenn keine Datei da oder nicht lesbar ist. */
+    /** `null` if there is no file or it is unreadable. */
     fun read(albumId: Long): Bitmap? = file(albumId).takeIf { it.isFile }?.let { BitmapFactory.decodeFile(it.path) }
 
-    /** Wie [read], aber höchstens [maxPx] groß (Vorschaubilder in den Listen der Uhr). */
+    /** Like [read], but at most [maxPx] in size (thumbnails in the watch's lists). */
     fun readScaled(albumId: Long, maxPx: Int): Bitmap? = decodeScaled(file(albumId), maxPx)
 
-    /** Schreibt erst in eine `.part`-Datei, damit ein Abbruch keine halbe Datei hinterlässt. */
+    /** Writes to a `.part` file first, so an abort doesn't leave a half file behind. */
     fun write(albumId: Long, bitmap: Bitmap) {
         directory.mkdirs()
         val target = file(albumId)
@@ -36,7 +36,7 @@ class CoverFiles @Inject constructor(
         if (!part.renameTo(target)) part.delete()
     }
 
-    /** Löscht die Cover aller Alben, die nicht in [albumIds] sind. */
+    /** Deletes the covers of all albums not in [albumIds]. */
     fun retainOnly(albumIds: Set<Long>): Int {
         val files = directory.listFiles() ?: return 0
         return files.count { it.nameWithoutExtension.toLongOrNull() !in albumIds && it.delete() }

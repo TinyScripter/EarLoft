@@ -9,14 +9,14 @@ import java.security.SecureRandom
 import javax.inject.Inject
 
 /**
- * Hängt die Subsonic-Auth-Parameter an (Konzept 6.3).
+ * Appends the Subsonic auth parameters (concept 6.3).
  *
- * Als *Network*-Interceptor registriert: Der HTTP-Cache sieht dadurch nur die URL ohne Salt und
- * Token, und die Antwort wird wieder auf die ursprüngliche Anfrage umgeschrieben, damit weder
- * Cache-Schlüssel noch Cache-Dateien Secrets enthalten.
+ * Registered as a *network* interceptor: the HTTP cache therefore only sees the URL without salt and
+ * token, and the response is rewritten back to the original request, so that neither
+ * cache keys nor cache files contain secrets.
  *
- * Zugangsdaten kommen aus dem Request-Tag [SubsonicServer] (gesetzt von [SubsonicApi], nach einer Weiterleitung nur
- * auf denselben Host) oder, für Streams und Cover, aus der [SubsonicServerRegistry].
+ * Credentials come from the request tag [SubsonicServer] (set by [SubsonicApi], after a redirect only
+ * to the same host) or, for streams and covers, from the [SubsonicServerRegistry].
  */
 class SubsonicAuthInterceptor @Inject constructor(
     private val registry: SubsonicServerRegistry,
@@ -66,8 +66,8 @@ class SubsonicAuthInterceptor @Inject constructor(
 }
 
 /**
- * [url] mit eingebetteten Zugangsdaten – nur für Empfänger, die nicht über unseren OkHttpClient
- * laden (Chromecast). Solche URLs nie speichern oder loggen: Token und Salt gelten unbegrenzt.
+ * [url] with embedded credentials – only for receivers that don't load via our OkHttpClient
+ * (Chromecast). Never store or log such URLs: token and salt are valid indefinitely.
  */
 fun SubsonicServer.authenticatedUrl(url: HttpUrl): HttpUrl =
     with(SubsonicAuthInterceptor) { url.withAuth(credentials) }

@@ -37,9 +37,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Hält die DataItems für die Uhr aktuell (Wear-Konzept 4): Manifest, Folgen und Bücher (16.1/16.2), Server und Einstellungen. Läuft,
- * solange der App-Prozess lebt – nur dann kann sich etwas ändern. Ohne Uhr bzw. Data Layer liegen die
- * DataItems nur lokal bei den Play-Diensten.
+ * Keeps the DataItems for the watch up to date (Wear concept 4): manifest, episodes and books (16.1/16.2), servers and settings. Runs
+ * as long as the app process lives – only then can anything change. Without a watch or Data Layer the
+ * DataItems only live locally with Play services.
  */
 @Singleton
 class WearPublisher @Inject constructor(
@@ -53,18 +53,18 @@ class WearPublisher @Inject constructor(
     private val audiobookshelf: AudiobookshelfServers,
     private val spokenSettings: SpokenSettings,
 ) {
-    /** Zuletzt geschriebenes Manifest; `null` = noch beim Data Layer nachsehen. */
+    /** Last written manifest; `null` = still check with the Data Layer. */
     private var publishedHash: String? = null
 
-    /** Wie [publishedHash], für das Folgen-Manifest. */
+    /** Like [publishedHash], for the episode manifest. */
     private var publishedPodcastsHash: String? = null
 
     @OptIn(FlowPreview::class)
     fun start(scope: CoroutineScope) {
         scope.launch { selections.content().collect { publishManifest(it) } }
         scope.launch {
-            // Während das Handy eine Folge spielt, schreibt es alle 15 s den Fortschritt: Reine Fortschrittsänderungen gehen erst
-            // nach einer Ruhepause hinaus, sonst weckte jede die Uhr. Alles andere (Folgen, Reihenfolge, Downloads) bald.
+            // While the phone plays an episode, it writes the progress every 15 s: pure progress changes only go out
+            // after a quiet period, otherwise each would wake the watch. Everything else (episodes, order, downloads) soon.
             var lastStructure: WearPodcastManifest? = null
             watchSpoken.content()
                 .map(WearPodcastManifestBuilder::build)
@@ -122,7 +122,7 @@ class WearPublisher @Inject constructor(
 
     private fun MirroredServer.toDto() = WearServerDto(sourceId, type.name, name, baseUrl, username, priority, formPost, credentialsStamp)
 
-    /** Nur bei geändertem Inhalt – sonst löste jeder Abgleich am Handy Arbeit auf der Uhr aus. */
+    /** Only when the content changed – otherwise every sync on the phone would trigger work on the watch. */
     private suspend fun publishManifest(content: WearContent) {
         val manifest = WearManifestBuilder.build(content, context.getString(R.string.favorites_title))
         val hash = WearCodec.manifestHash(manifest)
@@ -145,7 +145,7 @@ class WearPublisher @Inject constructor(
         }
     }
 
-    /** Sprungweiten und Vorgaben für Tempo und Effekte je Bereich, wie sie die Uhr übernimmt. */
+    /** Skip intervals and defaults for speed and effects per area, as the watch adopts them. */
     private data class SpokenPlayback(
         val bookSeek: SeekSteps,
         val podcastSeek: SeekSteps,

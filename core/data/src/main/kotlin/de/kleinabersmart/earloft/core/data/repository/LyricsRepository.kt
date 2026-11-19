@@ -19,15 +19,15 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Ein Songtext und ob er von LRCLIB stammt. */
+/** Lyrics and whether they come from LRCLIB. */
 data class SongLyrics(val lyrics: Lyrics, val fromLrclib: Boolean = false)
 
 /**
- * Songtexte: zuerst eingebettete Texte lokaler Dateien, dann die Server-Quellen eines Songs (Konzept 6.3), zuletzt, wenn
- * eingeschaltet, LRCLIB – auch für einen Song, zu dem die Server nur einen statischen Text haben. Gefundene Texte bleiben
- * gespeichert; „kein Text“ wird nur [NO_LYRICS_TTL_MS] gemerkt, damit ein später ergänzter Text auftaucht. Ist keine
- * Quelle erreichbar, wird nichts gespeichert, und ein statischer Text bleibt ungespeichert, solange eine Quelle nicht
- * geantwortet hat (sie könnte einen synchronisierten haben).
+ * Lyrics: first embedded lyrics of local files, then the server sources of a song (concept 6.3), finally, if
+ * enabled, LRCLIB – also for a song for which the servers only have plain lyrics. Found lyrics stay
+ * stored; "no lyrics" is only remembered for [NO_LYRICS_TTL_MS], so lyrics added later show up. If no
+ * source is reachable, nothing is stored, and plain lyrics stay unstored as long as a source hasn't
+ * responded (it might have synced ones).
  */
 @Singleton
 class LyricsRepository @Inject constructor(
@@ -37,12 +37,12 @@ class LyricsRepository @Inject constructor(
     private val settings: LyricsSettings,
     private val lrclib: LrclibClient,
 ) {
-    /** Speichern und Umschalten der Einstellung schließen sich aus: Eine laufende Abfrage überlebt das Ausschalten nicht. */
+    /** Storing and toggling the setting are mutually exclusive: a running query doesn't survive being switched off. */
     private val storeLock = Mutex()
 
     suspend fun lyrics(songId: Long): Lyrics = songLyrics(songId).lyrics
 
-    /** Wie [lyrics], dazu ob der Text von LRCLIB stammt (die Anzeige nennt dann die Quelle). */
+    /** Like [lyrics], plus whether the lyrics come from LRCLIB (the display then names the source). */
     suspend fun songLyrics(songId: Long): SongLyrics {
         val cached = lyricsDao.get(songId)
         if (cached != null && (cached.kind != LyricsKind.NONE || System.currentTimeMillis() - cached.fetchedAt < NO_LYRICS_TTL_MS)) {
@@ -97,7 +97,7 @@ class LyricsRepository @Inject constructor(
                 failed = true
                 Lyrics.None
             }
-            // Synchron schlägt einen statischen Text vom Server; sonst bleibt der des Servers.
+            // Synced beats plain lyrics from the server; otherwise the server's stay.
             if (found is Lyrics.Synced || (found is Lyrics.Plain && best == Lyrics.None)) {
                 best = found
                 origin = LRCLIB
@@ -105,7 +105,7 @@ class LyricsRepository @Inject constructor(
         }
 
         return storeLock.withLock {
-            // Während der Abfrage ausgeschaltet: Der Text von LRCLIB wird weder gespeichert noch angezeigt.
+            // Switched off during the query: the lyrics from LRCLIB are neither stored nor shown.
             if (origin == LRCLIB && !settings.onlineLyrics.first()) {
                 best = serverBest
                 origin = serverOrigin
@@ -115,7 +115,7 @@ class LyricsRepository @Inject constructor(
                 lyricsDao.upsert(LyricsEntity(songId, LyricsKind.NONE, "", origin = "", fetchedAt = System.currentTimeMillis()))
                 return@withLock SongLyrics(Lyrics.None)
             }
-            // Eine Quelle hat nicht geantwortet: Ein statischer Text kommt ohne Speichern, die nächste Abfrage versucht es neu.
+            // A source didn't respond: plain lyrics are returned without storing, the next query tries again.
             if (failed && best !is Lyrics.Synced) return@withLock SongLyrics(best, fromLrclib = origin == LRCLIB)
             val (kind, content) = LyricsCodec.encode(best)
             lyricsDao.upsert(LyricsEntity(songId, kind, content, origin, System.currentTimeMillis()))
@@ -124,8 +124,8 @@ class LyricsRepository @Inject constructor(
     }
 
     /**
-     * Beim Einschalten werden fehlende und statische Texte der Server vergessen, damit LRCLIB sie beim nächsten Öffnen
-     * ergänzen kann; beim Ausschalten die von LRCLIB, die Server und Dateien dann wieder allein liefern.
+     * When enabled, missing and plain lyrics from the servers are forgotten, so LRCLIB can fill them in the next time they are opened;
+     * when disabled, those from LRCLIB, which the servers and files then supply alone again.
      */
     suspend fun setOnlineLyrics(enabled: Boolean) {
         storeLock.withLock {
@@ -134,13 +134,13 @@ class LyricsRepository @Inject constructor(
         }
     }
 
-    /** Gefragt wird mit dem angezeigten Interpreten („A feat. B“) und, falls anders, dem ersten allein. */
+    /** Queried with the displayed artist ("A feat. B") and, if different, the first one alone. */
     private suspend fun onlineLyrics(song: SongEntity): Lyrics {
         val artists = listOfNotNull(song.artistDisplay, lyricsDao.getFirstArtistName(song.songId))
         return lrclib.find(song.title, artists, song.durationMs)
     }
 
-    /** In der Datei eingebettete Texte lokaler Quellen; sie haben Vorrang vor denen der Server. */
+    /** Lyrics embedded in the file of local sources; they take precedence over those of the servers. */
     private suspend fun embeddedLyrics(songId: Long): Lyrics {
         for (source in lyricsDao.getLocalSources(songId)) {
             val provider = sources[source.sourceId] as? LocalLyrics ?: continue

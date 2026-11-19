@@ -8,7 +8,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** Serien als Konzept (`books_improvements.md` M2): Fortschritt, nächster Band, „Serie fortsetzen“, Karte im Player. */
+/** Series as a concept (`books_improvements.md` M2): progress, next volume, "Continue series", card in the player. */
 class SeriesProgressTest {
 
     private fun book(id: Long, series: String, progress: BookProgress? = null) =
@@ -66,10 +66,10 @@ class SeriesProgressTest {
             book(2, "Saga #2"),
             book(11, "Reihe #1", finished(50)),
             book(12, "Reihe #2"),
-            // Angefangen: steht in „Weiterhören“, nicht hier.
+            // Started: is in "Continue listening", not here.
             book(21, "Krimis #1", finished(60)),
             book(22, "Krimis #2", started(70)),
-            // Nichts gehört.
+            // Nothing played.
             book(31, "Neu #1"),
         )
         assertEquals(listOf(12L, 2L), all.continueSeries().map { it.first.book.id })
@@ -95,7 +95,7 @@ class SeriesProgressTest {
     fun `the same volume from a second source counts as finished with the finished one`() {
         val all = listOf(
             book(1, "Saga #1", finished(10)),
-            // Dasselbe Buch von einem Ordner auf dem Gerät, dort nie angefangen.
+            // The same book from a folder on the device, never started there.
             book(5, "Saga #1"),
             book(2, "Saga #2", finished(20)),
             book(6, "Saga #2"),

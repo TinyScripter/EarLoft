@@ -148,7 +148,7 @@ class PodcastDirectoryApiTest {
         assertEquals(listOf("Sieben"), api.popular(PodcastDirectory.APPLE, null, "AT", "de").map { it.title })
         assertEquals("/at/rss/toppodcasts/limit=50/json", mockServer.takeRequest().url.encodedPath)
         mockServer.takeRequest()
-        // Ohne Einträge keine zweite Anfrage.
+        // No entries, no second request.
         assertEquals(emptyList<DirectoryPodcast>(), api.popular(PodcastDirectory.APPLE, null, "AT", "de"))
         assertEquals(3, mockServer.requestCount)
     }

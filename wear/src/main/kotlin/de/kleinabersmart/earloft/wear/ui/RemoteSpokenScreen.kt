@@ -31,8 +31,8 @@ import de.kleinabersmart.earloft.wear.R
 import kotlinx.coroutines.launch
 
 /**
- * Eine Folge bzw. ein Buch des Handys (Wear-Konzept 17): am Handy abspielen oder mit „Download“ auf die Uhr holen
- * ([RemoteSpokenViewModel]). [onPlayed] wechselt nach dem Start zur Wiedergabe-Ansicht des Handys.
+ * An episode or book of the phone (Wear concept 17): play on the phone or bring it to the watch with "Download"
+ * ([RemoteSpokenViewModel]). [onPlayed] switches to the phone's now playing view after starting.
  */
 @Composable
 fun RemoteSpokenScreen(

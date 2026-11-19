@@ -14,8 +14,8 @@ import de.kleinabersmart.earloft.core.model.AppUris
 import java.io.IOException
 
 /**
- * Lädt `earloft://cover/album/<id>` über [ArtworkRepository] – Coil muss nicht wissen, aus welcher
- * Quelle ein Cover stammt.
+ * Loads `earloft://cover/album/<id>` via [ArtworkRepository] – Coil doesn't need to know which
+ * source a cover comes from.
  */
 class AlbumCoverFetcher(
     private val albumId: Long,
@@ -45,7 +45,7 @@ class AlbumCoverFetcher(
         }
     }
 
-    /** Ermöglicht den Speicher-Cache für App-URIs. */
+    /** Enables the memory cache for app URIs. */
     object Keyer : coil3.key.Keyer<Uri> {
         override fun key(data: Uri, options: Options): String? =
             if (data.scheme == AppUris.SCHEME) data.toString() else null

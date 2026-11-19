@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Logo für dunkle Flächen: Emblem und „Ear“ hell, „Loft“ orange, Hintergrund transparent. -->
+<!-- Logo for dark surfaces: emblem and "Ear" light, "Loft" orange, transparent background. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="151dp"
     android:height="48dp"

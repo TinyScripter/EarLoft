@@ -46,11 +46,11 @@ import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Zeigt [content] erst, wenn die Musik gelesen werden darf. [onGranted] wird bei jedem Wechsel
- * auf „erteilt“ aufgerufen – auch wenn die Berechtigung in den Systemeinstellungen erteilt wurde.
- * [onSkip]: ohne lokale Musik weiter (schaltet sie in den Einstellungen ab). Mit [enabled] `false`
- * (lokale Musik aus) erscheint [content] immer – an derselben Stelle, damit Navigation und Zustand
- * beim Umschalten erhalten bleiben.
+ * Shows [content] only once music may be read. [onGranted] is called on every change
+ * to "granted" – also when the permission was granted in the system settings.
+ * [onSkip]: continue without local music (disables it in the settings). With [enabled] `false`
+ * (local music off) [content] always appears – in the same place, so navigation and state
+ * are kept when toggling.
  */
 @Composable
 fun AudioPermissionGate(
@@ -68,7 +68,7 @@ fun AudioPermissionGate(
         requested = true
         val audioGranted = result[AudioPermission.name] == true
         granted = audioGranted
-        // Nach einer Ablehnung ohne Begründungsdialog zeigt das System keinen Dialog mehr.
+        // After a denial without a rationale dialog, the system shows no dialog anymore.
         permanentlyDenied = !audioGranted && context.findActivity()?.shouldShowRequestPermissionRationale(AudioPermission.name) == false
     }
 
@@ -77,7 +77,7 @@ fun AudioPermissionGate(
         onPauseOrDispose { }
     }
 
-    // Nur beim Wechsel: Jede neue Activity (Drehung, Hell/Dunkel, Sprache) liefe sonst einen vollen Scan der Musik.
+    // Only on change: otherwise every new activity (rotation, light/dark, language) would run a full music scan.
     var wasGranted by rememberSaveable { mutableStateOf(granted) }
     LaunchedEffect(granted) {
         if (granted && !wasGranted) onGranted()
@@ -97,9 +97,9 @@ fun AudioPermissionGate(
 }
 
 /**
- * Fragt die Musik-Berechtigung außerhalb des Gates an (z. B. beim Einschalten der lokalen Musik).
- * [onResult] erhält `true`, wenn sie erteilt ist. Zeigt das System keinen Dialog mehr, öffnet sich
- * stattdessen die App-Seite der Systemeinstellungen.
+ * Requests the music permission outside the gate (e.g. when enabling local music).
+ * [onResult] receives `true` if it is granted. If the system no longer shows a dialog, the app's
+ * page in the system settings opens instead.
  */
 @Composable
 fun rememberAudioPermissionRequester(onResult: (granted: Boolean) -> Unit): () -> Unit {
@@ -164,9 +164,9 @@ private fun PermissionRationale(
 
 private fun requestedPermissions(): Array<String> = buildList {
     add(AudioPermission.name)
-    // Die Wiedergabe-Benachrichtigung ist davon ausgenommen, Hinweise der App aber nicht.
+    // The playback notification is exempt from this, but the app's notices aren't.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
-    // Damit schon vorhandene und neu eingerichtete Heimnetz-Server gleich erreichbar sind.
+    // So that existing and newly set up home network servers are reachable right away.
     if (LocalNetworkPermission.isRequired) add(LocalNetworkPermission.name)
 }.toTypedArray()
 

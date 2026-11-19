@@ -144,7 +144,7 @@ class MigrationTest {
             db.query("SELECT title, etag, lastModified, websiteUrl, syncGeneration FROM podcast_feeds WHERE feedId = 'f'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("Logbuch", cursor.getString(0))
-                // Ohne Validatoren lädt der nächste Abgleich den Feed ganz und holt so die Webseiten.
+                // Without validators the next sync loads the feed fully and thus fetches the websites.
                 assertTrue(cursor.isNull(1))
                 assertTrue(cursor.isNull(2))
                 assertTrue(cursor.isNull(3))
@@ -180,7 +180,7 @@ class MigrationTest {
         helper.runMigrationsAndValidate(DB_NAME, 30, true).use { db ->
             db.query("SELECT bookId, chapterSource FROM books ORDER BY bookId").use { cursor ->
                 val sources = buildList { while (cursor.moveToNext()) add(cursor.getLong(0) to cursor.getString(1)) }
-                // Die Kapitelliste wird beim nächsten Abspielen neu geladen, jetzt mit Bild und Webseite.
+                // The chapter list is reloaded on next playback, now with image and website.
                 assertEquals(listOf(7L to null, 8L to "FEED", 9L to null), sources)
             }
             db.query("SELECT COUNT(*), COUNT(imageUrl), COUNT(url) FROM book_chapters").use { cursor ->
@@ -219,7 +219,7 @@ class MigrationTest {
             db.query("SELECT downloadState, autoDownload FROM book_tracks WHERE bookId = 7").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("DONE", cursor.getString(0))
-                // Vorhandene Downloads gelten als von Hand geladen: „Nur die neueste“ löscht sie nicht.
+                // Existing downloads count as manually downloaded: "Only the newest" doesn't delete them.
                 assertEquals(0, cursor.getInt(1))
             }
             db.query("SELECT autoDownloadCount FROM podcast_feeds WHERE feedId = 'f'").use { cursor ->
@@ -318,7 +318,7 @@ class MigrationTest {
                         "VALUES ($id, 'abs', 'BOOK', 'li_$id', 'Buch', 'buch', 'A', '', '', '', 60000, 0, 1, 1, 2)",
                 )
             }
-            // 3: vor v42 beendet, 4: schon mit Zeitpunkt, 5: nicht beendet.
+            // 3: finished before v42, 4: already with a timestamp, 5: not finished.
             db.execSQL(
                 "INSERT INTO book_progress (bookId, positionMs, durationMs, finished, updatedAt, dirty, hidden, finishedAt) VALUES " +
                     "(3, 60000, 60000, 1, 100, 0, 0, NULL), (4, 60000, 60000, 1, 300, 0, 1, 200), (5, 1000, 60000, 0, 400, 0, 0, NULL)",
@@ -389,12 +389,12 @@ class MigrationTest {
                 assertTrue(cursor.moveToFirst())
                 assertEquals(1, cursor.getInt(0))
                 assertEquals("Österreichischer Pop", cursor.getString(1))
-                // Wie `Genre.key`, auch für Umlaute (SQLite selbst macht nur A–Z klein).
+                // Like `Genre.key`, including umlauts (SQLite itself only lowercases A–Z).
                 assertEquals("österreichischer pop", cursor.getString(2))
                 assertEquals(0, cursor.getInt(3))
                 assertFalse(cursor.moveToNext())
             }
-            // Server-Songs schreibt der nächste Vollabgleich neu, und er ist fällig; lokale bleiben.
+            // The next full sync rewrites server songs, and it is due; local ones stay.
             db.query("SELECT uid, lastModified FROM song_sources ORDER BY uid").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals(43, cursor.getInt(1))
@@ -512,7 +512,7 @@ class MigrationTest {
     }
 }
 
-/** `user.db`: Auto-Migrationen v1 → v6 ([UserDatabase]); die Sicherung eines alten Geräts muss auf einem neuen lesbar bleiben. */
+/** `user.db`: auto-migrations v1 → v6 ([UserDatabase]); an old device's backup must remain readable on a new one. */
 @RunWith(RobolectricTestRunner::class)
 class UserMigrationTest {
 

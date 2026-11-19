@@ -34,14 +34,14 @@ import javax.inject.Inject
 sealed interface ConnectState {
     data object Idle : ConnectState
     data object Connecting : ConnectState
-    /** [arg] füllt `%1$s` in [message]. */
+    /** [arg] fills `%1$s` in [message]. */
     data class Failed(val message: Int, val arg: String? = null) : ConnectState
     data object Connected : ConnectState
 }
 
 /**
- * Rückleitungen aus dem Browser ohne Auth Tab (`earloft://oauth`, Konzept 12.11); [OpenIdRedirectActivity] reicht sie hierher
- * weiter, das Formular wartet darauf.
+ * Redirects from the browser without Auth Tab (`earloft://oauth`, concept 12.11); [OpenIdRedirectActivity] passes them on
+ * to here, the form waits for them.
  */
 object OpenIdRedirects {
     private val _received = MutableSharedFlow<String>(extraBufferCapacity = 1)
@@ -59,14 +59,14 @@ class AudiobookshelfViewModel @Inject constructor(
     private val refresher: SpokenRefresher,
 ) : ViewModel() {
 
-    /** Eingegebener API-Schlüssel: nur hier im Speicher, nicht im gespeicherten Zustand der Activity (wie das Passwort im Musik-Formular). */
+    /** Entered API key: only in memory here, not in the activity's saved state (like the password in the music form). */
     var keyInput by mutableStateOf("")
 
     val list: StateFlow<LoadState<List<SpokenServer>>> = servers.servers
         .asLoadState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
-    /** Server ohne lesbaren API-Key; die Liste zeigt bei ihnen „API-Key neu eingeben“. */
+    /** Servers without a readable API key; the list shows "Re-enter API key" for them. */
     val withoutKey: StateFlow<Set<String>> = servers.serversWithoutKey
         .orOnError(emptySet())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
@@ -76,17 +76,17 @@ class AudiobookshelfViewModel @Inject constructor(
 
     private val urlInput = MutableStateFlow("")
 
-    /** Was der Server unter der eingegebenen Adresse anbietet; `null`, solange unbekannt oder kein Audiobookshelf. */
+    /** What the server offers at the entered address; `null` as long as unknown or not Audiobookshelf. */
     val loginOptions: StateFlow<AbsLoginOptions?> = urlInput
         .debounce(URL_CHECK_DELAY_MS)
         .mapLatest { if (it.isBlank()) null else servers.loginOptions(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Adresse des Identity-Providers, die das Formular einmal im Browser öffnen soll ([browserOpened]). */
+    /** Address of the identity provider that the form should open once in the browser ([browserOpened]). */
     private val _browser = MutableStateFlow<String?>(null)
     val browser: StateFlow<String?> = _browser.asStateFlow()
 
-    /** Die laufende Anmeldung per OpenID und wofür (Server, Name); nur im Speicher. */
+    /** The running OpenID login and what it is for (server, name); only in memory. */
     private var pendingLogin: Triple<AbsOpenIdLogin, String?, String>? = null
 
     init {
@@ -97,7 +97,7 @@ class AudiobookshelfViewModel @Inject constructor(
         urlInput.value = url
     }
 
-    /** [serverId] `null` = neuer Server, sonst werden die Angaben dieses Servers geändert. */
+    /** [serverId] `null` = new server, otherwise this server's details are changed. */
     fun connect(serverId: String?, name: String, url: String, apiKey: String) {
         if (_connect.value == ConnectState.Connecting) return
         _connect.value = ConnectState.Connecting
@@ -120,8 +120,8 @@ class AudiobookshelfViewModel @Inject constructor(
     }
 
     /**
-     * Anmeldung per OpenID beginnen: Der Server nennt die Seite des Identity-Providers, das Formular öffnet sie ([browser]).
-     * [redirectUri] ist `audiobookshelf://oauth` mit Auth Tab, sonst die eigene Adresse.
+     * Start the OpenID login: the server names the identity provider's page, the form opens it ([browser]).
+     * [redirectUri] is `audiobookshelf://oauth` with Auth Tab, otherwise the app's own address.
      */
     fun startOpenId(serverId: String?, name: String, url: String, redirectUri: String) {
         if (_connect.value == ConnectState.Connecting) return
@@ -144,10 +144,10 @@ class AudiobookshelfViewModel @Inject constructor(
         _browser.value = null
     }
 
-    /** Rückleitung des Browsers; `null`, wenn der Nutzer abgebrochen hat. */
+    /** The browser's redirect; `null` if the user cancelled. */
     fun onBrowserResult(redirect: String?) {
         val (login, serverId, name) = pendingLogin ?: run {
-            // Nach dem Ende des Prozesses während der Anmeldung fehlen PKCE-Verifier und Cookies.
+            // After the process ended during the login, the PKCE verifier and cookies are missing.
             if (redirect != null) _connect.value = ConnectState.Failed(R.string.spoken_abs_error_openid_lost)
             return
         }
@@ -163,7 +163,7 @@ class AudiobookshelfViewModel @Inject constructor(
 
     suspend fun editable(serverId: String) = servers.editable(serverId)
 
-    /** Wählt eine Buch-Bibliothek ab bzw. an; wieder gewählt gleicht sie danach ab, damit ihre Bücher auf den Stand kommen. */
+    /** Deselects or selects a book library; when selected again it syncs afterwards so its books are brought up to date. */
     fun setLibraryShown(serverId: String, libraryId: String, shown: Boolean) {
         viewModelScope.launch { if (servers.setLibraryShown(serverId, libraryId, shown) && shown) refresher.refreshAll() }
     }

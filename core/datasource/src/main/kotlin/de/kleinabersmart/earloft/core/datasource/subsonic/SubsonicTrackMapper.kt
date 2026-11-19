@@ -16,7 +16,7 @@ import java.security.MessageDigest
 import java.time.OffsetDateTime
 import java.time.format.DateTimeParseException
 
-/** Wandelt Subsonic-Songs in [RawTrack]s um. */
+/** Converts Subsonic songs into [RawTrack]s. */
 internal object SubsonicTrackMapper {
 
     fun isMusic(song: SongDto): Boolean = !song.isDir && (song.type == null || song.type == "music")
@@ -78,9 +78,9 @@ internal object SubsonicTrackMapper {
     }
 
     /**
-     * Subsonic liefert kein Änderungsdatum. Stattdessen dient ein Hash über alle übernommenen Felder
-     * als `lastModified`: Gleicher Wert ⇒ nichts geändert, der Abgleich kann den Song überspringen.
-     * Der Stern gehört nicht dazu – ihn setzt auch die App selbst (Sync-Queue), der Abgleich prüft ihn getrennt.
+     * Subsonic provides no modification date. Instead, a hash over all adopted fields serves
+     * as `lastModified`: same value ⇒ nothing changed, the sync can skip the song.
+     * The star isn't part of it – the app sets it itself as well (sync queue), and the sync checks it separately.
      */
     private fun changeKey(song: SongDto, album: AlbumDto?): Long {
         val fingerprint = listOf(
@@ -101,7 +101,7 @@ internal object SubsonicTrackMapper {
 
     private fun String?.orBlankNull(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
 
-    /** Fehlt `changed`, gilt 0 – dann lässt sich nur keine Server-Änderung erkennen. */
+    /** If `changed` is missing, 0 applies – then a server change simply can't be detected. */
     fun playlistInfo(playlist: PlaylistDto): RemotePlaylistInfo =
         RemotePlaylistInfo(
             remoteId = playlist.id,
@@ -110,8 +110,8 @@ internal object SubsonicTrackMapper {
         )
 
     /**
-     * Bevorzugt synchronisierte Lyrics. `synced` entscheidet, nicht das Vorhandensein von `start`. `offset` (ms) gilt wie in
-     * der OpenSubsonic-Spezifikation und bei LRC: positiv = Zeilen erscheinen früher.
+     * Prefers synced lyrics. `synced` decides, not the presence of `start`. `offset` (ms) applies as in
+     * the OpenSubsonic specification and with LRC: positive = lines appear earlier.
      */
     fun lyrics(structured: List<StructuredLyricsDto>): Lyrics {
         structured.firstOrNull { it.synced && it.line.any { line -> line.start != null } }?.let { entry ->
@@ -124,7 +124,7 @@ internal object SubsonicTrackMapper {
             val text = entry.line.joinToString("\n") { it.value }.trim()
             if (text.isNotEmpty()) return Lyrics.Plain(text)
         }
-        // Nur synchronisierte Lyrics ohne verwertbare Zeitstempel: als Text anzeigen.
+        // Only synced lyrics without usable timestamps: show as text.
         structured.firstOrNull()?.let { entry ->
             val text = entry.line.joinToString("\n") { it.value }.trim()
             if (text.isNotEmpty()) return Lyrics.Plain(text)

@@ -30,7 +30,7 @@ class RingWindowTest {
 
         assertEquals(0L, window.toRing(600_000))
         assertEquals(120_000L, window.toRing(720_000))
-        // Kurz vor bzw. nach dem Kapitelwechsel, bevor die Ansicht das neue Kapitel kennt.
+        // Shortly before or after the chapter change, before the view knows the new chapter.
         assertEquals(0L, window.toRing(599_000))
         assertEquals(300_000L, window.toRing(901_000))
     }

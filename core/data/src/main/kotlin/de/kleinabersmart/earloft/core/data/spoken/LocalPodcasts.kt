@@ -24,10 +24,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Podcast-Dateien aus dem Ordner „Podcasts“ auf dem Gerät (Konzept 12.1). Jeder Podcast ist ein Abo ohne Feed
- * (`feedId = `[LOCAL_PODCAST_PREFIX]`<Kennung des Namens>`, `url` = `feedId`), jede Datei eine Folge (`books` mit
- * `kind = EPISODE`, `remoteId` = Pfad ab „Podcasts/“, Datei als `content://`-Adresse in `book_tracks`). So gelten
- * Weiterhören, Warteschlange, Fortschritt und „Nächste Folge“ wie bei Feeds; Abgleich und Downloads entfallen.
+ * Podcast files from the "Podcasts" folder on the device (concept 12.1). Each podcast is a subscription without a feed
+ * (`feedId = `[LOCAL_PODCAST_PREFIX]`<identifier of the name>`, `url` = `feedId`), each file an episode (`books` with
+ * `kind = EPISODE`, `remoteId` = path below "Podcasts/", file as `content://` address in `book_tracks`). That way
+ * continue listening, queue, progress and "Next episode" work as with feeds; sync and downloads don't apply.
  */
 @Singleton
 class LocalPodcasts @Inject constructor(
@@ -40,8 +40,8 @@ class LocalPodcasts @Inject constructor(
     private val mutex = Mutex()
 
     /**
-     * Gleicht die Dateien in „Podcasts“ mit der Datenbank ab (Neues anlegen, Geändertes neu einlesen, Verschwundenes samt
-     * Fortschritt löschen). `false`, wenn das nicht möglich war; dann bleibt alles, wie es ist.
+     * Syncs the files in "Podcasts" with the database (create new ones, re-read changed ones, delete ones that disappeared
+     * along with their progress). `false` if that wasn't possible; then everything stays as it is.
      */
     suspend fun sync(): Boolean = mutex.withLock {
         if (!settings.useLocalPodcasts.first()) return@withLock true
@@ -58,13 +58,13 @@ class LocalPodcasts @Inject constructor(
             return@withLock false
         }
         scanned.forEach { store(it, generation) }
-        // Podcasts ohne Dateien fallen weg. Ein fehlgeschlagener Abgleich kommt nie bis hierher und löscht deshalb nichts.
+        // Podcasts without files are dropped. A failed sync never gets this far and therefore deletes nothing.
         val present = scanned.mapTo(HashSet()) { feedIdOf(it.name) }
         dao.feeds().filter { it.feedId.startsWith(LOCAL_PODCAST_PREFIX) && it.feedId !in present }.forEach { dao.deleteFeed(it.feedId) }
         true
     }
 
-    /** Ausgeschaltet: die Podcasts vom Gerät verschwinden samt Fortschritt (wie die lokale Musik). */
+    /** Disabled: the podcasts from the device disappear along with their progress (like local music). */
     suspend fun remove() = mutex.withLock {
         dao.feeds().filter { it.feedId.startsWith(LOCAL_PODCAST_PREFIX) }.forEach { dao.deleteFeed(it.feedId) }
     }
@@ -86,7 +86,7 @@ class LocalPodcasts @Inject constructor(
         bookDao.deleteUnseen(feedId, generation)
 
         val existing = dao.feed(feedId)
-        // Das Bild des Podcasts ist das Cover einer seiner Folgen, solange diese Folge noch da ist.
+        // The podcast's image is the cover of one of its episodes, as long as that episode is still there.
         val keepImage = existing?.imageUrl?.let(AppUris::parseBookCoverId)?.let { bookDao.book(it) } != null
         val image = if (keepImage) existing.imageUrl else newestWithCover?.let { AppUris.bookCover(it.first) } ?: existing?.imageUrl
         dao.upsertFeed(
@@ -117,7 +117,7 @@ class LocalPodcasts @Inject constructor(
             BookChapterEntity(bookId, index, chapter.title, chapter.startMs, chapter.endMs)
         }
         bookDao.replaceDetails(bookId, listOf(track), chapters)
-        // Das Cover steckt in der Datei; hat sie sich geändert, gilt das zwischengespeicherte nicht mehr.
+        // The cover is in the file; if it changed, the cached one is no longer valid.
         covers.invalidate(bookId)
         return bookId
     }

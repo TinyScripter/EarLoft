@@ -12,12 +12,12 @@ import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
 
 /*
- * Zeilen der gesicherten Datenbank `user.db` (Review K9): nur das, was keine Quelle wiederherstellt, mit Schlüsseln, die
- * auf einem neuen Gerät noch passen. Abgleichsstände (Generationen, Zeitpunkte, ETags) fehlen absichtlich; sie gehören
- * zum Gerät und beginnen nach dem Wiederherstellen von vorn.
+ * Rows of the backed-up database `user.db` (review K9): only what no source restores, with keys that
+ * still match on a new device. Sync states (generations, timestamps, ETags) are deliberately missing; they belong
+ * to the device and start over after restoring.
  */
 
-/** Ein Musik-Server (`sources`, nur Subsonic). Das Passwort liegt im SecretStore und kommt nicht mit. */
+/** A music server (`sources`, Subsonic only). The password lives in the SecretStore and doesn't come along. */
 @Entity(tableName = "servers")
 data class UserServerEntity(
     @PrimaryKey val sourceId: String,
@@ -30,7 +30,7 @@ data class UserServerEntity(
     val enabled: Boolean,
 )
 
-/** Ein Audiobookshelf-Server (`spoken_servers`). API-Key bzw. Tokens kommen nicht mit, nur ob per OpenID angemeldet war. */
+/** An Audiobookshelf server (`spoken_servers`). API key or tokens don't come along, only whether it was signed in via OpenID. */
 @Entity(tableName = "spoken_servers")
 data class UserSpokenServerEntity(
     @PrimaryKey val serverId: String,
@@ -39,13 +39,13 @@ data class UserSpokenServerEntity(
     val libraryId: String?,
     val enabled: Boolean,
     @ColumnInfo(defaultValue = "0") val openId: Boolean = false,
-    /** Abgewählte Buch-Bibliotheken (v17), wie in der Hauptdatenbank. */
+    /** Deselected book libraries (v17), as in the main database. */
     @ColumnInfo(defaultValue = "''") val hiddenLibraries: String = "",
 )
 
 /**
- * Ein abonnierter (auch archivierter) Podcast (`podcast_feeds`) samt seinen Einstellungen; Podcasts vom Gerät baut der
- * Scan neu auf.
+ * A subscribed (including archived) podcast (`podcast_feeds`) together with its settings; podcasts from the device are
+ * rebuilt by the scan.
  */
 @Entity(tableName = "podcasts")
 data class UserPodcastEntity(
@@ -59,22 +59,22 @@ data class UserPodcastEntity(
     val continuous: Boolean,
     val notifyNew: Boolean,
     @ColumnInfo(defaultValue = "0") val archived: Boolean = false,
-    /** Tempo und Effekte des Abos (seit Version 11), `null` = Vorgabe des Bereichs. */
+    /** Speed and effects of the subscription (since version 11), `null` = the section's default. */
     val speed: Float? = null,
     val skipSilence: Boolean? = null,
     val volumeBoostDb: Int? = null,
     @ColumnInfo(defaultValue = "0") val skipIntroS: Int = 0,
     @ColumnInfo(defaultValue = "0") val skipOutroS: Int = 0,
-    /** Folgenliste und „Weiterhören“ (seit Version 13). */
+    /** Episode list and "Continue listening" (since version 13). */
     @ColumnInfo(defaultValue = "'ALL'") val episodeFilter: EpisodeFilter = EpisodeFilter.ALL,
     @ColumnInfo(defaultValue = "0") val listOldestFirst: Boolean = false,
     @ColumnInfo(defaultValue = "'ALL_NEW'") val queueMode: FeedQueueMode = FeedQueueMode.ALL_NEW,
     @ColumnInfo(defaultValue = "0") val keepEpisodes: Int = 0,
-    /** Bereithalten je Abo (seit Version 15), `null` = Vorgabe. */
+    /** Keep ready per subscription (since version 15), `null` = default. */
     val autoDownloadCount: Int? = null,
 )
 
-/** Gehörte Zeit je Eintrag (`listening_stats`), über den natürlichen Schlüssel statt der laufenden `statId`. */
+/** Listening time per entry (`listening_stats`), via the natural key instead of the running `statId`. */
 @Entity(tableName = "listening_stats", primaryKeys = ["source", "groupKey", "itemKey"])
 data class UserListeningStatEntity(
     val source: String,
@@ -87,21 +87,21 @@ data class UserListeningStatEntity(
     val lastListenedAt: Long,
 )
 
-/** Gehörte Zeit je Tag und Gruppe (`listening_days`). */
+/** Listening time per day and group (`listening_days`). */
 @Entity(tableName = "listening_days", primaryKeys = ["day", "kind", "groupKey"])
 data class UserListeningDayEntity(
     val day: Long,
     val kind: BookKind,
     val groupKey: String,
     val listenedMs: Long,
-    /** Durch „Stille kürzen“ gespart (seit Version 12). */
+    /** Saved by "Trim silence" (since version 12). */
     @ColumnInfo(defaultValue = "0") val savedMs: Long = 0,
 )
 
 /**
- * Fortschritt eines Buchs oder einer Folge (`book_progress`) über `(serverId, remoteId)` des Buchs statt der laufenden
- * `bookId`: Feed und guid, Audiobookshelf-Server und Item, bzw. „local“ und der Pfad im Ordner. Von Audiobookshelf-Büchern
- * nur die Stände, die der Server noch nicht kennt (`dirty`); den Rest holt der Abgleich zurück.
+ * Progress of a book or an episode (`book_progress`) via the book's `(serverId, remoteId)` instead of the running
+ * `bookId`: feed and guid, Audiobookshelf server and item, or "local" and the path in the folder. For Audiobookshelf books
+ * only the states the server doesn't know yet (`dirty`); the sync brings back the rest.
  */
 @Entity(tableName = "book_progress", primaryKeys = ["serverId", "remoteId"])
 data class UserBookProgressEntity(
@@ -110,21 +110,21 @@ data class UserBookProgressEntity(
     val positionMs: Long,
     val durationMs: Long,
     val finished: Boolean,
-    /** Eigenes Tempo; `null` = das des Abos bzw. Bereichs (nullbar seit Version 11). */
+    /** Own speed; `null` = that of the subscription or section (nullable since version 11). */
     val speed: Float?,
     val updatedAt: Long,
     val dirty: Boolean,
-    /** Aus „Weiterhören“ genommen (seit Version 10). */
+    /** Removed from "Continue listening" (since version 10). */
     @ColumnInfo(defaultValue = "0") val hidden: Boolean = false,
-    /** Eigene Effekte (seit Version 11). */
+    /** Own effects (since version 11). */
     val skipSilence: Boolean? = null,
     val volumeBoostDb: Int? = null,
 )
 
 /**
- * Ein Lesezeichen (`bookmarks`, seit Version 14) über `(serverId, remoteId)` seines Buchs und seine Position: Audiobookshelf
- * kennt Lesezeichen an ihrer Zeit, zwei an derselben Stelle ergeben keinen Sinn. Gelöschte fehlen. Von Audiobookshelf-Büchern
- * nur die, die der Server noch nicht hat (`remoteTime` fehlt oder geändert); den Rest holt der Abgleich zurück.
+ * A bookmark (`bookmarks`, since version 14) via `(serverId, remoteId)` of its book and its position: Audiobookshelf
+ * identifies bookmarks by their time, two at the same spot make no sense. Deleted ones are missing. For Audiobookshelf books
+ * only those the server doesn't have yet (`remoteTime` missing or changed); the sync brings back the rest.
  */
 @Entity(tableName = "bookmarks", primaryKeys = ["serverId", "remoteId", "positionMs"])
 data class UserBookmarkEntity(
@@ -135,14 +135,14 @@ data class UserBookmarkEntity(
     val note: String,
     val createdAt: Long,
     val updatedAt: Long,
-    /** Zeit beim Server (Sekunden), `null` = dort noch unbekannt. */
+    /** Time on the server (seconds), `null` = not yet known there. */
     val remoteTime: Double?,
 )
 
 /**
- * Was mit dem Download einer Podcast-Folge war (`book_tracks.downloadState`), über Feed und guid. [wanted]: geladen oder
- * wartend – kommt auf einem neuen Gerät wieder, solange die Folge nicht gehört ist. Sonst entfernt oder fehlgeschlagen –
- * die Automatik lädt sie dann auch dort nicht.
+ * What happened to a podcast episode's download (`book_tracks.downloadState`), via feed and guid. [wanted]: downloaded or
+ * waiting – comes back on a new device as long as the episode hasn't been played. Otherwise removed or failed –
+ * then the automation doesn't download it there either.
  */
 @Entity(tableName = "episode_downloads", primaryKeys = ["serverId", "remoteId"])
 data class UserEpisodeDownloadEntity(
@@ -151,7 +151,7 @@ data class UserEpisodeDownloadEntity(
     val wanted: Boolean,
 )
 
-/** Eine gemerkte Podcast-Folge (`books.starredAt`, seit Version 16), über Feed und guid. */
+/** A starred podcast episode (`books.starredAt`, since version 16), via feed and guid. */
 @Entity(tableName = "episode_stars", primaryKeys = ["serverId", "remoteId"])
 data class UserEpisodeStarEntity(
     val serverId: String,
@@ -160,10 +160,10 @@ data class UserEpisodeStarEntity(
 )
 
 /**
- * Ein Buch aus ARD Sounds in der Bibliothek (`books` mit `serverId = ardsounds`, seit Version 18), über die Kennung bei ARD Sounds.
- * Das Buch selbst holt die App auf einem neuen Gerät wieder von dort; Fortschritt und Lesezeichen kommen über ihre eigenen Zeilen.
- * [parts] (seit Version 19) sind seine Teile in ihrer Reihenfolge, auch die, die ARD Sounds nicht mehr führt: Ohne sie verschöben
- * sich Position und Lesezeichen auf dem neuen Gerät, sobald ein Teil abgelaufen ist (Format: `ArdBookParts.kt` in `:core:data`).
+ * A book from ARD Sounds in the library (`books` with `serverId = ardsounds`, since version 18), via its ID at ARD Sounds.
+ * The app fetches the book itself from there again on a new device; progress and bookmarks come via their own rows.
+ * [parts] (since version 19) are its parts in their order, including those ARD Sounds no longer carries: without them,
+ * position and bookmarks would shift on the new device as soon as a part expired (format: `ArdBookParts.kt` in `:core:data`).
  */
 @Entity(tableName = "ard_books")
 data class UserArdBookEntity(
@@ -173,8 +173,8 @@ data class UserArdBookEntity(
 )
 
 /**
- * Ein Song über seine Metadaten statt der `songId` (siehe `KeyedSong`): Album-Künstler, Album, CD, Titelnummer und Titel,
- * normalisiert wie beim Zusammenführen.
+ * A song via its metadata instead of the `songId` (see `KeyedSong`): album artist, album, disc, track number and title,
+ * normalized as when merging.
  */
 data class UserSongKey(
     val albumArtist: String,
@@ -184,13 +184,13 @@ data class UserSongKey(
     val title: String,
 )
 
-/** Eine Playlist nur auf diesem Gerät (`playlists` ohne Server); Server-Playlists kommen mit dem Abgleich. */
+/** A playlist only on this device (`playlists` without a server); server playlists come with the sync. */
 @Entity(tableName = "playlists")
 data class UserPlaylistEntity(
-    /** `playlists.backupKey` der Hauptdatenbank. */
+    /** `playlists.backupKey` of the main database. */
     @PrimaryKey val playlistKey: String,
     val name: String,
-    /** Stand der Playlist; nur wenn er sich ändert, wird die gesicherte Fassung ersetzt. */
+    /** State of the playlist; only when it changes is the backed-up version replaced. */
     val updatedAt: Long,
 )
 
@@ -201,7 +201,7 @@ data class UserPlaylistEntryEntity(
     @Embedded(prefix = "song_") val song: UserSongKey,
 )
 
-/** Favorit eines Songs ohne Server-Quelle; Server-Favoriten kommen mit dem Abgleich. */
+/** Favorite of a song without a server source; server favorites come with the sync. */
 @Entity(tableName = "favorites", primaryKeys = ["song_albumArtist", "song_album", "song_disc", "song_track", "song_title"])
 data class UserFavoriteEntity(
     @Embedded(prefix = "song_") val song: UserSongKey,
@@ -209,8 +209,8 @@ data class UserFavoriteEntity(
 )
 
 /**
- * Favorit eines Albums oder Künstlers ohne Server-Quelle; die anderen hält der Server. Alben über [artist] =
- * Album-Künstler und [title], Künstler über [artist] = Name (und leeren [title]), normalisiert wie beim Zusammenführen.
+ * Favorite of an album or artist without a server source; the server holds the others. Albums via [artist] =
+ * album artist and [title], artists via [artist] = name (and empty [title]), normalized as when merging.
  */
 @Entity(tableName = "collection_favorites", primaryKeys = ["kind", "artist", "title"])
 data class UserCollectionFavoriteEntity(
@@ -220,7 +220,7 @@ data class UserCollectionFavoriteEntity(
     val changedAt: Long,
 )
 
-/** Hörverlauf der Musik (`play_events`): „Zuletzt gehört“, „Wiederentdecken“. */
+/** Music listening history (`play_events`): "Recently played", "Rediscover". */
 @Entity(
     tableName = "play_events",
     primaryKeys = ["song_albumArtist", "song_album", "song_disc", "song_track", "song_title", "playedAt"],
@@ -232,8 +232,8 @@ data class UserPlayEventEntity(
 )
 
 /**
- * Was auf die Uhr soll (`wear_selections`). Ziel über [albumArtist]/[album] (normalisiert) bzw. [playlistRef]
- * (`local` + `backupKey` oder Server + `remotePlaylistId`) statt der `albumId`/`playlistId`.
+ * What should go onto the watch (`wear_selections`). Target via [albumArtist]/[album] (normalized) or [playlistRef]
+ * (`local` + `backupKey` or server + `remotePlaylistId`) instead of the `albumId`/`playlistId`.
  */
 @Entity(tableName = "wear_selections")
 data class UserWearSelectionEntity(

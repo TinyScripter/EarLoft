@@ -17,8 +17,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Fortschritt einer Folge bzw. eines Buchs auf der Uhr. Schlüssel wie auf beiden Geräten: `feedId` und guid einer Folge
- * bzw. `serverId` und `remoteId` eines Buchs.
+ * Progress of an episode or book on the watch. Keys as on both devices: `feedId` and guid of an episode
+ * or `serverId` and `remoteId` of a book.
  */
 data class WatchEpisodeProgress(
     val feedId: String,
@@ -26,21 +26,21 @@ data class WatchEpisodeProgress(
     val positionMs: Long,
     val durationMs: Long,
     val finished: Boolean,
-    /** Eigenes Tempo und eigene Effekte; `null` = die des Abos bzw. Bereichs. */
+    /** Own speed and own effects; `null` = those of the subscription or section. */
     val speed: Float?,
     val updatedAt: Long,
     val skipSilence: Boolean? = null,
     val volumeBoostDb: Int? = null,
 )
 
-/** Auf der Uhr gehörte Inhaltszeit einer Folge bzw. eines Buchs seit der letzten Meldung, gehört bis [at]. */
+/** Content time of an episode or book listened to on the watch since the last report, listened until [at]. */
 data class WatchEpisodeListening(val feedId: String, val guid: String, val listenedMs: Long, val at: Long)
 
 /**
- * Übernimmt, was auf der Uhr gehört wurde (Wear-Konzept 16.1/16.2): den Fortschritt, wenn er neuer ist als der des Handys,
- * und die gehörte Zeit in die Statistik, als wäre sie hier gehört. Bei Büchern von Audiobookshelf geht beides weiter an den
- * Server: der Fortschritt wie beim Abspielen am Handy, die Zeit als Hörsitzung. Zu Ende Gehörtes fällt dadurch aus der
- * Auswahl und damit von der Uhr. Jedes Paket zählt nur einmal ([ImportedPackets]).
+ * Adopts what was listened to on the watch (Wear concept 16.1/16.2): the progress if it's newer than the phone's,
+ * and the listening time into the statistics, as if listened to here. For Audiobookshelf books both are forwarded to the
+ * server: the progress as when playing on the phone, the time as a listening session. Items listened to the end thereby drop
+ * out of the selection and thus off the watch. Each packet counts only once ([ImportedPackets]).
  */
 @Singleton
 class WatchEpisodeImporter @Inject constructor(
@@ -53,7 +53,7 @@ class WatchEpisodeImporter @Inject constructor(
     private val importedPackets = ImportedPackets(context, PREFERENCES)
     private val mutex = Mutex()
 
-    /** @return Anzahl der übernommenen Fortschritte; ältere als der des Handys und Unbekanntes zählen nicht. */
+    /** @return number of adopted progress entries; ones older than the phone's and unknown ones don't count. */
     suspend fun import(packetId: String, progress: List<WatchEpisodeProgress>, listening: List<WatchEpisodeListening>): Int = mutex.withLock {
         if (packetId in importedPackets) return 0
         var applied = 0
@@ -71,7 +71,7 @@ class WatchEpisodeImporter @Inject constructor(
                     finished = item.finished,
                     speed = item.speed,
                     updatedAt = item.updatedAt,
-                    // Folgen und Bücher vom Gerät haben keinen Server, der den Stand bekommen müsste.
+                    // Episodes and books from the device have no server that would need to receive the state.
                     dirty = synced,
                     skipSilence = item.skipSilence,
                     volumeBoostDb = item.volumeBoostDb,
@@ -91,7 +91,7 @@ class WatchEpisodeImporter @Inject constructor(
             }
         }
         importedPackets.remember(packetId)
-        // Ohne Verbindung bleibt der Stand `dirty`; der Worker von BookProgressSync liefert ihn nach.
+        // Without a connection the state stays `dirty`; the BookProgressSync worker delivers it later.
         toServer.forEach { progressSync.push(it) }
         applied
     }

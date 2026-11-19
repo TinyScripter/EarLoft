@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Kopfhörer-Haus-Emblem; der Ring liegt mit ~62dp Durchmesser in der 66dp-Safe-Zone des adaptiven Icons. -->
+<!-- Headphones-house emblem; the ring with ~62dp diameter sits in the 66dp safe zone of the adaptive icon. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"

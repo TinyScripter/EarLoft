@@ -12,10 +12,10 @@ import de.kleinabersmart.earloft.core.model.SyncActionType
 import javax.inject.Inject
 
 /**
- * Übernimmt die Playlists eines Servers nach dem Song-Abgleich (Konzept 6.3/6.4). Wurde eine Playlist
- * auf dem Server seit dem letzten Abgleich geändert, gewinnt der Server – auch gegen noch nicht
- * gesendete lokale Änderungen – außer solche, deren Senden schon einmal gescheitert ist (halber Stand auf dem
- * Server, siehe [SyncQueueProcessor]). Auf dem Server gelöschte Playlists verschwinden auch lokal.
+ * Adopts a server's playlists after the song sync (concept 6.3/6.4). If a playlist was changed
+ * on the server since the last sync, the server wins – even against local changes not yet
+ * sent – except those whose sending already failed once (half-applied state on the
+ * server, see [SyncQueueProcessor]). Playlists deleted on the server disappear locally too.
  */
 class PlaylistSyncer @Inject constructor(
     private val database: EarLoftDatabase,
@@ -46,9 +46,9 @@ class PlaylistSyncer @Inject constructor(
     }
 
     /**
-     * Schreibt den Serverstand in die Playlist [playlistId] (bzw. legt sie an) und verwirft ausstehende
-     * lokale Änderungen. Songs, die (noch) nicht in der Bibliothek sind, fallen weg. Innerhalb einer
-     * Transaktion aufrufen.
+     * Writes the server state into playlist [playlistId] (or creates it) and discards pending
+     * local changes. Songs that aren't in the library (yet) are dropped. Call within a
+     * transaction.
      */
     internal suspend fun applyRemote(sourceId: String, playlistId: Long?, playlist: RemotePlaylist): Long {
         val info = playlist.info

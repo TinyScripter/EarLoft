@@ -48,13 +48,13 @@ class LibraryRepository @Inject constructor(
 
     fun genres(): Flow<List<Genre>> = libraryDao.observeGenreRows().map { rows -> rows.map { it.toGenre() } }
 
-    /** Alben mit Songs des Genres [genre] (Name in beliebiger Schreibweise). */
+    /** Albums with songs of the genre [genre] (name in any spelling). */
     fun albumsOfGenre(genre: String): Flow<List<Album>> =
         libraryDao.observeAlbumRowsOfGenre(Genre.key(genre)).map { rows -> rows.map { it.toAlbum() } }
 
     suspend fun songsOfGenre(genre: String): List<Song> = libraryDao.getSongRowsOfGenre(Genre.key(genre)).map { it.toSong() }
 
-    /** Alle Songs der [albumIds], Album für Album in deren Reihenfolge, je Album in Albumreihenfolge. */
+    /** All songs of the [albumIds], album by album in their order, each album in album order. */
     suspend fun songsOfAlbums(albumIds: List<Long>): List<Song> {
         val byAlbum = albumIds.distinct().chunked(SQLITE_MAX_VARIABLES)
             .flatMap { libraryDao.getSongRowsOfAlbums(it) }
@@ -65,7 +65,7 @@ class LibraryRepository @Inject constructor(
     fun decades(): Flow<List<Decade>> =
         libraryDao.observeDecadeRows().map { rows -> rows.map { Decade(it.startYear, it.albumCount) } }
 
-    /** Je Album die Schlüssel seiner Genres ([Genre.key]); Alben ohne Genre fehlen. */
+    /** Per album the keys of its genres ([Genre.key]); albums without a genre are missing. */
     fun albumGenreKeys(): Flow<Map<Long, Set<String>>> =
         libraryDao.observeAlbumGenreRows().map { rows ->
             rows.groupBy({ it.albumId }, { Genre.key(it.genre) }).mapValues { (_, keys) -> keys.toSet() }
@@ -81,17 +81,17 @@ class LibraryRepository @Inject constructor(
             artist?.let { ArtistDetails(it.toArtist(), albums.map { row -> row.toAlbum() }) }
         }
 
-    /** Alben anderer Künstler, auf denen [artistId] mitwirkt. */
+    /** Albums by other artists on which [artistId] appears. */
     fun appearsOn(artistId: Long): Flow<List<Album>> =
         libraryDao.observeAppearsOnAlbumRows(artistId).map { rows -> rows.map { it.toAlbum() } }
 
-    /** Alle Songs des Künstlers: seine Alben und seine Songs auf anderen Alben, nach Jahr. */
+    /** All songs of the artist: their albums and their songs on other albums, by year. */
     suspend fun songsOfArtist(artistId: Long): List<Song> = libraryDao.getSongRowsOfArtist(artistId).map { it.toSong() }
 
     fun topSongsOfArtist(artistId: Long, limit: Int = 5): Flow<List<Song>> =
         libraryDao.observeTopSongRowsOfArtist(artistId, limit).map { rows -> rows.map { it.toSong() } }
 
-    /** Die Alben jedes Künstlers (Albumkünstler): Künstler-ID → Album-IDs. */
+    /** The albums of each artist (album artist): artist ID → album IDs. */
     fun albumIdsByArtist(): Flow<Map<Long, Set<Long>>> = libraryDao.observeAlbumArtists().map { refs ->
         refs.groupBy({ it.artistId }, { it.albumId }).mapValues { it.value.toSet() }
     }
@@ -103,8 +103,8 @@ class LibraryRepository @Inject constructor(
         libraryDao.observeRecentlyPlayedAlbumRows(limit).map { rows -> rows.map { it.toAlbum() } }
 
     /**
-     * Die in den letzten [periodMs] am häufigsten gehörten Alben; nur Alben mit mindestens [MOST_PLAYED_MIN_PLAYS] Wiedergaben,
-     * damit die Zeile nicht nur „Zuletzt gehört“ wiederholt. Der Zeitraum wird stündlich neu berechnet ([windowStarts]).
+     * The most played albums in the last [periodMs]; only albums with at least [MOST_PLAYED_MIN_PLAYS] plays,
+     * so the row doesn't just repeat "Recently played". The period is recomputed hourly ([windowStarts]).
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun mostPlayedAlbums(periodMs: Long = MOST_PLAYED_PERIOD_MS, limit: Int = 20): Flow<List<Album>> =
@@ -112,25 +112,25 @@ class LibraryRepository @Inject constructor(
             .flatMapLatest { since -> libraryDao.observeMostPlayedAlbumRows(since, MOST_PLAYED_MIN_PLAYS, limit) }
             .map { rows -> rows.map { it.toAlbum() } }
 
-    /** Gespielte Alben, die seit mindestens [notPlayedForMs] nicht mehr liefen; das älteste zuerst. */
+    /** Played albums that haven't been played for at least [notPlayedForMs]; the oldest first. */
     fun rediscoverAlbums(notPlayedForMs: Long = REDISCOVER_AFTER_MS, limit: Int = 20): Flow<List<Album>> =
         libraryDao.observeRediscoverAlbumRows(System.currentTimeMillis() - notPlayedForMs, limit)
             .map { rows -> rows.map { it.toAlbum() } }
 
     /**
-     * Zufällige Alben. Die Auswahl bleibt stabil und wird nur neu gewürfelt, wenn sich die Zahl
-     * der Alben ändert (z. B. nach dem ersten Scan) – nicht bei jeder Datenbankänderung.
+     * Random albums. The selection stays stable and is only reshuffled when the number
+     * of albums changes (e.g. after the first scan) – not on every database change.
      */
     fun randomAlbums(limit: Int = 20): Flow<List<Album>> =
         libraryDao.observeAlbumCount().distinctUntilChanged()
             .map { libraryDao.getRandomAlbumRows(limit).map { row -> row.toAlbum() } }
 
-    /** Zufällige Künstler, Verhalten wie bei [randomAlbums]. */
+    /** Random artists, behaving like [randomAlbums]. */
     fun randomArtists(limit: Int = 20): Flow<List<Artist>> =
         libraryDao.observeAlbumCount().distinctUntilChanged()
             .map { libraryDao.getRandomArtistRows(limit).map { row -> row.toArtist() } }
 
-    /** Liefert die Songs in der Reihenfolge von [songIds]; unbekannte IDs fallen weg. */
+    /** Returns the songs in the order of [songIds]; unknown IDs are dropped. */
     suspend fun songs(songIds: List<Long>): List<Song> {
         val byId = songIds.distinct()
             .chunked(SQLITE_MAX_VARIABLES)
@@ -139,12 +139,12 @@ class LibraryRepository @Inject constructor(
         return songIds.mapNotNull { byId[it] }
     }
 
-    /** Die Quellen eines Songs mit Format, Bitrate, Größe und ReplayGain (Titel-Info). */
+    /** The sources of a song with format, bitrate, size and ReplayGain (track info). */
     suspend fun sourcesOf(songId: Long): List<SongSourceInfo> = libraryDao.getSourceInfoRows(songId).map {
         SongSourceInfo(it.sourceId, it.sourceName, it.sourceType, it.mimeType, it.bitRate, it.sizeBytes, it.trackGainDb, it.albumGainDb, it.isDownloaded)
     }
 
-    /** Welche der Song-Quellen (`sourceUid`) es noch gibt. */
+    /** Which of the song sources (`sourceUid`) still exist. */
     suspend fun existingSourceUids(uids: Collection<String>): Set<String> =
         uids.chunked(SQLITE_MAX_VARIABLES).flatMapTo(HashSet()) { libraryDao.getExistingSourceUids(it) }
 
@@ -159,8 +159,8 @@ class LibraryRepository @Inject constructor(
     }
 
     /**
-     * Genres, deren Name jedes Wort der Eingabe enthält („hip hop“ findet „Hip-Hop“). Es gibt nur wenige Genres; deshalb
-     * ohne Volltextindex.
+     * Genres whose name contains every word of the input ("hip hop" finds "Hip-Hop"). There are only a few genres; hence
+     * without a full-text index.
      */
     private suspend fun searchGenres(query: String, limit: Int): List<Genre> {
         val terms = query.lowercase().split(SEARCH_SEPARATORS).filter { it.isNotEmpty() }
@@ -176,17 +176,17 @@ class LibraryRepository @Inject constructor(
         private val SEARCH_SEPARATORS = Regex("[^\\p{L}\\p{N}]+")
         private const val REDISCOVER_AFTER_MS = 30L * 24 * 60 * 60 * 1000
 
-        /** „Meistgehört“ (Regal auf Start, automatische Downloads): Zeitraum und Mindestzahl der Wiedergaben je Album. */
+        /** "Most played" (shelf on Home, automatic downloads): period and minimum number of plays per album. */
         const val MOST_PLAYED_PERIOD_MS = 90L * 24 * 60 * 60 * 1000
         const val MOST_PLAYED_MIN_PLAYS = 3
 
-        /** Wie oft der Beginn eines laufenden Zeitraums ([windowStarts]) neu berechnet wird. */
+        /** How often the start of a running period ([windowStarts]) is recomputed. */
         const val WINDOW_REFRESH_MS = 60L * 60 * 1000
 
         /**
-         * Der Beginn eines Zeitraums von [periodMs] bis jetzt, alle [refreshMs] neu berechnet: Ein Prozess, der
-         * tagelang läuft, lässt so Einträge fallen, die aus dem Zeitraum herausgewachsen sind. Der Takt läuft auf der
-         * echten Uhr, auch unter einem Test-Scheduler: Dessen übersprungene Zeit würde die Abfrage endlos neu starten.
+         * The start of a period from [periodMs] ago until now, recomputed every [refreshMs]: a process that
+         * runs for days thus drops entries that have aged out of the period. The tick runs on the
+         * real clock, even under a test scheduler: its skipped time would restart the query endlessly.
          */
         fun windowStarts(periodMs: Long, refreshMs: Long = WINDOW_REFRESH_MS): Flow<Long> = flow {
             while (true) {

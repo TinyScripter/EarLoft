@@ -18,12 +18,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Bringt alle Server-Quellen eines Songs auf den gewünschten Favoriten-Zustand (Konzept 6.4:
- * Sternen eines logischen Songs geht an **alle** Server). Ältere, noch nicht gesendete Änderungen
- * werden ersetzt; stimmt der Server schon überein (z. B. Stern und gleich wieder entfernt), wird
- * nichts gesendet. Innerhalb einer Transaktion aufrufen.
+ * Brings all server sources of a song to the desired favorite state (concept 6.4:
+ * starring a logical song goes to **all** servers). Older, not yet sent changes
+ * are replaced; if the server already agrees (e.g. starred and immediately removed again),
+ * nothing is sent. Call within a transaction.
  *
- * @return `true`, wenn danach Aktionen ausstehen.
+ * @return `true` if actions are pending afterwards.
  */
 internal suspend fun SyncDao.pushFavoriteToServers(songId: Long, favorite: Boolean, exceptUid: String? = null): Boolean {
     var pending = false
@@ -61,7 +61,7 @@ class FavoritesRepository @Inject constructor(
         setFavorite(songId, syncDao.isSongFavorite(songId) != true)
     }
 
-    /** Favorisierte Alben, das zuletzt favorisierte zuerst. */
+    /** Favorite albums, most recently favorited first. */
     fun favoriteAlbums(): Flow<List<Album>> = libraryDao.observeFavoriteAlbumRows().map { rows -> rows.map { it.toAlbum() } }
 
     fun favoriteArtists(): Flow<List<Artist>> = libraryDao.observeFavoriteArtistRows().map { rows -> rows.map { it.toArtist() } }
@@ -76,7 +76,7 @@ class FavoritesRepository @Inject constructor(
     fun isArtistFavorite(artistId: Long): Flow<Boolean> =
         libraryDao.observeIsArtistFavorite(artistId).map { it == true }.distinctUntilChanged()
 
-    /** Wie [setFavorite] für Alben ([FavoriteKind.ALBUM]) und Künstler ([FavoriteKind.ARTIST]); die Songs bleiben, wie sie sind. */
+    /** Like [setFavorite] for albums ([FavoriteKind.ALBUM]) and artists ([FavoriteKind.ARTIST]); the songs stay as they are. */
     suspend fun setCollectionFavorite(kind: FavoriteKind, id: Long, favorite: Boolean) {
         require(kind != FavoriteKind.SONG)
         val pending = database.withTransaction {

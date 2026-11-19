@@ -13,16 +13,16 @@ data class SourceEntity(
     val type: SourceType,
     val name: String,
     val baseUrl: String? = null,
-    /** Secret liegt verschlüsselt im SecretStore, nicht in der Datenbank. */
+    /** The secret is stored encrypted in the SecretStore, not in the database. */
     val username: String? = null,
-    /** Auswahl bei mehreren Streaming-Quellen für denselben Song; höher = bevorzugt. */
+    /** Choice among several streaming sources for the same song; higher = preferred. */
     val priority: Int = 0,
-    /** OpenSubsonic-Extensions als JSON. */
+    /** OpenSubsonic extensions as JSON. */
     val serverCapabilities: String? = null,
-    /** Zähler für Mark-and-Sweep beim Vollabgleich. */
+    /** Counter for mark-and-sweep during the full sync. */
     val syncGeneration: Long = 0,
     val lastFullSyncAt: Long = 0,
-    /** Ausgeschaltet: kein Abgleich, Inhalte ausgeblendet; Songs und Downloads bleiben erhalten. */
+    /** Disabled: no sync, content hidden; songs and downloads are kept. */
     @ColumnInfo(defaultValue = "1") val enabled: Boolean = true,
 )
 
@@ -55,15 +55,15 @@ data class AlbumEntity(
     val isCompilation: Boolean = false,
     /** MusicBrainz Release ID. */
     val mbid: String? = null,
-    /** `song_sources.uid`, deren Cover für das Album genutzt wird. */
+    /** `song_sources.uid` whose cover is used for the album. */
     val coverSourceUid: String? = null,
-    /** Einmalig aus dem Cover berechnete Seed-Farbe (ARGB). */
+    /** Seed color computed once from the cover (ARGB). */
     val seedColor: Int? = null,
     @ColumnInfo(defaultValue = "0") val isFavorite: Boolean = false,
     @ColumnInfo(defaultValue = "0") val favoriteChangedAt: Long = 0,
 )
 
-/** Logischer Song, wie ihn der Nutzer sieht – unabhängig davon, wie viele Quellen ihn liefern. */
+/** Logical song as the user sees it – regardless of how many sources provide it. */
 @Entity(
     tableName = "songs",
     foreignKeys = [
@@ -86,7 +86,7 @@ data class SongEntity(
     val trackNumber: Int = 0,
     val durationMs: Long,
     val year: Int? = null,
-    /** Das erste Genre (Uhr, Anzeige); alle stehen in [SongGenreEntity]. */
+    /** The first genre (watch, display); all of them are in [SongGenreEntity]. */
     val genre: String? = null,
     /** MusicBrainz Recording ID. */
     val mbid: String? = null,
@@ -95,7 +95,7 @@ data class SongEntity(
     val dateAdded: Long,
 )
 
-/** Physische Datei bzw. Server-Eintrag, der einen [SongEntity] liefert. */
+/** Physical file or server entry that provides a [SongEntity]. */
 @Entity(
     tableName = "song_sources",
     foreignKeys = [
@@ -115,7 +115,7 @@ data class SongEntity(
     indices = [Index("songId"), Index(value = ["sourceId", "remoteId"], unique = true)],
 )
 data class SongSourceEntity(
-    /** `"$sourceId:$remoteId"` – geräteübergreifend stabile Kennung. */
+    /** `"$sourceId:$remoteId"` – ID that is stable across devices. */
     @PrimaryKey val uid: String,
     val songId: Long,
     val sourceId: String,
@@ -130,14 +130,14 @@ data class SongSourceEntity(
     val rgAlbumGainDb: Float? = null,
     val rgAlbumPeak: Float? = null,
     val seenInGeneration: Long,
-    /** Zeitpunkt, zu dem der Server den Song favorisiert hat; `null` = nicht favorisiert (lokale Quellen immer). */
+    /** Time at which the server favorited the song; `null` = not favorited (local sources always). */
     @ColumnInfo(defaultValue = "NULL") val starredAt: Long? = null,
 )
 
 /**
- * Ein Genre eines Songs; ein Song kann mehrere haben (OpenSubsonic `genres`, Jellyfin/Emby `Genres`). [genreKey] ist
- * `Genre.key`: Schreibweisen, die sich nur in Groß-/Kleinschreibung unterscheiden, sind ein Genre (auch bei Umlauten, die
- * SQLite mit `NOCASE` nicht gleichsetzt). [position] 0 ist das Genre in [SongEntity.genre].
+ * A genre of a song; a song can have several (OpenSubsonic `genres`, Jellyfin/Emby `Genres`). [genreKey] is
+ * `Genre.key`: spellings that differ only in case are one genre (including umlauts, which
+ * SQLite with `NOCASE` does not treat as equal). [position] 0 is the genre in [SongEntity.genre].
  */
 @Entity(
     tableName = "song_genres",
@@ -210,8 +210,8 @@ data class AlbumArtistCrossRef(
 )
 
 /**
- * Ein Album, wie es ein Server unter eigener ID führt (für Favoriten, Konzept 6.4). Mehrere Server-Alben können zu einem
- * Album zusammengeführt sein. Gefüllt aus den Songs jedes Abgleichs; ältere Generationen löscht der Vollabgleich.
+ * An album as a server carries it under its own ID (for favorites, concept 6.4). Several server albums can be merged into
+ * one album. Filled from the songs of each sync; the full sync deletes older generations.
  */
 @Entity(
     tableName = "album_sources",
@@ -237,11 +237,11 @@ data class AlbumSourceEntity(
     val remoteId: String,
     val albumId: Long,
     val seenInGeneration: Long,
-    /** Wie [SongSourceEntity.starredAt]. */
+    /** Like [SongSourceEntity.starredAt]. */
     val starredAt: Long? = null,
 )
 
-/** Wie [AlbumSourceEntity] für Künstler. */
+/** Like [AlbumSourceEntity] for artists. */
 @Entity(
     tableName = "artist_sources",
     primaryKeys = ["sourceId", "remoteId"],

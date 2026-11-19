@@ -37,8 +37,8 @@ import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Wann die Rückfrage zu mobilen Daten kommt, so wie es der Einstellungstext beschreibt (Review F40): beim Start in der App
- * ja, beim Fortsetzen des Geladenen und bei Starts von der Uhr nicht; „Abspielen“ gilt bis zum Ende der App.
+ * When the mobile data prompt appears, as the settings text describes it (review F40): when starting in the app
+ * yes, when resuming what is loaded and when starting from the watch no; "Play" applies until the app ends.
  */
 @HiltAndroidTest
 @Config(application = HiltTestApplication::class)
@@ -64,7 +64,7 @@ class BookLauncherTest {
     fun setUp() = runTest {
         hilt.inject()
         settings.setAskBeforeMobileStreaming(true)
-        // Mobilfunk: volumenbegrenzt, also ohne NOT_METERED.
+        // Cellular: metered, so without NOT_METERED.
         val manager = ApplicationProvider.getApplicationContext<Context>().getSystemService(ConnectivityManager::class.java)
         val capabilities = ShadowNetworkCapabilities.newInstance().also {
             shadowOf(it).addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
@@ -75,7 +75,7 @@ class BookLauncherTest {
         otherId = serverBook("li_2")
     }
 
-    /** Ein Buch eines Audiobookshelf-Servers, dessen Datei nicht geladen ist. */
+    /** A book from an Audiobookshelf server whose file is not downloaded. */
     private suspend fun serverBook(remoteId: String): Long {
         val id = dao.upsertBook(
             BookEntity(
@@ -91,7 +91,7 @@ class BookLauncherTest {
 
     private suspend fun awaitStarted(id: Long) = awaitReal { playback.commands.first { Command.PlayBook(id, null) in it } }
 
-    /** Gibt dem App-Scope Zeit; danach darf nichts passiert sein. */
+    /** Gives the app scope time; nothing may have happened afterwards. */
     private suspend fun settle() = awaitReal { delay(300.milliseconds) }
 
     @Test

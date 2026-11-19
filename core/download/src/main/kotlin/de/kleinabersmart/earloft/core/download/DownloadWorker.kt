@@ -20,9 +20,9 @@ import de.kleinabersmart.earloft.core.database.dao.DownloadDao
 import kotlinx.coroutines.CancellationException
 
 /**
- * Arbeitet die Download-Warteschlange nacheinander ab (Konzept 5.3) und läuft dabei als
- * Vordergrund-Worker mit Fortschrittsbenachrichtigung. Netzfehler stellen den Download zurück und
- * lassen WorkManager es mit Backoff erneut versuchen; nach [MAX_ATTEMPTS] gilt er als fehlgeschlagen (je Lauf höchstens einer,
+ * Works through the download queue one by one (concept 5.3), running as a
+ * foreground worker with a progress notification. Network errors put the download back and
+ * let WorkManager retry with backoff; after [MAX_ATTEMPTS] it counts as failed (at most one per run,
  * [RetryBudget]).
  */
 class DownloadWorker(
@@ -52,14 +52,14 @@ class DownloadWorker(
             when (outcome) {
                 is DownloadOutcome.Retry -> {
                     Log.w(TAG, "Download ${next.sourceUid} unterbrochen (Versuch ${runAttemptCount + 1})", outcome.cause)
-                    // Abgelehnte Zugangsdaten ändern sich durch Warten nicht; sonst hielte der Song die Warteschlange auf.
+                    // Rejected credentials don't change by waiting; otherwise the song would hold up the queue.
                     if (!budget.giveUp(outcome)) {
                         downloadDao.requeue(next.sourceUid)
                         return Result.retry()
                     }
                     downloadDao.markFailed(next.sourceUid)
-                    // Die übrigen Songs dieses Servers scheiterten genauso (bei „alles laden“ Tausende Anfragen); neue
-                    // Zugangsdaten im Serverformular reihen sie wieder ein.
+                    // The other songs of this server would fail the same way (thousands of requests with "download everything"); new
+                    // credentials in the server form re-enqueue them.
                     if (outcome.isAuthRejection) downloadDao.failQueuedOfSource(next.sourceUid.substringBefore(':'))
                 }
                 is DownloadOutcome.Failed -> Log.w(TAG, "Download ${next.sourceUid} fehlgeschlagen: ${outcome.reason}")
@@ -76,8 +76,8 @@ class DownloadWorker(
     }
 
     /**
-     * Je Album mit geladenen Songs einmal das Cover als Datei (meist schon von `OfflineImages` da): Es zählt nicht zum
-     * Cover-Cache und bleibt, solange es das Album gibt. Fehlt es, bleibt die Wiedergabe unberührt.
+     * Once per album with downloaded songs, the cover as a file (usually already there from `OfflineImages`): it doesn't count
+     * towards the cover cache and stays as long as the album exists. If it's missing, playback is unaffected.
      */
     private suspend fun cacheCovers() {
         for (albumId in downloadDao.getAlbumIdsWithDoneDownload()) {
@@ -93,10 +93,10 @@ class DownloadWorker(
 
     override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo(buildNotification(pending = 0, progress = null))
 
-    /** Ohne Vordergrund-Erlaubnis (Start aus dem Hintergrund) wird einfach normal weitergeladen. */
+    /** Without foreground permission (started from the background) downloading simply continues normally. */
     /**
-     * Aus dem Hintergrund (z. B. Wiederholung nach Backoff) verweigert das System den Vordergrunddienst; dann wird normal
-     * weitergeladen und in diesem Lauf nicht erneut gefragt (sonst bei jedem Prozent eine Ausnahme samt Stacktrace).
+     * From the background (e.g. retry after backoff) the system refuses the foreground service; then downloading
+     * continues normally and this run doesn't ask again (otherwise an exception plus stack trace at every percent).
      */
     private var foregroundDenied = false
 
@@ -105,7 +105,7 @@ class DownloadWorker(
         try {
             setForeground(foregroundInfo(buildNotification(downloadDao.countPending(), progress)))
         } catch (e: CancellationException) {
-            // Unterklasse von IllegalStateException: Der Worker wurde gestoppt, nicht der Vordergrund verweigert (Review V28).
+            // Subclass of IllegalStateException: the worker was stopped, the foreground was not refused (review V28).
             throw e
         } catch (e: IllegalStateException) {
             foregroundDenied = true

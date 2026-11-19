@@ -51,7 +51,7 @@ class DatabaseExporterTest {
         val repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()))
         importer = DatabaseImporter(repository, db.podcastDao(), db.bookDao(), db.statsDao())
         settings = SpokenSettings(ApplicationProvider.getApplicationContext())
-        // Der DataStore bleibt zwischen den Tests derselben JVM erhalten.
+        // The DataStore persists between tests in the same JVM.
         settings.setPodcastEffects(SpokenEffects())
         exporter = DatabaseExporter(db.podcastDao(), db.bookDao(), db.statsDao(), settings)
         repository.subscribe(FEED_URL)
@@ -81,11 +81,11 @@ class DatabaseExporterTest {
 
         val result = exporter.export(file, rssBridge = null)
 
-        // Das archivierte Abo (der Test-Feed liefert dieselben zwei Folgen) mit seiner Hörzeit ohne Folge in der App.
+        // The archived subscription (the test feed delivers the same two episodes) with its listening time without an episode in the app.
         assertEquals(DatabaseExportResult(feeds = 2, episodes = 6), result)
         val read = DatabaseReader.read(file)
         assertEquals(listOf(ImportFeed(FEED_URL, "Test-Podcast", true, volumeBoostDb = 0), ImportFeed(OLD_URL, "Test-Podcast", false, volumeBoostDb = 0)), read.feeds.sortedBy { !it.active })
-        // Gelesen wird nur, was Fortschritt oder Hörzeit hat.
+        // Only what has progress or listening time is read.
         assertEquals(listOf("old-1"), read.episodes.filter { it.feedUrl == OLD_URL }.map { it.guid })
         val byGuid = read.episodes.filter { it.feedUrl != OLD_URL }.associateBy { it.guid }
         assertEquals(setOf("guid-A", "guid-B", "guid-weg"), byGuid.keys)
@@ -110,7 +110,7 @@ class DatabaseExporterTest {
         val file = folder.newFile("stars.db")
         exporter.export(file, rssBridge = null)
 
-        // Gelesen wird die gemerkte Folge auch ohne Fortschritt.
+        // The remembered episode is read even without progress.
         val read = DatabaseReader.read(file)
         assertEquals(listOf("guid-B" to true), read.episodes.map { it.guid to it.starred })
 
@@ -130,7 +130,7 @@ class DatabaseExporterTest {
 
         val read = DatabaseReader.read(file).feeds.filter { "bridge.example.com" in it.url }
         assertEquals(listOf(true, false), read.sortedBy { !it.active }.map { it.active })
-        // In einer frischen App: aus den Bridge-Feeds werden wieder Sendungen aus ARD Sounds, das archivierte bleibt archiviert.
+        // In a fresh app: the bridge feeds become shows from ARD Sounds again, the archived one stays archived.
         db.clearAllTables()
         importer.import(DatabaseReader.read(file))
         assertEquals(false, db.podcastDao().feedByUrl(ARD_URL)!!.archived)
@@ -161,7 +161,7 @@ class DatabaseExporterTest {
 
         val expected = ImportFeed(FEED_URL, "Test-Podcast", true, speed = 1.5f, skipSilence = true, volumeBoostDb = 6, skipIntroS = 30, skipOutroS = 45)
         assertEquals(expected, DatabaseReader.read(file).feeds.single())
-        // In einer frischen App bekommt das neu angelegte Abo die Werte.
+        // In a fresh app the newly created subscription gets the values.
         db.clearAllTables()
         importer.import(DatabaseReader.read(file))
         with(db.podcastDao().feedByUrl(FEED_URL)!!) {

@@ -47,21 +47,21 @@ class PodcastRepositoryTest {
     private lateinit var repository: PodcastRepository
     private val settings = PodcastSettings(ApplicationProvider.getApplicationContext())
 
-    /** Was der „Server“ gerade ausliefert; `null` = nicht erreichbar. */
+    /** What the "server" is currently serving; `null` = unreachable. */
     private var served: String? = feed("A" to "Thu, 30 Oct 2025 06:00:00 GMT", "B" to "Wed, 29 Oct 2025 06:00:00 GMT", "C" to "Tue, 28 Oct 2025 06:00:00 GMT")
 
     private val now = Instant.parse("2025-10-31T00:00:00Z").toEpochMilli()
 
-    /** Was die GraphQL-Schnittstelle von ARD Sounds gerade ausliefert; `null` = nicht erreichbar. */
+    /** What the ARD Sounds GraphQL interface is currently serving; `null` = unreachable. */
     private var ardServed: String? = show("Fall 2", "Fall 1")
 
-    /** HTTP-Status des Feeds. */
+    /** HTTP status of the feed. */
     private var servedCode = 200
 
-    /** `false`: Der Host spricht kein HTTPS. */
+    /** `false`: the host doesn't speak HTTPS. */
     private var httpsAvailable = true
 
-    /** Alle abgerufenen Adressen in Reihenfolge. */
+    /** All fetched addresses in order. */
     private val requested = mutableListOf<String>()
 
     @Before
@@ -86,7 +86,7 @@ class PodcastRepositoryTest {
 
     @After
     fun tearDown() {
-        // Der DataStore lebt über den Test hinaus.
+        // The DataStore outlives the test.
         kotlinx.coroutines.runBlocking { settings.setAutoDownloadNew(false) }
         db.close()
     }
@@ -245,7 +245,7 @@ class PodcastRepositoryTest {
         val ids = db.podcastDao().feeds().map { it.feedId }
         assertTrue(kept in ids && "local:x" in ids && dropped !in ids)
         assertEquals(3, ids.size)
-        // Das bestehende Abo behielt seine Folgen.
+        // The existing subscription kept its episodes.
         assertEquals(3, db.bookDao().booksOf(kept).size)
     }
 
@@ -254,11 +254,11 @@ class PodcastRepositoryTest {
         val feed = subscribe()
         db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "ard", url = "ardsounds:urn:ard:show:5fa94a3212aa9829", title = "ARD"))
 
-        // Leere oder fremd aufgebaute Datei (z. B. `url` statt `xmlUrl`): nichts löschen.
+        // Empty or differently structured file (e.g. `url` instead of `xmlUrl`): delete nothing.
         assertEquals(OpmlImportResult(added = 0, skipped = 0, removed = 0), repository.importOpml(emptyList(), replace = true))
         assertEquals(2, db.podcastDao().feeds().size)
 
-        // Ohne RSS-Bridge exportiert EarLoft keine ARD-Abos; die Datei ersetzt sie deshalb nicht.
+        // Without RSS-Bridge EarLoft exports no ARD subscriptions; the file therefore doesn't replace them.
         val result = repository.importOpml(listOf(OpmlFeed("Neu", "https://example.com/new.xml")), replace = true)
         assertEquals(1, result.removed)
         val ids = db.podcastDao().feeds().map { it.feedId }
@@ -300,11 +300,11 @@ class PodcastRepositoryTest {
         assertEquals(emptyList<String>(), dao.search(BookKind.BOOK, "%podcast%", 10).map { it.title })
         assertEquals(listOf("Dune", "Dune Messiah"), dao.search(BookKind.BOOK, "%dune%", 10).map { it.title })
         assertEquals(emptyList<String>(), dao.search(BookKind.EPISODE, "%dune%", 10).map { it.title })
-        // Sprecher zählen mit, unabhängig von Groß- und Kleinschreibung.
+        // Narrators count too, case-insensitively.
         assertEquals(listOf("Harry Potter", "Sophies Welt"), dao.search(BookKind.BOOK, "%rufus beck%", 10).map { it.title })
         assertEquals(listOf(first, first + 1), dao.searchAuthorRows("%herbert%").map { it.bookId }.sorted())
         assertEquals(emptyList<BookPeopleRow>(), dao.searchAuthorRows("%podcast%"))
-        // Sprecher als eigene Treffergruppe, ohne Autoren und ohne Folgen.
+        // Narrators as a separate hit group, without authors and without episodes.
         assertEquals(listOf(BookPeopleRow(potter, "Rufus Beck"), BookPeopleRow(potter + 1, "Rufus Beck")), dao.searchNarratorRows("%beck%").sortedBy { it.bookId })
         assertEquals(emptyList<BookPeopleRow>(), dao.searchNarratorRows("%herbert%"))
     }
@@ -353,7 +353,7 @@ class PodcastRepositoryTest {
         repository.setQueueMode(feedId, FeedQueueMode.MANUAL)
         assertEquals(listOf("B"), repository.continueListening { now }.first().map { it.book.title })
 
-        // Ist die neueste gehört, rückt keine ältere nach.
+        // If the newest one is played, no older one moves up.
         repository.setQueueMode(feedId, FeedQueueMode.NEWEST_ONLY)
         listen(idOf(feedId, "A"), positionMs = 600_000, updatedAt = 150, finished = true)
         assertEquals(listOf("B"), repository.continueListening { now }.first().map { it.book.title })
@@ -382,14 +382,14 @@ class PodcastRepositoryTest {
         db.podcastDao().setStarred(listOf(b), 100)
         db.podcastDao().setStarred(listOf(c), 200)
         assertEquals(listOf("C", "B"), repository.starredEpisodes().first().map { it.book.title })
-        // Schon gemerkte behalten ihren Zeitpunkt.
+        // Already remembered ones keep their timestamp.
         assertEquals(0, db.podcastDao().setStarred(listOf(b), 300))
 
         repository.setStarred(listOf(c), starred = false)
         served = feed("A" to "Thu, 30 Oct 2025 06:00:00 GMT")
         repository.refresh(feedId)
 
-        // B steht nicht mehr im Feed, bleibt aber samt Stern; C ging mit dem Feed.
+        // B is no longer in the feed but stays along with its star; C went with the feed.
         assertEquals(listOf("A", "B"), repository.episodes(feedId).first().map { it.book.title })
         assertEquals(100L, db.bookDao().book(b)!!.starredAt)
         assertEquals(null, db.bookDao().book(c))
@@ -456,7 +456,7 @@ class PodcastRepositoryTest {
                 stat(ListeningStatEntity.SOURCE_IMPORTED, "guid-A", "A", 30_000, 100),
                 stat(ListeningStatEntity.SOURCE_APP, "guid-old", "Alt", 10_000, 200),
                 stat(ListeningStatEntity.SOURCE_IMPORTED, "x", "Fremd", 5_000, 400, group = "https://example.com/gone.xml"),
-                // Ohne Zeitpunkt steht es nicht im Verlauf.
+                // Without a timestamp it isn't in the history.
                 stat(ListeningStatEntity.SOURCE_IMPORTED, "guid-B", "B", 5_000, 0),
             ),
         )
@@ -482,7 +482,7 @@ class PodcastRepositoryTest {
             repository,
             PodcastSettings(ApplicationProvider.getApplicationContext()),
         )
-        // Die Folgen sind älter als 14 Tage: Von selbst stehen nur die angefangenen da.
+        // The episodes are older than 14 days: only the started ones appear on their own.
         assertEquals(listOf(b, c), continueListening.episodes.first().map { it.book.id })
 
         continueListening.playNext(a)
@@ -509,7 +509,7 @@ class PodcastRepositoryTest {
         continueListening.playNext(listOf(a, b, c))
         assertEquals(listOf(a, b, c), continueListening.episodes.first().map { it.book.id })
 
-        // Mit der vordersten (a) in der Auswahl bleibt sie vorn, die anderen folgen in der Reihenfolge der Auswahl.
+        // With the frontmost (a) in the selection it stays in front, the others follow in the order of the selection.
         continueListening.playNext(listOf(c, a, b))
         assertEquals(listOf(a, c, b), continueListening.episodes.first().map { it.book.id })
     }
@@ -526,12 +526,12 @@ class PodcastRepositoryTest {
         assertEquals(listOf(b, a, c), continueListening.episodes.first().map { it.book.id })
         assertEquals(listOf(b, a), queue.order.first())
 
-        // A nach vorn: B war schon festgelegt und bleibt es, C steht weiter von selbst da.
+        // A to the front: B was already pinned and stays so, C still appears on its own.
         continueListening.reorder(listOf(a, b, c), movedId = a)
         assertEquals(listOf(a, b, c), continueListening.episodes.first().map { it.book.id })
         assertEquals(listOf(a, b), queue.order.first())
 
-        // C zwischen A und B: Davor steht nur A, B bleibt festgelegt.
+        // C between A and B: only A is before it, B stays pinned.
         continueListening.reorder(listOf(a, c, b), movedId = c)
         assertEquals(listOf(a, c, b), continueListening.episodes.first().map { it.book.id })
         assertEquals(listOf(a, c, b), queue.order.first())
@@ -570,23 +570,23 @@ class PodcastRepositoryTest {
         assertEquals(listOf(Triple("Intro", 0L, 60_000L), Triple("Thema", 60_000L, 600_000L)), chapters())
         assertEquals(ChapterSource.FEED, db.bookDao().chapterSource(id))
 
-        // Die Kapitelliste (JSON) geht vor.
+        // The chapter list (JSON) takes precedence.
         served = """{"version":"1.2.0","chapters":[{"startTime":0,"title":"Begrüßung"},
             {"startTime":30.5,"title":"Ukraine","img":"https://example.com/karte.jpg","url":"https://example.com/quelle"}]}"""
         repository.ensureChapters(id)
         assertEquals(listOf(Triple("Begrüßung", 0L, 30_500L), Triple("Ukraine", 30_500L, 600_000L)), chapters())
         assertEquals(ChapterSource.JSON, db.bookDao().chapterSource(id))
-        // Bild und Webseite kommen mit.
+        // Image and website come along.
         val ukraine = db.bookDao().chapters(id).last()
         assertEquals("https://example.com/karte.jpg" to "https://example.com/quelle", ukraine.imageUrl to ukraine.url)
 
-        // Der nächste Abgleich bringt wieder die Feed-Kapitel; sie ersetzen die Liste nicht.
+        // The next sync brings the feed chapters again; they don't replace the list.
         served = rss
         repository.refresh(feedId)
         assertEquals("Ukraine", chapters().last().first)
         assertEquals(ChapterSource.JSON, db.bookDao().chapterSource(id))
 
-        // Ohne Verbindung bleibt alles, und ohne geladene Datei gibt es nichts aus der Datei.
+        // Without a connection everything stays, and without a downloaded file there's nothing from the file.
         served = null
         repository.ensureChapters(id)
         repository.chaptersFromFile(id)
@@ -617,7 +617,7 @@ class PodcastRepositoryTest {
         fun fetches() = requested.count { it.endsWith(".json") }
         var clock = 1_000_000L
 
-        // 404: bis zum nächsten Versuch nach Stunden nicht mehr gefragt.
+        // 404: not asked again until the next attempt hours later.
         servedCode = 404
         repository.ensureChapters(id) { clock }
         repository.ensureChapters(id) { clock }
@@ -626,7 +626,7 @@ class PodcastRepositoryTest {
         repository.ensureChapters(id) { clock }
         assertEquals(1, fetches())
 
-        // Leere Liste: ebenso; nach sechs Stunden wieder, dann mit Kapiteln.
+        // Empty list: likewise; again after six hours, then with chapters.
         servedCode = 200
         clock += 6 * 60 * 60 * 1000L
         served = """{"version":"1.2.0","chapters":[]}"""
@@ -661,7 +661,7 @@ class PodcastRepositoryTest {
         repository.ensureChapters(id) { clock }
         assertEquals(2, fetches())
 
-        // Der Feed nennt eine neue Adresse: sofort.
+        // The feed names a new address: immediately.
         served = rss("https://example.com/ldn-v2.json")
         repository.refresh(feedId)
         served = null
@@ -703,7 +703,7 @@ class PodcastRepositoryTest {
         assertEquals(listOf(c), continueListening.episodes.first().map { it.book.id })
         assertEquals(setOf(b), queue.hidden.first())
 
-        // Von Hand gespielt steht sie wieder in der Zeile.
+        // Played manually, it's back in the row.
         continueListening.started(b)
         assertTrue(continueListening.episodes.first().any { it.book.id == b })
         assertEquals(emptySet<Long>(), queue.hidden.first())
@@ -719,7 +719,7 @@ class PodcastRepositoryTest {
         assertTrue(repository.feeds.first().isEmpty())
         assertTrue(repository.latestEpisodes().first().isEmpty())
         assertTrue(repository.recentEpisodes().first().isEmpty())
-        // Weder als neu noch als angefangen von selbst in „Weiterhören“.
+        // Neither as new nor as started does it appear in "Continue listening" on its own.
         assertTrue(repository.continueListening { now }.first().isEmpty())
         assertTrue(repository.subscribedByKey.first().isEmpty())
         assertTrue(repository.searchFeeds("Test").isEmpty())
@@ -817,7 +817,7 @@ class PodcastRepositoryTest {
         assertEquals("https://example.com/episode.jpg", db.podcastDao().feed(feedId)!!.imageUrl)
     }
 
-    /** Wie die Feeds der rbb-Sender: Bild-Elemente des Kanals vorhanden, aber leer. */
+    /** Like the feeds of the rbb stations: channel image elements present, but empty. */
     private fun feedWithoutImage(episodeImage: String?) = """
         <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>Ohne Bild</title>
         <itunes:image href=""/><image><url></url><title>Ohne Bild</title></image>
@@ -854,7 +854,7 @@ class PodcastRepositoryTest {
         assertEquals(listOf(feedId), repository.archivedFeeds.first().map { it.id })
         assertEquals(3, db.bookDao().booksOf(feedId).size)
         assertEquals(60_000L, db.bookDao().progress(b)!!.positionMs)
-        // Kein Abgleich mehr.
+        // No more syncing.
         requested.clear()
         repository.refreshAll()
         assertEquals(emptyList<String>(), requested)
@@ -1168,7 +1168,7 @@ class PodcastRepositoryTest {
         dao.queueDownload(a)
         dao.markDownloadRunning(a)
         dao.markDownloadDone(a, "/files/old.mp3", 1)
-        // Etwa ein Token, der sich bei jedem Abruf ändert.
+        // E.g. a token that changes on every fetch.
         served = served!!.replace("https://example.com/A.mp3", "https://example.com/A.mp3?token=2")
 
         repository.refresh(feedId)
@@ -1251,13 +1251,13 @@ class PodcastRepositoryTest {
         }
         listen(b, positionMs = 60_000, updatedAt = 1, finished = false)
 
-        // Die neueste lädt noch: nichts geht.
+        // The newest one is still downloading: nothing goes.
         assertEquals(emptyList<Long>(), dao.supersededAutomaticDownloads(feedId))
 
         dao.markDownloadRunning(d)
         dao.markDownloadDone(d, "/x/episode-$d.mp3", 100)
 
-        // C automatisch und nie angefangen; B angefangen, A von Hand.
+        // C automatic and never started; B started, A manual.
         assertEquals(listOf(c), dao.supersededAutomaticDownloads(feedId))
     }
 
@@ -1308,11 +1308,11 @@ class PodcastRepositoryTest {
         assertTrue(summary.allFailed)
         assertEquals(0, db.podcastDao().feed(stale)!!.failedRefreshes)
         assertEquals(null, db.podcastDao().feed(stale)!!.lastError)
-        // Nur der Teil wurde gefragt.
+        // Only the part was queried.
         assertTrue(requested.none { it.contains("api.ardaudiothek.de") })
         assertNotNull(db.podcastDao().feed(current))
 
-        // Kommt etwas durch, liegt es am Feed: Das zählt.
+        // If something gets through, it's the feed's fault: that counts.
         val both = repository.refreshAll()
         assertEquals(false, both.allFailed)
         assertEquals(1, db.podcastDao().feed(stale)!!.failedRefreshes)
@@ -1349,16 +1349,16 @@ class PodcastRepositoryTest {
 
         assertEquals(listOf(bridgeFeed, OpmlFeed("Test-Podcast", "https://example.com/feed.xml")), exported)
         assertEquals(listOf(OpmlFeed("Test-Podcast", "https://example.com/feed.xml")), withoutBridge)
-        // Die eigene Datei zurück: nichts Neues, die Sendung bleibt dasselbe Abo.
+        // The own file back: nothing new, the show stays the same subscription.
         assertEquals(OpmlImportResult(added = 0, skipped = 2, removed = 0), repository.importOpml(exported, replace = true))
         assertTrue(ard in db.podcastDao().feeds().map { it.feedId })
 
-        // Eine Datei ohne ARD-Sendungen (ohne Bridge exportiert) ersetzt sie nicht; eine mit anderen Sendungen schon.
+        // A file without ARD shows (exported without bridge) doesn't replace them; one with other shows does.
         repository.importOpml(withoutBridge, replace = true)
         assertTrue(ard in db.podcastDao().feeds().map { it.feedId })
         repository.importOpml(withoutBridge + OpmlFeed("Andere", "ardsounds:urn:ard:show:xyz"), replace = true)
         assertTrue(ard !in db.podcastDao().feeds().map { it.feedId })
-        // Eine Bridge-Adresse legt sie wieder an.
+        // A bridge address recreates it.
         repository.importOpml(listOf(bridgeFeed), replace = false)
         assertEquals("ardsounds:urn:ard:show:abc", db.podcastDao().feeds().single { it.title == "Radio Tatort" }.url)
     }
@@ -1371,7 +1371,7 @@ class PodcastRepositoryTest {
     }
 
     private companion object {
-        /** Antwort von ARD Sounds für eine Sendung mit den Folgen [titles], neueste zuerst. */
+        /** ARD Sounds response for a show with the episodes [titles], newest first. */
         fun show(vararg titles: String): String = buildString {
             append("""{"data":{"show":{"id":"9","coreId":"urn:ard:show:abc","title":"Radio Tatort","description":"Krimis",""")
             append(""""publicationService":{"title":"ARD"},"items":{"nodes":[""")

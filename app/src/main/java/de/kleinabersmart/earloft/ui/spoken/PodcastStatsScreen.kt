@@ -41,15 +41,15 @@ import de.kleinabersmart.earloft.ui.valueOrNull
 import java.time.Month
 import java.time.format.TextStyle
 
-/** Zusammenfassung oder Diagramm der Statistik als eigene Fläche (wie eine Listengruppe). */
+/** Summary or chart of the statistics as its own surface (like a list group). */
 @Composable
 internal fun StatCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     ListGroup(modifier.padding(vertical = 4.dp)) { content() }
 }
 
 /**
- * [YearChips] als stehender Kopf einer Statistik-Liste: Die Auswahl bleibt beim Scrollen oben, der eigene Hintergrund lässt
- * die Einträge darunter durchlaufen statt durchscheinen.
+ * [YearChips] as a sticky header of a statistics list: the selection stays at the top while scrolling, its own background lets
+ * the entries below scroll underneath instead of showing through.
  */
 internal fun LazyListScope.yearChipsHeader(years: List<Int>, selected: Int?, onSelect: (Int?) -> Unit) {
     if (years.isEmpty()) return
@@ -58,7 +58,7 @@ internal fun LazyListScope.yearChipsHeader(years: List<Int>, selected: Int?, onS
     }
 }
 
-/** Auswahl „Gesamt“ und einzelne Jahre (alle drei Statistik-Seiten). */
+/** Selection "Total" and individual years (all three statistics pages). */
 @Composable
 internal fun YearChips(years: List<Int>, selected: Int?, onSelect: (Int?) -> Unit, modifier: Modifier = Modifier) {
     if (years.isEmpty()) return
@@ -75,8 +75,8 @@ internal fun YearChips(years: List<Int>, selected: Int?, onSelect: (Int?) -> Uni
 }
 
 /**
- * Reiter „Statistik“ der Podcast-Bibliothek: gehörte Zeit insgesamt, je Podcast und im Verlauf der letzten Monate; unter
- * „Gesamt“ darunter die zuletzt gehörten Folgen mit dem Weg zum ganzen Verlauf ([onOpenHistory]).
+ * "Statistics" tab of the podcast library: listening time in total, per podcast and over the last months; under
+ * "Total" below that the recently played episodes with the way to the full history ([onOpenHistory]).
  */
 @Composable
 fun PodcastStatsScreen(
@@ -159,10 +159,10 @@ private fun Summary(stats: PodcastStats) {
     }
 }
 
-/** „Durch Stille kürzen gespart: …“ (Podcasts und Bücher); ohne gesparte Zeit nichts. */
+/** "Saved by trimming silence: …" (podcasts and books); nothing without saved time. */
 @Composable
 internal fun SilenceSavedLine(savedMs: Long) {
-    // Unter einer Sekunde stünde dort „0 s“.
+    // Below one second it would say "0 s".
     if (savedMs < 1_000) return
     Text(
         stringResource(R.string.stats_silence_saved, formatListened(savedMs)),

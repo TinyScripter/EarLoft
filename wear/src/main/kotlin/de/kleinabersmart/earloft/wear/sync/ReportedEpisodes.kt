@@ -6,9 +6,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Was die Uhr dem Handy über ihre Folgen schon gemeldet hat bzw. von ihm übernommen hat (Wear-Konzept 16.1): je Folge
- * der Zeitpunkt des Fortschritts und je Statistik-Eintrag die gehörte Zeit. Nur was darüber hinausgeht, geht ans Handy;
- * einen vom Handy übernommenen Stand schickt die Uhr so nicht zurück.
+ * What the watch has already reported to the phone about its episodes or applied from it (Wear concept 16.1): per episode
+ * the timestamp of the progress and per statistics entry the listened time. Only what goes beyond that is sent to the phone;
+ * this way the watch does not send back a state applied from the phone.
  */
 @Singleton
 class ReportedEpisodes @Inject constructor(@ApplicationContext context: Context) {
@@ -20,14 +20,14 @@ class ReportedEpisodes @Inject constructor(@ApplicationContext context: Context)
         prefs.edit().putLong(progressKey(feedId, guid), updatedAt).apply()
     }
 
-    /** Gemeldete Zeit des Statistik-Eintrags ([groupKey] = Adresse des Feeds, [itemKey] = guid). */
+    /** Reported time of the statistics entry ([groupKey] = feed address, [itemKey] = guid). */
     fun listenedMs(groupKey: String, itemKey: String): Long = prefs.getLong(listeningKey(groupKey, itemKey), 0)
 
     fun markListened(groupKey: String, itemKey: String, listenedMs: Long) {
         prefs.edit().putLong(listeningKey(groupKey, itemKey), listenedMs).apply()
     }
 
-    // Trennzeichen, das in keiner Adresse und keiner guid vorkommt.
+    // Separator that occurs in no address and no guid.
     private fun progressKey(feedId: String, guid: String) = "p\u0000$feedId\u0000$guid"
 
     private fun listeningKey(groupKey: String, itemKey: String) = "l\u0000$groupKey\u0000$itemKey"

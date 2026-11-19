@@ -33,32 +33,32 @@ sealed interface AddServerResult {
     data object InvalidUrl : AddServerResult
     data object Unreachable : AddServerResult
     data object AuthFailed : AddServerResult
-    /** Der Server hat die Anmeldung per OpenID nicht abgeschlossen (abgelehnt, abgelaufen, fremde Rückleitung). */
+    /** The server did not complete the OpenID sign-in (rejected, expired, foreign redirect). */
     data object OpenIdFailed : AddServerResult
     data object NoBookLibrary : AddServerResult
 }
 
-/** Beginn einer Anmeldung per OpenID ([AudiobookshelfServers.beginOpenId]). */
+/** Start of an OpenID sign-in ([AudiobookshelfServers.beginOpenId]). */
 sealed interface BeginOpenIdResult {
     data class Started(val login: AbsOpenIdLogin) : BeginOpenIdResult
     data object InvalidUrl : BeginOpenIdResult
     data object Unreachable : BeginOpenIdResult
-    /** Audiobookshelf lässt [redirectUri] nicht zu: Sie gehört in „Allowed Mobile Redirect URIs“. */
+    /** Audiobookshelf does not allow [redirectUri]: it belongs in "Allowed Mobile Redirect URIs". */
     data class RedirectNotAllowed(val redirectUri: String) : BeginOpenIdResult
 }
 
-/** Ein Server zum Bearbeiten; API-Key und Tokens verlassen den [SecretStore] nicht. */
+/** A server for editing; API key and tokens never leave the [SecretStore]. */
 data class EditableAbsServer(val name: String, val baseUrl: String, val hasKey: Boolean, val openId: Boolean = false)
 
 /**
- * Ein Server, wie das Handy ihn der Uhr übergibt (ohne Schlüssel, Wear-Konzept 16.2). [credentialsStamp] ändert sich mit dem
- * Schlüssel ([CredentialsStamps]); `null`, wenn das Handy keinen hat.
+ * A server as the phone hands it to the watch (without key, Wear concept 16.2). [credentialsStamp] changes with the
+ * key ([CredentialsStamps]); `null` if the phone has none.
  */
 data class MirroredAbsServer(val serverId: String, val name: String, val baseUrl: String, val credentialsStamp: String? = null)
 
 /**
- * Eingerichtete Audiobookshelf-Server (Konzept 12.1). Angemeldet per API-Key oder per OpenID (12.11); API-Key bzw. Access- und
- * Refresh-Token liegen im [SecretStore] ([AbsSecrets]), erneuert von [AbsTokenRenewal].
+ * Configured Audiobookshelf servers (concept 12.1). Signed in via API key or via OpenID (12.11); the API key or access and
+ * refresh tokens live in the [SecretStore] ([AbsSecrets]), renewed by [AbsTokenRenewal].
  */
 @Singleton
 class AudiobookshelfServers @Inject constructor(
@@ -82,12 +82,12 @@ class AudiobookshelfServers @Inject constructor(
     }
 
     /**
-     * Wählt eine Buch-Bibliothek ab bzw. wieder an (`books_improvements.md` M3); ihre Bücher sind sofort aus- bzw. eingeblendet.
-     * Abgewählt bleiben sie samt Downloads, Fortschritt und Lesezeichen gespeichert, werden aber nicht abgeglichen (wie bei einem
-     * ausgeschalteten Server). Die letzte gezeigte bleibt: `false`, wenn sie abgewählt werden sollte.
+     * Deselects or reselects a book library (`books_improvements.md` M3); its books are hidden or shown immediately.
+     * Deselected, they stay stored along with downloads, progress and bookmarks, but are not synced (like with a
+     * disabled server). The last visible one stays: `false` if it was about to be deselected.
      */
     suspend fun setLibraryShown(serverId: String, libraryId: String, shown: Boolean): Boolean = librariesMutex.withLock {
-        // Lesen und Schreiben unter einem Schloss: Schnelle Klicks auf mehrere Bibliotheken überschrieben sich sonst gegenseitig.
+        // Read and write under one lock: otherwise quick clicks on several libraries would overwrite each other.
         val entity = bookDao.server(serverId) ?: return@withLock false
         val hidden = if (shown) entity.hiddenLibraryIds - libraryId else entity.hiddenLibraryIds + libraryId
         val known = bookDao.libraries(serverId).map { it.libraryId }
@@ -97,9 +97,9 @@ class AudiobookshelfServers @Inject constructor(
     }
 
     /**
-     * Handy: die eingeschalteten Server für die Uhr. Ausgeschaltete fehlen, ihre Bücher sind am Handy ausgeblendet und fallen von
-     * der Uhr. Ein neuer Schlüssel schreibt auch den Server neu ([connect]); damit kommt ein neuer Stempel. Bei OpenID hängt der
-     * Stempel an der Anmeldung, nicht am stündlich neuen Access-Token: Den holt sich die Uhr selbst, wenn er abgelaufen ist.
+     * Phone: the enabled servers for the watch. Disabled ones are missing; their books are hidden on the phone and drop off
+     * the watch. A new key also rewrites the server ([connect]), which brings a new stamp. With OpenID the stamp is tied to
+     * the sign-in, not to the access token that renews hourly: the watch fetches that itself once it has expired.
      */
     val mirrored: Flow<List<MirroredAbsServer>> = bookDao.observeServers().map { list ->
         list.filter { it.enabled }.map {
@@ -109,9 +109,9 @@ class AudiobookshelfServers @Inject constructor(
     }
 
     /**
-     * Server, deren API-Key bzw. Anmeldung fehlt (z. B. nach einer Wiederherstellung auf einem anderen Gerät, oder der
-     * Refresh-Token ist abgelaufen); der Nutzer muss beim Bearbeiten den Key neu eingeben bzw. sich neu anmelden. Neu berechnet,
-     * wenn sich die Server ändern – das Speichern eines Keys ändert sie mit – und wenn eine Anmeldung abläuft.
+     * Servers whose API key or sign-in is missing (e.g. after a restore on another device, or the refresh token has
+     * expired); the user has to re-enter the key or sign in again when editing. Recomputed when the servers
+     * change – saving a key changes them too – and when a sign-in expires.
      */
     val serversWithoutKey: Flow<Set<String>> = combine(bookDao.observeServers(), renewal.expired) { list, _ ->
         list.filter { secretStore.get(tokenKey(it.serverId)) == null }.mapTo(HashSet()) { it.serverId }
@@ -123,7 +123,7 @@ class AudiobookshelfServers @Inject constructor(
     @Volatile
     private var loaded = false
 
-    /** Alle eingeschalteten Server, deren Key sich lesen lässt. */
+    /** All enabled servers whose key can be read. */
     suspend fun all(): List<AbsServer> {
         ensureLoaded()
         return bookDao.servers().filter { it.enabled }.mapNotNull { registry[it.serverId] }
@@ -134,7 +134,7 @@ class AudiobookshelfServers @Inject constructor(
         return registry[serverId]
     }
 
-    /** Wie [all], aber auch ausgeschaltete Server, wie bei [server]. */
+    /** Like [all], but also disabled servers, as with [server]. */
     suspend fun allIncludingDisabled(): List<AbsServer> {
         ensureLoaded()
         return bookDao.servers().mapNotNull { registry[it.serverId] }
@@ -144,14 +144,14 @@ class AudiobookshelfServers @Inject constructor(
         connect(null, name, baseUrlInput, Credentials.ApiKey(apiKey))
 
     /**
-     * Ändert Name, Adresse oder API-Key eines Servers, nur wenn die Verbindung mit den neuen Angaben klappt.
-     * Die `serverId` bleibt, damit Bücher, Fortschritt und Downloads erhalten bleiben. [apiKey] leer = der
-     * gespeicherte Key bleibt. Zeigt die Adresse auf eine andere Bibliothek, räumt der nächste Vollabgleich auf.
+     * Changes a server's name, address or API key, only if the connection works with the new details.
+     * The `serverId` stays so that books, progress and downloads are kept. Empty [apiKey] = the
+     * stored key stays. If the address points to a different library, the next full sync cleans up.
      */
     suspend fun update(serverId: String, name: String, baseUrlInput: String, apiKey: String): AddServerResult =
         connect(serverId, name, baseUrlInput, Credentials.ApiKey(apiKey))
 
-    /** Bietet der Server die Anmeldung per OpenID an? `null`, wenn die Adresse ungültig oder kein Audiobookshelf ist. */
+    /** Does the server offer OpenID sign-in? `null` if the address is invalid or not an Audiobookshelf server. */
     suspend fun loginOptions(baseUrlInput: String): AbsLoginOptions? {
         val baseUrl = AbsServer.normalizeBaseUrl(baseUrlInput) ?: return null
         return try {
@@ -162,7 +162,7 @@ class AudiobookshelfServers @Inject constructor(
         }
     }
 
-    /** Erster Schritt der Anmeldung per OpenID (Konzept 12.11); danach meldet sich der Nutzer im Browser an. */
+    /** First step of the OpenID sign-in (concept 12.11); after that the user signs in in the browser. */
     suspend fun beginOpenId(baseUrlInput: String, redirectUri: String): BeginOpenIdResult {
         val baseUrl = AbsServer.normalizeBaseUrl(baseUrlInput) ?: return BeginOpenIdResult.InvalidUrl
         return try {
@@ -177,8 +177,8 @@ class AudiobookshelfServers @Inject constructor(
     }
 
     /**
-     * Schließt die Anmeldung per OpenID mit der Rückleitung [redirect] des Browsers ab und richtet den Server ein ([serverId]
-     * `null`) bzw. meldet ihn neu an. Wie bei [update] bleiben `serverId`, Bücher und Fortschritt.
+     * Completes the OpenID sign-in with the browser's redirect [redirect] and sets up the server ([serverId]
+     * `null`) or signs it in again. As with [update], `serverId`, books and progress are kept.
      */
     suspend fun connectOpenId(serverId: String?, name: String, login: AbsOpenIdLogin, redirect: String): AddServerResult {
         val redirectUrl = AbsAuthApi.redirectUrl(redirect) ?: return AddServerResult.OpenIdFailed
@@ -194,21 +194,21 @@ class AudiobookshelfServers @Inject constructor(
         return connect(serverId, name, login.baseUrl.toString(), Credentials.OpenId(tokens.accessToken, tokens.refreshToken))
     }
 
-    /** Schaltet den Server ein oder aus; ausgeschaltet bleiben Bücher und Downloads erhalten, sind aber ausgeblendet. */
+    /** Enables or disables the server; while disabled, books and downloads are kept but hidden. */
     suspend fun setEnabled(serverId: String, enabled: Boolean) {
         bookDao.setServerEnabled(serverId, enabled)
     }
 
     /**
-     * Der Token für Empfänger, die selbst nicht erneuern können (Cast): bei OpenID noch mindestens [minValiditySeconds]
-     * gültig, wenn nötig vorher erneuert. `null`, wenn der Server nicht eingerichtet ist oder der Token fehlt.
+     * The token for receivers that cannot renew it themselves (cast): with OpenID still valid for at least [minValiditySeconds],
+     * renewed beforehand if necessary. `null` if the server is not set up or the token is missing.
      */
     suspend fun freshToken(serverId: String, minValiditySeconds: Long = FRESH_FOR_SECONDS): String? {
         ensureLoaded()
         return renewal.fresh(serverId, minValiditySeconds)
     }
 
-    /** Eingeschaltete Server ohne gespeicherten API-Key (nach dem Wiederherstellen auf einem neuen Gerät). */
+    /** Enabled servers without a stored API key (after restoring on a new device). */
     suspend fun withoutKey(): List<String> {
         val missing = serversWithoutKey.first()
         return bookDao.servers().filter { it.enabled && it.serverId in missing }.map { it.serverId }
@@ -220,7 +220,7 @@ class AudiobookshelfServers @Inject constructor(
     }
 
     private sealed interface Credentials {
-        /** Leer: Der gespeicherte API-Key bzw. die gespeicherte Anmeldung bleibt. */
+        /** Empty: the stored API key or stored sign-in stays. */
         data class ApiKey(val key: String) : Credentials
         data class OpenId(val accessToken: String, val refreshToken: String?) : Credentials
     }
@@ -230,7 +230,7 @@ class AudiobookshelfServers @Inject constructor(
         val existing = existingId?.let { bookDao.server(it) }
         if (existingId != null && existing == null) return AddServerResult.InvalidUrl
         val keep = credentials is Credentials.ApiKey && credentials.key.isBlank()
-        // Damit ein beim Behalten abgelaufener Access-Token bei der Prüfung erneuert wird (AbsTokenAuthenticator).
+        // So that an access token that expired while keeping it gets renewed during the check (AbsTokenAuthenticator).
         if (keep) ensureLoaded()
         val key = when (credentials) {
             is Credentials.ApiKey -> credentials.key.trim().ifEmpty { existingId?.let { secretStore.get(tokenKey(it)) }.orEmpty() }
@@ -254,7 +254,7 @@ class AudiobookshelfServers @Inject constructor(
 
         val serverId = candidate.serverId
         when (credentials) {
-            // Beim Behalten nichts schreiben: Ein Access-Token kann sich während der Prüfung erneuert haben.
+            // When keeping, write nothing: an access token may have been renewed during the check.
             is Credentials.ApiKey -> if (!keep) {
                 secretStore.put(tokenKey(serverId), key)
                 secretStore.remove(AbsSecrets.refresh(serverId))
@@ -268,7 +268,7 @@ class AudiobookshelfServers @Inject constructor(
                 renewal.forget(serverId)
             }
         }
-        // Sync-Generation, Zeitpunkt und Schalter bleiben, sonst hielte der Mark-and-Sweep alles für neu.
+        // Sync generation, timestamp and switch stay, otherwise mark-and-sweep would consider everything new.
         bookDao.upsertServer(
             (existing ?: SpokenServerEntity(serverId, name, baseUrl.toString())).copy(
                 name = name.trim().ifEmpty { baseUrl.host },
@@ -277,13 +277,13 @@ class AudiobookshelfServers @Inject constructor(
                 openId = if (keep) existing?.openId == true else credentials is Credentials.OpenId,
             ),
         )
-        // Alle Buch-Bibliotheken; ohne abgewählte sind alle dabei (M3). Die Auswahl steht danach in den Einstellungen.
+        // All book libraries; with none deselected, all are included (M3). The selection is in the settings afterwards.
         bookDao.replaceLibraries(serverId, libraries.mapIndexed { index, it -> SpokenLibraryEntity(serverId, it.id, it.name, index) })
         registry.register(candidate.copy(token = secretStore.get(tokenKey(serverId)) ?: key))
         return AddServerResult.Added(serverId)
     }
 
-    /** Entfernt den Server samt Büchern, Kapiteln und Fortschritt. Der Fortschritt auf dem Server bleibt. */
+    /** Removes the server along with books, chapters and progress. The progress on the server stays. */
     suspend fun remove(serverId: String) {
         bookDao.deleteServer(serverId)
         secretStore.remove(tokenKey(serverId))
@@ -293,19 +293,19 @@ class AudiobookshelfServers @Inject constructor(
         renewal.forget(serverId)
     }
 
-    // --- Uhr (Wear-Konzept 16.2): Server ohne Schlüssel gespiegelt, der Schlüssel einzeln auf Anfrage ---
+    // --- Watch (Wear concept 16.2): servers mirrored without key, the key separately on request ---
 
     /**
-     * Handy: der Schlüssel für die anfragende Uhr; `null`, wenn [serverId] kein Audiobookshelf-Server ist. Bei OpenID ein
-     * Access-Token, der noch mindestens eine halbe Stunde gilt; den Refresh-Token bekommt die Uhr nie, sonst sperrten sich beide
-     * mit der Rotation gegenseitig aus (Konzept 12.11).
+     * Phone: the key for the requesting watch; `null` if [serverId] is not an Audiobookshelf server. With OpenID an
+     * access token that is valid for at least another half hour; the watch never gets the refresh token, otherwise both
+     * would lock each other out through rotation (concept 12.11).
      */
     suspend fun apiKey(serverId: String): String? {
         val entity = bookDao.server(serverId) ?: return null
         val token = freshToken(serverId) ?: return secretStore.get(tokenKey(serverId))
         if (!entity.openId) return token
-        // Geht die Uhr des Handys nach, hielte es einen abgelaufenen Token für gültig: Der Server entscheidet (bei 401 erneuert
-        // der AbsTokenAuthenticator, die Registry hat danach den neuen).
+        // If the phone's clock is behind, it would consider an expired token valid: the server decides (on 401 the
+        // AbsTokenAuthenticator renews, and the registry has the new one afterwards).
         try {
             registry[serverId]?.let { api.me(it) }
         } catch (e: IOException) {
@@ -315,8 +315,8 @@ class AudiobookshelfServers @Inject constructor(
     }
 
     /**
-     * Uhr: eingeschaltete Server, deren Access-Token in weniger als [withinSeconds] abläuft (nur bei OpenID; API-Keys laufen
-     * nicht ab). Die Uhr fragt dafür vor einem Download-Lauf beim Handy einen frischen an.
+     * Watch: enabled servers whose access token expires in less than [withinSeconds] (OpenID only; API keys do
+     * not expire). For that, the watch asks the phone for a fresh one before a download run.
      */
     suspend fun withExpiringToken(withinSeconds: Long): List<String> {
         val deadline = System.currentTimeMillis() / 1000 + withinSeconds
@@ -324,10 +324,10 @@ class AudiobookshelfServers @Inject constructor(
     }
 
     /**
-     * Uhr: übernimmt die Server des Handys. Fehlt einer dort, verschwindet er samt seinen Büchern und dem Schlüssel; die
-     * übrigen behalten ihre Bücher (gleiche `serverId`).
-     * @return die Server, deren Schlüssel verworfen ist, weil er sich am Handy geändert hat oder zum alten Host gehört: Die
-     * Uhr fragt ihn gleich neu an.
+     * Watch: adopts the phone's servers. If one is missing there, it disappears along with its books and key; the
+     * others keep their books (same `serverId`).
+     * @return the servers whose key was discarded because it changed on the phone or belongs to the old host: the
+     * watch requests it again right away.
      */
     suspend fun mirror(servers: List<MirroredAbsServer>): Set<String> {
         val existing = bookDao.servers().associateBy { it.serverId }
@@ -342,10 +342,10 @@ class AudiobookshelfServers @Inject constructor(
             if (previousUrl != null && entity.baseUrl != previousUrl) {
                 val oldUrl = previousUrl.toHttpUrlOrNull()
                 if (oldUrl != null && entity.baseUrl.toHttpUrlOrNull()?.acceptsCredentialsOf(oldUrl) == true) {
-                    // Neue Adresse auf demselben Host: mit dem gespeicherten Schlüssel neu eintragen.
+                    // New address on the same host: re-register with the stored key.
                     secretStore.get(tokenKey(server.serverId))?.let { key -> register(server.serverId, server.baseUrl, key) }
                 } else {
-                    // Anderer Host: Der Schlüssel bleibt beim alten (die Uhr fragt ihn beim Handy neu an).
+                    // Different host: the key stays with the old one (the watch requests it again from the phone).
                     forgetKey(server.serverId)
                     renewed += server.serverId
                 }
@@ -363,7 +363,7 @@ class AudiobookshelfServers @Inject constructor(
         registry.unregister(serverId)
     }
 
-    /** Uhr: @return `false`, wenn der Server (noch) nicht gespiegelt ist. */
+    /** Watch: @return `false` if the server is not mirrored (yet). */
     suspend fun storeKey(serverId: String, key: String): Boolean {
         val entity = bookDao.server(serverId) ?: return false
         secretStore.put(tokenKey(serverId), key)

@@ -78,7 +78,7 @@ class LocalPodcastLayoutTest {
     fun `production marks are no chapters, nested or mostly without a name`() {
         fun chapter(id: String, start: Int, end: Int, title: String) =
             ChapterFrame(id, start, end, 0, 0, arrayOf<Id3Frame>(TextInformationFrame("TIT2", null, listOf(title))))
-        // Wie in den Dateien der ARD (am Emulator): ein langes Kapitel, dann verschachtelte Marken.
+        // As in ARD's files (on the emulator): one long chapter, then nested marks.
         val nested = SpokenTags.from(
             listOf(
                 Metadata(
@@ -114,7 +114,7 @@ class LocalPodcastLayoutTest {
         assertEquals(3, tags("Kapitel 1", "Kapitel 2", "Kapitel 3").chapters.size)
         assertEquals(3, tags("001", "002", "003").chapters.size)
         assertEquals(4, tags("Vorwort", "Chapter 1", "Chapter 2", "Chapter 3").chapters.size)
-        // Nummern mit Lücken sind Kennungen, keine Kapitel.
+        // Numbers with gaps are IDs, not chapters.
         assertEquals(emptyList<LocalBookChapter>(), tags("ch1", "ch4", "ch9").chapters)
     }
 

@@ -8,7 +8,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Beim Öffnen der App warten die Server nicht auf die Dateien vom Gerät (Review F23). */
+/** When opening the app the servers don't wait for the files from the device (review F23). */
 class AlongsideTest {
 
     @Test
@@ -16,7 +16,7 @@ class AlongsideTest {
         val serversDone = CompletableDeferred<Unit>()
         val order = mutableListOf<String>()
 
-        // Die Dateien vom Gerät werden erst fertig, wenn die Server schon abgeglichen sind: sonst hängt der Test.
+        // The files from the device only finish once the servers have been synced: otherwise the test hangs.
         alongside({ serversDone.await(); order += "local books" }, { order += "local podcasts" }) {
             order += "servers"
             serversDone.complete(Unit)

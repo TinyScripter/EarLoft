@@ -14,12 +14,12 @@ import javax.inject.Singleton
 
 internal val Context.lyricsSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "lyrics_settings")
 
-/** Songtexte aus dem Internet. Standardmäßig aus, weil dafür Titel und Interpret an Dritte (LRCLIB) gehen. */
+/** Lyrics from the internet. Off by default because title and artist are sent to third parties (LRCLIB). */
 @Singleton
 class LyricsSettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
-    /** Fehlende oder nur statische Songtexte bei LRCLIB nachschlagen. */
+    /** Look up missing or plain-only lyrics on LRCLIB. */
     val onlineLyrics: Flow<Boolean> = context.lyricsSettingsDataStore.data.map { it[KEY_ONLINE_LYRICS] ?: false }
 
     internal suspend fun setOnlineLyrics(enabled: Boolean) {

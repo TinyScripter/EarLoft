@@ -7,10 +7,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Die Zeile „Weiterhören“ und damit die Warteschlange der Podcasts (Konzept 12.4):
- * - Wird eine Folge gestartet, steht sie sofort ganz vorn; ist der Podcast so eingestellt, folgt direkt dahinter seine
- *   nächste ungehörte Folge, außer sie wurde von Hand aus der Zeile genommen.
- * - Ist eine Folge zu Ende, startet die nächste der Zeile, wenn das in den Einstellungen an ist.
+ * The "Continue listening" row and thus the podcast queue (concept 12.4):
+ * - When an episode is started, it immediately moves to the very front; if the podcast is configured that way, its
+ *   next unplayed episode follows right behind, unless it was manually removed from the row.
+ * - When an episode ends, the next one in the row starts, if enabled in the settings.
  */
 @Singleton
 class ContinueListening @Inject constructor(
@@ -20,28 +20,28 @@ class ContinueListening @Inject constructor(
 ) {
     val episodes: Flow<List<BookWithProgress>> = podcasts.continueListening(queue.order, queue.hidden)
 
-    /** Eine Folge wird gestartet (egal ob sie schon in der Zeile steht). Hörbücher bleiben unberührt. */
+    /** An episode is started (regardless of whether it is already in the row). Audiobooks are left untouched. */
     suspend fun started(bookId: Long) {
         if (!podcasts.isEpisode(bookId)) return
-        // Eine zu Ende gehörte Folge beginnt von vorn und gilt wieder als offen.
+        // An episode played to the end starts over and counts as open again.
         podcasts.reopenIfFinished(bookId)
         queue.moveToFront(bookId)
-        // Eine von Hand aus der Zeile genommene Folge kommt nicht von selbst zurück, nur durch Abspielen oder Einfügen.
+        // An episode removed from the row by hand doesn't come back on its own, only by playing or inserting it.
         podcasts.autoNextAfter(bookId)?.takeIf { it !in queue.hidden.first() }?.let { queue.insertSecond(it) }
     }
 
-    /** Die Folge, die nach [endedId] von selbst startet: die nächste der Zeile; `null`, wenn das aus ist oder nichts folgt. */
+    /** The episode that starts automatically after [endedId]: the next one in the row; `null` if that is off or nothing follows. */
     suspend fun nextAfter(endedId: Long): Long? {
         if (!settings.autoPlayNext.first()) return null
         return next(endedId)
     }
 
-    /** Die nächste Folge der Zeile nach [currentId], unabhängig vom automatischen Weiterspielen (für „Überspringen“). */
+    /** The next episode in the row after [currentId], independent of auto-play (for "Skip"). */
     suspend fun next(currentId: Long): Long? = episodes.first().firstOrNull { it.book.id != currentId }?.book?.id
 
     /**
-     * „Als Nächstes spielen“: direkt hinter die vorderste Folge der Zeile (die laufende bzw. die, mit der es weitergeht); ist
-     * die Zeile leer, an die erste Stelle.
+     * "Play next": right behind the frontmost episode of the row (the one playing or the one playback continues with); if
+     * the row is empty, in first position.
      */
     suspend fun playNext(bookId: Long) {
         podcasts.reopenIfFinished(bookId)
@@ -50,31 +50,31 @@ class ContinueListening @Inject constructor(
     }
 
     /**
-     * Mehrere Folgen „als Nächstes“, in der Reihenfolge von [bookIds]; die vorderste Folge selbst bleibt, wo sie ist. Ist die
-     * Zeile leer, wird die erste der Auswahl die vorderste und die übrigen folgen ihr.
+     * Several episodes "next", in the order of [bookIds]; the frontmost episode itself stays where it is. If the
+     * row is empty, the first of the selection becomes the frontmost and the others follow it.
      */
     suspend fun playNext(bookIds: List<Long>) {
         val head = episodes.first().firstOrNull()?.book?.id
         val rest = bookIds.filter { it != head }
         if (head == null && rest.isNotEmpty()) playNext(rest.first())
-        // Von hinten, denn jede landet direkt hinter der vordersten.
+        // From the back, because each one lands right behind the frontmost.
         (if (head == null) rest.drop(1) else rest).asReversed().forEach { playNext(it) }
     }
 
-    /** „Warteschlange leeren“: alle Folgen der Zeile außer [keepId] (der geladenen) heraus, wie einzeln entfernt. */
+    /** "Clear queue": remove all episodes of the row except [keepId] (the loaded one), as if removed individually. */
     suspend fun clear(keepId: Long?) {
         queue.removeAll(episodes.first().map { it.book.id }.filter { it != keepId })
     }
 
-    /** „In Warteschlange einfügen“: ganz ans Ende der Zeile. */
+    /** "Add to queue": at the very end of the row. */
     suspend fun append(bookId: Long) {
         podcasts.reopenIfFinished(bookId)
         queue.append(bookId)
     }
 
-    /** Die Warteschlange wurde umsortiert: [bookIds] ist die neue Reihenfolge der ganzen Zeile, [movedId] die bewegte Folge. */
+    /** The queue was reordered: [bookIds] is the new order of the whole row, [movedId] the moved episode. */
     suspend fun reorder(bookIds: List<Long>, movedId: Long) = queue.move(bookIds, movedId)
 
-    /** „Aus Warteschlange entfernen“. */
+    /** "Remove from queue". */
     suspend fun remove(bookId: Long) = queue.remove(bookId)
 }

@@ -23,9 +23,9 @@ import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 
 /**
- * Reiter „Neu“ der Podcast-Bibliothek: die neuesten Folgen aller Abos untereinander, neueste oben, auch gehörte
- * ([de.kleinabersmart.earloft.core.data.podcast.PodcastRepository.latestEpisodes]), als [EpisodeSummaryRow]. Mehrfachauswahl über
- * [selection], ohne Wischen (der Reiter sitzt im Pager, wie „Gemerkt“).
+ * "New" tab of the podcast library: the newest episodes of all subscriptions in one list, newest at the top, including played ones
+ * ([de.kleinabersmart.earloft.core.data.podcast.PodcastRepository.latestEpisodes]), as [EpisodeSummaryRow]. Multi-selection via
+ * [selection], without swiping (the tab sits in the pager, like "Starred").
  */
 @Composable
 fun NewEpisodes(
@@ -46,14 +46,14 @@ fun NewEpisodes(
     }
     LoadableList(episodes, stringResource(R.string.podcast_new_empty)) { list ->
         val listState = rememberLazyListState()
-        // Kommt eine neue Folge dazu, steht sie oben im Blick statt über dem Rand.
+        // When a new episode arrives, it appears at the top in view instead of above the edge.
         ShowStartOnNewFirst(list.firstOrNull()?.book?.id?.toString()) { listState.scrollToItem(0) }
         val sameDay = episodesSharingDay(list.map { it.book })
         FastScrollLazyColumn(
             Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth),
             state = listState,
             contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
-            // Die Liste ist nach Datum sortiert; die Blase nennt die Stelle (#1 = neueste).
+            // The list is sorted by date; the bubble names the position (#1 = newest).
             labelAt = { index -> "#${index + 1}" },
         ) {
             groupedItems(list, key = { it.book.id }) { item ->

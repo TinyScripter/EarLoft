@@ -40,7 +40,7 @@ class SeriesTest {
 
         assertEquals(listOf(SeriesRef("Saga", 1.5, "1,5")), parseSeries("Saga #1,5"))
         assertEquals(listOf(SeriesRef("Saga", null, "IV")), parseSeries("Saga #IV"))
-        // Der Band ist alles hinter dem letzten „ #“.
+        // The volume is everything after the last " #".
         assertEquals(listOf(SeriesRef("Foo #Bar", 3.0, "3")), parseSeries("Foo #Bar #3"))
     }
 

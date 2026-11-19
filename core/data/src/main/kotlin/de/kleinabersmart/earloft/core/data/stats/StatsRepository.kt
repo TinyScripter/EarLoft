@@ -21,7 +21,7 @@ import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Gehörte Zeit: mitzählen und für die Statistik-Seite aufbereiten (Konzept 12.2, Statistik). */
+/** Listening time: count it and prepare it for the statistics page (concept 12.2, statistics). */
 @Singleton
 class StatsRepository @Inject constructor(
     private val statsDao: StatsDao,
@@ -29,8 +29,8 @@ class StatsRepository @Inject constructor(
     private val podcastDao: PodcastDao,
 ) {
     /**
-     * Zählt [ms] gehörte Inhaltszeit der Folge [bookId] zu ihrer Summe und zum Tag von [now] hinzu; [savedMs] ist die
-     * dabei durch „Stille kürzen“ gesparte Zeit (nur je Tag).
+     * Adds [ms] of listened content time of episode [bookId] to its total and to the day of [now]; [savedMs] is the
+     * time saved by "trim silence" in the process (per day only).
      */
     suspend fun recordEpisodeListening(
         bookId: Long,
@@ -41,7 +41,7 @@ class StatsRepository @Inject constructor(
     ) {
         if (ms <= 0) return
         val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.EPISODE } ?: return
-        // Probeabos aus der Vorschau zählen nicht (Konzept 12.10).
+        // Trial subscriptions from the preview don't count (concept 12.10).
         val feed = podcastDao.feed(book.serverId)?.takeIf { it.subscribed } ?: return
         val day = Instant.ofEpochMilli(now).atZone(zone).toLocalDate().toEpochDay()
         statsDao.addListening(
@@ -60,7 +60,7 @@ class StatsRepository @Inject constructor(
         )
     }
 
-    /** Wie [recordEpisodeListening], für ein Buch. Die Gruppe ist der Server (bzw. das Gerät), der Eintrag das Buch. */
+    /** Like [recordEpisodeListening], for a book. The group is the server (or the device), the entry the book. */
     suspend fun recordBookListening(
         bookId: Long,
         ms: Long,
@@ -88,8 +88,8 @@ class StatsRepository @Inject constructor(
     }
 
     /**
-     * Die vom Gerät gezählte Hörzeit der Bücher. Mit [year] nur die dieses Jahres: Das kennen nur die Tageswerte, also ist
-     * nur selbst gezählte Zeit enthalten und es gibt keine „Meistgehört“-Liste.
+     * The listening time of books counted by the device. With [year] only that of that year: only the daily values know this, so
+     * only self-counted time is included and there is no "Most played" list.
      */
     fun bookStats(
         year: Int? = null,
@@ -117,10 +117,10 @@ class StatsRepository @Inject constructor(
         }
     }
 
-    /** Löscht die vom Gerät gezählte und importierte Hörzeit der Bücher. Die Zahlen des Servers bleiben. */
+    /** Deletes the listening time of books counted by the device and imported. The server's numbers stay. */
     suspend fun resetBookStats() = statsDao.clear(BookKind.BOOK)
 
-    /** Wie [bookStats], für Podcasts; mit [year] ist die Liste je Podcast aus den Tageswerten und ohne Folgenzahl. */
+    /** Like [bookStats], for podcasts; with [year] the per-podcast list comes from the daily values and has no episode count. */
     fun podcastStats(
         year: Int? = null,
         zone: ZoneId = ZoneId.systemDefault(),
@@ -175,14 +175,14 @@ class StatsRepository @Inject constructor(
         }
     }
 
-    /** Löscht alle Zahlen der Podcasts: die gezählten und die importierten. */
+    /** Deletes all podcast numbers: the counted and the imported ones. */
     suspend fun resetPodcastStats() = statsDao.clear(BookKind.EPISODE)
 
     internal companion object {
         const val MONTHS = 12
         const val TOP_BOOKS = 10
 
-        /** Unix-ms-Grenzen (von einschließlich, bis ausschließlich) des Jahres [year]; ohne Jahr alles. */
+        /** Unix ms bounds (from inclusive, to exclusive) of year [year]; without a year everything. */
         fun millisOf(year: Int?, zone: ZoneId): Pair<Long, Long> =
             if (year == null) {
                 Long.MIN_VALUE to Long.MAX_VALUE
@@ -191,23 +191,23 @@ class StatsRepository @Inject constructor(
                     LocalDate.of(year + 1, 1, 1).atStartOfDay(zone).toInstant().toEpochMilli()
             }
 
-        /** Die Tageswerte aus dem Jahr [year]. */
+        /** The daily values from year [year]. */
         fun List<DayListeningRow>.inYear(year: Int): List<DayListeningRow> =
             filter { LocalDate.ofEpochDay(it.day).year == year }
 
-        /** Die Jahre mit Tageswerten, das neueste zuerst; das gewählte [selected] ist immer dabei. */
+        /** The years with daily values, newest first; the selected [selected] is always included. */
         fun yearsOf(days: List<DayListeningRow>, selected: Int?): List<Int> =
             (days.filter { it.listenedMs > 0 }.map { LocalDate.ofEpochDay(it.day).year } + listOfNotNull(selected))
                 .distinct().sortedDescending()
 
-        /** Januar bis Dezember des Jahres [year], ohne Lücken. */
+        /** January to December of year [year], without gaps. */
         fun monthsOfYear(days: List<DayListeningRow>, year: Int): List<MonthListening> {
             val sums = days.inYear(year).groupBy { LocalDate.ofEpochDay(it.day).monthValue }
                 .mapValues { (_, rows) -> rows.sumOf { it.listenedMs } }
             return (1..12).map { MonthListening(year, it, sums[it] ?: 0) }
         }
 
-        /** Die letzten [MONTHS] Monate bis einschließlich dem von [today], älteste zuerst, ohne Lücken. */
+        /** The last [MONTHS] months up to and including that of [today], oldest first, without gaps. */
         fun monthsOf(days: List<DayListeningRow>, today: LocalDate): List<MonthListening> {
             val sums = days.groupBy { LocalDate.ofEpochDay(it.day).let { d -> d.year * 12 + d.monthValue - 1 } }
                 .mapValues { (_, rows) -> rows.sumOf { it.listenedMs } }

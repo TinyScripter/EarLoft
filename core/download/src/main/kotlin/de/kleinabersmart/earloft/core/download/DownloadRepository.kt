@@ -34,7 +34,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Herunterladen, Entfernen und Anzeigen von Downloads (Konzept 2, „Offline“). */
+/** Downloading, removing and displaying downloads (concept 2, "Offline"). */
 @Singleton
 class DownloadRepository @Inject constructor(
     private val database: EarLoftDatabase,
@@ -50,23 +50,23 @@ class DownloadRepository @Inject constructor(
 
     suspend fun downloadSongs(songIds: List<Long>): Int = enqueue(songIds, pinnedBy = PINNED_MANUAL)
 
-    /** Lädt alle Alben, deren Album-Künstler [artistId] ist – Album für Album, wie von Hand (Downloads-Übersicht je Album). */
+    /** Downloads all albums whose album artist is [artistId] – album by album, as if manually (downloads overview per album). */
     suspend fun downloadArtist(artistId: Long): Int = downloadDao.getAlbumIdsOfArtist(artistId).sumOf { downloadAlbum(it) }
 
     suspend fun downloadPlaylist(playlistId: Long): Int =
         enqueue(playlistDao.getSongIds(playlistId), pinnedBy = "playlist:$playlistId")
 
     /**
-     * Reiht für jeden Song die beste Server-Quelle ein. Songs mit lokaler Datei oder vorhandenem
-     * Download werden übersprungen; fehlgeschlagene Downloads dieser Songs neu versucht.
-     * @return Anzahl neu eingereihter oder neu versuchter Songs.
+     * Enqueues the best server source for each song. Songs with a local file or an existing
+     * download are skipped; failed downloads of these songs are retried.
+     * @return number of newly enqueued or retried songs.
      */
     private suspend fun enqueue(songIds: List<Long>, pinnedBy: String, retryFailed: Boolean = true): Int {
         if (songIds.isEmpty()) return 0
         val count = database.withTransaction {
             val chunks = songIds.distinct().chunked(SQLITE_MAX_VARIABLES)
-            // Ein Download gehört der stärksten Regel, die ihn will (von Hand > ganzer Server > neueste/meistgehörte Alben >
-            // Favoriten): Wer einen automatisch geladenen Song selbst anfordert, behält ihn auch ohne Favorit.
+            // A download belongs to the strongest rule that wants it (manual > whole server > newest/most played albums >
+            // favorites): whoever requests an automatically downloaded song themselves keeps it even without a favorite.
             weakerPins(pinnedBy).forEach { weaker -> chunks.forEach { downloadDao.repinForSongs(weaker, pinnedBy, it) } }
             val sourcesBySong = chunks.flatMap { libraryDao.getPlayableSourcesOfSongs(it) }.groupBy { it.songId }
             val alreadyDownloaded = chunks.flatMapTo(HashSet()) { downloadDao.getSongIdsWithDownload(it) }
@@ -106,10 +106,10 @@ class DownloadRepository @Inject constructor(
     suspend fun removePlaylist(playlistId: Long) = removeSongs(playlistDao.getSongIds(playlistId))
 
     /**
-     * Gleicht die automatischen Downloads mit den Favoriten ab ([enabled] = Einstellung): Favoriten und die Songs
-     * favorisierter Alben – mit [withArtists] auch die favorisierter Künstler – werden geladen, was keiner mehr will,
-     * entfernt. Ist die Automatik aus, behalten ihre Downloads (nun als manuell). Wer einen automatisch geladenen Song
-     * danach selbst entfernt, bekommt ihn bei eingeschalteter Automatik beim nächsten Abgleich wieder.
+     * Reconciles the automatic downloads with the favorites ([enabled] = setting): favorites and the songs of
+     * favorited albums – with [withArtists] also those of favorited artists – are downloaded, what nobody wants anymore
+     * is removed. If the automation is off, its downloads are kept (now as manual). Whoever removes an automatically
+     * downloaded song afterwards gets it back on the next reconcile while the automation is on.
      */
     suspend fun reconcileFavoriteDownloads(enabled: Boolean, withArtists: Boolean = false) {
         if (!enabled) {
@@ -117,32 +117,32 @@ class DownloadRepository @Inject constructor(
             return
         }
         remove(downloadDao.getPinnedByWithoutFavorite(PINNED_FAVORITES, withArtists))
-        // Fehlgeschlagene nicht bei jeder Änderung neu versuchen: Sonst bremst ein kaputter Song jeden Abgleich.
+        // Don't retry failed ones on every change: otherwise a broken song slows down every reconcile.
         enqueue(downloadDao.getFavoriteSongIds(withArtists), PINNED_FAVORITES, retryFailed = false)
     }
 
-    /** Was die Favoriten-Automatik laden will (siehe [reconcileFavoriteDownloads]). */
+    /** What the favorites automation wants to download (see [reconcileFavoriteDownloads]). */
     fun favoriteSongIds(withArtists: Boolean): Flow<List<Long>> = downloadDao.observeFavoriteSongIds(withArtists)
 
     /**
-     * Gleicht die Server ab, von denen alles geladen werden soll ([sourceIds] = Einstellung): Ihre Songs
-     * werden eingereiht (auch neu hinzugekommene), Favoriten-Downloads dieser Songs gehen an den Server über.
-     * Für abgeschaltete Server bleiben die Dateien (nun als manuell), wie bei den Favoriten. Was nicht mehr
-     * auf dem Server liegt, verschwindet ohnehin mit seiner Song-Quelle.
+     * Reconciles the servers from which everything should be downloaded ([sourceIds] = setting): their songs
+     * are enqueued (including newly added ones), favorite downloads of these songs are transferred to the server rule.
+     * For servers that were switched off the files are kept (now as manual), as with favorites. Whatever is no longer
+     * on the server disappears with its song source anyway.
      */
     suspend fun reconcileServerDownloads(sourceIds: Set<String>) {
         downloadDao.getPinnedByWithPrefix(PINNED_SERVER_PREFIX)
             .filter { it.removePrefix(PINNED_SERVER_PREFIX) !in sourceIds }
             .forEach { downloadDao.repinAll(it, PINNED_MANUAL) }
         sourceIds.forEach { sourceId ->
-            // Wie bei den Favoriten: Fehlgeschlagene nicht bei jedem Abgleich neu versuchen.
+            // As with favorites: don't retry failed ones on every reconcile.
             enqueue(downloadDao.getSongIdsOfSource(sourceId), PINNED_SERVER_PREFIX + sourceId, retryFailed = false)
         }
     }
 
     /**
-     * Die Alben, die die Automatik „neueste“ ([newest]) und „meistgehörte“ ([mostPlayed], wie das Regal auf Start) laden soll,
-     * zusammen; `null`, wenn beide aus sind (0). Der Zeitraum für „meistgehört“ wird stündlich neu berechnet.
+     * The albums the automation should download as "newest" ([newest]) and "most played" ([mostPlayed], like the shelf on Home),
+     * combined; `null` if both are off (0). The period for "most played" is recalculated hourly.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun autoAlbumIds(newest: Int, mostPlayed: Int): Flow<List<Long>?> {
@@ -157,10 +157,10 @@ class DownloadRepository @Inject constructor(
     }
 
     /**
-     * Gleicht die automatisch geladenen neuesten und meistgehörten Alben ab ([albumIds] aus [autoAlbumIds]): Ihre Songs
-     * werden eingereiht, Downloads herausgefallener Alben entfernt – Favoriten gehen dabei an die Favoriten-Automatik über,
-     * wenn sie eingeschaltet ist ([keepFavorites], mit [favoriteArtists] wie dort). Sind beide aus (`null`), behalten ihre
-     * Downloads (nun als manuell), nur die der Favoriten gehen auch dann an deren Automatik.
+     * Reconciles the automatically downloaded newest and most played albums ([albumIds] from [autoAlbumIds]): their songs
+     * are enqueued, downloads of albums that dropped out are removed – favorites are handed over to the favorites automation
+     * if it is on ([keepFavorites], with [favoriteArtists] as there). If both are off (`null`), their downloads are kept
+     * (now as manual), only the favorites' ones still go to its automation.
      */
     suspend fun reconcileAlbumDownloads(albumIds: List<Long>?, keepFavorites: Boolean, favoriteArtists: Boolean = false) {
         if (albumIds == null) {
@@ -170,11 +170,11 @@ class DownloadRepository @Inject constructor(
         }
         if (keepFavorites) downloadDao.repinFavoritesOutsideAlbums(PINNED_AUTO_ALBUMS, PINNED_FAVORITES, albumIds, favoriteArtists)
         remove(downloadDao.getPinnedByOutsideAlbums(PINNED_AUTO_ALBUMS, albumIds))
-        // Wie bei den Favoriten: Fehlgeschlagene nicht bei jedem Abgleich neu versuchen.
+        // As with favorites: don't retry failed ones on every reconcile.
         enqueue(albumIds.flatMap { libraryDao.getSongIdsOfAlbum(it) }, PINNED_AUTO_ALBUMS, retryFailed = false)
     }
 
-    /** Offline-Zustand beliebiger Songs, für alle Listen. */
+    /** Offline state of arbitrary songs, for all lists. */
     fun songStatuses(): Flow<SongOfflineLookup> =
         combine(downloadDao.observeDownloadRows(), downloadDao.observeLocalSongIds()) { rows, local ->
             SongOfflineLookup(rows.associate { it.songId to it.toStatus() }, local.toHashSet())
@@ -186,31 +186,31 @@ class DownloadRepository @Inject constructor(
         withContext(Dispatchers.IO) { all.forEach(storage::delete) }
     }
 
-    /** Ein laufender Download bemerkt das Entfernen beim nächsten Fortschritt und bricht ab. */
+    /** A running download notices the removal at its next progress update and aborts. */
     private suspend fun remove(downloads: List<DownloadEntity>) {
         if (downloads.isEmpty()) return
         downloads.map { it.sourceUid }.chunked(SQLITE_MAX_VARIABLES).forEach { downloadDao.delete(it) }
         withContext(Dispatchers.IO) { downloads.forEach(storage::delete) }
-        // Das Cover bleibt: Es gehört zu den Bildern für offline, solange es das Album gibt (`OfflineImages`).
+        // The cover stays: it belongs to the offline images as long as the album exists (`OfflineImages`).
     }
 
     suspend fun retryFailed() {
         if (downloadDao.retryFailed() > 0) scheduler.enqueue()
     }
 
-    /** Nach dem Speichern eines Servers (z. B. neues Passwort): seine gescheiterten Downloads erneut versuchen. */
+    /** After saving a server (e.g. new password): retry its failed downloads. */
     suspend fun retryFailedOf(sourceId: String) {
         if (downloadDao.retryFailedOfSource(sourceId) > 0) scheduler.enqueue()
     }
 
-    /** Nach App-Start: Wartende Downloads fortsetzen, falls WorkManager den Auftrag verloren hat. */
+    /** After app start: resume waiting downloads in case WorkManager lost the job. */
     suspend fun resumePending() {
-        // Auch ohne wartende Downloads: Der Auftrag holt fehlende Cover heruntergeladener Alben nach.
+        // Even without waiting downloads: the job fetches missing covers of downloaded albums.
         val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
         if (downloadDao.countPending() > 0 || coversMissing) scheduler.resume()
     }
 
-    /** Nach Ändern der WLAN-Einstellung den Auftrag mit neuen Bedingungen ersetzen. */
+    /** After changing the Wi-Fi setting, replace the job with new constraints. */
     suspend fun rescheduleAfterSettingsChange() {
         if (downloadDao.countPending() > 0) scheduler.enqueue(replace = true)
     }
@@ -220,13 +220,13 @@ class DownloadRepository @Inject constructor(
             .map { rows -> AlbumOfflineStatus(rows.associate { it.songId to it.toStatus() }) }
             .distinctUntilChanged()
 
-    /** Download-Zustand aller Alben eines Künstlers zusammen (wie [albumStatus]). */
+    /** Combined download state of all albums of an artist (like [albumStatus]). */
     fun artistStatus(artistId: Long): Flow<AlbumOfflineStatus> =
         downloadDao.observeOfflineRowsOfArtist(artistId)
             .map { rows -> AlbumOfflineStatus(rows.associate { it.songId to it.toStatus() }) }
             .distinctUntilChanged()
 
-    /** Markierung je Album mit Download (Kacheln, Zeilen); Alben ohne Download fehlen. */
+    /** Marker per album with a download (tiles, rows); albums without a download are missing. */
     fun albumMarks(): Flow<Map<Long, OfflineMark>> =
         downloadDao.observeAlbumSummaries().map { rows ->
             buildMap {
@@ -290,7 +290,7 @@ class DownloadRepository @Inject constructor(
         const val PINNED_SERVER_PREFIX = "server:"
         const val SQLITE_MAX_VARIABLES = 900
 
-        /** Die automatischen Regeln, deren Downloads [pinnedBy] übernimmt. */
+        /** The automatic rules whose downloads [pinnedBy] takes over. */
         fun weakerPins(pinnedBy: String): List<String> = when (pinnedBy) {
             PINNED_FAVORITES -> emptyList()
             PINNED_AUTO_ALBUMS -> listOf(PINNED_FAVORITES)

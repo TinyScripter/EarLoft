@@ -7,12 +7,12 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.core.playback.NowPlaying
 
-/** Farben eines Widgets: aus dem Cover, die App-Farben (Logo) oder die Systemfarben (Material You, ab Android 12). */
+/** Colors of a widget: from the cover, the app colors (logo) or the system colors (Material You, Android 12+). */
 enum class WidgetColors { COVER, APP, SYSTEM }
 
 /**
- * Einstellungen eines einzelnen Widgets, beim Anlegen gewählt (Notiz 8.14): für welche Bereiche es gilt und wie es sich
- * färbt. So lassen sich mehrere Widgets nebeneinander nutzen, etwa eins für Musik und eins für Podcasts und Bücher.
+ * Settings of a single widget, chosen when it is added (note 8.14): which sections it covers and how it is
+ * colored. This allows several widgets side by side, e.g. one for music and one for podcasts and books.
  */
 data class WidgetConfig(
     val areas: Set<SpokenMode> = SpokenMode.entries.toSet(),
@@ -22,7 +22,7 @@ data class WidgetConfig(
 private val KEY_AREAS = stringSetPreferencesKey("areas")
 private val KEY_COLORS = stringPreferencesKey("colors")
 
-/** Aus dem Zustand eines Widgets (Glance, je Widget); `null`, solange es nicht eingestellt ist. */
+/** From a widget's state (Glance, per widget); `null` as long as it has not been configured. */
 fun Preferences.widgetConfig(): WidgetConfig? {
     val areas = this[KEY_AREAS]?.mapNotNullTo(HashSet()) { name -> SpokenMode.entries.firstOrNull { it.name == name } }
     val colors = this[KEY_COLORS]?.let { name -> WidgetColors.entries.firstOrNull { it.name == name } }
@@ -35,7 +35,7 @@ fun MutablePreferences.setWidgetConfig(config: WidgetConfig) {
     this[KEY_COLORS] = config.colors.name
 }
 
-/** Der Bereich dessen, was läuft. */
+/** The section of what is playing. */
 val NowPlaying.area: SpokenMode
     get() = when {
         bookId == null -> SpokenMode.MUSIC

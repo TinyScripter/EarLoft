@@ -7,20 +7,20 @@ import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SyncActionEntity
 import de.kleinabersmart.earloft.core.model.SyncActionType
 
-/** Stern einer Song-Quelle, wie der Server ihn zuletzt gemeldet bzw. die App gesendet hat. */
+/** Star of a song source, as last reported by the server or sent by the app. */
 data class SourceStarState(val uid: String, val remoteId: String, val songId: Long, val starredAt: Long?)
 
-/** Stern eines Server-Albums bzw. -Künstlers; [id] ist die `albumId` bzw. `artistId`. */
+/** Star of a server album or artist; [id] is the `albumId` or `artistId`. */
 data class CollectionStarState(val sourceId: String, val remoteId: String, val id: Long, val starredAt: Long?)
 
-/** Offline-Änderungen für Server (Konzept 6.4) und der Favoriten-Zustand je Quelle. */
+/** Offline changes for servers (concept 6.4) and the favorite state per source. */
 @Dao
 interface SyncDao {
 
     @Insert
     suspend fun insert(action: SyncActionEntity): Long
 
-    /** Zusammenfassen: Pro `(sourceId, actionType, targetKey)` gilt nur die letzte Aktion. */
+    /** Coalescing: per `(sourceId, actionType, targetKey)` only the last action counts. */
     @Query("DELETE FROM sync_actions WHERE sourceId = :sourceId AND actionType = :actionType AND targetKey = :targetKey")
     suspend fun deleteActions(sourceId: String, actionType: SyncActionType, targetKey: String): Int
 
@@ -33,14 +33,14 @@ interface SyncDao {
     @Query("DELETE FROM sync_actions WHERE actionId = :actionId")
     suspend fun deleteAction(actionId: Long)
 
-    /** Ziele von Aktionen, deren Ausführung schon einmal gescheitert ist. */
+    /** Targets of actions whose execution has already failed once. */
     @Query("SELECT targetKey FROM sync_actions WHERE sourceId = :sourceId AND actionType = :actionType AND attempts > 0")
     suspend fun getRetriedTargets(sourceId: String, actionType: SyncActionType): List<String>
 
     @Query("UPDATE sync_actions SET attempts = attempts + 1 WHERE actionId = :actionId")
     suspend fun incrementAttempts(actionId: Long)
 
-    // --- Favoriten ---
+    // --- Favorites ---
 
     @Query("UPDATE songs SET isFavorite = :favorite, favoriteChangedAt = :changedAt WHERE songId = :songId")
     suspend fun setSongFavorite(songId: Long, favorite: Boolean, changedAt: Long)
@@ -65,7 +65,7 @@ interface SyncDao {
     @Query("UPDATE song_sources SET starredAt = :starredAt WHERE uid = :uid")
     suspend fun setStarredAt(uid: String, starredAt: Long?)
 
-    /** Hat eine der Quellen des Songs eine noch nicht gesendete Favoriten-Änderung? */
+    /** Does one of the song's sources have a favorite change that hasn't been sent yet? */
     @Query(
         """
         SELECT EXISTS(
@@ -76,7 +76,7 @@ interface SyncDao {
     )
     suspend fun hasPendingFavorite(songId: Long): Boolean
 
-    // --- Favoriten von Alben und Künstlern ---
+    // --- Favorites of albums and artists ---
 
     @Query("UPDATE albums SET isFavorite = :favorite, favoriteChangedAt = :changedAt WHERE albumId = :albumId")
     suspend fun setAlbumFavorite(albumId: Long, favorite: Boolean, changedAt: Long)

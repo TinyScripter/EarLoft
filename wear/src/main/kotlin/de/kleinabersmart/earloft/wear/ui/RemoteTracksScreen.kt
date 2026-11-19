@@ -10,9 +10,9 @@ import de.kleinabersmart.earloft.wear.R
 import kotlinx.coroutines.launch
 
 /**
- * Album, Playlist oder Favoriten des Handys: am Handy abspielen oder mit „Auf der Uhr“ herunterladen (Wear-Konzept 17).
- * [onPlayed] wechselt nach dem Start zur Wiedergabe-Ansicht des Handys. [selectable] `false`: ohne Knopf „Download“ – die
- * Favoriten-Songs aus dem Favoriten-Menü, dessen Knopf auch die Lieblingsalben lädt (Review V17).
+ * Album, playlist or favorites of the phone: play on the phone or download with "On the watch" (Wear concept 17).
+ * [onPlayed] switches to the phone's now playing view after starting. [selectable] `false`: without the "Download" button – the
+ * favorite songs from the favorites menu, whose button also downloads the favorite albums (Review V17).
  */
 @Composable
 fun RemoteTracksScreen(
@@ -25,7 +25,7 @@ fun RemoteTracksScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val onWatch = if (selectable) viewModel.onWatch.collectAsStateWithLifecycle().value else null
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    // Das Handy liefert für Favoriten keinen Namen.
+    // The phone provides no name for favorites.
     val shown = (state as? TrackListState.Ready)
         ?.takeIf { kind == WearRemoteListKind.FAVORITES && it.title.isEmpty() }
         ?.copy(title = stringResource(R.string.list_favorites))

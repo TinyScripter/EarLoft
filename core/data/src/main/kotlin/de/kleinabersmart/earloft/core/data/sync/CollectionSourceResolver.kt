@@ -10,12 +10,12 @@ import de.kleinabersmart.earloft.core.model.FavoriteKind
 import javax.inject.Inject
 
 /**
- * Merkt sich, unter welcher ID ein Server das Album und die Künstler eines Songs führt (`album_sources`,
- * `artist_sources`), damit sich deren Favoriten abgleichen lassen. Innerhalb der Transaktion des Merges aufrufen.
+ * Remembers under which ID a server lists the album and artists of a song (`album_sources`,
+ * `artist_sources`), so that their favorites can be synced. Call within the merge transaction.
  *
- * Zeigt eine Server-ID auf ein anderes Album als bisher (neu zusammengeführt), gilt sie dort als neue Quelle: Ihr Stern
- * geht auf das Album über bzw. ein schon favorisiertes Album sternt sie. Innerhalb eines Abgleichs bleibt es beim
- * ersten Album, damit die Songs eines Server-Albums, die auf zwei Alben verteilt sind, es nicht hin- und herschieben.
+ * If a server ID points to a different album than before (newly merged), it counts as a new source there: its star
+ * carries over to the album, or it stars an already favorited album. Within one sync it sticks with the
+ * first album, so that the songs of a server album spread across two albums don't push it back and forth.
  */
 class CollectionSourceResolver @Inject constructor(
     private val mergeDao: MergeDao,

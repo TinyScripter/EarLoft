@@ -15,20 +15,20 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 /**
- * Ein kleiner HTTP/1.1-Server für einen Cast-Empfänger (Chromecast Etappe 2): nur GET und HEAD, ein Byte-Bereich je Anfrage
- * (`Range: bytes=…`, zum Spulen), Keep-Alive. Was unter einem Pfad liegt, entscheidet [resolve] (ohne Query); alles andere
- * ist 404. Ein Thread je Verbindung, höchstens [MAX_CONNECTIONS].
+ * A small HTTP/1.1 server for a cast receiver (Chromecast stage 2): only GET and HEAD, one byte range per request
+ * (`Range: bytes=…`, for seeking), keep-alive. What lives under a path is decided by [resolve] (without query); everything else
+ * is 404. One thread per connection, at most [MAX_CONNECTIONS].
  */
 internal class HttpFileServer(private val resolve: (path: String) -> Resource?) {
 
-    /** [length] Bytes vom Typ [mimeType]; [open] liefert sie ab [offset]. */
+    /** [length] bytes of type [mimeType]; [open] delivers them starting at [offset]. */
     interface Resource {
         val mimeType: String
         val length: Long
         fun open(offset: Long): InputStream
     }
 
-    /** Ein Byte-Array, z. B. ein Cover. */
+    /** A byte array, e.g. a cover. */
     class BytesResource(override val mimeType: String, private val bytes: ByteArray) : Resource {
         override val length: Long get() = bytes.size.toLong()
         override fun open(offset: Long): InputStream = bytes.inputStream(offset.toInt(), bytes.size - offset.toInt())
@@ -37,15 +37,15 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
     private var socket: ServerSocket? = null
     private var executor: ThreadPoolExecutor? = null
 
-    /** Wird nach jeder beantworteten Anfrage aufgerufen (Wake-Lock verlängern). */
+    /** Called after every answered request (extends the wake lock). */
     var onRequest: () -> Unit = {}
 
-    /** Der Port, auf dem der Server lauscht; `null`, solange er nicht läuft. */
+    /** The port the server is listening on; `null` while it isn't running. */
     @get:Synchronized
     val port: Int?
         get() = socket?.takeUnless { it.isClosed }?.localPort
 
-    /** Startet auf [preferredPort], wenn der frei ist, sonst auf einem freien Port. Läuft er schon, bleibt alles. */
+    /** Starts on [preferredPort] if it is free, otherwise on a free port. If already running, nothing changes. */
     @Synchronized
     fun start(preferredPort: Int): Int {
         port?.let { return it }
@@ -101,7 +101,7 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
                 if (!keepAlive) break
             }
         } catch (e: SocketException) {
-            // Empfänger hat die Verbindung geschlossen (Spulen, nächster Titel).
+            // The receiver closed the connection (seeking, next title).
         } catch (e: IOException) {
             Log.d(TAG, "Verbindung beendet: ${e.message}")
         } finally {
@@ -109,7 +109,7 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
         }
     }
 
-    /** @return ob die Verbindung offen bleibt. */
+    /** @return whether the connection stays open. */
     private fun respond(request: Request, output: OutputStream): Boolean {
         val keepAlive = request.keepAlive
         if (request.method == "OPTIONS") {
@@ -173,7 +173,7 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
 
     private class Request(val method: String, val path: String, val headers: Map<String, String>, val keepAlive: Boolean)
 
-    /** Liest eine Anfrage bis zur Leerzeile; `null` am Ende der Verbindung. */
+    /** Reads a request up to the blank line; `null` at the end of the connection. */
     private fun readRequest(input: InputStream): Request? {
         val requestLine = readLine(input) ?: return null
         val parts = requestLine.split(' ')
@@ -214,14 +214,14 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
     }
 }
 
-/** Was eine `Range`-Kopfzeile von einer Datei mit [length] Bytes verlangt (RFC 9110, nur ein Bereich). */
+/** What a `Range` header requests from a file of [length] bytes (RFC 9110, single range only). */
 internal sealed interface ByteRange {
     data object Whole : ByteRange
     data class Partial(val start: Long, val endInclusive: Long) : ByteRange
     data object Unsatisfiable : ByteRange
 }
 
-/** Mehrere Bereiche oder eine unverständliche Angabe ergeben die ganze Datei (das erlaubt die Norm). */
+/** Multiple ranges or an unintelligible value yield the whole file (the standard allows that). */
 internal fun parseByteRange(header: String?, length: Long): ByteRange {
     val spec = header?.trim()?.takeIf { it.startsWith("bytes=", ignoreCase = true) }?.substring(6)?.trim() ?: return ByteRange.Whole
     if (',' in spec) return ByteRange.Whole
@@ -230,7 +230,7 @@ internal fun parseByteRange(header: String?, length: Long): ByteRange {
     val first = spec.substring(0, dash).trim()
     val last = spec.substring(dash + 1).trim()
     if (first.isEmpty()) {
-        // Die letzten n Bytes.
+        // The last n bytes.
         val suffix = last.toLongOrNull() ?: return ByteRange.Whole
         if (suffix <= 0 || length == 0L) return ByteRange.Unsatisfiable
         return ByteRange.Partial(maxOf(0, length - suffix), length - 1)

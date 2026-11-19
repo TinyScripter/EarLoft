@@ -6,13 +6,13 @@ plugins {
     alias(libs.plugins.earloft.android.compose)
     alias(libs.plugins.earloft.hilt)
     alias(libs.plugins.kotlin.serialization)
-    // Erzeugt beim Build die Liste aller Abhängigkeiten samt Lizenz (Einstellungen → Lizenzen).
+    // Generates the list of all dependencies with their licenses at build time (Settings → Licenses).
     alias(libs.plugins.aboutlibraries.android)
 }
 
 /**
- * Zerlegt die Bibliotheksliste der Uhr-App (`:wear:exportLibraryDefinitions`) in Zusatzdefinitionen des AboutLibraries-Plugins
- * (`libraries/`, `licenses/`). So steht in der Lizenzliste des Handys auch alles, was nur die Uhr nutzt; die Uhr zeigt keine eigene.
+ * Splits the library list of the watch app (`:wear:exportLibraryDefinitions`) into extra definitions for the AboutLibraries plugin
+ * (`libraries/`, `licenses/`). That way the phone's license list also covers everything only the watch uses; the watch shows none of its own.
  */
 abstract class WearLicenseDefinitions : DefaultTask() {
     @get:InputFile
@@ -49,8 +49,8 @@ aboutLibraries {
 }
 
 /**
- * Legt `PRIVACY.md` und `PRIVACY.de.md` aus dem Projektroot als Assets in die App (Über die App → Datenschutzerklärung),
- * damit es sie nur einmal gibt. Welche Datei angezeigt wird, steht in der String-Ressource `privacy_asset`.
+ * Puts `PRIVACY.md` and `PRIVACY.de.md` from the project root into the app as assets (About → Privacy policy),
+ * so they exist only once. Which file is shown is defined by the string resource `privacy_asset`.
  */
 abstract class PrivacyPolicyAsset : DefaultTask() {
     @get:InputFiles
@@ -88,8 +88,8 @@ android {
 
     buildTypes {
         debug {
-            // Debug und Release lassen sich parallel installieren. Die Uhr bekommt dasselbe Suffix,
-            // damit sich die Debug-Apps auf Handy und Uhr weiter finden (gleiche applicationId, Data Layer).
+            // Debug and release can be installed side by side. The watch gets the same suffix
+            // so the debug apps on phone and watch still find each other (same applicationId, Data Layer).
             applicationIdSuffix = ".debug"
         }
         release {
@@ -116,29 +116,29 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
-    // Navigation Rail statt Bottom-Bar auf breiten Fenstern (Tablet, Foldable, Querformat).
+    // Navigation rail instead of a bottom bar on wide windows (tablet, foldable, landscape).
     implementation(libs.androidx.compose.navigationsuite)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.coil.compose)
-    // Podcast-Bilder kommen direkt aus dem Feed (Web-Adressen); ohne dies lädt Coil keine http(s)-URLs.
+    // Podcast images come straight from the feed (web addresses); without this Coil doesn't load http(s) URLs.
     implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
-    // Widget: Sekundentakt bei Tempo ≠ 1× nur, solange die App nicht selbst im Vordergrund ist.
+    // Widget: per-second ticks at speed ≠ 1× only while the app itself is not in the foreground.
     implementation(libs.androidx.lifecycle.process)
-    // Hält den Prozess, solange Dateien an die Uhr gehen (WatchTransferWorker).
+    // Keeps the process alive while files are going to the watch (WatchTransferWorker).
     implementation(libs.androidx.work.runtime)
-    // Chromecast nur auf dem Handy; :core:playback (auch von :wear genutzt) kennt nur PlayerFactory.
+    // Chromecast only on the phone; :core:playback (also used by :wear) only knows PlayerFactory.
     implementation(libs.androidx.media3.cast)
     implementation(libs.aboutlibraries.compose.m3)
-    // Anmeldung bei Audiobookshelf per OpenID im Auth Tab (Konzept 12.11).
+    // Audiobookshelf sign-in via OpenID in an Auth Tab (concept 12.11).
     implementation(libs.androidx.browser)
 
-    // ViewModel-Tests (Review A3): echter Hilt-Graph unter Robolectric, nur die Wiedergabe als Fake.
+    // ViewModel tests (review A3): real Hilt graph under Robolectric, only playback is faked.
     testImplementation(libs.hilt.android.testing)
-    // Testdaten direkt in die Datenbank schreiben.
+    // Write test data directly into the database.
     testImplementation(projects.core.database)
     kspTest(libs.hilt.compiler)
     testImplementation(libs.robolectric)

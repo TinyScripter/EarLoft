@@ -29,15 +29,15 @@ import androidx.wear.compose.material3.lazy.transformedHeight
 import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.wear.R
 
-/** Kapitel des Buchs bzw. der Folge, die das Handy spielt (Fernsteuerung); ein Tipp springt am Handy. */
+/** Chapters of the book or episode the phone is playing (remote control); a tap seeks on the phone. */
 @Composable
 fun RemoteChaptersScreen(onDone: () -> Unit, viewModel: RemotePlayerViewModel = hiltViewModel()) = ChaptersScreen(onDone, viewModel)
 
 /**
- * Kapitel des laufenden Buchs bzw. der Folge (aus der Wiedergabe-Ansicht): das laufende hervorgehoben und beim Öffnen im
- * Blick; ein Tipp springt an den Beginn des Kapitels, [onDone] führt zurück zur Wiedergabe. Kapitel in einer nicht mehr
- * abrufbaren Datei ([BookChapter.unavailable]) sind ausgegraut; der Player überspringt sie. [viewModel] ist die Uhr selbst
- * oder, in der Fernsteuerung, das Handy ([RemotePlayerViewModel]).
+ * Chapters of the current book or episode (from the now playing view): the current one highlighted and in view when
+ * opened; a tap seeks to the start of the chapter, [onDone] leads back to playback. Chapters in a file that is no longer
+ * available ([BookChapter.unavailable]) are grayed out; the player skips them. [viewModel] is the watch itself
+ * or, in remote control, the phone ([RemotePlayerViewModel]).
  */
 @Composable
 fun ChaptersScreen(onDone: () -> Unit, viewModel: ChaptersModel = hiltViewModel<PlayerViewModel>()) {
@@ -46,11 +46,11 @@ fun ChaptersScreen(onDone: () -> Unit, viewModel: ChaptersModel = hiltViewModel<
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
     var scrolled by remember { mutableStateOf(false) }
-    // Einmal zum laufenden Kapitel; danach scrollt nur noch, wer an der Krone dreht.
+    // Once to the current chapter; after that only turning the crown scrolls.
     LaunchedEffect(chapters, current) {
         val index = chapters.indexOfFirst { it.index == current?.index }
         if (!scrolled && index >= 0) {
-            // +1 für die Überschrift.
+            // +1 for the heading.
             columnState.scrollToItem(index + 1)
             scrolled = true
         }

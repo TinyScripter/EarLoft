@@ -31,28 +31,28 @@ import java.time.OffsetDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Abo-Adressen von Sendungen aus ARD Sounds, die über GraphQL statt über einen RSS-Feed kommen (Konzept 12.10). */
+/** Subscription URLs of shows from ARD Sounds that come via GraphQL instead of an RSS feed (concept 12.10). */
 const val ARD_SOUNDS_SCHEME = "ardsounds:"
 
-/** Die Abo-Adresse einer Sendung. */
+/** The subscription URL of a show. */
 fun ardSoundsFeedUrl(showId: String): String = ARD_SOUNDS_SCHEME + showId
 
-/** Die Kennung der Sendung, wenn [url] eine ARD-Sounds-Abo-Adresse ist, sonst `null`. */
+/** The show's ID if [url] is an ARD Sounds subscription URL, otherwise `null`. */
 fun ardSoundsShowId(url: String): String? =
     url.trim().takeIf { it.startsWith(ARD_SOUNDS_SCHEME, ignoreCase = true) }
         ?.substring(ARD_SOUNDS_SCHEME.length)?.trim()?.ifEmpty { null }
 
-/** Link der Sendungsseite in ARD Sounds; die Seite leitet auf ihre Adresse mit Namen weiter. */
+/** Link to the show page in ARD Sounds; the page redirects to its URL with the name. */
 fun ardSoundsPageUrl(showId: String): String = "https://www.ardsounds.de/sendung/$showId/"
 
-/** Die öffentliche Instanz von RSS-Bridge, voreingestellt für den OPML-Export (Konzept 12.10). */
+/** The public RSS-Bridge instance, preset for the OPML export (concept 12.10). */
 const val DEFAULT_RSS_BRIDGE = "https://rss-bridge.org/bridge01/"
 
 /**
- * Adresse eines echten Feeds (Atom) für die Sendung [showId] über die RSS-Bridge unter [bridge], damit andere Apps sie
- * abonnieren können. Atom, weil das RSS-Format der Bridge die Audiodateien nur als `media:content` nennt, ohne
- * `enclosure`. `null`, wenn [bridge] keine http(s)-Adresse ist oder [showId] keine `urn:ard:show:…` (nur die löst die
- * Bridge auf).
+ * URL of a real feed (Atom) for the show [showId] via the RSS-Bridge at [bridge], so that other apps can
+ * subscribe to it. Atom, because the bridge's RSS format only lists the audio files as `media:content`, without
+ * `enclosure`. `null` if [bridge] isn't an http(s) URL or [showId] isn't a `urn:ard:show:…` (only those are resolved by the
+ * bridge).
  */
 fun ardSoundsBridgeUrl(bridge: String, showId: String): String? {
     if (!SHOW_URN.matches(showId)) return null
@@ -67,10 +67,10 @@ fun ardSoundsBridgeUrl(bridge: String, showId: String): String? {
 }
 
 /**
- * Macht aus einer Eingabe die Abo-Adresse einer Sendung: eine Abo-Adresse selbst, der Link einer Sendungsseite
- * (`https://www.ardsounds.de/sendung/<name>/urn:ard:show:<kennung>/`, auch unter dem alten Namen ardaudiothek.de) oder
- * ein Feed der RSS-Bridge für ARD Sounds (beliebige Instanz, siehe [ardSoundsBridgeUrl]). `null`, wenn die Eingabe
- * nichts davon ist.
+ * Turns an input into a show's subscription URL: a subscription URL itself, the link of a show page
+ * (`https://www.ardsounds.de/sendung/<name>/urn:ard:show:<id>/`, also under the old name ardaudiothek.de) or
+ * an RSS-Bridge feed for ARD Sounds (any instance, see [ardSoundsBridgeUrl]). `null` if the input is
+ * none of these.
  */
 fun parseArdSoundsInput(input: String): String? {
     ardSoundsShowId(input)?.let { return ardSoundsFeedUrl(it) }
@@ -86,13 +86,13 @@ fun parseArdSoundsInput(input: String): String? {
 
 private val SHOW_URN = Regex("urn:ard:show:[0-9a-f]+", RegexOption.IGNORE_CASE)
 
-/** Name der Bridge für ARD Sounds in RSS-Bridge (noch unter dem alten Namen). */
+/** Name of the ARD Sounds bridge in RSS-Bridge (still under the old name). */
 private const val ARD_BRIDGE = "ARDAudiothekBridge"
 
 /**
- * Inoffizielle GraphQL-Schnittstelle von ARD Sounds (vormals ARD Audiothek), wie sie die App der ARD nutzt. Sie kann sich
- * ohne Ankündigung ändern; jeder Fehler – auch ein unerwarteter Aufbau der Antwort – kommt deshalb als [IOException],
- * damit er nur die Suche in ARD Sounds bzw. die Abos von dort trifft.
+ * Unofficial GraphQL interface of ARD Sounds (formerly ARD Audiothek), as used by ARD's own app. It may change
+ * without notice; every error – including an unexpected response structure – therefore comes as an [IOException],
+ * so it only affects the ARD Sounds search or the subscriptions from there.
  */
 @Singleton
 class ArdSoundsApi(
@@ -103,9 +103,9 @@ class ArdSoundsApi(
     constructor(client: OkHttpClient) : this(client, DEFAULT_ENDPOINT)
 
     /**
-     * Sendungen zu [term]. Nennt ARD Sounds für eine Sendung einen öffentlichen RSS-Feed, trägt der Treffer dessen
-     * Adresse (so wird ein gewöhnliches Abo daraus, das auch andere Verzeichnisse kennen) und die Abo-Adresse
-     * `ardsounds:<Kennung>` als Alternative; sonst nur die Abo-Adresse.
+     * Shows for [term]. If ARD Sounds lists a public RSS feed for a show, the hit carries its
+     * URL (so it becomes a regular subscription that other directories know too) and the subscription URL
+     * `ardsounds:<id>` as an alternative; otherwise only the subscription URL.
      */
     suspend fun search(term: String): List<DirectoryPodcast> {
         val variables = buildJsonObject {
@@ -129,7 +129,7 @@ class ArdSoundsApi(
             }
     }
 
-    /** Die Sendung [showId] mit ihren neuesten (höchstens [EPISODE_LIMIT]) Folgen, im selben Format wie ein RSS-Feed. */
+    /** The show [showId] with its newest (at most [EPISODE_LIMIT]) episodes, in the same format as an RSS feed. */
     suspend fun fetch(showId: String): ParsedFeed {
         val variables = buildJsonObject {
             put("id", showId)
@@ -151,7 +151,7 @@ class ArdSoundsApi(
     private fun Episode.toEpisode(): ParsedEpisode? {
         val guid = coreId ?: id ?: return null
         val audio = audios.orEmpty()
-        // Eine Fassung zum Herunterladen ist die stabilere Datei; Sendungen ohne sie gibt es nur als Stream.
+        // A download version is the more stable file; shows without one are only available as a stream.
         val url = audio.firstNotNullOfOrNull { a -> a.downloadUrl?.takeIf { a.allowDownload == true } }
             ?: audio.firstNotNullOfOrNull { it.url }
             ?: return null
@@ -171,8 +171,8 @@ class ArdSoundsApi(
     }
 
     /**
-     * Eine GraphQL-Abfrage; auch für die Bücher aus ARD Sounds ([ArdSoundsBooks]). [strict]: Meldet die Antwort neben den Daten
-     * Fehler, gilt sie als gescheitert – Teile der Daten können dann fehlen (für die Bücher hieße das „abgelaufen“).
+     * A GraphQL query; also used for the books from ARD Sounds ([ArdSoundsBooks]). [strict]: if the response reports errors
+     * alongside the data, it counts as failed – parts of the data may then be missing (for the books that would mean "expired").
      */
     internal suspend fun <T> query(
         query: String,
@@ -204,7 +204,7 @@ class ArdSoundsApi(
         } catch (e: IOException) {
             throw e
         } catch (e: Exception) {
-            // Auch IllegalArgumentException aus der Deserialisierung: Die Schnittstelle hat sich geändert.
+            // Also IllegalArgumentException from deserialization: the interface has changed.
             throw IOException("Unlesbare Antwort von ARD Sounds", e)
         }
     }
@@ -217,7 +217,7 @@ class ArdSoundsApi(
         const val EPISODE_LIMIT = 500
         const val MAX_RESPONSE_BYTES = 10L * 1024 * 1024
 
-        /** Breite der Bilder; die Adressen enthalten `{width}` als Platzhalter. */
+        /** Width of the images; the URLs contain `{width}` as a placeholder. */
         const val IMAGE_WIDTH = 600
 
         val SEARCH_QUERY = """
@@ -242,11 +242,11 @@ class ArdSoundsApi(
             }
         """.trimIndent()
 
-        /** Quadratisches Bild bevorzugt, in [IMAGE_WIDTH] Pixeln Breite. */
+        /** Square image preferred, [IMAGE_WIDTH] pixels wide. */
         fun Image.sized(): String? =
             (url1X1 ?: url)?.trim()?.ifEmpty { null }?.replace("{width}", IMAGE_WIDTH.toString())
 
-        /** Seite der Sendung bzw. Folge in ARD Sounds (zum Teilen, Konzept 13). */
+        /** Page of the show or episode in ARD Sounds (for sharing, concept 13). */
         fun String?.webPage(): String? = this?.trim()?.takeIf { it.startsWith("https://") }
     }
 }

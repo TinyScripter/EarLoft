@@ -197,7 +197,7 @@ fun EarLoftApp(
         startRoute = HomeRoute,
         topLevelRoutes = TOP_LEVEL_ROUTES,
     )
-    // Der Assistent liegt schon im ersten Bild oben; aus einem Effekt käme er erst danach und die Startseite blitzte kurz auf.
+    // The wizard is already on top in the first frame; from an effect it would only come afterwards and the home page would flash briefly.
     val navigator = remember(navigationState) { Navigator(navigationState).apply { if (showSetup) showSetup() } }
     LaunchedEffect(openNowPlaying) {
         if (openNowPlaying) {
@@ -205,16 +205,16 @@ fun EarLoftApp(
             onNowPlayingOpened()
         }
     }
-    // Eine geteilte Podcast-Adresse öffnet die Vorschau wie ein Verzeichnistreffer; bis der Feed geladen ist, steht die
-    // Adresse als Titel da.
+    // A shared podcast address opens the preview like a directory hit; until the feed is loaded, the
+    // address serves as the title.
     LaunchedEffect(sharedFeedUrl) {
         if (sharedFeedUrl != null) {
             navigator.navigate(PodcastPreviewRoute(sharedFeedUrl, title = sharedFeedUrl, author = "", imageUrl = null))
             onSharedFeedOpened()
         }
     }
-    // Tipp auf eine Benachrichtigung über Neues (der Bereich ist schon gewählt): Start, bei genau einem Album, Podcast oder
-    // Buch dessen Seite darüber.
+    // Tap on a new-content notification (the area is already selected): Home, for exactly one album, podcast or
+    // book its page on top.
     LaunchedEffect(newContentTarget) {
         val target = newContentTarget ?: return@LaunchedEffect
         navigator.navigate(HomeRoute)
@@ -229,7 +229,7 @@ fun EarLoftApp(
         }
         onNewContentOpened()
     }
-    // Einrichtungsassistent (Konzept 15): beim ersten Start über Start. „Zurück“ auf seiner ersten Seite fragt, ob er endet.
+    // Setup wizard (concept 15): on first start on top of Home. "Back" on its first page asks whether to end it.
     var confirmSetupExit by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(showSetup) {
         if (showSetup) navigator.showSetup()
@@ -240,13 +240,13 @@ fun EarLoftApp(
         onSetupFinished()
     }
 
-    // Hier nur ableiten: Jede Änderung am Player (Play/Pause, Titel, Warteschlange, Tempo) setzte sonst Navigation und
-    // Scaffold neu zusammen. Den ganzen Zustand liest erst der Mini-Player.
+    // Only derive here: otherwise every player change (play/pause, title, queue, speed) would recompose navigation and
+    // scaffold. Only the mini player reads the full state.
     val playerState = playerViewModel.state.collectAsStateWithLifecycle()
     val playsSpoken by remember { derivedStateOf { playerState.value.spoken != null } }
 
-    // Ab mittlerer Breite (Tablet, Foldable, Handy quer) Navigation Rail statt Bottom-Bar,
-    // ab großer Breite zusätzlich Liste und Detail nebeneinander.
+    // From medium width on (tablet, foldable, phone in landscape) navigation rail instead of bottom bar,
+    // from expanded width on additionally list and detail side by side.
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
     val navigationSuiteType = if (windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
         NavigationSuiteType.NavigationRail
@@ -266,11 +266,11 @@ fun EarLoftApp(
     val setupAudiobookshelf: () -> Unit = { navigator.navigate(AddAudiobookshelfRoute) }
     val openArdSounds: () -> Unit = { navigator.navigate(ArdSoundsRoute()) }
     val editAudiobookshelf: (String) -> Unit = { navigator.navigate(EditAudiobookshelfRoute(it)) }
-    // Modus gewechselt: die Detailspalte des vorigen Modus schließen (Tab auf seine Startseite zurück).
+    // Mode changed: close the detail pane of the previous mode (tab back to its start page).
     val closeDetail: () -> Unit = { navigator.navigate(navigationState.topLevelRoute) }
     val openSearch: () -> Unit = { navigator.navigate(SearchRoute()) }
     val addMusicServer: () -> Unit = { navigator.navigate(AddServerRoute) }
-    // Aus einem leeren Bereich direkt zu den Schaltern der Bereiche (Einstellungen → Allgemein).
+    // From an empty area directly to the area switches (Settings → General).
     val openAreaSettings: () -> Unit = {
         navigator.navigate(SettingsRoute)
         navigator.navigate(SettingsGeneralRoute)
@@ -345,14 +345,14 @@ fun EarLoftApp(
             )
         }
         entry<BookRoute> { route ->
-            // „Abspielen“ startet das Buch bzw. setzt es fort und öffnet danach die Wiedergabe-Ansicht.
+            // "Play" starts or resumes the book and then opens the playback screen.
             BookScreen(
                 bookId = route.bookId,
                 onBack = navigator::goBack,
                 onOpenPlayer = navigator::showNowPlaying,
                 onOpenFeed = navigator::showFeed,
                 onOpenGroup = { kind, name -> navigator.navigate(BookGroupRoute(kind, name)) },
-                // Nach dem Hochladen tritt das Buch auf dem Server an die Stelle dieser Seite.
+                // After uploading, the book on the server takes the place of this page.
                 onReplaceBook = { navigator.replaceTop(BookRoute(it)) },
             )
         }
@@ -374,7 +374,7 @@ fun EarLoftApp(
             )
         }
         entry<ArdBookRoute>(metadata = nestedDetailPane()) { route ->
-            // In der Bibliothek tritt die Buchseite an die Stelle der Vorschau; nach „Abspielen“ geht die Wiedergabe auf.
+            // In the library the book page takes the place of the preview; after "Play" the playback screen opens.
             ArdBookPreviewScreen(
                 key = route.key,
                 title = route.title,
@@ -398,7 +398,7 @@ fun EarLoftApp(
         entry<AddPodcastRoute>(metadata = detailPane()) {
             AddPodcastScreen(
                 onBack = navigator::goBack,
-                // Das neue Abo tritt an die Stelle der Seite, wie früher nach dem Dialog.
+                // The new subscription takes the place of the page, as after the dialog previously.
                 onFeedAdded = { navigator.replaceTop(PodcastRoute(it)) },
                 onOpenFeed = openPodcast,
                 onPreview = { navigator.navigate(PodcastPreviewRoute(it.feedUrl, it.title, it.author, it.imageUrl)) },
@@ -406,7 +406,7 @@ fun EarLoftApp(
             )
         }
         entry<PodcastPreviewRoute>(metadata = nestedDetailPane()) { route ->
-            // Die Vorschau lädt nur und macht dann der Seite des (Probe-)Abos Platz; Zurück führt zu den Treffern.
+            // The preview only loads and then makes room for the page of the (trial) subscription; Back leads to the hits.
             PodcastPreviewScreen(
                 feedUrl = route.feedUrl,
                 title = route.title,
@@ -423,7 +423,7 @@ fun EarLoftApp(
             PodcastSettingsScreen(
                 feedId = route.feedId,
                 onBack = navigator::goBack,
-                // Das Abo ist weg: alle seine Seiten schließen (die Einstellungen kommen auch direkt aus dem Langklick-Menü).
+                // The subscription is gone: close all its pages (the settings can also be opened directly from the long-press menu).
                 onUnsubscribed = { navigator.closeFeed(route.feedId) },
             )
         }
@@ -453,7 +453,7 @@ fun EarLoftApp(
             PlaylistScreen(playlistId = route.playlistId, onBack = navigator::goBack)
         }
         entry<SearchRoute> {
-            // Der Bereich von Start bzw. Bibliothek bestimmt, wo gesucht wird.
+            // The area of Home or Library determines where to search.
             SearchScreen(
                 onBack = navigator::goBack,
                 onAlbumClick = openAlbum,
@@ -486,7 +486,7 @@ fun EarLoftApp(
             ArtistScreen(artistId = route.artistId, onBack = navigator::goBack, onAlbumClick = openAlbum)
         }
         entry<NowPlayingRoute> {
-            // Das laufende Item entscheidet, nicht der Modus: ein Hörbuch hat seine eigene Ansicht.
+            // The playing item decides, not the mode: an audiobook has its own screen.
             if (playsSpoken) {
                 BookPlayerScreen(onClose = navigator::goBack, onEpisodeClick = openBook)
             } else {
@@ -565,8 +565,8 @@ fun EarLoftApp(
         }
     }
 
-    // Navigationsleiste (unten bzw. als Rail links) bleibt auf Wunsch auch im Player sichtbar; der Mini-Player entfällt dort immer.
-    // Im Assistenten keins von beiden, auch nicht in den daraus geöffneten Formularen; er endet nur über seine Knöpfe.
+    // Navigation bar (bottom or as a rail on the left) optionally stays visible in the player too; the mini player is always omitted there.
+    // Neither of them in the wizard, not even in the forms opened from it; it only ends via its buttons.
     val showMiniPlayer = !navigator.currentRoute.isFullScreenPlayer && !navigator.inSetup
     val showNavigation = !navigator.inSetup && (alwaysShowNavigationBar || showMiniPlayer)
     val navigationSuiteState = rememberNavigationSuiteScaffoldState()
@@ -578,8 +578,8 @@ fun EarLoftApp(
     val snackbarHost = remember { SnackbarHostState() }
     LaunchedEffect(snackbars) {
         snackbars.messages.collect { message ->
-            // Ein neuer Hinweis ersetzt den sichtbaren (etwa „Wird aktualisiert“ durch das Ergebnis), außer der soll bleiben;
-            // dann wartet der neue dahinter.
+            // A new hint replaces the visible one (e.g. "Refreshing" with the result), unless that one should stay;
+            // then the new one waits behind it.
             val visible = snackbarHost.currentSnackbarData
             if ((visible?.visuals as? AppSnackbarVisuals)?.keep != true) visible?.dismiss()
             launch {
@@ -602,7 +602,7 @@ fun EarLoftApp(
         SyncNoticeEffect()
         QueuedForMusicEffect()
         RefreshEventEffect()
-        // Im Assistenten ohne „Eingeben“: Er listet die Server selbst, und der Wechsel zu den Einstellungen schlösse ihn.
+        // In the wizard without "Enter": it lists the servers itself, and switching to the settings would close it.
         RestoreNoticeEffect(
             onEnter = { missing: MissingCredentials ->
                 navigator.navigate(SettingsRoute)
@@ -613,7 +613,7 @@ fun EarLoftApp(
             }.takeUnless { navigator.inSetup },
         )
         BookLaunchEffect()
-        // Die Bildschirme kümmern sich selbst um die Statusleiste und – im Vollbild-Player – um die Navigationsleiste.
+        // The screens take care of the status bar themselves and – in the full-screen player – of the navigation bar.
         NavigationSuiteScaffold(
             navigationItems = {
                 TopLevelDestination.entries.forEach { destination ->
@@ -629,15 +629,15 @@ fun EarLoftApp(
             navigationSuiteType = navigationSuiteType,
             state = navigationSuiteState,
         ) {
-            // Mit Bottom-Bar ist der untere Rand schon verbraucht; mit Rail hält dies Listen und Mini-Player
-            // von der Gestenleiste fern.
+            // With a bottom bar the bottom inset is already consumed; with a rail this keeps lists and mini player
+            // away from the gesture bar.
             val bottomInsets = if (showNavigation) WindowInsets.navigationBars.only(WindowInsetsSides.Bottom) else WindowInsets(0)
-            // Unter den Seiten liegen Snackbar, Mini-Player und Leiste: Ihre Höhe gilt für die Tastatur als schon verbraucht. Sonst
-            // schiebt `imePadding()` in Formularen um die ganze Tastaturhöhe hoch, und Knöpfe rutschen über freiem Platz aus dem Bild.
+            // Below the pages sit snackbar, mini player and bar: their height counts as already consumed for the keyboard. Otherwise
+            // `imePadding()` in forms pushes up by the full keyboard height, and buttons slide out of view above empty space.
             var belowPages by remember { mutableStateOf(0.dp) }
             val density = LocalDensity.current
             Column(Modifier.windowInsetsPadding(bottomInsets)) {
-                // Gemeinsame Elemente (der Kopf von Start und Bibliothek) bleiben beim Seitenwechsel stehen.
+                // Shared elements (the header of Home and Library) stay in place during page transitions.
                 SharedTransitionLayout(
                     Modifier
                         .weight(1f)
@@ -646,8 +646,8 @@ fun EarLoftApp(
                             val gap = coordinates.findRootCoordinates().size.height - bottom
                             belowPages = with(density) { gap.coerceAtLeast(0f).toDp() }
                         }
-                        // Als `WindowInsets`: Die werden mit dem schon Verbrauchten vereinigt. `PaddingValues` zählte die
-                        // Navigationsleiste ein zweites Mal (sie steckt in `belowPages` und ist oben schon verbraucht, Review V12).
+                        // As `WindowInsets`: those are united with what's already consumed. `PaddingValues` would count the
+                        // navigation bar a second time (it's in `belowPages` and already consumed above, review V12).
                         .consumeWindowInsets(WindowInsets(bottom = belowPages)),
                 ) {
                     CompositionLocalProvider(LocalSharedTransitionScope provides this) {
@@ -672,9 +672,9 @@ fun EarLoftApp(
 }
 
 /**
- * Mini-Player für Musik bzw. Hörbuch. Liest [playerState] erst hier, damit Änderungen nur ihn neu zusammensetzen.
- * Pausiert (und nicht beim Casten) lässt er sich nach unten oder zur Seite wegwischen, mit „Rückgängig“; weg bleibt er bis zur nächsten
- * Wiedergabe, auch über einen Neustart.
+ * Mini player for music or audiobook. Reads [playerState] only here so changes recompose only it.
+ * When paused (and not casting) it can be swiped away downwards or sideways, with "Undo"; it stays gone until the next
+ * playback, even across a restart.
  */
 @Composable
 private fun MiniPlayerHost(playerViewModel: PlayerViewModel, playerState: State<PlayerState>, onOpen: () -> Unit) {
@@ -692,7 +692,7 @@ private fun MiniPlayerHost(playerViewModel: PlayerViewModel, playerState: State<
     if (state.spoken != null) {
         val bookPlayer: BookPlayerViewModel = hiltViewModel()
         val bookSeedColor by bookPlayer.seedColor.collectAsStateWithLifecycle()
-        // Ohne Beobachter bliebe die Zeitachse leer und der Anteil am Buch 0.
+        // Without an observer the timeline would stay empty and the book progress 0.
         val bookTimeline by bookPlayer.timeline.collectAsStateWithLifecycle()
         PlayerColorTheme(bookSeedColor) {
             SpokenMiniPlayer(
@@ -724,8 +724,8 @@ private fun MiniPlayerHost(playerViewModel: PlayerViewModel, playerState: State<
 }
 
 /**
- * Zurück-Geste: der aktuelle Screen folgt dem Finger und schrumpft bis auf 70 %, der vorherige liegt dahinter.
- * Am Ende der Animation (nach dem Loslassen) blendet der alte Screen aus und der neue steht im Vordergrund.
+ * Back gesture: the current screen follows the finger and shrinks down to 70 %, the previous one lies behind it.
+ * At the end of the animation (after release) the old screen fades out and the new one is in the foreground.
  */
 private fun predictiveBack() = ContentTransform(
     targetContentEnter = fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.95f),
@@ -735,17 +735,17 @@ private fun predictiveBack() = ContentTransform(
     targetContentZIndex = -1f,
 )
 
-/** Fade-Through (Material): alter Screen blendet kurz aus, der neue blendet verzögert ein und skaliert leicht von 0,92 auf 1. */
+/** Fade through (Material): the old screen briefly fades out, the new one fades in with a delay and scales slightly from 0.92 to 1. */
 private fun fadeThrough() = ContentTransform(
     targetContentEnter = fadeIn(tween(210, delayMillis = 90)) + scaleIn(tween(210, delayMillis = 90), initialScale = 0.92f),
     initialContentExit = fadeOut(tween(90)),
 )
 
-/** Die Snackbar-Darstellung eines [SnackbarMessage]; trägt [keep] mit, damit ein neuer Hinweis ihn nicht verdrängt. */
+/** The snackbar visuals of a [SnackbarMessage]; carries [keep] along so a new hint doesn't displace it. */
 private class AppSnackbarVisuals(message: SnackbarMessage) : SnackbarVisuals {
     override val message: String = message.text
     override val actionLabel: String? = message.actionLabel
-    /** Ein Hinweis ohne Ablaufzeit lässt sich immer auch ohne seine Aktion schließen. */
+    /** A hint without a timeout can always be dismissed even without its action. */
     override val withDismissAction: Boolean = message.duration == SnackbarDuration.Indefinite
     override val duration: SnackbarDuration = message.duration
     val keep: Boolean = message.keep

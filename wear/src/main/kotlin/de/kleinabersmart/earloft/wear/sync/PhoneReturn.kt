@@ -16,11 +16,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Merkt, wann das Handy zurück ist, nachdem der Download-Auftrag nach [WatchState.PHONE_ATTEMPTS] Läufen aufs Handy wartet
- * (Review V1). Capabilities kommen nicht überall an (Wear-Konzept 4); ein eigenes DataItem schon, und der Data Layer stellt es
- * zu, sobald die Geräte wieder verbunden sind: Die Uhr schreibt [WearPaths.PHONE_WANTED], das Handy antwortet mit
- * [WearPaths.PHONE_BACK], die Uhr gleicht ab ([PhoneLibrarySync] erkennt das Handy und plant neu). Der Prozess der Uhr wird
- * nur in diesem Fall geweckt, nicht bei jedem Verbinden.
+ * Notices when the phone is back after the download job has been waiting for the phone after [WatchState.PHONE_ATTEMPTS] runs
+ * (Review V1). Capabilities do not arrive everywhere (Wear concept 4); a dedicated DataItem does, and the Data Layer delivers it
+ * as soon as the devices are connected again: the watch writes [WearPaths.PHONE_WANTED], the phone answers with
+ * [WearPaths.PHONE_BACK], the watch syncs ([PhoneLibrarySync] detects the phone and replans). The watch process is
+ * only woken in this case, not on every connect.
  */
 @Singleton
 class PhoneReturn @Inject constructor(
@@ -29,17 +29,17 @@ class PhoneReturn @Inject constructor(
     private val nodeClient: NodeClient,
     private val state: WatchState,
 ) {
-    /** Der Auftrag wartet ab jetzt aufs Handy. */
+    /** From now on the job waits for the phone. */
     suspend fun announce() {
         dataClient.putPayload(WearPaths.PHONE_WANTED, WearCodec.encode(WearPhoneWantedDto(since = System.currentTimeMillis())))
     }
 
-    /** Das Handy ist zurück bzw. es wird nicht mehr gewartet; ein noch nicht zugestelltes DataItem käme sonst später an. */
+    /** The phone is back or there is no more waiting; a DataItem not yet delivered would otherwise arrive later. */
     suspend fun withdraw() {
         dataClient.deleteOwn(nodeClient, WearPaths.PHONE_WANTED)
     }
 
-    /** Antwort des Handys auf [WearPaths.PHONE_WANTED]. */
+    /** The phone's answer to [WearPaths.PHONE_WANTED]. */
     fun onPhoneBack(payload: ByteArray) {
         val wanted = try {
             WearCodec.decode<WearPhoneWantedDto>(payload)
@@ -50,8 +50,8 @@ class PhoneReturn @Inject constructor(
         when (phoneBackAction(state.waitingForPhone, wanted.since, System.currentTimeMillis())) {
             PhoneBackAction.IGNORE -> Log.d(TAG, "Handy meldet sich, die Uhr wartet aber nicht (mehr)")
             PhoneBackAction.NEVER_AWAY ->
-                // Das DataItem kam gleich an: Das Handy war erreichbar, die Übertragung scheiterte aus einem anderen Grund. Neue
-                // Läufe scheiterten ebenso; es bleibt beim Ladegerät bzw. beim nächsten Abgleich.
+                // The DataItem arrived right away: the phone was reachable, the transfer failed for another reason. New
+                // runs would fail as well; it stays with the charger or the next sync.
                 Log.i(TAG, "Handy antwortet sofort, war also erreichbar; kein neuer Lauf")
             PhoneBackAction.RESYNC -> {
                 Log.i(TAG, "Handy ist zurück, gleiche ab")
@@ -68,8 +68,8 @@ class PhoneReturn @Inject constructor(
 internal enum class PhoneBackAction { IGNORE, NEVER_AWAY, RESYNC }
 
 /**
- * Was die Antwort des Handys auslöst. Kam sie binnen [PHONE_AWAY_MIN_MS] nach dem Beginn des Wartens, war das Handy nie weg
- * (sonst begännen alle paar Minuten fünf neue Läufe, die wieder scheitern).
+ * What the phone's answer triggers. If it came within [PHONE_AWAY_MIN_MS] after the waiting began, the phone was never gone
+ * (otherwise five new runs that fail again would start every few minutes).
  */
 internal fun phoneBackAction(waiting: Boolean, since: Long, now: Long): PhoneBackAction = when {
     !waiting -> PhoneBackAction.IGNORE
@@ -78,7 +78,7 @@ internal fun phoneBackAction(waiting: Boolean, since: Long, now: Long): PhoneBac
 }
 
 /**
- * Ein erreichbares Handy bekommt ein dringendes DataItem binnen Sekunden (am Emulator 1–2 s). Vor dem Warten lag schon ein
- * Lauf, in dem das Handy 30 s lang nicht antwortete; eine längere Grenze verpasste nur ein kurz abwesendes Handy.
+ * A reachable phone gets an urgent DataItem within seconds (1–2 s on the emulator). Before the waiting there was already a
+ * run in which the phone did not answer for 30 s; a longer limit would only miss a briefly absent phone.
  */
 internal const val PHONE_AWAY_MIN_MS = 10_000L

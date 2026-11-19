@@ -30,19 +30,19 @@ import javax.inject.Inject
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Mix starten (Konzept 8 „Mix“): [start] ersetzt die Warteschlange durch einen Mix ab [MixSeed]; mit `afterCurrent` spielt
- * der laufende Titel weiter und der Mix folgt ihm (Now Playing).
+ * Start a mix (concept 8 "Mix"): [start] replaces the queue with a mix from [MixSeed]; with `afterCurrent` the
+ * current title keeps playing and the mix follows it (now playing).
  */
 @Stable
 class MixController(val start: (seed: MixSeed, afterCurrent: Boolean) -> Unit)
 
-/** `null` (Vorschau, Tests): kein Mix. */
+/** `null` (preview, tests): no mix. */
 val LocalMixController = staticCompositionLocalOf<MixController?> { null }
 
 /**
- * Hält den Mix über das Schließen des Menüs hinaus; ein neuer Mix bricht einen noch laufenden ab. Dauert die Zusammenstellung
- * länger als [BUILDING_HINT_DELAY_MS] (ein Server darf bis zu 4 s antworten), zeigt ein Hinweis, dass etwas passiert; ein
- * Fehler wird gemeldet statt die App abzuschießen.
+ * Keeps the mix alive beyond closing the menu; a new mix cancels one still in progress. If building it takes
+ * longer than [BUILDING_HINT_DELAY_MS] (a server may take up to 4 s to respond), a hint shows that something is happening; an
+ * error is reported instead of crashing the app.
  */
 @HiltViewModel
 class MixViewModel @Inject constructor(
@@ -63,7 +63,7 @@ class MixViewModel @Inject constructor(
             try {
                 val songs = mixRepository.mix(seed)
                 hint.cancel()
-                // Nach dem laufenden Titel: Er selbst ist der Ausgangspunkt und steht im Mix vorn.
+                // After the current title: it is itself the starting point and comes first in the mix.
                 val upcoming = if (afterCurrent) songs.drop(1) else songs
                 when {
                     upcoming.isEmpty() -> snackbars.show(context.getString(R.string.mix_empty))
@@ -94,7 +94,7 @@ class MixViewModel @Inject constructor(
 fun rememberMixController(viewModel: MixViewModel = hiltViewModel()): MixController =
     remember(viewModel) { MixController(viewModel::start) }
 
-/** Knopf „Mix starten“ für die TopAppBar; ohne [LocalMixController] unsichtbar. */
+/** "Start mix" button for the TopAppBar; invisible without [LocalMixController]. */
 @Composable
 fun MixButton(seed: MixSeed) {
     val controller = LocalMixController.current ?: return
@@ -103,7 +103,7 @@ fun MixButton(seed: MixSeed) {
     }
 }
 
-/** Eintrag „Mix starten“ für die Kontextmenüs; ohne [LocalMixController] unsichtbar. */
+/** "Start mix" entry for the context menus; invisible without [LocalMixController]. */
 @Composable
 fun MixMenuItem(seed: MixSeed, onDismiss: () -> Unit, afterCurrent: Boolean = false) {
     val controller = LocalMixController.current ?: return

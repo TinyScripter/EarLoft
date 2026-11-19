@@ -37,7 +37,7 @@ class BookDaoTest {
         val now = System.currentTimeMillis()
         assertTrue(dao.nextGeneration() >= now)
 
-        // Die Uhr ging vor: Ein Eintrag trägt eine Generation aus der Zukunft.
+        // The clock was ahead: an entry carries a generation from the future.
         val future = now + 3_600_000
         dao.upsertBook(BookEntity(serverId = "local", remoteId = "a", title = "A", normTitle = "a", author = "", durationMs = 0, seenInGeneration = future))
         val next = dao.nextGeneration()

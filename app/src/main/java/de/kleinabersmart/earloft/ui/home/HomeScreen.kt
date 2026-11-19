@@ -79,9 +79,9 @@ fun HomeScreen(
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
     val savedMusic by playerViewModel.savedMusicQueue.collectAsStateWithLifecycle()
     val upNext = remember(playerState.current, playerState.queue, playerState.currentIndex) { upNext(playerState) }
-    // Ist kein Song geladen (ein Buch bzw. eine Folge oder gar nichts, etwa nach dem Ende eines Buchs beim Casten), zeigt die
-    // Zeile die gespeicherte Musik-Warteschlange; ein Tipp setzt die Musik dort fort. Ohne Knopf zur Warteschlangen-Seite,
-    // die zeigt den Player.
+    // If no song is loaded (a book or episode or nothing at all, e.g. after a book ended while casting), the
+    // row shows the saved music queue; a tap resumes the music there. No button to the queue page,
+    // which shows the player.
     val queue = if (playerState.current == null) {
         savedMusic?.let { saved ->
             QueueRowState(
@@ -115,13 +115,13 @@ fun HomeScreen(
     )
 }
 
-/** Ein Titel der Zeile „Warteschlange“; [index] ist seine Stelle in der Warteschlange (eindeutig, auch bei doppelten Titeln). */
+/** A title of the "Queue" row; [index] is its position in the queue (unique, even with duplicate titles). */
 @Immutable
 data class UpNext(val index: Int, val entry: QueueEntry)
 
 /**
- * Die Zeile „Warteschlange“: der laufende Titel und die folgenden ([entries]); während Gesprochenes läuft, der gespeicherte
- * Titel der Musik und die folgenden. Ohne [onOpen] kein Knopf zur Warteschlangen-Seite.
+ * The "Queue" row: the current title and the following ones ([entries]); while spoken content plays, the saved
+ * music title and the following ones. Without [onOpen] there's no button to the queue page.
  */
 @Immutable
 class QueueRowState(
@@ -133,15 +133,15 @@ class QueueRowState(
 )
 
 /**
- * Der laufende Titel und die nächsten in Reihenfolge der Warteschlange (bei Zufall wie in der Warteschlangen-Ansicht
- * nicht die Abspielreihenfolge). Leer, solange keine Musik läuft (etwa bei einem Buch).
+ * The current title and the next ones in queue order (with shuffle, as in the queue view,
+ * not the playback order). Empty while no music is playing (e.g. with a book).
  */
 internal fun upNext(state: PlayerState): List<UpNext> {
     if (state.current == null || state.currentIndex !in state.queue.indices) return emptyList()
     return state.queue.withIndex().drop(state.currentIndex).take(UP_NEXT_COUNT).map { UpNext(it.index, it.value) }
 }
 
-/** Der gespeicherte Titel der Musik-Warteschlange und die nächsten, während ein Buch bzw. eine Folge geladen ist. */
+/** The saved title of the music queue and the next ones, while a book or episode is loaded. */
 internal fun upNext(saved: SavedMusicQueue): List<UpNext> =
     saved.entries.withIndex().drop(saved.index).take(UP_NEXT_COUNT).map { UpNext(it.index, it.value) }
 
@@ -177,9 +177,9 @@ private fun HomeContent(
         val listState = rememberLazyListState()
         val atTop by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 } }
         val hasQueue = queue != null && queue.entries.isNotEmpty()
-        // Kommt die Zeile „Warteschlange“ dazu, während die Liste oben steht, soll sie zu sehen sein; die Liste hielte
-        // sonst den bisher obersten Abschnitt fest und die neue Zeile läge unsichtbar darüber. „Oben“ gilt für den Stand
-        // vor dem Einfügen; im Effekt hat die Liste schon auf den bisherigen Abschnitt verschoben.
+        // If the "Queue" row is added while the list is at the top, it should be visible; otherwise the list would
+        // keep the previous top section anchored and the new row would sit invisibly above it. "At the top" refers to the state
+        // before insertion; in the effect the list has already shifted to the previous section.
         val wasAtTop = atTop
         LaunchedEffect(hasQueue) { if (hasQueue && wasAtTop) listState.scrollToItem(0) }
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(vertical = 6.dp)) {
@@ -211,8 +211,8 @@ private fun HomeContent(
 }
 
 /**
- * Wie „Weiterhören“ bei Podcasts: Überschrift mit dem Symbol für die Warteschlange rechts, darunter der laufende Titel
- * und die folgenden. Ist ein Titel fertig, löst er sich auf und die Zeile rückt nach.
+ * Like "Continue listening" for podcasts: header with the queue icon on the right, below it the current title
+ * and the following ones. When a title is finished, it dissolves and the row moves up.
  */
 private fun LazyListScope.queueSection(queue: QueueRowState) {
     item(key = "queue") {
@@ -248,10 +248,10 @@ private fun LazyListScope.queueSection(queue: QueueRowState) {
     }
 }
 
-/** Innenabstand der Album-, Künstler- und Warteschlangen-Kacheln; die Reihen ziehen ihn vom Regal-Abstand ab. */
+/** Inner padding of the album, artist and queue tiles; the rows subtract it from the shelf padding. */
 private val CardInset = 4.dp
 
-/** Kachel eines Titels der Warteschlange wie eine Album-Kachel; der laufende trägt den Play-/Pause-Knopf. */
+/** Tile of a queue title like an album tile; the current one carries the play/pause button. */
 @Composable
 private fun QueueCard(entry: QueueEntry, onClick: () -> Unit, modifier: Modifier, playing: Boolean, isCurrent: Boolean) {
     Column(
@@ -276,7 +276,7 @@ private fun QueueCard(entry: QueueEntry, onClick: () -> Unit, modifier: Modifier
     }
 }
 
-/** Abschnitt mit Überschrift und horizontal scrollender Album-Reihe; leere Listen entfallen. */
+/** Section with a header and a horizontally scrolling album row; empty lists are omitted. */
 private fun LazyListScope.albumSection(
     key: String,
     @StringRes title: Int,

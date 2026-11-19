@@ -7,22 +7,22 @@ import okhttp3.Response
 import okhttp3.Route
 import javax.inject.Inject
 
-/** Erneuert abgelaufene Access-Tokens von Servern mit Anmeldung per OpenID (Konzept 12.11). */
+/** Refreshes expired access tokens of servers signed in via OpenID (concept 12.11). */
 interface AbsTokenRefresher {
     /**
-     * Blockiert, bis feststeht, womit eine mit [rejected] abgelehnte Anfrage wiederholt werden soll: dem schon erneuerten oder
-     * einem frisch erneuerten Access-Token. `null`: nicht wiederholen (API-Key, kein Refresh-Token, fremder Token, Fehler).
+     * Blocks until it's clear what a request rejected with [rejected] should be retried with: the already refreshed or
+     * a freshly refreshed access token. `null`: don't retry (API key, no refresh token, foreign token, error).
      */
     fun renewBlocking(serverId: String, rejected: String): String?
 }
 
 /**
- * Wiederholt eine mit 401 abgelehnte Anfrage an einen Audiobookshelf-Server einmal mit erneuertem Access-Token. Gilt für alle
- * Anfragen des gemeinsamen Clients: API, Cover und Streams.
+ * Retries a request to an Audiobookshelf server rejected with 401 once with a refreshed access token. Applies to all
+ * requests of the shared client: API, covers and streams.
  */
 class AbsTokenAuthenticator @Inject constructor(
     private val registry: AbsServerRegistry,
-    // Lazy: Die Erneuerung braucht selbst den Client, in dem dieser Authenticator steckt.
+    // Lazy: the refresh itself needs the client this authenticator is part of.
     private val refresher: Lazy<AbsTokenRefresher>,
 ) : Authenticator {
 

@@ -32,12 +32,12 @@ import javax.inject.Singleton
 import de.kleinabersmart.earloft.core.download.R as DownloadR
 
 /**
- * Hält den Prozess wach, solange das Handy Dateien an die Uhr schickt (Wear-Konzept 8.4).
+ * Keeps the process awake while the phone sends files to the watch (Wear concept 8.4).
  *
- * Die Play-Dienste rufen [PhoneWearListenerService.onChannelOpened] auf und binden den Dienst danach nicht weiter. Liegt die
- * App nicht vorn, ist der Prozess damit *cached*: Android friert ihn nach wenigen Sekunden ein und beendet ihn, sobald die
- * Play-Dienste ihn ansprechen – mitten in der Übertragung (Review N1). Ein laufender Auftrag ([WatchTransferWorker]) hält
- * den Prozess aus dem Cache. Kommt er zu spät oder gar nicht (Kontingent erschöpft), setzt die Uhr beim nächsten Versuch fort.
+ * Play services call [PhoneWearListenerService.onChannelOpened] and then no longer keep the service bound. If the
+ * app isn't in the foreground, the process is thereby *cached*: Android freezes it after a few seconds and kills it as soon as
+ * Play services address it – in the middle of the transfer (review N1). A running work request ([WatchTransferWorker]) keeps
+ * the process out of the cache. If it comes too late or not at all (quota exhausted), the watch resumes on the next attempt.
  */
 @Singleton
 class WatchFileTransfers @Inject constructor(
@@ -45,20 +45,20 @@ class WatchFileTransfers @Inject constructor(
 ) {
     private val active = MutableStateFlow(0)
 
-    /** Anzahl der laufenden Übertragungen. */
+    /** Number of running transfers. */
     val running: StateFlow<Int> = active
 
-    /** Der Auftrag läuft und bemerkt neue Übertragungen selbst. */
+    /** The work request is running and notices new transfers by itself. */
     internal val workerRunning = AtomicBoolean(false)
 
-    /** Ein Auftrag ist eingereiht, aber noch nicht gestartet. */
+    /** A work request is enqueued but not started yet. */
     internal val workerQueued = AtomicBoolean(false)
 
-    /** Führt [send] aus und hält den Prozess so lange mit dem Auftrag wach. */
+    /** Runs [send] and keeps the process awake with the work request for that long. */
     suspend fun <T> track(send: suspend () -> T): T {
         active.update { it + 1 }
-        // Erst zählen, dann nachsehen: Beendet sich der Auftrag gerade, sieht er entweder die neue Übertragung, oder hier ist
-        // [workerRunning] schon aus, und ein neuer kommt hinterher (sonst verwürfe `KEEP` ihn, und die Übertragung liefe ohne).
+        // Count first, then check: if the work request is just finishing, it either sees the new transfer, or here
+        // [workerRunning] is already off and a new one follows (otherwise `KEEP` would discard it, and the transfer would run without one).
         if (!workerRunning.get() && workerQueued.compareAndSet(false, true)) WatchTransferWorker.enqueue(context)
         try {
             return send()
@@ -69,8 +69,8 @@ class WatchFileTransfers @Inject constructor(
 }
 
 /**
- * Läuft, solange [WatchFileTransfers] Übertragungen zählt, und danach noch [GRACE_MS] (die Uhr fragt die nächste Datei
- * gleich hinterher). Tut sonst nichts: Allein dass ein Auftrag läuft, hält den Prozess aus dem Cache.
+ * Runs as long as [WatchFileTransfers] counts transfers, and then another [GRACE_MS] (the watch requests the next file
+ * right after). Does nothing else: merely having a work request running keeps the process out of the cache.
  */
 class WatchTransferWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
@@ -81,7 +81,7 @@ class WatchTransferWorker(context: Context, params: WorkerParameters) : Coroutin
         val finished = withTimeoutOrNull(MAX_RUN_MS) {
             while (true) {
                 transfers.running.first { it == 0 }
-                // Kommt in der Karenz eine neue Übertragung, weiter warten; sonst fertig.
+                // If a new transfer arrives during the grace period, keep waiting; otherwise done.
                 if (withTimeoutOrNull(GRACE_MS) { transfers.running.first { it > 0 } } != null) continue
                 transfers.workerRunning.set(false)
                 if (transfers.running.value == 0) break
@@ -93,7 +93,7 @@ class WatchTransferWorker(context: Context, params: WorkerParameters) : Coroutin
         return Result.success()
     }
 
-    /** Nur unter Android 12 nötig: Dort läuft ein vorgezogener Auftrag als Vordergrunddienst. */
+    /** Only needed below Android 12: there an expedited work request runs as a foreground service. */
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = buildNotification()
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -130,12 +130,12 @@ class WatchTransferWorker(context: Context, params: WorkerParameters) : Coroutin
         private const val NOTIFICATION_ID = 2101
         private const val GRACE_MS = 15_000L
 
-        /** Obergrenze, falls eine Übertragung hängt; die Uhr bricht selbst nach 30 s ohne Daten ab. */
+        /** Upper limit in case a transfer hangs; the watch itself aborts after 30 s without data. */
         private const val MAX_RUN_MS = 60 * 60_000L
 
         /**
-         * Nur aufgerufen, wenn kein Auftrag läuft oder der laufende sich gerade beendet ([WatchFileTransfers.track]); den ersetzt
-         * dieser.
+         * Only called when no work request is running or the running one is just finishing ([WatchFileTransfers.track]); this one
+         * replaces it.
          */
         fun enqueue(context: Context) {
             val request = OneTimeWorkRequestBuilder<WatchTransferWorker>()

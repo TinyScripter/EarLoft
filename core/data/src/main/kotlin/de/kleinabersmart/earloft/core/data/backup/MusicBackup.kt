@@ -27,10 +27,10 @@ import java.util.UUID
 import javax.inject.Inject
 
 /**
- * Die Musik-Nutzerdaten der Sicherung (Review K9, Etappe 3): lokale Playlists, Favoriten von Songs, Alben und Künstlern ohne
- * Server, Hörverlauf
- * und die Auswahl für die Uhr. Alles hängt an Songs und Alben, die es auf einem neuen Gerät erst nach Scan bzw. Abgleich
- * wieder gibt; sie werden über ihre Metadaten gefunden ([UserSongKey]). Aufrufe laufen in der Transaktion von
+ * The music user data of the backup (review K9, stage 3): local playlists, favorites of songs, albums and artists without a
+ * server, listening history
+ * and the selection for the watch. Everything depends on songs and albums that only exist again on a new device after scan or
+ * sync; they are found via their metadata ([UserSongKey]). Calls run in the transaction of
  * [UserDataBackup].
  */
 class MusicBackup @Inject constructor(
@@ -38,7 +38,7 @@ class MusicBackup @Inject constructor(
     private val playlistDao: PlaylistDao,
     private val syncDao: SyncDao,
 ) {
-    /** Was davon in die Sicherung gehört; lokale Playlists ohne `backupKey` bekommen dabei einen. */
+    /** What of it belongs in the backup; local playlists without a `backupKey` get one in the process. */
     suspend fun read(): MusicData {
         backupDao.localPlaylists().filter { it.backupKey == null }.forEach { backupDao.setBackupKey(it.playlistId, UUID.randomUUID().toString()) }
         return MusicData(
@@ -70,7 +70,7 @@ class MusicBackup @Inject constructor(
         }
     }
 
-    /** Die `songId`s der Songs, die es hier gibt; fehlende Schlüssel fehlen in der Antwort. */
+    /** The `songId`s of the songs that exist here; missing keys are missing from the result. */
     suspend fun resolve(keys: Collection<UserSongKey>): Map<UserSongKey, Long> =
         keys.groupBy { it.albumArtist to it.album }.flatMap { (album, wanted) ->
             val songs = backupDao.songsOfAlbum(album.first, album.second)
@@ -79,14 +79,14 @@ class MusicBackup @Inject constructor(
             }
         }.toMap()
 
-    /** Ob das Ziel der Auswahl hier existiert; sonst wartet sie in der Sicherung. */
+    /** Whether the selection's target exists here; otherwise it waits in the backup. */
     suspend fun wearTarget(selection: UserWearSelectionEntity): Long? = when (selection.kind) {
         WearSelectionKind.ALBUM -> backupDao.albumId(selection.albumArtist.orEmpty(), selection.album.orEmpty())
         WearSelectionKind.PLAYLIST -> selection.playlistRef?.let { playlistId(it) }
         WearSelectionKind.FAVORITES -> 0
     }
 
-    /** Legt die gesicherten Playlists leer an; ihre Einträge folgen mit [applyPlaylists]. */
+    /** Creates the backed-up playlists empty; their entries follow with [applyPlaylists]. */
     suspend fun restorePlaylists(saved: Collection<UserPlaylistEntity>) {
         saved.forEach {
             if (backupDao.playlistByBackupKey(it.playlistKey) == null) {
@@ -95,17 +95,17 @@ class MusicBackup @Inject constructor(
         }
     }
 
-    /** Wie viele der gesicherten Playlists [keys] es hier noch nicht gibt. */
+    /** How many of the backed-up playlists [keys] don't exist here yet. */
     suspend fun missingPlaylists(keys: Collection<String>): Int = keys.count { backupDao.playlistByBackupKey(it) == null }
 
     /**
-     * Füllt die Playlists, die seit dem Zurückspielen nicht geändert wurden, mit den gesicherten Einträgen, deren Songs es
-     * gibt. Liefert die Schlüssel der Playlists, denen noch Songs fehlen.
+     * Fills the playlists that haven't been changed since restoring with the backed-up entries whose songs
+     * exist. Returns the keys of the playlists that are still missing songs.
      */
     suspend fun applyPlaylists(saved: UserDataSnapshot, keys: Collection<String>): List<String> = keys.filter { key ->
         val playlist = saved.playlists[key] ?: return@filter false
         val local = backupDao.playlistByBackupKey(key) ?: return@filter false
-        // Hier geändert: Diese Fassung gilt, sie wird gesichert.
+        // Changed here: this version applies and is backed up.
         if (local.updatedAt != playlist.updatedAt || local.name != playlist.name) return@filter false
         val entries = saved.entriesOf(key)
         val songIds = resolve(entries.toSet()).let { resolved -> entries.mapNotNull { resolved[it] } }
@@ -116,7 +116,7 @@ class MusicBackup @Inject constructor(
         songIds.size < entries.size
     }
 
-    /** Setzt Favoriten, die hier älter sind oder fehlen; liefert die, deren Song (noch) fehlt. */
+    /** Sets favorites that are older here or missing; returns those whose song is (still) missing. */
     suspend fun applyFavorites(saved: Collection<UserFavoriteEntity>): List<UserFavoriteEntity> {
         val resolved = resolve(saved.map { it.song })
         val states = resolved.values.chunked(MAX_ARGS).flatMap { backupDao.favoriteStates(it) }.associateBy { it.songId }
@@ -131,14 +131,14 @@ class MusicBackup @Inject constructor(
         return saved.filter { it.song !in resolved }
     }
 
-    /** Das Album bzw. der Künstler, den es hier gibt; sonst wartet der Favorit in der Sicherung. */
+    /** The album or artist that exists here; otherwise the favorite waits in the backup. */
     suspend fun collectionState(favorite: UserCollectionFavoriteEntity): CollectionFavoriteState? = when (favorite.kind) {
         FavoriteKind.ALBUM -> backupDao.albumFavoriteState(favorite.artist, favorite.title)
         FavoriteKind.ARTIST -> backupDao.artistFavoriteState(favorite.artist)
         FavoriteKind.SONG -> null
     }
 
-    /** Wie [applyFavorites] für Alben und Künstler; liefert die, deren Album bzw. Künstler (noch) fehlt. */
+    /** Like [applyFavorites] for albums and artists; returns those whose album or artist is (still) missing. */
     suspend fun applyCollectionFavorites(saved: Collection<UserCollectionFavoriteEntity>): List<UserCollectionFavoriteEntity> =
         saved.filter { favorite ->
             val state = collectionState(favorite) ?: return@filter true
@@ -149,7 +149,7 @@ class MusicBackup @Inject constructor(
             false
         }
 
-    /** Ergänzt fehlende Einträge des Hörverlaufs; liefert die, deren Song (noch) fehlt. */
+    /** Adds missing entries of the listening history; returns those whose song is (still) missing. */
     suspend fun applyPlayEvents(saved: Collection<UserPlayEventEntity>): List<UserPlayEventEntity> {
         val resolved = resolve(saved.map { it.song }.toSet())
         val missing = saved.groupBy { resolved[it.song] }.flatMap { (songId, events) ->
@@ -161,7 +161,7 @@ class MusicBackup @Inject constructor(
         return saved.filter { it.song !in resolved }
     }
 
-    /** Legt fehlende Auswahlen für die Uhr an; liefert die, deren Album bzw. Playlist (noch) fehlt. */
+    /** Creates missing selections for the watch; returns those whose album or playlist is (still) missing. */
     suspend fun applyWearSelections(saved: Collection<UserWearSelectionEntity>): List<UserWearSelectionEntity> = saved.filter { selection ->
         val target = wearTarget(selection) ?: return@filter true
         val refId = target.takeIf { selection.kind != WearSelectionKind.FAVORITES }
@@ -193,7 +193,7 @@ class MusicBackup @Inject constructor(
     }
 }
 
-/** Musik-Nutzerdaten der Hauptdatenbank, schon mit Schlüsseln (siehe [UserDataSnapshot.ofMain]). */
+/** Music user data of the main database, already with keys (see [UserDataSnapshot.ofMain]). */
 data class MusicData(
     val playlists: List<PlaylistEntity>,
     val playlistEntries: List<KeyedPlaylistEntry>,

@@ -48,7 +48,7 @@ class WatchEpisodeImporterTest {
         bookId = db.bookDao().insertBook(
             BookEntity(serverId = ABS_ID, kind = BookKind.BOOK, remoteId = ITEM_ID, title = "Buch", normTitle = "buch", author = "Autorin", durationMs = 36_000_000),
         )
-        // Ohne Schlüssel ist kein Server eingetragen: Senden scheitert sofort, ohne Netz.
+        // Without a key no server is registered: sending fails immediately, without network.
         val secrets = object : SecretStore {
             override suspend fun get(key: String): String? = null
             override suspend fun put(key: String, value: String) = Unit
@@ -118,7 +118,7 @@ class WatchEpisodeImporterTest {
 
         val stored = db.bookDao().progress(bookId)!!
         assertEquals(1_200_000, stored.positionMs)
-        // Nicht erreichbar: bleibt offen, der Worker liefert nach.
+        // Not reachable: stays open, the worker delivers later.
         assertTrue(stored.dirty)
         val session = db.absSessionDao().dirty().single()
         assertEquals(bookId, session.bookId)

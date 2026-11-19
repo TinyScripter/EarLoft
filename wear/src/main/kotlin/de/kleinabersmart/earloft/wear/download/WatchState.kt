@@ -12,19 +12,19 @@ import kotlinx.serialization.SerializationException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Laufender Download der Datei [trackIndex] von Folge bzw. Buch [bookId]; [total] ist `null`, solange die Größe unbekannt ist. */
+/** Running download of file [trackIndex] of episode or book [bookId]; [total] is `null` while the size is unknown. */
 data class SpokenFileProgress(val bookId: Long, val trackIndex: Int, val done: Long, val total: Long?)
 
 /**
- * Was die Uhr sich merkt, ohne dass es in die Bibliothek gehört: die Einstellungen vom Handy
- * (`/earloft/settings`, Wear-Konzept 4) und die Meldungen für den Statusbericht.
+ * What the watch remembers without it belonging in the library: the settings from the phone
+ * (`/earloft/settings`, Wear concept 4) and the messages for the status report.
  */
 @Singleton
 class WatchState @Inject constructor(@ApplicationContext context: Context) {
 
     private val prefs = context.getSharedPreferences("watch_state", Context.MODE_PRIVATE)
 
-    /** Fehlversuche beim Laden vom Server je `sourceUid`; nach [SERVER_ATTEMPTS] geht es über das Handy (Wear-Konzept 8.3). */
+    /** Failed attempts at loading from the server per `sourceUid`; after [SERVER_ATTEMPTS] it goes via the phone (Wear concept 8.3). */
     private val serverFailures = context.getSharedPreferences("watch_server_failures", Context.MODE_PRIVATE)
 
     private val _settings = MutableStateFlow(readSettings())
@@ -32,7 +32,7 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
 
     private val _missingForStorage = MutableStateFlow(prefs.getInt(KEY_MISSING, 0))
 
-    /** Titel, die wegen der Speichergrenze nicht eingereiht sind (Wear-Konzept 8.1). */
+    /** Tracks not queued because of the storage limit (Wear concept 8.1). */
     val missingForStorage: StateFlow<Int> = _missingForStorage.asStateFlow()
 
     private val _lastError = MutableStateFlow(prefs.getString(KEY_LAST_ERROR, null))
@@ -40,14 +40,14 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
 
     private val _waitingForWifi = MutableStateFlow(prefs.getBoolean(KEY_WAITING_WIFI, false))
 
-    /** Der letzte Lauf bekam kein WLAN (aus oder außer Reichweite); die Downloads warten auf den nächsten Versuch. */
+    /** The last run got no Wi-Fi (off or out of range); the downloads wait for the next attempt. */
     val waitingForWifi: StateFlow<Boolean> = _waitingForWifi.asStateFlow()
 
     private val _spokenFileProgress = MutableStateFlow<SpokenFileProgress?>(null)
 
     /**
-     * Die Datei einer Folge bzw. eines Buchs, die gerade lädt (nur im Speicher: Anders als bei Songs steht der Stand nicht in
-     * der Datenbank); `null`, wenn keine lädt.
+     * The file of an episode or book currently downloading (in memory only: unlike for songs, the progress is not stored in
+     * the database); `null` if none is downloading.
      */
     val spokenFileProgress: StateFlow<SpokenFileProgress?> = _spokenFileProgress.asStateFlow()
 
@@ -55,12 +55,12 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         _spokenFileProgress.value = progress
     }
 
-    /** Server und Manifest vom Handy, die zuletzt vollständig übernommen wurden (siehe `PhoneLibrarySync`). */
+    /** Server and manifest from the phone that were last fully applied (see `PhoneLibrarySync`). */
     var appliedPhoneStamp: String?
         get() = prefs.getString(KEY_APPLIED_STAMP, null)
         set(value) = prefs.edit().putString(KEY_APPLIED_STAMP, value).apply()
 
-    /** @return `true`, wenn sich etwas geändert hat. */
+    /** @return `true` if something changed. */
     fun updateSettings(settings: WearSettingsDto): Boolean {
         if (settings == _settings.value) return false
         prefs.edit().putString(KEY_SETTINGS, WearCodec.encode(settings).decodeToString()).apply()
@@ -68,14 +68,14 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         return true
     }
 
-    /** Zählt einen Fehlversuch beim Laden vom Server. @return die Anzahl bisher. */
+    /** Counts a failed attempt at loading from the server. @return the count so far. */
     fun recordServerFailure(sourceUid: String): Int {
         val count = serverFailures.getInt(sourceUid, 0) + 1
         serverFailures.edit().putInt(sourceUid, count).apply()
         return count
     }
 
-    /** Zählt einen Fehlversuch für mehrere Songs auf einmal (der Server war nicht erreichbar, nicht nur ein Song). */
+    /** Counts a failed attempt for several songs at once (the server was unreachable, not just one song). */
     fun recordServerFailures(sourceUids: Collection<String>) {
         if (sourceUids.isEmpty()) return
         serverFailures.edit().apply { sourceUids.forEach { putInt(it, serverFailures.getInt(it, 0) + 1) } }.apply()
@@ -84,8 +84,8 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     fun hasServerFailedTooOften(sourceUid: String): Boolean = serverFailures.getInt(sourceUid, 0) >= SERVER_ATTEMPTS
 
     /**
-     * Merkt, dass diese Songs jetzt über das Handy kommen, obwohl der Server (noch) keine Fehlversuche zählt, z. B. weil die Uhr
-     * die Quelle nicht kennt. Nur für die Anzeige der Restzeit; der Server wird weiter zuerst gefragt.
+     * Notes that these songs now come via the phone although the server does not count any failed attempts (yet), e.g. because
+     * the watch does not know the source. Only for displaying the remaining time; the server is still asked first.
      */
     fun markViaPhone(sourceUids: Collection<String>) {
         if (sourceUids.isEmpty()) return
@@ -101,7 +101,7 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         }
     }
 
-    /** Für „Erneut versuchen“: Sonst ginge jeder Song sofort ans Handy, ohne dass der Server noch einmal gefragt wird. */
+    /** For "Retry": otherwise every song would go straight to the phone without asking the server again. */
     fun clearAllServerFailures() {
         serverFailures.edit().clear().apply()
     }
@@ -117,8 +117,8 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     }
 
     /**
-     * Zählt einen Lauf, in dem das Handy für einen Download nicht erreichbar war. @return die Anzahl bisher; nach
-     * [PHONE_ATTEMPTS] wartet der Auftrag aufs Ladegerät bzw. darauf, dass sich das Handy meldet (Review V1).
+     * Counts a run in which the phone was unreachable for a download. @return the count so far; after
+     * [PHONE_ATTEMPTS] the job waits for the charger or for the phone to check in (Review V1).
      */
     fun recordPhoneUnreachable(): Int {
         val count = prefs.getInt(KEY_PHONE_FAILURES, 0) + 1
@@ -126,34 +126,34 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         return count
     }
 
-    /** Das Handy hat geliefert bzw. sich gemeldet: wieder volle Versuche. */
+    /** The phone delivered or checked in: full attempts again. */
     fun clearPhoneUnreachable() {
         if (prefs.contains(KEY_PHONE_FAILURES) || prefs.contains(KEY_WAITING_PHONE)) {
             prefs.edit().remove(KEY_PHONE_FAILURES).remove(KEY_WAITING_PHONE).apply()
         }
     }
 
-    /** Der Auftrag wartet nach [PHONE_ATTEMPTS] Läufen ohne Handy aufs Ladegerät; meldet sich das Handy, geht es gleich weiter. */
+    /** After [PHONE_ATTEMPTS] runs without the phone the job waits for the charger; if the phone checks in, it continues right away. */
     var waitingForPhone: Boolean
         get() = prefs.getBoolean(KEY_WAITING_PHONE, false)
         set(value) = prefs.edit().putBoolean(KEY_WAITING_PHONE, value).apply()
 
     /**
-     * Läufe des Download-Auftrags in Folge, die mit einer Wiederholung endeten (WLAN fehlte, Server oder Handy nicht erreichbar).
-     * Ersetzt den `runAttemptCount` von WorkManager: Der zählt auch Stopps durchs System mit (etwa das kurze Trennen beim
-     * adaptiven Laden) und verlängerte damit jedes Mal den Abstand (Review W1).
+     * Consecutive runs of the download job that ended with a retry (no Wi-Fi, server or phone unreachable).
+     * Replaces WorkManager's `runAttemptCount`: it also counts stops by the system (such as the brief disconnect during
+     * adaptive charging) and so lengthened the interval every time (Review W1).
      */
     val retryRuns: Int
         get() = prefs.getInt(KEY_RETRY_RUNS, 0)
 
-    /** @return die Anzahl einschließlich dieses Laufs. */
+    /** @return the count including this run. */
     fun recordRetry(): Int {
         val count = retryRuns + 1
         prefs.edit().putInt(KEY_RETRY_RUNS, count).apply()
         return count
     }
 
-    /** Ein Lauf endete ohne Wiederholung, oder ein neuer Auftrag beginnt von vorn (neue Auswahl, Ladegerät). */
+    /** A run ended without a retry, or a new job starts from scratch (new selection, charger). */
     fun clearRetries() {
         if (prefs.contains(KEY_RETRY_RUNS)) prefs.edit().remove(KEY_RETRY_RUNS).apply()
     }
@@ -175,10 +175,10 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     }
 
     companion object {
-        /** Fehlversuche je Song, bevor die Uhr die Datei beim Handy holt. */
+        /** Failed attempts per song before the watch fetches the file from the phone. */
         const val SERVER_ATTEMPTS = 3
 
-        /** Läufe ohne erreichbares Handy, bevor der Auftrag aufs Ladegerät wartet (Review V1, wie beim WLAN). */
+        /** Runs without a reachable phone before the job waits for the charger (Review V1, as with Wi-Fi). */
         const val PHONE_ATTEMPTS = 5
 
         private const val VIA_PHONE_PREFIX = "via_phone:"

@@ -52,7 +52,7 @@ class BookmarksTest {
         try {
             WorkManager.initialize(context, Configuration.Builder().build())
         } catch (e: IllegalStateException) {
-            // schon initialisiert
+            // already initialized
         }
         db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         val client = OkHttpClient.Builder()
@@ -94,7 +94,7 @@ class BookmarksTest {
         assertEquals("""POST /api/me/item/item-1/bookmark {"time":754.0,"title":"Kapitel 3 · 12:34"}""", requests.single())
         assertTrue(db.bookDao().dirtyBookmarks().isEmpty())
 
-        // Die Notiz bleibt auf dem Gerät; nur der Titel geht hinaus.
+        // The note stays on the device; only the title goes out.
         bookmarks.edit(id, "Kapitel 3 · 12:34", "Wichtig")
         assertEquals(1, requests.size)
         bookmarks.edit(id, "Der Mord", "Wichtig")
@@ -111,7 +111,7 @@ class BookmarksTest {
         val id = bookmarks.add(bookId, 60_000, "Eins")!!
         val other = bookmarks.add(bookId, 120_000, "Zwei")!!
         bookmarks.delete(other)
-        // Noch nie beim Server: Löschen braucht keine Meldung.
+        // Never on the server: deleting needs no report.
         assertEquals(listOf(id), db.bookDao().dirtyBookmarks().map { it.bookmarkId })
 
         offline = false
@@ -153,7 +153,7 @@ class BookmarksTest {
     @Test
     fun `a bookmark set or deleted while the account is fetched is neither lost nor brought back`() = runTest {
         val old = bookmarks.add(bookId, 30_000, "Alt")!!
-        // Der Stand des Servers von vor den beiden Meldungen: kennt "Alt", aber noch nicht "Neu".
+        // The server's state from before the two reports: knows "Alt", but not "Neu" yet.
         val before = listOf(AbsBookmarkDto("item-1", 30.0, "Alt", 1_000))
         var added: Deferred<Long?>? = null
         var deleted: Deferred<Unit>? = null
@@ -161,7 +161,7 @@ class BookmarksTest {
         bookmarks.pull("srv") {
             added = async(Dispatchers.Default) { bookmarks.add(bookId, 60_000, "Neu", "Meine Notiz") }
             deleted = async(Dispatchers.Default) { bookmarks.delete(old) }
-            // Der Abruf dauert; ohne Absprache kämen die Meldungen in dieser Zeit durch.
+            // The fetch takes a while; without coordination the reports would get through during that time.
             withContext(Dispatchers.Default) { withTimeoutOrNull(500) { while (requests.size < 3) delay(10) } }
             before
         }
@@ -183,7 +183,7 @@ class BookmarksTest {
         bookmarks.applyRemote("srv", listOf(AbsBookmarkDto("item-1", 30.5, "Neuer Titel", 1_000)))
         assertEquals("Neuer Titel", bookmarks.of(bookId).first().single().title)
 
-        // Hier geändert und noch nicht gemeldet: bleibt, auch wenn der Server es nicht mehr kennt.
+        // Changed here and not yet reported: stays, even if the server no longer knows it.
         offline = true
         bookmarks.edit(first.id, "Meins", "")
         bookmarks.applyRemote("srv", emptyList())

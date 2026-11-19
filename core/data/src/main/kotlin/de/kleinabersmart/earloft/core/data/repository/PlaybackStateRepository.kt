@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Persistierte Warteschlange und Hörverlauf. */
+/** Persisted queue and listening history. */
 @Singleton
 class PlaybackStateRepository @Inject constructor(
     private val playbackDao: PlaybackDao,
@@ -16,12 +16,12 @@ class PlaybackStateRepository @Inject constructor(
 
     suspend fun loadQueue(): List<Long> = playbackDao.getQueueSongIds()
 
-    /** Die gespeicherte Warteschlange bei jeder Änderung. */
+    /** The stored queue on every change. */
     fun observeQueue(): Flow<List<Long>> = playbackDao.observeQueueSongIds()
 
     /**
-     * Schreibt den Hörverlauf und gibt die Wiedergabe dem [PlayReporter] weiter (Handy: Scrobble, Uhr: ans Handy).
-     * @param live `false` für nachgereichte Wiedergaben (siehe [PlayReporter.report]).
+     * Writes the listening history and passes the playback on to the [PlayReporter] (phone: scrobble, watch: to the phone).
+     * @param live `false` for plays reported later (see [PlayReporter.report]).
      */
     suspend fun recordPlay(songId: Long, playedAt: Long, listenedMs: Long, live: Boolean = true) {
         val event = PlayEventEntity(songId = songId, playedAt = playedAt, listenedMs = listenedMs)

@@ -22,13 +22,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Räumt die Probeabos aus der Podcast-Vorschau auf (Konzept 12.10, Regeln in [planTrialCleanup]): Folgen ohne Bezug
- * verlieren Stelle und Download, Probeabos ohne Bezug und ohne offene Seite verschwinden. Läuft bei jeder Änderung der
- * Warteschlange, der Folgen, des geladenen Buchs und der offenen Seiten, und damit auch einmal beim Start der App.
+ * Cleans up the trial subscriptions from the podcast preview (concept 12.10, rules in [planTrialCleanup]): episodes without a reference
+ * lose their position and download, trial subscriptions without a reference and without an open page disappear. Runs on every change of the
+ * queue, the episodes, the loaded book and the open pages, and thus also once at app start.
  *
- * Offene Seiten kennt nur der Speicher ([TrialPodcastPages]). Startet der Prozess ohne Oberfläche neu (Job, Uhr, Widget),
- * hat sich die Seite, zu der der Nutzer gleich zurückkehrt, noch nicht angemeldet. Deshalb wird erst aufgeräumt, wenn die
- * App einmal sichtbar war und wiederhergestellte Seiten ihr ViewModel anlegen konnten.
+ * Only memory knows the open pages ([TrialPodcastPages]). If the process restarts without UI (job, watch, widget),
+ * the page the user is about to return to hasn't registered yet. That's why cleanup only happens once the
+ * app has been visible and restored pages could create their ViewModel.
  */
 @Singleton
 class TrialPodcastCleaner @Inject constructor(
@@ -55,7 +55,7 @@ class TrialPodcastCleaner @Inject constructor(
                 planTrialCleanup(feeds, episodes, order, hidden, loaded, open)
             }
                 .distinctUntilChanged()
-                // Beim Abspielen oder Laden kommt die Folge erst einen Moment später in die Warteschlange.
+                // When playing or downloading, the episode only enters the queue a moment later.
                 .debounce(SETTLE_MS)
                 .collect { plan ->
                     if (plan.isEmpty) return@collect
@@ -76,7 +76,7 @@ class TrialPodcastCleaner @Inject constructor(
         const val TAG = "TrialPodcastCleaner"
         const val SETTLE_MS = 1_000L
 
-        /** Zeit nach dem ersten Start der Oberfläche, in der wiederhergestellte Seiten sich anmelden. */
+        /** Time after the first UI start during which restored pages register. */
         const val UI_SETTLE_MS = 2_000L
     }
 }

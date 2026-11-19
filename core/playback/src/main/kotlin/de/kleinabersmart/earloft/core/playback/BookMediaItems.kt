@@ -13,8 +13,8 @@ import de.kleinabersmart.earloft.core.model.BookTrack
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Hörbücher in der Warteschlange (Konzept 12.4): ein `MediaItem` je Datei, `mediaId = book:<bookId>/<trackIndex>`.
- * Die URI ist die Medien-URL des Servers; den API-Key setzt der OkHttp-Interceptor.
+ * Audiobooks in the queue (concept 12.4): one `MediaItem` per file, `mediaId = book:<bookId>/<trackIndex>`.
+ * The URI is the server's media URL; the OkHttp interceptor adds the API key.
  */
 internal object BookIds {
     private const val PREFIX = "book:"
@@ -29,18 +29,18 @@ internal object BookIds {
         if (mediaId.startsWith(PREFIX)) mediaId.substringAfter(SEPARATOR, "").toIntOrNull() else null
 }
 
-/** Die Buch-ID eines von [toMediaItems] erzeugten Items; `null` bei Musik. */
+/** The book ID of an item created by [toMediaItems]; `null` for music. */
 val MediaItem.bookId: Long? get() = BookIds.bookId(mediaId)
 
-/** Index der Datei innerhalb des Buchs. */
+/** Index of the file within the book. */
 val MediaItem.bookTrackIndex: Int? get() = BookIds.trackIndex(mediaId)
 
 val MediaItem.isSpoken: Boolean get() = bookId != null
 
-/** Eine Datei eines Buchs, die nicht geladen und an der Quelle nicht mehr abrufbar ist ([BookTrack.unavailable]); der Player überspringt sie. */
+/** A file of a book that is not downloaded and no longer available at the source ([BookTrack.unavailable]); the player skips it. */
 val MediaItem.isUnavailablePart: Boolean get() = mediaMetadata.extras?.getBoolean(EXTRA_UNAVAILABLE) == true
 
-/** Podcast-Folge (sonst Buch); nur bei [isSpoken] aussagekräftig. */
+/** Podcast episode (otherwise book); only meaningful if [isSpoken]. */
 val MediaItem.isEpisode: Boolean get() = mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE
 
 @OptIn(UnstableApi::class)
@@ -52,7 +52,7 @@ internal fun PreparedBook.toMediaItems(): List<MediaItem> {
         MediaItem.Builder()
             .setMediaId(BookIds.mediaId(book.id, index))
             .setUri(url)
-            // Gleicher Cache-Schlüssel für dieselbe Datei, egal ob Server-URL oder Proxy davor.
+            // Same cache key for the same file, whether server URL or a proxy in front of it.
             .setCustomCacheKey("book:${book.serverId}:${book.remoteId}:${timeline.tracks[index].remoteFileId}")
             .setMediaMetadata(
                 MediaMetadata.Builder()
@@ -79,9 +79,9 @@ internal fun PreparedBook.toMediaItems(): List<MediaItem> {
 }
 
 /**
- * Ersetzt die Warteschlange durch das Buch und spielt es an der gespeicherten Stelle bzw. bei [startPositionMs]. Zufall und
- * Wiederholen gehen erst danach aus: Vorher hielt der Player noch die Musik, und die App hätte „aus“ als Modus der
- * Musik-Warteschlange gespeichert.
+ * Replaces the queue with the book and plays it at the saved position or at [startPositionMs]. Shuffle and
+ * repeat are only turned off afterwards: before that the player still held the music, and the app would have saved "off"
+ * as the mode of the music queue.
  */
 internal fun Player.playBook(prepared: PreparedBook, startPositionMs: Long? = null, autoPlay: Boolean = true) {
     val start = prepared.timeline.locate(startPositionMs ?: prepared.startPositionMs)
@@ -94,9 +94,9 @@ internal fun Player.playBook(prepared: PreparedBook, startPositionMs: Long? = nu
 }
 
 /**
- * Spielt los, was gerade mit `setMediaItems` gesetzt wurde. Über einen `MediaController` nicht mit `play()`: Die Session hält
- * einen Player ohne aktuellen Titel dann für leer und lädt per `onPlaybackResumption` das zuletzt Gespielte. Beim Casten ist
- * die Warteschlange direkt nach `setMediaItems` noch leer, bis der Empfänger sie meldet (etwa nach dem Ende eines Buchs).
+ * Starts playing what was just set with `setMediaItems`. Not with `play()` via a `MediaController`: the session then considers
+ * a player without a current item empty and loads the last played via `onPlaybackResumption`. When casting,
+ * the queue is still empty right after `setMediaItems` until the receiver reports it (e.g. after a book ended).
  */
 internal fun Player.playSetItems() {
     playWhenReady = true
@@ -106,10 +106,10 @@ internal const val EXTRA_BOOK_ID = "de.kleinabersmart.earloft.BOOK_ID"
 private const val EXTRA_UNAVAILABLE = "de.kleinabersmart.earloft.UNAVAILABLE"
 
 /**
- * Wo ein Cast-Empfänger die Datei eines Buchs oder einer Folge findet. Die Adressen enthalten kein Passwort, bei manchen
- * privaten Feeds aber einen Token im Pfad; bei [absServerId] ≠ `null` gehört der Schlüssel dieses Audiobookshelf-Servers
- * als `token` dazu. Bücher und Folgen vom Gerät haben eine `content://`-Adresse und kein [coverUrl]; beides liefert dann das
- * Handy selbst aus ([bookId] für das Cover).
+ * Where a cast receiver finds the file of a book or episode. The addresses contain no password, but with some
+ * private feeds a token in the path; if [absServerId] ≠ `null`, this Audiobookshelf server's key belongs
+ * to it as `token`. Books and episodes from the device have a `content://` address and no [coverUrl]; the phone then
+ * serves both itself ([bookId] for the cover).
  */
 class SpokenCastSource(
     val url: String,
@@ -123,9 +123,9 @@ val MediaItem.spokenCastSource: SpokenCastSource?
     get() = bookId?.let { id -> bookTrackIndex?.let { SpokenCastSources.get(id, it) } }
 
 /**
- * Cast-Quellen je Buch bzw. Folge, nur im Speicher des App-Prozesses (Review D31): Die Metadaten der Items gehen an jeden
- * Controller, auch an fremde, und die Adresse einer Folge trägt bei manchen privaten Feeds den Token. Gefüllt von
- * [toMediaItems]; jeder Weg zu Buch-Items (Start, Fortsetzen, Neubau nach einer Cast-Sitzung) geht dort durch.
+ * Cast sources per book or episode, only in the app process's memory (review D31): item metadata goes to every
+ * controller, including foreign ones, and with some private feeds an episode's address carries the token. Filled by
+ * [toMediaItems]; every path to book items (start, resume, rebuild after a cast session) goes through it.
  */
 internal object SpokenCastSources {
     private val byBook = ConcurrentHashMap<Long, List<SpokenCastSource?>>()

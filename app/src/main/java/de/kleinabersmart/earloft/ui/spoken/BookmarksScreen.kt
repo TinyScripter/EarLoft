@@ -36,9 +36,9 @@ import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Gesammelte Lesezeichen der Bücher bzw. Folgen ([kind]): je Buch eine Gruppe, das Buch mit dem neuesten Lesezeichen zuerst,
- * darin nach der Stelle. Die Kopfzeile der Gruppe öffnet das Buch ([onBookClick]), ein Lesezeichen spielt ab dort; Wischen
- * löscht (mit „Rückgängig“ in der Snackbar), der Stift ändert Titel und Notiz.
+ * Collected bookmarks of books or episodes ([kind]): one group per book, the book with the newest bookmark first,
+ * within it by position. The group's header opens the book ([onBookClick]), a bookmark plays from there; swiping
+ * deletes (with "Undo" in the snackbar), the pencil edits title and note.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,7 +82,7 @@ fun BookmarksScreen(
     actions.Dialog()
 }
 
-/** Symbol im Kopf der Bibliothek zu den gesammelten Lesezeichen; nur, solange es im Bereich welche gibt. */
+/** Icon in the library header for the collected bookmarks; only as long as there are any in the area. */
 @Composable
 internal fun BookmarksHeaderButton(kind: BookKind, onOpen: () -> Unit, viewModel: BookmarksViewModel = hiltViewModel()) {
     val any by remember(kind) { viewModel.any(kind) }.collectAsStateWithLifecycle(false)
@@ -92,12 +92,12 @@ internal fun BookmarksHeaderButton(kind: BookKind, onOpen: () -> Unit, viewModel
     }
 }
 
-/** Die Lesezeichen eines Buchs auf der gesammelten Liste. */
+/** The bookmarks of a book on the collected list. */
 internal class BookmarkedBook(val bookId: Long, val title: String, val author: String, val entries: List<BookmarkEntry>)
 
 /**
- * Je Buch in der Reihenfolge des neuesten Lesezeichens (die Liste kommt neueste zuerst), darin nach der Stelle. Bei Büchern nur
- * die Autoren (ohne Übersetzer und Sprecher), bei Folgen der Podcast.
+ * Per book in the order of the newest bookmark (the list comes newest first), within it by position. For books only
+ * the authors (without translators and narrators), for episodes the podcast.
  */
 internal fun List<BookmarkEntry>.byBook(): List<BookmarkedBook> = groupBy { it.bookmark.bookId }.map { (bookId, entries) ->
     val first = entries.first()

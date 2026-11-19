@@ -9,8 +9,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Jellyfin ist aus Emby hervorgegangen; beide sprechen dieselbe REST-API mit einigen abweichenden Pfaden (Konzept 14).
- * Die Unterschiede stecken in [JellyfinApi].
+ * Jellyfin emerged from Emby; both speak the same REST API with some differing paths (concept 14).
+ * The differences are in [JellyfinApi].
  */
 enum class JellyfinFlavor(val sourceType: SourceType, val productName: String) {
     JELLYFIN(SourceType.JELLYFIN, "Jellyfin"),
@@ -23,8 +23,8 @@ enum class JellyfinFlavor(val sourceType: SourceType, val productName: String) {
 }
 
 /**
- * Ein angemeldeter Jellyfin- oder Emby-Server (Konzept 14) mit normalisierter Basis-URL (endet immer auf `/`).
- * [token] gehört zum Gerät [deviceId]; meldet sich dasselbe Gerät neu an, verwirft Jellyfin den alten Token (Emby nicht).
+ * A signed-in Jellyfin or Emby server (concept 14) with a normalized base URL (always ends with `/`).
+ * [token] belongs to the device [deviceId]; if the same device signs in again, Jellyfin discards the old token (Emby doesn't).
  */
 data class JellyfinServer(
     val sourceId: String,
@@ -38,7 +38,7 @@ data class JellyfinServer(
 
     fun endpoint(path: String): HttpUrl.Builder = baseUrl.newBuilder().addPathSegments(path.trimStart('/'))
 
-    /** Jellyfin und Emby haben keinen festen API-Pfad: Alles unter der Basis-URL gehört zum Server. */
+    /** Jellyfin and Emby have no fixed API path: everything under the base URL belongs to the server. */
     fun owns(url: HttpUrl): Boolean =
         url.scheme == baseUrl.scheme &&
             url.host == baseUrl.host &&
@@ -47,17 +47,17 @@ data class JellyfinServer(
 
     companion object {
         /**
-         * Gerät für eine neue Anmeldung: je Server und Installation eine eigene, damit sich zwei Konten auf demselben Server
-         * und zwei Geräte mit derselben Sicherung (gleiche `sourceId`) nicht gegenseitig abmelden.
+         * Device for a new login: a separate one per server and installation, so that two accounts on the same server
+         * and two devices with the same backup (same `sourceId`) don't sign each other out.
          */
         fun newDeviceId(): String = "earloft-${UUID.randomUUID()}"
 
-        /** Gerät der Anmeldungen von vor [newDeviceId]; deren Token gilt weiter. */
+        /** Device of the logins from before [newDeviceId]; their token stays valid. */
         fun legacyDeviceId(sourceId: String) = "earloft-$sourceId"
 
         /**
-         * Ergänzt `https://`, schneidet die Weboberfläche (`/web/…`, `#/home`) ab und sorgt für den
-         * abschließenden `/`. `null` bei ungültiger Eingabe.
+         * Adds `https://`, cuts off the web UI (`/web/…`, `#/home`) and ensures the
+         * trailing `/`. `null` for invalid input.
          */
         fun normalizeBaseUrl(input: String): HttpUrl? {
             val trimmed = input.trim()
@@ -77,12 +77,12 @@ data class JellyfinServer(
     }
 }
 
-/** Wie sich die App beim Server ausweist (Kopfzeile `Authorization: MediaBrowser …`). */
+/** How the app identifies itself to the server (header `Authorization: MediaBrowser …`). */
 class JellyfinClientInfo(
     private val deviceName: String,
     private val version: String,
 ) {
-    /** [token] `null` nur für die Anmeldung selbst. */
+    /** [token] `null` only for the login itself. */
     fun authorization(deviceId: String, token: String?): String = buildString {
         append("MediaBrowser Client=\"").append(CLIENT_NAME)
         append("\", Device=\"").append(encode(deviceName))
@@ -91,7 +91,7 @@ class JellyfinClientInfo(
         if (token != null) append(", Token=\"").append(encode(token)).append('"')
     }
 
-    /** Der Server dekodiert die Werte; so bleiben Kopfzeilen ASCII (OkHttp lehnt anderes ab) und frei von `"`. */
+    /** The server decodes the values; this keeps headers ASCII (OkHttp rejects anything else) and free of `"`. */
     private fun encode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8.name())
 
     private companion object {
@@ -100,8 +100,8 @@ class JellyfinClientInfo(
 }
 
 /**
- * Bekannte Server, damit [JellyfinAuthInterceptor] auch Anfragen authentifiziert, die nicht von [JellyfinApi]
- * stammen (Media3-Streams, Downloads, Cover).
+ * Known servers, so that [JellyfinAuthInterceptor] also authenticates requests that don't come from [JellyfinApi]
+ * (Media3 streams, downloads, covers).
  */
 @Singleton
 class JellyfinServerRegistry @Inject constructor() {
@@ -115,7 +115,7 @@ class JellyfinServerRegistry @Inject constructor() {
 
     operator fun get(sourceId: String): JellyfinServer? = servers[sourceId]
 
-    /** Bei verschachtelten Basis-URLs gewinnt die längste. */
+    /** With nested base URLs the longest one wins. */
     fun forUrl(url: HttpUrl): JellyfinServer? =
         servers.values.filter { it.owns(url) }.maxByOrNull { it.baseUrl.encodedPath.length }
 }

@@ -37,7 +37,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** Geschützte Feeds (Konzept 12.10): Abfrage bei 401, Speichern je Abo, Abgleich mit den gespeicherten Zugangsdaten. */
+/** Protected feeds (concept 12.10): prompt on 401, storing per subscription, sync with the stored credentials. */
 @RunWith(RobolectricTestRunner::class)
 class FeedCredentialsTest {
 
@@ -47,7 +47,7 @@ class FeedCredentialsTest {
     private val secrets = MemorySecretStore()
     private val registry = FeedAuthRegistry()
 
-    /** Was der Feed als Anmeldung annimmt. */
+    /** What the feed accepts as credentials. */
     private var accepted = Credentials.basic("anna", "geheim")
 
     @Before
@@ -83,7 +83,7 @@ class FeedCredentialsTest {
         server.close()
     }
 
-    // MockWebServer spricht kein HTTPS: Die Adresse ohne Schema würde zu https://.
+    // MockWebServer doesn't speak HTTPS: the address without a scheme would become https://.
     private val feedUrl get() = server.url("/feed.xml").toString()
 
     @Test
@@ -96,7 +96,7 @@ class FeedCredentialsTest {
         assertEquals(1, db.bookDao().booksOf(added.feedId).size)
         assertEquals("anna", repository.credentials(added.feedId).first()?.username)
         assertNotNull(secrets.values["feed:${added.feedId}:auth"])
-        // Der Abgleich nimmt die gespeicherten.
+        // The sync uses the stored ones.
         assertNotNull(repository.refresh(added.feedId))
     }
 
@@ -167,7 +167,7 @@ class FeedCredentialsTest {
         switch = PodcastSourceSwitch(db, repository, db.podcastDao(), db.bookDao(), db.statsDao(), backup, emptySet())
         val feedId = (repository.subscribe(old, PodcastRepository.Credentials("anna", "geheim")) as SubscribeResult.Added).feedId
 
-        // Der Feed zieht dauerhaft auf einen anderen Host um und will dort andere Zugangsdaten.
+        // The feed moves permanently to a different host and wants different credentials there.
         moved = true
         accepted = Credentials.basic("anna", "neu")
         assertNull(repository.refresh(feedId))
@@ -194,13 +194,13 @@ class FeedCredentialsTest {
 
     @Test
     fun `an ended subscription takes its credentials along`() = runTest {
-        // Ein echter Thread: Room liefert auf eigenen Threads.
+        // A real thread: Room emits on its own threads.
         val observer = CoroutineScope(Dispatchers.Default)
         val observed = FeedAuthRegistry()
         val credentials = testFeedCredentials(db, secrets, observed, observer)
         credentials.start()
         val added = repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "geheim")) as SubscribeResult.Added
-        // Erst nachdem der Beobachter das Abo gesehen hat, ist es eins, das verschwinden kann.
+        // Only after the observer has seen the subscription is it one that can disappear.
         eventually { observed.forUrl(server.url("/1.mp3")) != null }
 
         repository.unsubscribe(added.feedId)
@@ -219,7 +219,7 @@ class FeedCredentialsTest {
         val sameHost = repository.fetchSource(server.url("/neu.xml").toString(), stored)
         assertEquals("anna", (sameHost as PodcastRepository.SourceFetch.Loaded).auth?.username)
 
-        // Derselbe Server unter einem anderen Namen gilt als fremder Host (z. B. ein Umzug per `itunes:new-feed-url`).
+        // The same server under a different name counts as a foreign host (e.g. a move via `itunes:new-feed-url`).
         val otherHost = if (server.hostName == "localhost") "127.0.0.1" else "localhost"
         val foreign = server.url("/neu.xml").newBuilder().host(otherHost).build()
         assertEquals(

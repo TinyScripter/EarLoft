@@ -93,11 +93,11 @@ private fun QueueContent(
             actions = {
                 QueueMoreMenu(
                     clearMessage = stringResource(R.string.music_queue_clear_message),
-                    // Der laufende Titel bleibt; zu leeren gibt es erst etwas, wenn noch mehr dasteht.
+                    // The current title stays; there's only something to clear once more is listed.
                     canClear = state.queue.size > 1,
                     onClear = onClear,
                 ) { close ->
-                    // Neue oder bestehende Playlist; dieselbe Auswahl wie „Zur Playlist“ bei Songs und Alben.
+                    // New or existing playlist; the same selection as "Add to playlist" for songs and albums.
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.queue_save_as_playlist)) },
                         enabled = state.queue.isNotEmpty(),
@@ -119,7 +119,7 @@ private fun QueueContent(
     }
 }
 
-/** Die Warteschlange mit Ziehgriffen; auch rechts neben der Wiedergabe auf breiten Fenstern. */
+/** The queue with drag handles; also to the right of playback on wide windows. */
 @Composable
 fun QueueList(
     state: PlayerState,
@@ -135,8 +135,8 @@ fun QueueList(
         }
         val listState = rememberLazyListState(initialFirstVisibleItemIndex = state.currentIndex.coerceAtLeast(0))
 
-        // Einträge können doppelt vorkommen, daher bekommt jede Zeile eine eigene Kennung als Schlüssel.
-        // Die lokale Kopie wird beim Ziehen sofort umsortiert; der Player zieht danach nach.
+        // Entries can occur twice, so each row gets its own ID as key.
+        // The local copy is reordered immediately while dragging; the player follows afterwards.
         var nextRowId by remember { mutableIntStateOf(0) }
         val rows = remember { mutableStateListOf<QueueRow>() }
         var currentIndex by remember { mutableIntStateOf(state.currentIndex) }
@@ -144,7 +144,7 @@ fun QueueList(
         val latest by rememberUpdatedState(state)
         fun syncRows() {
             currentIndex = latest.currentIndex
-            // Schon umsortiert (Ziehen, „Nach oben/unten“): Kennungen behalten, sonst gleitet nichts an seinen Platz.
+            // Already reordered (drag, "Move up/down"): keep the IDs, otherwise nothing glides to its place.
             if (rows.map { it.entry } == latest.queue) return
             rows.clear()
             latest.queue.forEach { rows.add(QueueRow(nextRowId++, it)) }
@@ -180,7 +180,7 @@ fun QueueList(
                                     .size(40.dp)
                                     .padding(8.dp)
                                     .reorderHandle(reorder, row.id, index = { rows.indexOfFirst { it.id == row.id } }, onMove = moveRow,
-                                    // Ohne Platzwechsel kommt kein neuer Stand nach; was beim Ziehen eintraf, gilt jetzt.
+                                    // Without a swap no new state follows; whatever arrived during the drag applies now.
                                     onDragEnd = { moved -> if (!moved) syncRows() }),
                             )
                             AlbumArt(
@@ -213,7 +213,7 @@ fun QueueList(
                 )
             }
         }
-        // Ohne Marke: Die Reihenfolge ist die der Wiedergabe. Die Ziehgriffe zum Umsortieren liegen links.
+        // Without a label: the order is the playback order. The drag handles for reordering are on the left.
         LazyListFastScroller(listState)
     }
 }

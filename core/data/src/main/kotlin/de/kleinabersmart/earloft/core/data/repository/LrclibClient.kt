@@ -18,11 +18,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Songtexte von LRCLIB (lrclib.net, ohne Schlüssel). Zuerst wird ein Eintrag mit Titel, Interpret und Dauer geholt;
- * LRCLIB nimmt dafür nur Aufnahmen, deren Dauer höchstens 2 s abweicht, damit die Zeiten synchroner Zeilen passen.
- * Gibt es keinen, wird gesucht und nur ein statischer Text übernommen: Eine andere Fassung hat andere Zeiten.
+ * Lyrics from LRCLIB (lrclib.net, no key). First an entry is fetched by title, artist and duration;
+ * LRCLIB only accepts recordings whose duration differs by at most 2 s, so the timings of synced lines match.
+ * If there is none, a search is done and only plain text is adopted: a different version has different timings.
  *
- * [Lyrics.None] heißt „es gibt dort nichts“; Netzwerkfehler werden als [IOException] geworfen.
+ * [Lyrics.None] means "there is nothing there"; network errors are thrown as [IOException].
  */
 @Singleton
 class LrclibClient internal constructor(
@@ -32,7 +32,7 @@ class LrclibClient internal constructor(
     @Inject
     constructor(client: OkHttpClient) : this(client, BASE_URL)
 
-    /** [artists] in der Reihenfolge, in der gefragt wird (etwa erst „A feat. B“, dann „A“). */
+    /** [artists] in the order they are queried (e.g. first "A feat. B", then "A"). */
     suspend fun find(title: String, artists: List<String>, durationMs: Long): Lyrics {
         val names = artists.filter { it.isNotBlank() }.distinct()
         if (title.isBlank() || names.isEmpty()) return Lyrics.None
@@ -59,7 +59,7 @@ class LrclibClient internal constructor(
         val results = get(url)?.let { parsed { JSONArray(it) } } ?: return Lyrics.None
         val wantedTitle = title.normalizeForMerge()
         val wantedArtists = artists.map { it.normalizeForMerge() }.toSet()
-        // Die Suche ist unscharf; nur gleicher Titel und Interpret zählen, sonst käme der Text eines anderen Songs.
+        // The search is fuzzy; only the same title and artist count, otherwise the lyrics of another song would come back.
         for (i in 0 until results.length()) {
             val entry = results.optJSONObject(i) ?: continue
             if (entry.optBoolean("instrumental")) continue
@@ -79,14 +79,14 @@ class LrclibClient internal constructor(
         return if (plain.isEmpty()) Lyrics.None else Lyrics.Plain(plain)
     }
 
-    /** `optString` lieferte für JSON-`null` den Text "null". */
+    /** `optString` returned the text "null" for JSON `null`. */
     private fun JSONObject.text(name: String): String = if (isNull(name)) "" else optString(name).trim()
 
     private fun api(path: String): HttpUrl.Builder = "$baseUrl/api/$path".toHttpUrl().newBuilder()
 
     /**
-     * Antwort als Text; `null` bei 404 (nichts gefunden). LRCLIB begrenzt die Anfragen je IP-Adresse und nennt bei 429
-     * die Wartezeit (meist 1 s); ist sie kurz, wird einmal gewartet und neu gefragt.
+     * Response as text; `null` on 404 (nothing found). LRCLIB rate-limits requests per IP address and states the
+     * wait time on 429 (usually 1 s); if it is short, it waits once and asks again.
      */
     private suspend fun get(url: HttpUrl, retry: Boolean = true): String? {
         val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
@@ -110,7 +110,7 @@ class LrclibClient internal constructor(
         }
     }
 
-    /** Kaputte Antworten zählen wie ein Netzwerkfehler: nicht als „kein Text“ merken. */
+    /** Broken responses count like a network error: don't remember as "no lyrics". */
     private inline fun <T> parsed(block: () -> T): T = try {
         block()
     } catch (e: JSONException) {
@@ -121,10 +121,10 @@ class LrclibClient internal constructor(
         const val BASE_URL = "https://lrclib.net"
         const val USER_AGENT = "EarLoft/1.0 (Android music player)"
 
-        /** LRCLIB lehnt bei `get` Dauern außerhalb von 1 bis 3600 s ab. */
+        /** LRCLIB rejects durations outside 1 to 3600 s for `get`. */
         const val MAX_DURATION_S = 3_600L
 
-        /** Längere Wartezeiten nach 429 gelten als „nicht erreichbar“; der Nutzer kann es später erneut versuchen. */
+        /** Longer wait times after 429 count as "unreachable"; the user can try again later. */
         const val MAX_RETRY_AFTER_S = 5L
     }
 }

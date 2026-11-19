@@ -26,21 +26,21 @@ import androidx.navigation3.scene.SceneStrategy
 import androidx.navigation3.scene.SceneStrategyScope
 
 /**
- * Auf breiten Fenstern (Tablet quer, aufgeklapptes Foldable) steht eine Detailseite rechts neben ihrer Liste,
- * z. B. Künstler neben der Bibliothek oder „Über“ neben den Einstellungen.
+ * On wide windows (tablet in landscape, unfolded foldable) a detail page sits to the right of its list,
+ * e.g. an artist next to the library or "About" next to the settings.
  *
- * Solange keine Detailseite offen ist, nimmt die Liste die ganze Breite ein (kein leerer Platzhalter, das
- * Album-Raster bleibt breit). Liste mit und ohne Detail sind dieselbe Scene, damit beim Öffnen und Schließen nur
- * die Breite animiert und die Liste nicht aus- und wieder einblendet.
+ * As long as no detail page is open, the list takes the full width (no empty placeholder, the
+ * album grid stays wide). List with and without detail are the same scene, so that opening and closing only
+ * animates the width and the list doesn't fade out and back in.
  *
- * Welche Ziele Liste oder Detail sind, steht in den Metadaten der Einträge ([listPane], [detailPane],
+ * Which destinations are list or detail is defined in the entries' metadata ([listPane], [detailPane],
  * [nestedDetailPane]).
  */
 class ListDetailSceneStrategy(private val twoPane: Boolean) : SceneStrategy<NavKey> {
 
     override fun SceneStrategyScope<NavKey>.calculateScene(entries: List<NavEntry<NavKey>>): Scene<NavKey>? {
         if (!twoPane || entries.isEmpty()) return null
-        // Von oben so lange Detailseiten überspringen, bis die zugehörige Liste kommt.
+        // Skip detail pages from the top until the corresponding list comes.
         var index = entries.lastIndex
         while (index >= 0 && entries.isDetailAt(index)) index--
         if (index < 0 || entries[index].metadata[PANE_KEY] != PANE_LIST) return null
@@ -49,7 +49,7 @@ class ListDetailSceneStrategy(private val twoPane: Boolean) : SceneStrategy<NavK
         return ListDetailScene(
             list = list,
             detail = detail,
-            // Nur die erste Detailebene schließt mit „Zurück“ die Spalte; darüber führt es zur vorigen Detailseite.
+            // Only the first detail level closes the pane with "Back"; above that it leads to the previous detail page.
             detailClosesPane = index == entries.lastIndex - 1,
             previousEntries = entries.dropLast(1),
         )
@@ -57,7 +57,7 @@ class ListDetailSceneStrategy(private val twoPane: Boolean) : SceneStrategy<NavK
 
     private fun List<NavEntry<NavKey>>.isDetailAt(index: Int): Boolean = when (this[index].metadata[PANE_KEY]) {
         PANE_DETAIL -> true
-        // Nur über einer anderen Detailseite (Bibliothek → Künstler → Album), sonst eigene Seite (Bibliothek → Album).
+        // Only on top of another detail page (Library → Artist → Album), otherwise a page of its own (Library → Album).
         PANE_NESTED_DETAIL -> index > 0 && getOrNull(index - 1)?.metadata?.get(PANE_KEY).let {
             it == PANE_DETAIL || it == PANE_NESTED_DETAIL
         }
@@ -70,20 +70,20 @@ class ListDetailSceneStrategy(private val twoPane: Boolean) : SceneStrategy<NavK
         private const val PANE_DETAIL = "detail"
         private const val PANE_NESTED_DETAIL = "nestedDetail"
 
-        /** Liste, neben der Detailseiten erscheinen. */
+        /** List next to which detail pages appear. */
         fun listPane(): Map<String, Any> = mapOf(PANE_KEY to PANE_LIST)
 
-        /** Detailseite, die neben ihrer Liste erscheint. */
+        /** Detail page that appears next to its list. */
         fun detailPane(): Map<String, Any> = mapOf(PANE_KEY to PANE_DETAIL)
 
-        /** Detailseite nur, wenn sie aus einer anderen Detailseite geöffnet wurde; direkt aus der Liste ganze Seite. */
+        /** Detail page only if it was opened from another detail page; directly from the list it's a full page. */
         fun nestedDetailPane(): Map<String, Any> = mapOf(PANE_KEY to PANE_NESTED_DETAIL)
     }
 }
 
 /**
- * `true` für eine Detailseite, die direkt neben ihrer Liste steht: „Zurück“ schließt dort die rechte Spalte,
- * daher zeigt [de.kleinabersmart.earloft.ui.library.BackButton] ein ✕ statt des Pfeils.
+ * `true` for a detail page that sits directly next to its list: "Back" closes the right pane there,
+ * so [de.kleinabersmart.earloft.ui.library.BackButton] shows an ✕ instead of the arrow.
  */
 val LocalClosesDetailPane = staticCompositionLocalOf { false }
 

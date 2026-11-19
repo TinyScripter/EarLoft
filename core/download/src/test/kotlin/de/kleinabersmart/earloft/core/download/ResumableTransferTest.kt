@@ -54,7 +54,7 @@ class ResumableTransferTest {
         .body(Buffer().write(bytes))
         .build()
 
-    /** Der Server bricht mitten im Körper ab, obwohl er die volle Länge angekündigt hat. */
+    /** The server aborts in the middle of the body although it announced the full length. */
     private fun cutOff() = MockResponse.Builder()
         .addHeader("Content-Type", "audio/mp4")
         .addHeader("ETag", "\"v1\"")
@@ -76,7 +76,7 @@ class ResumableTransferTest {
             run()
             fail("Der Abbruch hätte eine Ausnahme auslösen müssen")
         } catch (_: IOException) {
-            // erwartet
+            // expected
         }
         return storage.partFileFor(7, 0).length()
     }
@@ -104,7 +104,7 @@ class ResumableTransferTest {
 
     @Test
     fun `the very first download creates the folder before writing the marker`() = runTest {
-        // Wie auf einer frisch eingerichteten Uhr: Der Ordner für Bücher existiert noch nicht.
+        // As on a freshly set up watch: the folder for books doesn't exist yet.
         val fresh = BookStorage(java.io.File(tempFolder.root, "neu/books"))
         server.enqueue(full())
 
@@ -142,11 +142,11 @@ class ResumableTransferTest {
             episodeTransfer.run(request, bookId = 9, trackIndex = 0, onProgress = progress)
             fail("Der Abbruch hätte eine Ausnahme auslösen müssen")
         } catch (_: IOException) {
-            // erwartet
+            // expected
         }
         val have = episodes.partFileFor(9).length()
         assertTrue(episodes.metaFileFor(9).exists())
-        // Die Teildatei einer wartenden Folge übersteht das Aufräumen.
+        // The partial file of a waiting episode survives the cleanup.
         episodes.deleteOrphans(emptyList(), listOf(9L))
         assertEquals(have, episodes.partFileFor(9).length())
         server.takeRequest()
@@ -180,7 +180,7 @@ class ResumableTransferTest {
     fun `a changed server file replaces the part file instead of being appended`() = runTest {
         interrupt()
         val changed = ByteArray(250_000) { (it * 7).toByte() }
-        // Der Server hält If-Range nicht ein und liefert die neue Datei ganz (200).
+        // The server doesn't honor If-Range and delivers the new file in full (200).
         server.enqueue(full(changed, etag = "\"v2\""))
 
         val result = run()

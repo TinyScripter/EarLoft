@@ -45,7 +45,7 @@ class DatabaseReaderTest {
         val played = backup.episodes.first()
         assertEquals(true, played.played)
         assertEquals(590_000, played.listenedMs)
-        // Das jüngere von „zuletzt gespielt“ und „Ende erreicht“.
+        // The more recent of "last played" and "end reached".
         assertEquals(5_000, played.lastPlayedAt)
         assertEquals(100_000, backup.episodes[1].positionMs)
     }
@@ -73,9 +73,9 @@ class DatabaseReaderTest {
         val feeds = DatabaseReader.read(file).feeds
 
         assertEquals(ImportFeed("https://a.example/feed", "Eigen", true, 1.75f, false, 6, 20, 40), feeds[0])
-        // Stufe 0 der Lautstärke ist ausdrücklich „unverändert“, nicht die Vorgabe des Bereichs.
+        // Volume level 0 explicitly means "unchanged", not the section default.
         assertEquals(ImportFeed("https://b.example/feed", "Vorgabe", true, volumeBoostDb = 0), feeds[1])
-        // Leiser gibt es in der App nicht: Vorgabe; Stille ab Stufe 2 an.
+        // The app has no quieter setting: default; silence from level 2 on.
         assertEquals(ImportFeed("https://c.example/feed", "Leiser", true, skipSilence = true), feeds[2])
     }
 

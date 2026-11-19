@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** App-Darstellung: hell, dunkel oder wie das System. */
+/** App appearance: light, dark or follow the system. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 private val Context.themeSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "theme_settings")
@@ -28,7 +28,7 @@ private val Context.themeSettingsDataStore: DataStore<Preferences> by preference
 class ThemeSettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
-    /** Standard: wie das System. */
+    /** Default: follow the system. */
     val mode: Flow<ThemeMode> = context.themeSettingsDataStore.data.map { prefs ->
         prefs[KEY_MODE]?.let { stored -> ThemeMode.entries.firstOrNull { it.name == stored } } ?: ThemeMode.SYSTEM
     }
@@ -37,14 +37,14 @@ class ThemeSettings @Inject constructor(
         context.themeSettingsDataStore.edit { it[KEY_MODE] = mode.name }
     }
 
-    /** Farben aus dem System (Material You, ab Android 12) statt aus dem Logo. Standard: nein. */
+    /** Colors from the system (Material You, from Android 12) instead of from the logo. Default: no. */
     val systemColors: Flow<Boolean> = context.themeSettingsDataStore.data.map { it[KEY_SYSTEM_COLORS] ?: false }
 
     suspend fun setSystemColors(enabled: Boolean) {
         context.themeSettingsDataStore.edit { it[KEY_SYSTEM_COLORS] = enabled }
     }
 
-    /** Mini-Player und Player in den Farben des Covers statt in den App-Farben. Standard: ja. */
+    /** Mini player and player in the cover's colors instead of the app colors. Default: yes. */
     val playerCoverColors: Flow<Boolean> = context.themeSettingsDataStore.data.map { it[KEY_PLAYER_COVER_COLORS] ?: true }
 
     suspend fun setPlayerCoverColors(enabled: Boolean) {
@@ -52,12 +52,12 @@ class ThemeSettings @Inject constructor(
     }
 
     /**
-     * Früherer Schalter „Coverfarben im Widget“, Standard: ja. Seit jedes Widget eigene Farben hat, nur noch für Widgets,
-     * die vor dieser Version angelegt wurden (`NowPlayingWidgetUpdater`).
+     * Former switch "Cover colors in widget", default: yes. Since every widget has its own colors, only used for widgets
+     * created before this version (`NowPlayingWidgetUpdater`).
      */
     val widgetCoverColors: Flow<Boolean> = context.themeSettingsDataStore.data.map { it[KEY_WIDGET_COVER_COLORS] ?: true }
 
-    /** Navigationsleiste auch in den Wiedergabefenstern zeigen. Standard: ja. */
+    /** Show the navigation bar in the playback screens too. Default: yes. */
     val alwaysShowNavigationBar: Flow<Boolean> = context.themeSettingsDataStore.data.map { it[KEY_ALWAYS_NAV] ?: true }
 
     suspend fun setAlwaysShowNavigationBar(enabled: Boolean) {
@@ -76,7 +76,7 @@ class ThemeSettings @Inject constructor(
 @Module
 @InstallIn(SingletonComponent::class)
 internal object ThemeSettingsBackupModule {
-    /** Gehört in die Komplett-Sicherung (`FullBackup`). */
+    /** Part of the full backup (`FullBackup`). */
     @Provides
     @IntoSet
     fun provideBackedUpSettings(@ApplicationContext context: Context) = BackedUpSettings("theme_settings", context.themeSettingsDataStore)

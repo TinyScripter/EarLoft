@@ -8,7 +8,7 @@ android {
     namespace = "de.kleinabersmart.earloft.core.wearsync"
 }
 
-// Protokoll zwischen Handy und Uhr (Wear-Konzept 4) – von :app und :wear gemeinsam genutzt.
+// Protocol between phone and watch (Wear concept 4) – shared by :app and :wear.
 dependencies {
     api(projects.core.model)
 

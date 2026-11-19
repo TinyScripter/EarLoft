@@ -1,25 +1,25 @@
 package de.kleinabersmart.earloft.core.model
 
-/** Herkunft einer physischen Song-Quelle. */
+/** Origin of a physical song source. */
 enum class SourceType(
-    /** Ein eingerichteter Musikserver (Favoriten, Scrobbles, Streams, Cast) – kein Gerät. */
+    /** A configured music server (favorites, scrobbles, streams, cast) – not a device. */
     val isServer: Boolean,
 ) {
-    /** Musik auf dem Gerät (MediaStore). */
+    /** Music on the device (MediaStore). */
     LOCAL(isServer = false),
 
-    /** Navidrome bzw. anderer (Open)Subsonic-Server. */
+    /** Navidrome or another (Open)Subsonic server. */
     SUBSONIC(isServer = true),
 
-    /** Jellyfin-Server (Konzept 14). */
+    /** Jellyfin server (concept 14). */
     JELLYFIN(isServer = true),
 
-    /** Emby-Server: dieselbe Implementierung wie Jellyfin mit eigenen Pfaden (Konzept 14). */
+    /** Emby server: the same implementation as Jellyfin with its own paths (concept 14). */
     EMBY(isServer = true),
 
     /**
-     * Nur auf der Uhr: Der Song liegt allein auf dem gekoppelten Handy und kommt per Data Layer
-     * (Wear-Konzept 7.1). Es gibt keine Datenquelle dafür, abspielbar ist nur der fertige Download.
+     * Only on the watch: the song lives solely on the paired phone and comes via the Data Layer
+     * (Wear concept 7.1). There is no data source for it, only the finished download is playable.
      */
     PHONE(isServer = false),
 }

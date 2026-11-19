@@ -38,11 +38,11 @@ import androidx.compose.ui.semantics.selected as selectedSemantics
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Eine Folge im Reiter „Neu“ und auf der Abo-Seite: links ein kleines Bild neben Titel und darunter (kleiner) Abo und Datum
- * bzw. auf der Abo-Seite ([withPodcast] `false`) Folgennummer und Datum, darunter höchstens zwei Zeilen Inhaltsangabe aus den
- * Shownotes, unten links Download und Warteschlange, rechts Abspielen mit der Restzeit ([remainingMs], beim Tempo des Abos;
- * [PlayTimeButton]). Während der Mehrfachauswahl schaltet ein Tipp die Folge dazu oder weg, und die Knöpfe ruhen. [swipe]:
- * Wischgesten ([EpisodeSwipeBox]), nicht während der Auswahl und nicht in einem Pager.
+ * An episode in the "New" tab and on the subscription page: on the left a small image next to the title, below it (smaller) subscription and date,
+ * or on the subscription page ([withPodcast] `false`) episode number and date, below at most two lines of summary from the
+ * show notes, download and queue at the bottom left, play with the remaining time on the right ([remainingMs], at the subscription's speed;
+ * [PlayTimeButton]). During multi-selection a tap adds or removes the episode, and the buttons are inactive. [swipe]:
+ * swipe gestures ([EpisodeSwipeBox]), not during the selection and not in a pager.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -68,7 +68,7 @@ internal fun EpisodeSummaryRow(
     val selecting = selection.active
     val selected = book.id in selection
     val summary = remember(book.description, book.title) { descriptionSummary(book.description, book.title) }
-    // Deckend, damit beim Wischen die Fläche dahinter nicht durchscheint (`surface` ist auf einer Gruppe deren Farbe).
+    // Opaque, so the area behind doesn't show through while swiping (`surface` is its color on a group).
     EpisodeSwipeBox(item, enabled = swipe && !selecting) { Box {
         Column(
             Modifier
@@ -112,9 +112,9 @@ internal fun EpisodeSummaryRow(
                 )
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                // Die Symbole stehen bündig mit dem Bild darüber, die Tippfläche ragt in den Rand.
+                // The icons are flush with the image above, the touch target extends into the margin.
                 Row(Modifier.offset(x = (-12).dp), verticalAlignment = Alignment.CenterVertically) {
-                    // Dateien vom Gerät sind schon da.
+                    // Files from the device are already there.
                     if (!book.isLocal) DownloadButton(download, downloadFraction, onDownload, onRemoveDownload)
                     QueueButton(queued, enabled = !selecting, onToggleQueue)
                 }
@@ -126,7 +126,7 @@ internal fun EpisodeSummaryRow(
     } }
 }
 
-/** Ans Ende der Warteschlange bzw. heraus; eine eingereihte Folge zeigt den Haken in der Akzentfarbe (wie ein fertiger Download). */
+/** To the end of the queue or out of it; a queued episode shows the check mark in the accent color (like a finished download). */
 @Composable
 private fun QueueButton(queued: Boolean, enabled: Boolean, onToggle: () -> Unit) {
     IconButton(onClick = onToggle, enabled = enabled) {
@@ -143,9 +143,9 @@ private fun QueueButton(queued: Boolean, enabled: Boolean, onToggle: () -> Unit)
 }
 
 /**
- * Abspielen samt Restzeit als ein Knopf, nur wenig größer als Symbol und Text (die Tippfläche bleibt 48 dp hoch). Die Farbe
- * zeigt den Stand: nie angefangen hell mit der ganzen Dauer, angefangen (oder gerade laufend) kräftig mit „noch …“, zu Ende
- * gehört nur umrandet mit „Gehört“ (ein Tipp spielt sie von vorn). Ohne bekannte Dauer steht nur das Symbol da.
+ * Play including remaining time as one button, only slightly larger than icon and text (the touch target stays 48 dp tall). The color
+ * shows the state: never started light with the full duration, started (or currently playing) strong with "… left", fully
+ * played only outlined with "Played" (a tap plays it from the start). Without a known duration only the icon is shown.
  */
 @Composable
 private fun PlayTimeButton(item: BookWithProgress, remainingMs: Long?, playing: Boolean, enabled: Boolean, onClick: () -> Unit) {
@@ -189,5 +189,5 @@ private fun PlayTimeButton(item: BookWithProgress, remainingMs: Long?, playing: 
     }
 }
 
-/** Deckkraft eines ruhenden Knopfs (während der Mehrfachauswahl), wie bei Material. */
+/** Opacity of an inactive button (during multi-selection), as in Material. */
 private const val DISABLED_ALPHA = 0.38f

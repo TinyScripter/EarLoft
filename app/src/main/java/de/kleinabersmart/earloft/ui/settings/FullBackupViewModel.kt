@@ -29,18 +29,18 @@ import java.io.IOException
 import javax.inject.Inject
 
 /**
- * Ausgang einer Komplett-Sicherung bzw. eines gescheiterten Einspielens. Das Ergebnis eines gelungenen meldet
- * `RestoreNoticeEffect` an der Wurzel, zusammen mit den fehlenden Passwörtern.
+ * Outcome of a full backup or of a failed restore. The result of a successful one is reported by
+ * `RestoreNoticeEffect` at the root, together with the missing passwords.
  */
 sealed interface FullBackupMessage {
     data class Exported(val counts: BackupCounts) : FullBackupMessage
     data object ExportFailed : FullBackupMessage
 
-    /** [newerVersion]: Die Sicherung stammt aus einer neueren Version der App; sonst ist es keine (lesbare) Sicherung. */
+    /** [newerVersion]: the backup comes from a newer version of the app; otherwise it isn't a (readable) backup. */
     data class ImportFailed(val newerVersion: Boolean) : FullBackupMessage
 }
 
-/** Einstellungen → Allgemein → Sicherung ([FullBackup]). Beides läuft im App-Scope zu Ende, auch wenn die Seite vorher geht. */
+/** Settings → General → Backup ([FullBackup]). Both run to completion in the app scope, even if the page goes away first. */
 @HiltViewModel
 class FullBackupViewModel @Inject constructor(
     private val fullBackup: FullBackup,
@@ -51,7 +51,7 @@ class FullBackupViewModel @Inject constructor(
 
     private val _messages = Channel<FullBackupMessage>(Channel.BUFFERED)
 
-    /** Ergebnis, einmalig anzuzeigen. */
+    /** Result, to be shown once. */
     val messages: Flow<FullBackupMessage> = _messages.receiveAsFlow()
 
     private var running = false
@@ -72,14 +72,14 @@ class FullBackupViewModel @Inject constructor(
                 context.contentResolver.openInputStream(uri)?.use { fullBackup.import(it) }
                     ?: throw IOException("Datei nicht lesbar")
             }.also {
-                // Neue Abos holen ihre Folgen gleich, nicht erst beim nächsten Öffnen der App; erst dann greift ihr Fortschritt.
+                // New subscriptions fetch their episodes right away, not only the next time the app is opened; only then does their progress apply.
                 if (it.added.podcasts > 0) podcastRefresher.refreshAll()
             }
         }.await()
         null
     }
 
-    /** Ein Auftrag zur Zeit; ein zweiter Tipp in der Zwischenzeit wird ignoriert. [failed]: Meldung bei Lese- und Schreibfehlern. */
+    /** One job at a time; a second tap in the meantime is ignored. [failed]: message on read and write errors. */
     private fun run(failed: FullBackupMessage, block: suspend () -> FullBackupMessage?) {
         if (running) return
         running = true
@@ -109,7 +109,7 @@ class FullBackupViewModel @Inject constructor(
     }
 }
 
-/** Text zu [message] für die Snackbar. */
+/** Text for [message] in the snackbar. */
 fun fullBackupMessage(resources: Resources, message: FullBackupMessage): String = when (message) {
     is FullBackupMessage.Exported -> resources.getString(R.string.settings_backup_exported, message.counts.summary(resources))
     FullBackupMessage.ExportFailed -> resources.getString(R.string.settings_backup_export_failed)
@@ -118,7 +118,7 @@ fun fullBackupMessage(resources: Resources, message: FullBackupMessage): String 
     )
 }
 
-/** Ergebnis einer eingespielten Komplett-Sicherung, ohne den Hinweis auf fehlende Passwörter. */
+/** Result of a restored full backup, without the hint about missing passwords. */
 fun backupRestoredMessage(resources: Resources, result: FullBackupResult): String = buildString {
     append(resources.getString(R.string.settings_backup_imported, result.added.summary(resources)))
     if (result.localSourcesSkipped) append(' ').append(resources.getString(R.string.settings_backup_local_skipped))

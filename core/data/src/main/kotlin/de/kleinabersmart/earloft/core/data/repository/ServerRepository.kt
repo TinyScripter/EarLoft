@@ -38,23 +38,23 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Ergebnis eines Verbindungstests. */
+/** Result of a connection test. */
 sealed interface ConnectionResult {
-    /** [sourceId]: nur nach [ServerRepository.addServer] gesetzt – die ID des neuen Servers. */
+    /** [sourceId]: only set after [ServerRepository.addServer] – the ID of the new server. */
     data class Success(val serverName: String, val serverVersion: String?, val sourceId: String? = null) : ConnectionResult
     data object InvalidUrl : ConnectionResult
     data object WrongCredentials : ConnectionResult
 
-    /** Unter der Adresse antwortet kein Server der gewählten Art. */
+    /** No server of the chosen type responds at this address. */
     data object UnexpectedServer : ConnectionResult
     data class Unreachable(val reason: String?) : ConnectionResult
     data class ServerError(val code: Int, val message: String?) : ConnectionResult
 }
 
-/** Ein Server zum Bearbeiten; Passwort bzw. Token verlassen das Repository nicht. */
+/** A server for editing; password or token never leave the repository. */
 data class EditableServer(val info: ServerInfo, val hasPassword: Boolean)
 
-/** Einrichten, Prüfen, Bearbeiten und Entfernen von Musikservern (Navidrome/Subsonic, Jellyfin, Emby). */
+/** Setting up, checking, editing and removing music servers (Navidrome/Subsonic, Jellyfin, Emby). */
 @Singleton
 class ServerRepository @Inject constructor(
     private val database: EarLoftDatabase,
@@ -72,7 +72,7 @@ class ServerRepository @Inject constructor(
     fun servers(): Flow<List<ServerInfo>> =
         sourceDao.observeServers().map { sources -> sources.map { it.toServerInfo() } }
 
-    /** @return `null`, wenn es den Server nicht (mehr) gibt. */
+    /** @return `null` if the server doesn't exist (anymore). */
     suspend fun editableServer(sourceId: String): EditableServer? {
         val entity = sourceDao.get(sourceId)?.takeIf { it.type.isServer } ?: return null
         val hasSecret = when (entity.type) {
@@ -83,8 +83,8 @@ class ServerRepository @Inject constructor(
     }
 
     /**
-     * Prüft die Verbindung und legt den Server nur bei Erfolg an. Danach startet sofort der erste
-     * Abgleich. @return das Testergebnis.
+     * Checks the connection and only creates the server on success. The first sync starts
+     * immediately afterwards. @return the test result.
      */
     suspend fun addServer(type: SourceType, name: String, url: String, username: String, password: String): ConnectionResult =
         when (val flavor = JellyfinFlavor.of(type)) {
@@ -93,12 +93,12 @@ class ServerRepository @Inject constructor(
         }
 
     /**
-     * Ändert Name, Adresse, Benutzer oder Passwort eines Servers, nur wenn die Verbindung mit den
-     * neuen Angaben klappt. Die `sourceId` bleibt, damit Songs, Downloads, Favoriten und Playlists
-     * erhalten bleiben (und die Uhr nichts neu laden muss). [newPassword] `null` = unverändert.
+     * Changes name, address, user or password of a server, only if the connection works with the
+     * new details. The `sourceId` stays, so songs, downloads, favorites and playlists
+     * are kept (and the watch doesn't have to reload anything). [newPassword] `null` = unchanged.
      *
-     * Danach folgt ein Vollabgleich: Zeigt die Adresse jetzt auf eine andere Bibliothek, räumt der
-     * Mark-and-Sweep die alten Songs ab.
+     * A full sync follows: if the address now points to a different library, the
+     * mark-and-sweep removes the old songs.
      */
     suspend fun updateServer(
         sourceId: String,
@@ -169,7 +169,7 @@ class ServerRepository @Inject constructor(
         val baseUrl = SubsonicServer.normalizeBaseUrl(url) ?: return ConnectionResult.InvalidUrl
         val server = SubsonicServer(sourceId, baseUrl, SubsonicCredentials.Password(username, password))
         if (newPassword != null) secretStore.put(DataSourceRegistry.passwordKey(sourceId), newPassword)
-        // Sync-Generation und Zeitpunkt bleiben, sonst hielte der Mark-and-Sweep alles für neu.
+        // Sync generation and timestamp stay, otherwise the mark-and-sweep would consider everything new.
         sourceDao.upsert(
             existing.copy(
                 name = name.trim().ifEmpty { baseUrl.host },
@@ -183,11 +183,11 @@ class ServerRepository @Inject constructor(
         return result
     }
 
-    // --- Jellyfin und Emby (Konzept 14): gespeichert werden nur Benutzer-ID und Token, nie das Passwort ---
+    // --- Jellyfin and Emby (concept 14): only user ID and token are stored, never the password ---
 
     /**
-     * Meldet dieses Gerät für die Quelle [sourceId] an; bei Jellyfin wird ein früherer Token desselben Geräts damit ungültig.
-     * Das Gerät bleibt je Installation dasselbe; eine Anmeldung von vorher bekommt beim nächsten Mal ein eigenes (R28).
+     * Logs this device in for the source [sourceId]; with Jellyfin, an earlier token of the same device becomes invalid.
+     * The device stays the same per installation; a login from before gets its own next time (R28).
      */
     private suspend fun loginJellyfin(
         flavor: JellyfinFlavor,
@@ -234,7 +234,7 @@ class ServerRepository @Inject constructor(
         return result.copy(sourceId = sourceId)
     }
 
-    /** Ohne neues Passwort bleibt der Token, solange er unter der (neuen) Adresse zum Konto [username] gehört. */
+    /** Without a new password the token stays, as long as it belongs to the account [username] at the (new) address. */
     private suspend fun updateJellyfinServer(
         flavor: JellyfinFlavor,
         existing: SourceEntity,
@@ -250,8 +250,8 @@ class ServerRepository @Inject constructor(
             val (result, secret) = loginJellyfin(flavor, sourceId, baseUrl, username, newPassword)
             if (result !is ConnectionResult.Success || secret == null) return result
             secretStore.put(DataSourceRegistry.passwordKey(sourceId), secret.encode())
-            // Der alte Token bliebe sonst auf dem Server stehen: bei Emby immer, bei Jellyfin, wenn er von einer Anmeldung
-            // unter dem früheren Gerät stammt.
+            // Otherwise the old token would stay on the server: always with Emby, with Jellyfin if it comes from a login
+            // under the earlier device.
             if (previous != null && previous.token != secret.token) {
                 applicationScope.launch { logoutJellyfin(previous) }
             }
@@ -279,7 +279,7 @@ class ServerRepository @Inject constructor(
         return result
     }
 
-    /** Die Anmeldung, die [logoutJellyfin] freigibt; `null` ohne gültige Adresse oder Token. */
+    /** The login that [logoutJellyfin] releases; `null` without a valid address or token. */
     private suspend fun jellyfinLogin(entity: SourceEntity): JellyfinServer? {
         val flavor = JellyfinFlavor.of(entity.type) ?: return null
         val baseUrl = entity.baseUrl?.toHttpUrlOrNull() ?: return null
@@ -287,7 +287,7 @@ class ServerRepository @Inject constructor(
         return JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token, flavor, registry.jellyfinDeviceId(entity.sourceId))
     }
 
-    /** Gibt den Token frei; offline oder ohne Antwort bleibt er eben auf dem Server stehen. */
+    /** Releases the token; offline or without a response it simply stays on the server. */
     private suspend fun logoutJellyfin(server: JellyfinServer) {
         try {
             withTimeoutOrNull(LOGOUT_TIMEOUT_MS) { jellyfinApi.logout(server) }
@@ -309,8 +309,8 @@ class ServerRepository @Inject constructor(
     }
 
     /**
-     * Schaltet den Server ein oder aus. Ausgeschaltet bleibt alles erhalten (Songs, Downloads, Favoriten,
-     * Playlists); nur Anzeige, Wiedergabe-Quellen und Abgleich ruhen. Einschalten gleicht sofort ab.
+     * Turns the server on or off. When off, everything is kept (songs, downloads, favorites,
+     * playlists); only display, playback sources and sync are paused. Turning it on syncs immediately.
      */
     suspend fun setEnabled(sourceId: String, enabled: Boolean) {
         sourceDao.setEnabled(sourceId, enabled)
@@ -319,15 +319,15 @@ class ServerRepository @Inject constructor(
     }
 
     /**
-     * Entfernt den Server samt aller Songs, die nur er geliefert hat. Läuft zu Ende, auch wenn der Aufrufer (z. B. die
-     * Einstellungen) inzwischen weg ist; das Abmelden bei Jellyfin und Emby folgt danach im Hintergrund, damit ein Server ohne
-     * Antwort das Entfernen nicht aufhält.
+     * Removes the server along with all songs only it provided. Runs to completion even if the caller (e.g. the
+     * settings) is gone in the meantime; logging out of Jellyfin and Emby follows in the background afterwards, so that a server without
+     * response doesn't hold up the removal.
      */
     suspend fun removeServer(sourceId: String) = withContext(NonCancellable) {
         val login = sourceDao.get(sourceId)?.let { jellyfinLogin(it) }
         database.withTransaction {
             sourceDao.delete(sourceId)
-            // Die Playlists des Servers liegen weiter dort; lokal verschwinden sie mit ihm.
+            // The server's playlists remain there; locally they disappear with it.
             playlistDao.deleteBoundTo(sourceId)
             libraryDao.cleanupOrphans()
         }
@@ -346,7 +346,7 @@ class ServerRepository @Inject constructor(
     private suspend fun storedJellyfinSecret(sourceId: String): JellyfinSecret? =
         storedPassword(sourceId)?.let(JellyfinSecret::decode)
 
-    /** OpenSubsonic-Extensions als JSON-Liste, siehe [DataSourceRegistry]. */
+    /** OpenSubsonic extensions as a JSON list, see [DataSourceRegistry]. */
     private suspend fun capabilities(server: SubsonicServer): String =
         api.openSubsonicExtensions(server).joinToString(",", prefix = "[", postfix = "]") { "\"${it.name}\"" }
 

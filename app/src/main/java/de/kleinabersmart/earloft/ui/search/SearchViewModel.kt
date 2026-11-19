@@ -47,7 +47,7 @@ data class SearchUiState(
             narrators.isEmpty() && books.isEmpty()
 }
 
-/** Worüber gesucht wird; folgt der Einstellung „gemeinsam durchsuchen“ und sonst dem Modus. */
+/** What is searched; follows the "search together" setting and otherwise the mode. */
 enum class SearchScope(val music: Boolean, val podcasts: Boolean, val books: Boolean, @StringRes val hint: Int) {
     ALL(true, true, true, R.string.search_hint_all),
     MUSIC(true, false, false, R.string.search_hint),
@@ -55,7 +55,7 @@ enum class SearchScope(val music: Boolean, val podcasts: Boolean, val books: Boo
     BOOKS(false, false, true, R.string.search_hint_books),
     ;
 
-    /** Sucht in [area] – über diesen Umfang und nur, wenn der Bereich eingeschaltet ist ([areas]). */
+    /** Searches in [area] – across this scope and only if the area is enabled ([areas]). */
     fun includes(area: SpokenMode, areas: List<SpokenMode>): Boolean = area in areas && when (area) {
         SpokenMode.MUSIC -> music
         SpokenMode.PODCASTS -> podcasts
@@ -63,7 +63,7 @@ enum class SearchScope(val music: Boolean, val podcasts: Boolean, val books: Boo
     }
 
     companion object {
-        /** „Überall suchen“ gilt nur, wenn mehr als ein Bereich eingeschaltet ist ([areas]). */
+        /** "Search everywhere" only applies if more than one area is enabled ([areas]). */
         fun of(searchAll: Boolean, mode: SpokenMode, areas: List<SpokenMode> = SpokenMode.entries): SearchScope = when {
             searchAll && areas.size > 1 -> ALL
             mode == SpokenMode.BOOKS -> BOOKS
@@ -96,7 +96,7 @@ class SearchViewModel @Inject constructor(
         if (query.isEmpty()) {
             SearchUiState(scope = scope)
         } else {
-            // Ausgeblendete Bereiche durchsucht auch „Überall suchen“ nicht (das prüft LibrarySearch selbst noch einmal).
+            // Even "Search everywhere" doesn't search hidden areas (LibrarySearch checks this again itself).
             val hits = librarySearch.search(query, SpokenMode.entries.filter { scope.includes(it, areas) })
             SearchUiState(
                 query = query,

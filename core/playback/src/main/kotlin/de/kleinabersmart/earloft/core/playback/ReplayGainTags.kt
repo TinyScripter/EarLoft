@@ -9,8 +9,8 @@ import androidx.media3.extractor.metadata.vorbis.VorbisComment
 import de.kleinabersmart.earloft.core.model.ReplayGain
 
 /**
- * Liest ReplayGain aus den Tags, die Media3 beim Abspielen ohnehin parst: Vorbis-Kommentare
- * (FLAC, Ogg, Opus inkl. `R128_*`), ID3-`TXXX` (MP3) und iTunes-`----`-Atome (MP4).
+ * Reads ReplayGain from the tags Media3 parses during playback anyway: Vorbis comments
+ * (FLAC, Ogg, Opus incl. `R128_*`), ID3 `TXXX` (MP3) and iTunes `----` atoms (MP4).
  */
 @OptIn(UnstableApi::class)
 internal fun Metadata?.replayGain(): ReplayGain? {
@@ -39,6 +39,6 @@ internal fun Metadata?.replayGain(): ReplayGain? {
 
 private val LEADING_NUMBER = Regex("""^\s*([+-]?\d+(?:[.,]\d+)?)""")
 
-/** `"-6.50 dB"` → -6.5; manche Tagger schreiben ein Dezimalkomma. */
+/** `"-6.50 dB"` → -6.5; some taggers write a decimal comma. */
 private fun parseLeadingNumber(value: String): Float? =
     LEADING_NUMBER.find(value)?.groupValues?.get(1)?.replace(',', '.')?.toFloatOrNull()

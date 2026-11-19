@@ -155,9 +155,9 @@ private fun AlbumSongs(
     actions: SongActions,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        // Handy quer: zu niedrig für Kopf über den Songs, daher wie auf breiten Fenstern nebeneinander.
+        // Phone in landscape: too low for a header above the songs, hence side by side as on wide windows.
         val short = maxWidth > maxHeight && maxHeight < 480.dp
-        // Niedrig (kleines Handy hochkant): Das Cover schrumpft, damit „Abspielen“ ohne Scrollen sichtbar bleibt.
+        // Low (small phone in portrait): the cover shrinks so "Play" stays visible without scrolling.
         val coverMax = when {
             short -> 64.dp
             maxHeight < 560.dp -> minOf(240.dp, maxHeight * 0.38f)
@@ -176,7 +176,7 @@ private fun AlbumSongs(
             )
         }
         if (maxWidth >= TwoColumnMinWidth || short) {
-            // Breites Fenster: Cover und Knöpfe links, die Songs rechts daneben.
+            // Wide window: cover and buttons on the left, the songs to the right.
             val headerWidth = maxWidth * 0.4f
             Row(Modifier.fillMaxSize()) {
                 Column(
@@ -202,7 +202,7 @@ private fun AlbumSongs(
 private fun LazyListScope.albumSongItems(details: AlbumDetails, onPlay: (Int) -> Unit, actions: SongActions) {
     val songs = details.songs
     val multiDisc = songs.map { it.discNumber }.distinct().size > 1
-    // Jede CD (aufeinanderfolgende Songs mit gleicher Nummer) bildet eine Gruppe, bei mehreren CDs mit Überschrift.
+    // Each CD (consecutive songs with the same number) forms a group, with a header if there are several CDs.
     val discs = mutableListOf<IntRange>()
     songs.indices.forEach { index ->
         if (index == 0 || songs[index - 1].discNumber != songs[index].discNumber) {
@@ -259,7 +259,7 @@ private fun AlbumHeader(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (compact) {
-            // Handy quer: Cover neben dem Titel, damit die Knöpfe in der niedrigen Spalte ohne Scrollen sichtbar bleiben.
+            // Phone in landscape: cover next to the title so the buttons in the low column stay visible without scrolling.
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 AlbumArt(albumId = album.id, modifier = Modifier.size(coverMax), shape = MaterialTheme.shapes.medium)
                 Column(Modifier.weight(1f)) {
@@ -295,7 +295,7 @@ private fun AlbumHeader(
                 Text(stringResource(R.string.action_play))
             }
             if (compact) {
-                // Nur das Symbol: Play, Zufall und Download passen sonst nicht in die schmale Spalte.
+                // Icon only: otherwise play, shuffle and download don't fit into the narrow column.
                 FilledTonalIconButton(onClick = onShuffle) {
                     Icon(painterResource(DesignR.drawable.ic_shuffle), contentDescription = stringResource(R.string.action_shuffle))
                 }
@@ -306,7 +306,7 @@ private fun AlbumHeader(
                     Text(stringResource(R.string.action_shuffle))
                 }
             }
-            // Rein lokale Alben brauchen keinen Download.
+            // Purely local albums need no download.
             if (offline.downloadableCount > 0) {
                 DownloadButton(
                     removeTitle = stringResource(R.string.download_album_remove_title),
@@ -405,7 +405,7 @@ private fun AddAlbumToPlaylistButton(songIds: List<Long>) {
 @Composable
 fun BackButton(onBack: () -> Unit) {
     IconButton(onClick = onBack) {
-        // Rechts neben der Liste schließt „Zurück“ nur die Spalte – dann ✕ statt Pfeil.
+        // Next to the list, "Back" only closes the pane – then ✕ instead of an arrow.
         if (LocalClosesDetailPane.current) {
             Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_close_pane))
         } else {

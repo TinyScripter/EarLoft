@@ -8,10 +8,10 @@ import kotlinx.serialization.json.Json
 import java.io.IOException
 import kotlin.math.roundToLong
 
-/** Formate von `podcast:transcript` (Konzept 12.5 „Transkripte“), nach Nutzen geordnet: mit Zeiten und Sprechern zuerst. */
+/** Formats of `podcast:transcript` (concept 12.5 "transcripts"), ordered by usefulness: with times and speakers first. */
 enum class TranscriptFormat { JSON, VTT, SRT, HTML, TEXT }
 
-/** Format nach MIME-Typ, sonst nach Dateiendung; `null` bei Unbekanntem (etwa PDF). */
+/** Format by MIME type, otherwise by file extension; `null` for unknown ones (e.g. PDF). */
 fun transcriptFormat(type: String?, url: String): TranscriptFormat? {
     val mime = type?.substringBefore(';')?.trim()?.lowercase().orEmpty()
     return when {
@@ -32,8 +32,8 @@ fun transcriptFormat(type: String?, url: String): TranscriptFormat? {
 }
 
 /**
- * Aus mehreren Transkripten einer Folge (Adresse, MIME-Typ) das mit dem nützlichsten Format ([TranscriptFormat]); bei
- * gleichem Format das erste. `null`, wenn keins lesbar ist.
+ * Of several transcripts of an episode (URL, MIME type), the one with the most useful format ([TranscriptFormat]); with
+ * the same format the first one. `null` if none is readable.
  */
 fun pickTranscript(candidates: List<Pair<String, String?>>): Pair<String, String?>? =
     candidates
@@ -42,8 +42,8 @@ fun pickTranscript(candidates: List<Pair<String, String?>>): Pair<String, String
         ?.let { (url, type) -> url to type }
 
 /**
- * Liest ein Transkript. Stimmt das angegebene Format nicht mit dem Inhalt überein (manche Feeds nennen `text/plain` für
- * SRT), entscheidet der Inhalt. Einzelne Wörter (JSON) und kurze Untertitelzeilen werden zu Absätzen zusammengefasst.
+ * Parses a transcript. If the declared format doesn't match the content (some feeds specify `text/plain` for
+ * SRT), the content decides. Single words (JSON) and short subtitle lines are combined into paragraphs.
  */
 fun parseTranscript(text: String, declared: TranscriptFormat?): Transcript {
     val body = text.trimStart(BOM).replace("\r\n", "\n").replace('\r', '\n')
@@ -103,13 +103,13 @@ private fun parseJson(body: String): List<TranscriptSegment> =
         throw IOException("Unlesbares Transkript", e)
     }
 
-// --- SRT und WebVTT ---
+// --- SRT and WebVTT ---
 
 private val CUE_TIMING = Regex("""^\s*((?:\d+:)?\d{1,2}:\d{2}[,.]\d{1,3})\s*-->\s*((?:\d+:)?\d{1,2}:\d{2}[,.]\d{1,3})""")
 private val VOICE = Regex("""<v(?:\.[^\s>]*)?\s+([^>]+)>""")
 private val TAG = Regex("""<[^>]*>""")
 
-/** Untertitel-Blöcke: Zeile mit „start --> ende“, darunter der Text bis zur Leerzeile; Kopf, NOTE, STYLE und Nummern fallen weg. */
+/** Subtitle blocks: a line with "start --> end", below it the text up to the empty line; header, NOTE, STYLE and numbers are dropped. */
 private fun parseCues(body: String): List<TranscriptSegment> {
     val result = mutableListOf<TranscriptSegment>()
     for (block in body.split(Regex("""\n\s*\n"""))) {
@@ -130,14 +130,14 @@ private fun parseCues(body: String): List<TranscriptSegment> {
     return result
 }
 
-/** „01:02:03,500“, „01:02:03.500“ oder „02:03.500“ in ms. */
+/** "01:02:03,500", "01:02:03.500" or "02:03.500" in ms. */
 private fun cueTime(raw: String): Long? {
     val parts = raw.replace(',', '.').split(':')
     val numbers = parts.map { it.toDoubleOrNull() ?: return null }
     return (numbers.fold(0.0) { total, part -> total * 60 + part } * 1000).roundToLong()
 }
 
-// --- HTML (Podcasting 2.0: <cite>Sprecher:</cite> <time>0:00</time> <p>Text</p>) ---
+// --- HTML (Podcasting 2.0: <cite>Speaker:</cite> <time>0:00</time> <p>Text</p>) ---
 
 private val HTML_PART = Regex("""<(cite|time|p)\b[^>]*>(.*?)</\1\s*>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
 private val BREAK = Regex("""<br\s*/?>|</(?:p|div|li|h\d)>""", RegexOption.IGNORE_CASE)
@@ -164,14 +164,14 @@ private fun parseHtml(body: String): List<TranscriptSegment> {
     return result
 }
 
-/** Reiner Text: Absätze an Leerzeilen, sonst an Zeilen. */
+/** Plain text: paragraphs at empty lines, otherwise at lines. */
 private fun plainParagraphs(body: String): List<TranscriptSegment> {
     val blocks = body.split(Regex("""\n\s*\n""")).map { it.replace(Regex("""\s+"""), " ").trim() }.filter { it.isNotEmpty() }
     val paragraphs = if (blocks.size > 1) blocks else body.lines().map { it.trim() }.filter { it.isNotEmpty() }
     return paragraphs.map { TranscriptSegment(it) }
 }
 
-// --- Absätze ---
+// --- Paragraphs ---
 
 private const val MIN_PARAGRAPH = 80
 private const val MAX_PARAGRAPH = 400
@@ -180,8 +180,8 @@ private const val DASHES = "-–—"
 private val NO_SPACE_BEFORE = Regex("""^[,.;:!?…)\]»“”'’]""")
 
 /**
- * Fasst Wörter bzw. Untertitelzeilen zu Absätzen: Ein neuer beginnt, wenn der Sprecher wechselt, nach einem Satzende
- * ab [MIN_PARAGRAPH] Zeichen oder spätestens ab [MAX_PARAGRAPH] Zeichen.
+ * Combines words or subtitle lines into paragraphs: a new one starts when the speaker changes, after the end of a sentence
+ * from [MIN_PARAGRAPH] characters on, or at the latest from [MAX_PARAGRAPH] characters on.
  */
 internal fun mergeSegments(segments: List<TranscriptSegment>): List<TranscriptSegment> {
     val result = mutableListOf<TranscriptSegment>()
@@ -197,7 +197,7 @@ internal fun mergeSegments(segments: List<TranscriptSegment>): List<TranscriptSe
         if (piece.isEmpty()) continue
         val open = current
         val newSpeaker = segment.speaker != null && open != null && segment.speaker != open.speaker
-        // Ein einzelnes Satzzeichen („-“, „…“) hängt am Absatz davor, statt einen neuen zu beginnen.
+        // A single punctuation mark ("-", "…") attaches to the previous paragraph instead of starting a new one.
         val wordless = piece.none { it.isLetterOrDigit() }
         val ending = text.trimEnd { it.isWhitespace() || it in DASHES }
         val full = (text.length >= MIN_PARAGRAPH && SENTENCE_END.containsMatchIn(ending)) || text.length >= MAX_PARAGRAPH
@@ -205,7 +205,7 @@ internal fun mergeSegments(segments: List<TranscriptSegment>): List<TranscriptSe
             flush()
         }
         if (current == null) {
-            // Untertitelzeilen ohne Stimme gehören zum Sprecher davor.
+            // Subtitle lines without a voice belong to the previous speaker.
             current = segment.copy(speaker = segment.speaker ?: open?.speaker)
         } else {
             current = current!!.copy(endMs = segment.endMs ?: current!!.endMs)

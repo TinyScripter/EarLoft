@@ -1,9 +1,9 @@
 package de.kleinabersmart.earloft.core.model
 
 /**
- * Wandelt eingebettete Songtexte in [Lyrics]. Enthält der Text `[mm:ss.xx]`-Zeitstempel (LRC), wird er
- * synchronisiert; mehrere Stempel je Zeile ergeben mehrere Zeilen. Metazeilen wie `[ar:…]` entfallen; `[offset:±ms]`
- * verschiebt alle Zeilen (positiv = früher, wie in der OpenSubsonic-Spezifikation).
+ * Converts embedded lyrics into [Lyrics]. If the text contains `[mm:ss.xx]` timestamps (LRC), it becomes
+ * synced; multiple stamps per line result in multiple lines. Meta lines like `[ar:…]` are dropped; `[offset:±ms]`
+ * shifts all lines (positive = earlier, as in the OpenSubsonic specification).
  */
 object LrcParser {
 

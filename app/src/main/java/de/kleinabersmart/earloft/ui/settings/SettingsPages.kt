@@ -73,17 +73,17 @@ import de.kleinabersmart.earloft.ui.theme.ThemeMode
 import java.time.LocalDate
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-// Musik, Podcasts und Bücher gliedern sich gleich: Quellen · Aktualisierung · Bilder · Wiedergabe · Downloads.
-// Abschnitte ohne Inhalt entfallen (Konzept 6).
+// Music, podcasts and books are structured the same way: sources · refresh · images · playback · downloads.
+// Sections without content are omitted (concept 6).
 
-/** „Jetzt abgleichen“ o. Ä. als Zeile des Abschnitts „Aktualisierung“. */
-/** Die beiden Automatiken für Alben in den Download-Einstellungen. */
+/** "Sync now" or similar as a row of the "Refresh" section. */
+/** The two automatic options for albums in the download settings. */
 private enum class AutoAlbums(val title: Int, val summary: Int) {
     NEWEST(R.string.settings_auto_download_newest_albums, R.string.settings_auto_download_newest_albums_summary),
     MOST_PLAYED(R.string.settings_auto_download_most_played_albums, R.string.settings_auto_download_most_played_albums_summary),
 }
 
-/** Eigene Anzahl Alben per Schieberegler, wie die eigene Dauer beim Einschlaf-Timer. */
+/** Custom number of albums via slider, like the custom duration of the sleep timer. */
 @Composable
 private fun CustomAlbumCount(initial: Int, onApply: (Int) -> Unit) {
     val step = DownloadSettings.AUTO_ALBUM_STEP
@@ -94,7 +94,7 @@ private fun CustomAlbumCount(initial: Int, onApply: (Int) -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Slider(
                 value = count,
-                // Auf ganze Schritte einrasten (der Regler liefert Zwischenwerte).
+                // Snap to whole steps (the slider returns intermediate values).
                 onValueChange = { count = (it / step).roundToInt() * step.toFloat() },
                 valueRange = step.toFloat()..max.toFloat(),
                 steps = max / step - 2,
@@ -123,7 +123,7 @@ private fun RefreshRow(title: String, onClick: () -> Unit) {
     )
 }
 
-/** Die Meldungen der Im- und Exporte von [viewModel] als Snackbar (Einstellungen → Podcasts und Einrichtungsassistent). */
+/** The messages of [viewModel]'s imports and exports as a snackbar (Settings → Podcasts and setup wizard). */
 @Composable
 fun TransferMessagesEffect(viewModel: SettingsViewModel) {
     val snackbars = LocalSnackbars.current
@@ -153,7 +153,7 @@ fun TransferMessagesEffect(viewModel: SettingsViewModel) {
     }
 }
 
-/** Was für alle Bereiche gilt: Downloads, Darstellung, Abgleich, Sicherung, Bereiche, Einrichtung. */
+/** What applies to all areas: downloads, appearance, sync, backup, areas, setup. */
 @Composable
 fun GeneralSettingsScreen(
     onBack: () -> Unit,
@@ -201,7 +201,7 @@ fun GeneralSettingsScreen(
                     onClick = { choosingTheme = true },
                 )
             }
-            // Material You gibt es erst ab Android 12; davor gelten immer die App-Farben.
+            // Material You only exists from Android 12 on; before that the app colors always apply.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 row("system-colors") {
                     SwitchRow(
@@ -213,7 +213,7 @@ fun GeneralSettingsScreen(
                     )
                 }
             }
-            // Aus: die App-Farben wie überall sonst, mit eingeschalteten Systemfarben also diese.
+            // Off: the app colors as everywhere else, i.e. these when system colors are enabled.
             row("player-cover-colors") {
                 SwitchRow(
                     title = stringResource(R.string.settings_player_cover_colors),
@@ -257,7 +257,7 @@ fun GeneralSettingsScreen(
             }
         }
 
-        // Bereiche ein- und ausblenden; der letzte eingeschaltete lässt sich nicht ausschalten.
+        // Show and hide areas; the last enabled one can't be disabled.
         group("areas", R.string.settings_section_areas) {
             SpokenMode.entries.forEach { area ->
                 row("area-${area.name}") {
@@ -323,7 +323,7 @@ fun MusicSettingsScreen(
     var choosingMobileQuality by rememberSaveable { mutableStateOf(false) }
     var choosingAutoAlbums by rememberSaveable { mutableStateOf<AutoAlbums?>(null) }
     var choosingSyncInterval by rememberSaveable { mutableStateOf(false) }
-    // Einschalten erst mit Berechtigung; sonst stünde gleich wieder die Berechtigungsseite davor.
+    // Enable only with the permission; otherwise the permission page would come up again right away.
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
         if (granted) viewModel.setUseLocalMedia(true)
     }
@@ -422,7 +422,7 @@ fun MusicSettingsScreen(
         }
 
         group("downloads", R.string.nav_downloads) {
-            // Gilt für Musik; Podcasts und Bücher haben ihren eigenen Schalter. Gespeichert ist das Gegenteil („nur WLAN“).
+            // Applies to music; podcasts and books have their own switch. What is stored is the opposite ("Wi-Fi only").
             row("music-mobile") {
                 SwitchRow(
                     title = stringResource(R.string.settings_music_mobile),
@@ -441,7 +441,7 @@ fun MusicSettingsScreen(
                     onCheckedChange = viewModel::setAutoDownloadFavorites,
                 )
             }
-            // Gehört zur Favoriten-Automatik und wirkt nur mit ihr.
+            // Belongs to the favorites auto-download and only has an effect with it.
             row("auto-favorite-artists") {
                 SwitchRow(
                     title = stringResource(R.string.settings_auto_download_favorite_artists),
@@ -470,7 +470,7 @@ fun MusicSettingsScreen(
             }
         }
 
-        // Was Namen an Dienste im Internet schickt: Bilder und Songtexte.
+        // What sends names to internet services: images and lyrics.
         group("online", R.string.settings_section_online) {
             row("artist-images") {
                 SwitchRow(
@@ -524,7 +524,7 @@ fun MusicSettingsScreen(
         }
         ChoiceDialog(
             title = stringResource(rule.title),
-            // Eine eigene Anzahl erscheint als eigene Zeile, damit die Auswahl sichtbar bleibt.
+            // A custom number appears as a separate row so the selection stays visible.
             options = (DownloadSettings.AUTO_ALBUM_CHOICES + current).distinct().sorted(),
             selected = current,
             label = { autoAlbumsLabel(it) },
@@ -585,8 +585,8 @@ fun MusicSettingsScreen(
 }
 
 /**
- * Podcasts haben keine Server (die Feeds liegen in der Bibliothek); Quelle ist nur der Ordner auf dem Gerät. Abos, deren
- * Abgleich scheitert, stehen ganz oben; ein Tipp öffnet ihre Seite ([onOpenFeed]).
+ * Podcasts have no servers (the feeds live in the library); the only source is the folder on the device. Subscriptions whose
+ * sync fails are listed at the very top; a tap opens their page ([onOpenFeed]).
  */
 @Composable
 fun PodcastsSettingsScreen(
@@ -604,11 +604,11 @@ fun PodcastsSettingsScreen(
     var editingBridge by rememberSaveable { mutableStateOf(false) }
     var feedToReactivate by rememberSaveable { mutableStateOf<String?>(null) }
     var feedToDelete by rememberSaveable { mutableStateOf<String?>(null) }
-    // Einschalten erst mit Berechtigung, sonst bliebe der Schalter an und es erschiene nichts.
+    // Enable only with the permission, otherwise the switch would stay on and nothing would appear.
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
         if (granted) viewModel.setUseLocalPodcasts(true)
     }
-    // Beim Import fragt ein Dialog, ob die Abos hinzugefügt oder ersetzt werden.
+    // On import a dialog asks whether the subscriptions are added or replace the existing ones.
     var opmlToImport by rememberSaveable { mutableStateOf<Uri?>(null) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { opmlToImport = it }
     val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -624,8 +624,8 @@ fun PodcastsSettingsScreen(
     val snackbars = LocalSnackbars.current
     TransferMessagesEffect(viewModel)
 
-    // Die Abos mit Problemen kommen erst mit der Datenbank; die Liste hielte sonst die bis dahin erste Zeile fest, und
-    // sie stünden über dem sichtbaren Anfang.
+    // The problematic subscriptions only arrive with the database; otherwise the list would keep the row that was first until then anchored, and
+    // they would sit above the visible start.
     val listState = rememberLazyListState()
     val hasProblems = state.problemPodcasts.isNotEmpty()
     LaunchedEffect(hasProblems) {
@@ -685,7 +685,7 @@ fun PodcastsSettingsScreen(
                         onCheckedChange = { viewModel.setPodcastDirectory(directory, it) },
                     )
                 }
-                // Das Land gehört zu Apple und steht deshalb direkt unter seinem Schalter.
+                // The country belongs to Apple and is therefore right below its switch.
                 if (directory == PodcastDirectory.APPLE && directory in state.enabledPodcastDirectories) {
                     row("apple-country") {
                         ClickRow(
@@ -725,7 +725,7 @@ fun PodcastsSettingsScreen(
             }
         }
 
-        // Wie bei den Büchern: Springen und Fortsetzen als eigene Abschnitte, damit „Wiedergabe“ überschaubar bleibt.
+        // As with books: skipping and resuming as separate sections so "Playback" stays manageable.
         group("skip", R.string.settings_section_skip) {
             row("podcast-seek") {
                 Column {
@@ -1003,8 +1003,8 @@ fun PodcastsSettingsScreen(
 }
 
 /**
- * Adresse der RSS-Bridge für Sendungen aus ARD Sounds im OPML-Export (Konzept 12.10). Leer schaltet sie ab, „Standard“
- * setzt die öffentliche Instanz ein.
+ * Address of the RSS bridge for ARD Sounds shows in the OPML export (concept 12.10). Empty disables it, "Default"
+ * uses the public instance.
  */
 @Composable
 private fun RssBridgeDialog(current: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
@@ -1034,8 +1034,8 @@ private fun RssBridgeDialog(current: String, onSave: (String) -> Unit, onDismiss
 }
 
 /**
- * Bücher: Quellen (Gerät samt Ordnerfreigabe, Server), Abgleich, Wiedergabe, Springen, Fortsetzen, Downloads, Online-Dienste
- * (Autorenbilder) und Statistik.
+ * Books: sources (device including folder access, servers), sync, playback, skipping, resuming, downloads, online services
+ * (author images) and statistics.
  */
 @Composable
 fun AudiobookSettingsScreen(
@@ -1049,11 +1049,11 @@ fun AudiobookSettingsScreen(
     var confirmingBookStatsReset by rememberSaveable { mutableStateOf(false) }
     var choosingBookDelete by rememberSaveable { mutableStateOf(false) }
     var choosingBookButtons by rememberSaveable { mutableStateOf(false) }
-    // Einschalten erst mit Berechtigung, sonst bliebe der Schalter an und es erschiene nichts.
+    // Enable only with the permission, otherwise the switch would stay on and nothing would appear.
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
         if (granted) viewModel.setUseLocalBooks(true)
     }
-    // Freigabe des Ordners „Audiobooks“ für Cover und Texte der Buchordner (books_improvements M7).
+    // Access to the "Audiobooks" folder for covers and texts of the book folders (books_improvements M7).
     val pickBookFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
         tree?.let(viewModel::shareLocalBooksFolder)
     }
@@ -1120,7 +1120,7 @@ fun AudiobookSettingsScreen(
             }
         }
 
-        // „Wiedergabe“ wurde mit zehn Zeilen länger als ein Bildschirm: Springen und Fortsetzen stehen deshalb für sich.
+        // With ten rows "Playback" got longer than a screen: skipping and resuming therefore stand on their own.
         group("skip", R.string.settings_section_skip) {
             row("book-seek") {
                 Column {
@@ -1274,7 +1274,7 @@ fun AudiobookSettingsScreen(
     }
 }
 
-/** „Springen (−10 s / +30 s)“ bzw. „Kapitel zurück und vor“. */
+/** "Skip (−10 s / +30 s)" or "Previous and next chapter". */
 @Composable
 private fun bookButtonsLabel(buttons: BookButtons, seek: SeekSteps): String = when (buttons) {
     BookButtons.SEEK -> stringResource(R.string.settings_book_buttons_seek, seek.backSeconds, seek.forwardSeconds)

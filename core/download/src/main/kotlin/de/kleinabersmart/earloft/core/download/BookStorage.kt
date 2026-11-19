@@ -7,11 +7,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Ablage der heruntergeladenen Hörbuch-Dateien, getrennt von Musik (`downloads`) und Folgen (`episodes`). Wie dort in
- * `noBackupFilesDir`. Ein Buch kann mehrere Dateien haben: `book-<bookId>-<trackIndex>.<Endung>`.
+ * Storage for downloaded audiobook files, separate from music (`downloads`) and episodes (`episodes`). As there, in
+ * `noBackupFilesDir`. A book can have multiple files: `book-<bookId>-<trackIndex>.<extension>`.
  *
- * Eine unterbrochene Datei bleibt als `.part` liegen, damit der nächste Versuch dort weitermacht; daneben liegt eine
- * `.part.meta` mit dem Merkmal der Serverdatei (siehe [ResumableTransfer]).
+ * An interrupted file stays as `.part` so the next attempt continues there; next to it is a
+ * `.part.meta` with the server file's fingerprint (see [ResumableTransfer]).
  */
 @Singleton
 class BookStorage internal constructor(val directory: File) : PartFiles {
@@ -23,9 +23,9 @@ class BookStorage internal constructor(val directory: File) : PartFiles {
         File(directory, "${prefix(bookId)}$trackIndex.${DownloadStorage.extensionFor(mimeType)}")
 
     /**
-     * Wie [fileFor], aber nie ein Pfad aus [taken] (die Dateien der übrigen Spuren des Buchs): Eine geladene Datei behält
-     * ihren Pfad, wenn sie auf dem Server an einen anderen Index rückt; der Download der neuen Datei auf ihrem alten Index
-     * überschriebe sie sonst still (Review D2). Dann `book-<bookId>-<trackIndex>-<n>.<Endung>`.
+     * Like [fileFor], but never a path from [taken] (the files of the book's other tracks): a downloaded file keeps
+     * its path when it moves to a different index on the server; downloading the new file at its old index
+     * would otherwise silently overwrite it (review D2). Then `book-<bookId>-<trackIndex>-<n>.<extension>`.
      */
     fun freeFileFor(bookId: Long, trackIndex: Int, mimeType: String?, taken: Collection<String>): File {
         val used = taken.mapTo(HashSet()) { File(it).name }
@@ -35,20 +35,20 @@ class BookStorage internal constructor(val directory: File) : PartFiles {
             .first { it.name !in used }
     }
 
-    /** Ziel während des Ladens; wird erst nach vollständigem Download umbenannt. */
+    /** Target during the download; only renamed after a complete download. */
     override fun partFileFor(bookId: Long, trackIndex: Int): File = File(directory, "${prefix(bookId)}$trackIndex$PART_SUFFIX")
 
-    /** Merkmal der Serverdatei, zu der die Teildatei gehört. */
+    /** Fingerprint of the server file the partial file belongs to. */
     override fun metaFileFor(bookId: Long, trackIndex: Int): File = File(directory, "${prefix(bookId)}$trackIndex$META_SUFFIX")
 
     /**
-     * Teildatei einer Übertragung vom Handy (Uhr), getrennt von der des Servers ([partFileFor]); wie diese bleibt sie nach
-     * einem Abbruch liegen und verschwindet mit [deleteParts].
+     * Partial file of a transfer from the phone (watch), separate from the server one ([partFileFor]); like that one it
+     * stays after an interruption and disappears with [deleteParts].
      */
     fun phonePartFileFor(bookId: Long, trackIndex: Int): File =
         File(directory, "${prefix(bookId)}$trackIndex${DownloadStorage.PHONE_PART_SUFFIX}")
 
-    /** Gesamtlänge der Datei laut Handy, zu [phonePartFileFor]. */
+    /** Total length of the file according to the phone, for [phonePartFileFor]. */
     fun phoneLengthFileFor(bookId: Long, trackIndex: Int): File =
         File(directory, "${prefix(bookId)}$trackIndex${DownloadStorage.PHONE_LENGTH_SUFFIX}")
 
@@ -56,12 +56,12 @@ class BookStorage internal constructor(val directory: File) : PartFiles {
 
     override fun freeBytes(): Long = ensureDirectory().usableSpace
 
-    /** Löscht alle Dateien und Teildateien des Buchs. */
+    /** Deletes all files and partial files of the book. */
     fun delete(bookId: Long) {
         directory.listFiles().orEmpty().filter { it.name.startsWith(prefix(bookId)) }.forEach { it.delete() }
     }
 
-    /** Löscht fertige Dateien, die zu keinem Eintrag mehr gehören (Buch vom Server gelöscht oder neu eingelesen). @return Anzahl. */
+    /** Deletes finished files that no longer belong to any entry (book deleted on the server or rescanned). @return count. */
     fun deleteOrphans(knownFilePaths: Collection<String>): Int {
         val keep = knownFilePaths.mapTo(HashSet()) { File(it).name }
         return directory.listFiles().orEmpty()
@@ -69,7 +69,7 @@ class BookStorage internal constructor(val directory: File) : PartFiles {
             .count { it.delete() }
     }
 
-    /** Löscht alle Teildateien; gilt, wenn nichts mehr wartet und daher keiner mehr weitermacht. */
+    /** Deletes all partial files; applies when nothing is waiting anymore and therefore nobody resumes. */
     fun deleteParts(): Int = directory.listFiles().orEmpty().filter { it.name.contains(PART_SUFFIX) }.count { it.delete() }
 
     private fun prefix(bookId: Long) = "book-$bookId-"

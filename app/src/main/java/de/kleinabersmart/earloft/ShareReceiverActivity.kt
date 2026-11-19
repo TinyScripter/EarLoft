@@ -5,9 +5,9 @@ import android.content.Intent
 import android.os.Bundle
 
 /**
- * Nimmt geteilte Podcast-Adressen und `feed://`-Links an (Konzept 13) und reicht sie an die laufende [MainActivity] weiter.
- * Direkt an der MainActivity startete das Teilen-Menü eine zweite Instanz in einer eigenen Aufgabe (am Emulator gesehen:
- * zwei EarLoft-Aufgaben nebeneinander). Mit eigenen Flags statt denen des Aufrufers kommt der Intent über `onNewIntent` an.
+ * Receives shared podcast addresses and `feed://` links (concept 13) and passes them on to the running [MainActivity].
+ * Sent directly to MainActivity, the share menu would start a second instance in its own task (seen on the emulator:
+ * two EarLoft tasks side by side). With our own flags instead of the caller's, the intent arrives via `onNewIntent`.
  */
 class ShareReceiverActivity : Activity() {
 

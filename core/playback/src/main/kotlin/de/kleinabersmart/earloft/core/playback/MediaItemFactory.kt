@@ -14,17 +14,17 @@ import de.kleinabersmart.earloft.core.model.Song
 import de.kleinabersmart.earloft.core.model.SpokenMode
 
 /**
- * Media-IDs im Browse-Tree der Session (Konzept 7.1).
+ * Media IDs in the session's browse tree (concept 7.1).
  *
- * Songs im Browse-Tree tragen ihren Ordner mit (`album:3/song:42`): Android Auto schickt beim Antippen nur die
- * Media-ID, und aus dem Ordner wird dann die ganze Liste als Warteschlange geladen ([inContext], [contextOf]).
- * In der Warteschlange selbst heißen die Songs immer `song:<id>`. Bücher und Folgen heißen im Browse-Tree
- * `spoken:<id>` ([spoken]); erst die Session macht daraus die Dateien `book:<id>/<n>` ([BookIds]).
+ * Songs in the browse tree carry their folder (`album:3/song:42`): on tap, Android Auto only sends the
+ * media ID, and the whole list is then loaded from the folder as the queue ([inContext], [contextOf]).
+ * In the queue itself songs are always called `song:<id>`. Books and episodes are called `spoken:<id>` in the browse tree
+ * ([spoken]); only the session turns them into the files `book:<id>/<n>` ([BookIds]).
  */
 internal object MediaIds {
     const val ROOT = "root"
 
-    /** Tab „Zuletzt“, wenn mehr als ein Bereich eingeschaltet ist: das Neueste aus jedem Bereich. */
+    /** Tab "Recent" when more than one area is enabled: the newest from each area. */
     const val HOME = "home"
     const val MUSIC = "area:music"
     const val PODCASTS = "area:podcasts"
@@ -36,7 +36,7 @@ internal object MediaIds {
     const val PLAYLISTS = "playlists"
     const val FAVORITES = "favorites"
 
-    /** Favorisierte Alben bzw. Künstler, als Ordner oben in [FAVORITES]. */
+    /** Favorite albums or artists, as folders at the top of [FAVORITES]. */
     const val FAVORITE_ALBUMS = "favorites:albums"
     const val FAVORITE_ARTISTS = "favorites:artists"
     const val RECENT = "recent"
@@ -75,11 +75,11 @@ internal object MediaIds {
     fun artist(artistId: Long) = "$ARTIST_PREFIX$artistId"
     fun playlist(playlistId: Long) = "$PLAYLIST_PREFIX$playlistId"
 
-    /** Ein Genre; der Name kann Schrägstriche enthalten („Rock/Pop“), der Ordner enthält aber nur Alben, keine Songs. */
+    /** A genre; the name may contain slashes ("Rock/Pop"), but the folder only contains albums, no songs. */
     fun genre(name: String) = "$GENRE_PREFIX$name"
     fun genreName(mediaId: String): String? = mediaId.removePrefix(GENRE_PREFIX).takeIf { mediaId.startsWith(GENRE_PREFIX) }
 
-    /** Ein Podcast-Abo; die Kennung des Abos kann selbst Doppelpunkte und Schrägstriche enthalten (Abos vom Gerät). */
+    /** A podcast subscription; the subscription's ID may itself contain colons and slashes (subscriptions from the device). */
     fun feed(feedId: String) = "$FEED_PREFIX$feedId"
     fun feedId(mediaId: String): String? = mediaId.removePrefix(FEED_PREFIX).takeIf { mediaId.startsWith(FEED_PREFIX) }
 
@@ -89,13 +89,13 @@ internal object MediaIds {
     fun series(name: String) = "$SERIES_PREFIX$name"
     fun seriesName(mediaId: String): String? = mediaId.removePrefix(SERIES_PREFIX).takeIf { mediaId.startsWith(SERIES_PREFIX) }
 
-    /** Ein Buch oder eine Folge zum Abspielen (Antippen in Android Auto). */
+    /** A book or episode to play (tap in Android Auto). */
     fun spoken(bookId: Long) = "$SPOKEN_PREFIX$bookId"
     fun spokenId(mediaId: String): Long? = idAfter(SPOKEN_PREFIX, mediaId)
 
     /**
-     * Der Bereich, zu dem ein Ordner oder Eintrag gehört; `null` für die Wurzel, „Zuletzt“ und Bücher/Folgen
-     * (`spoken:`, ob Buch oder Folge, weiß erst die Datenbank).
+     * The area a folder or entry belongs to; `null` for the root, "Recent" and books/episodes
+     * (`spoken:` – only the database knows whether it's a book or an episode).
      */
     fun areaOf(mediaId: String): SpokenMode? = when {
         mediaId in MUSIC_FOLDERS || MUSIC_PREFIXES.any { mediaId.startsWith(it) } -> SpokenMode.MUSIC
@@ -105,14 +105,14 @@ internal object MediaIds {
         else -> null
     }
 
-    /** Ordner der Suchtreffer zu [query]. */
+    /** Folder of the search results for [query]. */
     fun search(query: String) = "$SEARCH_PREFIX$query"
     fun searchQuery(mediaId: String): String? = mediaId.removePrefix(SEARCH_PREFIX).takeIf { mediaId.startsWith(SEARCH_PREFIX) }
 
-    /** Song [songId] als Eintrag des Ordners [contextId]. */
+    /** Song [songId] as an entry of the folder [contextId]. */
     fun inContext(contextId: String, songId: Long) = "$contextId$CONTEXT_SEPARATOR${song(songId)}"
 
-    /** Der Ordner, in dem ein Song angeboten wurde; `null` bei einer einfachen Song-ID. */
+    /** The folder in which a song was offered; `null` for a plain song ID. */
     fun contextOf(mediaId: String): String? = mediaId.substringBeforeLast(CONTEXT_SEPARATOR, "").ifEmpty { null }
 
     fun songId(mediaId: String): Long? = idAfter(SONG_PREFIX, mediaId.substringAfterLast(CONTEXT_SEPARATOR))
@@ -126,18 +126,18 @@ internal object MediaIds {
 
 internal const val EXTRA_ALBUM_ID = "de.kleinabersmart.earloft.ALBUM_ID"
 
-/** Die Song-ID eines von [toMediaItem] erzeugten Items. */
+/** The song ID of an item created by [toMediaItem]. */
 val MediaItem.songId: Long? get() = MediaIds.songId(mediaId)
 
-/** Die Album-ID eines von [toMediaItem] erzeugten Items. */
+/** The album ID of an item created by [toMediaItem]. */
 val MediaMetadata.albumIdExtra: Long? get() = extras?.getLong(EXTRA_ALBUM_ID, -1L)?.takeIf { it >= 0 }
 
 /**
- * Die URI zeigt nur auf `earloft://song/<id>` – welche Datei bzw. welcher Stream gespielt wird,
- * entscheidet [SongDataSource] erst beim Laden.
+ * The URI only points to `earloft://song/<id>` – which file or stream is played
+ * is decided by [SongDataSource] only when loading.
  *
- * Das Cover ist die [CoverProvider]-URI ([CoverProvider.queueCoverUri]), die auch Android Auto und die System-Oberfläche lesen
- * können (Medienkarte); `earloft://cover/…` kann nur die App selbst laden, den Bitmap-Loader der Session verstehen beide.
+ * The cover is the [CoverProvider] URI ([CoverProvider.queueCoverUri]), which Android Auto and the system UI can also read
+ * (media card); only the app itself can load `earloft://cover/…`, the session's bitmap loader understands both.
  */
 fun Song.toMediaItem(): MediaItem = toMediaItem(MediaIds.song(id), CoverProvider.queueCoverUri(albumId))
 
@@ -192,8 +192,8 @@ internal fun Playlist.toBrowsableMediaItem(): MediaItem =
     folderMediaItem(MediaIds.playlist(id), name, MediaMetadata.MEDIA_TYPE_PLAYLIST)
 
 /**
- * Ein Ordner im Browse-Tree. Mit [gridChildren] zeigt Android Auto seinen Inhalt als Raster statt als Liste (Cover-Ordner
- * wie Alben, Abos, Bücher).
+ * A folder in the browse tree. With [gridChildren] Android Auto shows its content as a grid instead of a list (cover folders
+ * like albums, subscriptions, books).
  */
 internal fun folderMediaItem(
     mediaId: String,

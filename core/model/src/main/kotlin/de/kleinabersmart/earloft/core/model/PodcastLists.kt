@@ -1,37 +1,37 @@
 package de.kleinabersmart.earloft.core.model
 
 /**
- * Welche Folgen die Seite eines Abos zeigt (je Abo gespeichert). [UNHEARD]: nicht zu Ende gehört, angefangene inbegriffen;
- * [STARRED]: gemerkte.
+ * Which episodes a subscription's page shows (stored per subscription). [UNHEARD]: not fully played, started ones included;
+ * [STARRED]: bookmarked ones.
  */
 enum class EpisodeFilter { ALL, UNHEARD, STARTED, DOWNLOADED, STARRED }
 
 /**
- * Was von selbst in „Weiterhören“ kommt (je Abo): [ALL_NEW] die neuen Folgen der letzten Tage, [NEWEST_ONLY] nur die neueste
- * noch nicht angefangene (Nachrichten, Tagespodcasts; die Download-Automatik lädt dann auch nur sie), [MANUAL] nichts – nur
- * was man selbst startet oder einreiht. Angefangene Folgen stehen immer dort.
+ * What goes into "Continue listening" automatically (per subscription): [ALL_NEW] the new episodes of the last few days, [NEWEST_ONLY] only the newest
+ * not yet started one (news, daily podcasts; the download automation then also only downloads that one), [MANUAL] nothing – only
+ * what you start or enqueue yourself. Started episodes are always there.
  */
 enum class FeedQueueMode { ALL_NEW, NEWEST_ONLY, MANUAL }
 
-/** Reihenfolge der Abos auf Start und in der Bibliothek. */
+/** Sort order of the subscriptions on Home and in the library. */
 enum class FeedSort { NAME, NEWEST_EPISODE, RECENTLY_PLAYED, MOST_NEW }
 
 /**
- * Kennzahlen eines Abos für Sortierung und Kachel; Zeiten in Unix-ms, 0 = keine. [newEpisodes]: nie angefangene Folgen, die
- * neuer sind als die zuletzt angefangene oder gehörte – der Rückstand dahinter zählt nicht (bei Archiven sonst Hunderte).
+ * Metrics of a subscription for sorting and tile; times in Unix ms, 0 = none. [newEpisodes]: never-started episodes that
+ * are newer than the last started or played one – the backlog behind it doesn't count (otherwise hundreds for archives).
  */
 data class FeedStats(val newestEpisodeAt: Long = 0, val lastPlayedAt: Long = 0, val newEpisodes: Int = 0)
 
-/** Nicht zu Ende gehört. */
+/** Not fully played. */
 val BookProgress?.isUnheard: Boolean get() = this?.finished != true
 
-/** Angefangen und nicht zu Ende gehört. */
+/** Started and not fully played. */
 val BookProgress?.isStarted: Boolean get() = this != null && !finished && positionMs > 0
 
 /**
- * „Folgen behalten: die neuesten n“: Von den Folgen (neueste zuerst, auch mehrerer Abos gemischt) entfallen je Abo ([group])
- * die älteren als die neuesten [keep] (0 = alle), sofern sie nie angefangen wurden ([untouched]). Angefangene und gehörte
- * bleiben, ebenso alles im Feed – es geht nur um die Anzeige.
+ * "Keep episodes: the newest n": of the episodes (newest first, possibly mixed from several subscriptions), per subscription ([group])
+ * those older than the newest [keep] (0 = all) are dropped, provided they were never started ([untouched]). Started and played ones
+ * stay, as does everything in the feed – this only affects the display.
  */
 fun <T> List<T>.keepNewest(group: (T) -> String, keep: (group: String) -> Int, untouched: (T) -> Boolean): List<T> {
     val seen = HashMap<String, Int>()
@@ -44,20 +44,20 @@ fun <T> List<T>.keepNewest(group: (T) -> String, keep: (group: String) -> Int, u
     }
 }
 
-/** Die Folgen eines Abos (neueste zuerst) nach [filter], mit [oldestFirst] die älteste zuerst. */
+/** The episodes of a subscription (newest first) by [filter], with [oldestFirst] the oldest first. */
 fun List<BookWithProgress>.filterEpisodes(filter: EpisodeFilter, oldestFirst: Boolean, downloaded: Set<Long>): List<BookWithProgress> {
     val shown = when (filter) {
         EpisodeFilter.ALL -> this
         EpisodeFilter.UNHEARD -> filter { it.progress.isUnheard }
         EpisodeFilter.STARTED -> filter { it.progress.isStarted }
-        // Folgen vom Gerät liegen schon da, ohne Download (wie bei den Büchern).
+        // Episodes from the device are already there, without a download (as with books).
         EpisodeFilter.DOWNLOADED -> filter { it.book.isLocal || it.book.id in downloaded }
         EpisodeFilter.STARRED -> filter { it.book.starred }
     }
     return if (oldestFirst) shown.asReversed() else shown
 }
 
-/** Abos (nach Name) in der Reihenfolge [sort]; bei Gleichstand bleibt die nach Name. */
+/** Subscriptions (by name) in the order [sort]; ties keep the order by name. */
 fun List<PodcastFeed>.sortedFeeds(sort: FeedSort, stats: Map<String, FeedStats>): List<PodcastFeed> = when (sort) {
     FeedSort.NAME -> this
     FeedSort.NEWEST_EPISODE -> sortedByDescending { stats[it.id]?.newestEpisodeAt ?: 0 }

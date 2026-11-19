@@ -31,8 +31,8 @@ private enum class FavoritesTab(val label: Int) {
 }
 
 /**
- * Favoriten in drei Reitern, die zuletzt favorisierten zuerst. „Auf die Uhr“ gilt den Songs und den ganzen favorisierten Alben
- * (Wear-Konzept 5) und steht deshalb bei beiden, nicht bei den Künstlern.
+ * Favorites in three tabs, most recently favorited first. "Onto the watch" applies to the songs and the entire favorited albums
+ * (Wear concept 5) and is therefore shown for both, not for the artists.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

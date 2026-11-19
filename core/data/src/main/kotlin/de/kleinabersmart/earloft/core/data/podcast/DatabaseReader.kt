@@ -5,12 +5,12 @@ import android.database.sqlite.SQLiteException
 import java.io.File
 import java.io.IOException
 
-/** Keine lesbare Import-Datenbank (keine SQLite-Datei oder ohne die erwarteten Tabellen). */
+/** Not a readable import database (not an SQLite file or without the expected tables). */
 class DatabaseFileException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
 /**
- * Ein Abo des Backups. [active]: abonniert; sonst archiviert (nur für die Statistik von Belang). Tempo und Effekte wie in
- * `podcast_feeds` (`null` = Vorgabe des Bereichs), siehe [ExchangeEffects].
+ * A subscription in the backup. [active]: subscribed; otherwise archived (only relevant for statistics). Speed and effects as in
+ * `podcast_feeds` (`null` = section default), see [ExchangeEffects].
  */
 data class ImportFeed(
     val url: String,
@@ -24,9 +24,9 @@ data class ImportFeed(
 )
 
 /**
- * Tempo und Effekte eines Abos im Austauschformat (Spalten der Tabelle `Feeds`): Tempo −1 = Vorgabe der App; Stille
- * 0 = aus, 1 = Vorgabe, ab 2 = an; Lautstärke 0 = unverändert, 1 und 2 = leiser (gibt es hier nicht, gilt als Vorgabe),
- * 3 bis 5 = lauter in drei Stufen; Intro und Ende in Sekunden.
+ * Speed and effects of a subscription in the exchange format (columns of the `Feeds` table): speed −1 = app default; silence
+ * 0 = off, 1 = default, 2 and up = on; volume 0 = unchanged, 1 and 2 = quieter (not supported here, treated as default),
+ * 3 to 5 = louder in three levels; intro and outro in seconds.
  */
 internal object ExchangeEffects {
     const val SPEED_DEFAULT = -1.0
@@ -35,10 +35,10 @@ internal object ExchangeEffects {
     const val SILENCE_ON = 2
     const val VOLUME_UNCHANGED = 0
 
-    /** Fehlt die Spalte ganz, steht nichts fest; ein Code, den [boostOf] als Vorgabe liest. */
+    /** If the column is missing entirely, nothing is set; a code that [boostOf] reads as default. */
     const val VOLUME_UNKNOWN = 1
 
-    /** Stufen 3, 4, 5 und ihre Entsprechung in dB. */
+    /** Levels 3, 4, 5 and their equivalent in dB. */
     private val boostSteps = listOf(3 to 3, 4 to 6, 5 to 9)
 
     fun speedOf(value: Double): Float? = value.takeIf { it > 0 }?.toFloat()?.coerceIn(MIN_SPEED, MAX_SPEED)
@@ -49,7 +49,7 @@ internal object ExchangeEffects {
         else -> code > SILENCE_DEFAULT
     }
 
-    /** Stufe 0 ist ausdrücklich „unverändert“ (0 dB), nicht die Vorgabe des Bereichs; 1 und 2 sowie Unbekanntes gelten als Vorgabe. */
+    /** Level 0 is explicitly "unchanged" (0 dB), not the section default; 1 and 2 as well as unknown values count as default. */
     fun boostOf(code: Int): Int? = if (code == VOLUME_UNCHANGED) 0 else boostSteps.firstOrNull { it.first == code }?.second
 
     fun speedCode(speed: Float?): Double = speed?.toDouble() ?: SPEED_DEFAULT
@@ -60,7 +60,7 @@ internal object ExchangeEffects {
         false -> SILENCE_OFF
     }
 
-    /** Die nächsthöhere Stufe; ohne Anheben (auch „Vorgabe“) unverändert. */
+    /** The next higher level; without boost (including "default") unchanged. */
     fun boostCode(db: Int?): Int =
         if (db == null || db <= 0) VOLUME_UNCHANGED else boostSteps.firstOrNull { db <= it.second }?.first ?: boostSteps.last().first
 
@@ -69,8 +69,8 @@ internal object ExchangeEffects {
 }
 
 /**
- * Eine Folge, zu der das Backup etwas weiß: gehört, angefangen, mit gehörter Zeit oder gemerkt ([starred], Tabelle `Favorites`).
- * [lastPlayedAt] ist das jüngere von „zuletzt gespielt“ und „Ende erreicht“ (0, wenn unbekannt).
+ * An episode the backup knows something about: played, started, with listened time or saved ([starred], table `Favorites`).
+ * [lastPlayedAt] is the more recent of "last played" and "end reached" (0 if unknown).
  */
 data class ImportEpisode(
     val feedUrl: String,
@@ -87,11 +87,11 @@ data class ImportEpisode(
 data class ImportData(val feeds: List<ImportFeed>, val episodes: List<ImportEpisode>)
 
 /**
- * Liest eine SQLite-Datenbank mit Abos und Hörverlauf schreibgeschützt. Nur Tabellen und Spalten, die für
- * Abos, Hörfortschritt und gehörte Zeit nötig sind; alles andere (Kapitel, Download-Protokoll, Warteschlange) bleibt unbeachtet.
+ * Reads an SQLite database with subscriptions and listening history read-only. Only tables and columns needed for
+ * subscriptions, listening progress and listened time; everything else (chapters, download log, queue) is ignored.
  */
 object DatabaseReader {
-    // Abo-Zustand 0 = abonniert; alles andere gilt als archiviert (z. B. durch ein neues Abo ersetzt).
+    // Subscription state 0 = subscribed; everything else counts as archived (e.g. replaced by a new subscription).
     private const val STATE_ACTIVE = 0
 
     fun read(file: File): ImportData {
@@ -110,7 +110,7 @@ object DatabaseReader {
     }
 
     private fun readFeeds(db: SQLiteDatabase): List<ImportFeed> {
-        // Ältere Dateien kennen nicht jede Spalte der Wiedergabe; dann gilt die Vorgabe.
+        // Older files don't have every playback column; then the default applies.
         val columns = db.rawQuery("PRAGMA table_info(Feeds)", null).use { c ->
             buildSet { while (c.moveToNext()) add(c.getString(c.getColumnIndexOrThrow("name"))) }
         }
@@ -147,7 +147,7 @@ object DatabaseReader {
     }
 
     private fun readEpisodes(db: SQLiteDatabase): List<ImportEpisode> {
-        // Ältere Dateien haben keine Tabelle `Favorites`.
+        // Older files have no `Favorites` table.
         val favorites = db.rawQuery("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'Favorites'", null).use { it.moveToFirst() }
         val starred = if (favorites) "EXISTS (SELECT 1 FROM Favorites s WHERE s.feeditem = i.id)" else "0"
         return db.rawQuery(

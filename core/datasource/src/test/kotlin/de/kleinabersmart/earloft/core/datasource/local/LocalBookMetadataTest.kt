@@ -6,7 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Ordnernamen, Begleitdateien und `metadata.opf` lokaler Bücher (`books_improvements.md` M7). */
+/** Folder names, companion files and `metadata.opf` of local books (`books_improvements.md` M7). */
 class LocalBookMetadataTest {
 
     @Test
@@ -20,14 +20,14 @@ class LocalBookMetadataTest {
             FolderMetadata(author = "A", series = "S", sequence = "2.5", title = "Titel", narrator = "Rufus Beck", year = 1999),
             FolderMetadata.parse("Audiobooks/A/S/Band 2,5 - 1999 - Titel {Rufus Beck}/"),
         )
-        // Ohne Serienordner ist eine Zahl vorn Teil des Titels.
+        // Without a series folder, a leading number is part of the title.
         assertEquals(FolderMetadata(author = "George Orwell", title = "1984"), FolderMetadata.parse("Audiobooks/George Orwell/1984/"))
         assertEquals(FolderMetadata(author = "A", title = "1 - Titel"), FolderMetadata.parse("Audiobooks/A/1 - Titel/"))
         assertEquals(FolderMetadata(title = "Buch"), FolderMetadata.parse("Audiobooks/Buch/"))
-        // Eine Datei direkt in „Audiobooks“ hat keinen Ordner.
+        // A file directly in "Audiobooks" has no folder.
         assertEquals(FolderMetadata(), FolderMetadata.parse("Audiobooks/Buch.m4b"))
         assertEquals("S", FolderMetadata.parse("Audiobooks/A/S/Ohne Nummer/").seriesEntry)
-        // Ein Band mit Buchstaben (Zwischenband).
+        // A volume with letters (intermediate volume).
         assertEquals(
             FolderMetadata(author = "A", series = "S", sequence = "2a", title = "Titel"),
             FolderMetadata.parse("Audiobooks/A/S/02a – Titel/"),

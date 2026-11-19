@@ -53,8 +53,8 @@ import java.io.ByteArrayInputStream
 import javax.inject.Inject
 
 /**
- * Nachrichten der Uhr ans Handy (Wear-Konzept 4). Die Play-Dienste starten den Dienst bei Bedarf, auch
- * wenn die App nicht läuft. Zugestellt wird nur zwischen Apps mit gleicher applicationId und Signatur.
+ * Messages from the watch to the phone (Wear concept 4). Play services start the service when needed, even
+ * when the app isn't running. Delivery only happens between apps with the same applicationId and signature.
  */
 @AndroidEntryPoint
 class PhoneWearListenerService : WearableListenerService() {
@@ -83,7 +83,7 @@ class PhoneWearListenerService : WearableListenerService() {
             }
             WearPaths.SELECT -> {
                 val request = decodeOrNull<WearSelectRequest>(event) ?: return
-                // Alben, Playlists und Favoriten (Schalter „Auf der Uhr“, Wear-Konzept 17).
+                // Albums, playlists and favorites ("On the watch" switch, Wear concept 17).
                 applicationScope.launch { selections.setSelected(request.kind, request.refId, request.selected) }
             }
             WearPaths.SELECT_SPOKEN -> {
@@ -113,7 +113,7 @@ class PhoneWearListenerService : WearableListenerService() {
             WearPaths.REMOTE_SUBSCRIBE -> remotePublisher.subscribe(applicationScope)
             WearPaths.REMOTE_COMMAND -> {
                 val command = decodeOrNull<WearRemoteCommand>(event) ?: return
-                // Sofort im Thread der Nachricht: Befehle bleiben in ihrer Reihenfolge, nur das Spulen im Buch wartet auf die Zeitachse.
+                // Immediately on the message's thread: commands stay in order, only seeking within a book waits for the timeline.
                 applicationScope.launch(start = CoroutineStart.UNDISPATCHED) { remote.command(command) }
             }
             WearPaths.REMOTE_PLAY -> {
@@ -132,11 +132,11 @@ class PhoneWearListenerService : WearableListenerService() {
     }
 
     /**
-     * Pakete der Uhr – Wiedergaben (Wear-Konzept 10) und gehörte Folgen und Bücher (16.1/16.2): importieren, dann das DataItem
-     * löschen. Dazu [WearPaths.PHONE_WANTED]: Die Uhr wartet aufs Handy; die Antwort sagt ihr, dass es wieder da ist (Review V1).
+     * Packages from the watch – plays (Wear concept 10) and played episodes and books (16.1/16.2): import, then delete the
+     * DataItem. Plus [WearPaths.PHONE_WANTED]: the watch is waiting for the phone; the reply tells it that it is back (review V1).
      */
     override fun onDataChanged(events: DataEventBuffer) {
-        // Die Ereignisse nur hier lesen; der Puffer wird danach freigegeben.
+        // Read the events only here; the buffer is released afterwards.
         val packets = events.filter { it.type == DataEvent.TYPE_CHANGED }
             .mapNotNull { event -> event.dataItem.payloadOrNull()?.let { event.dataItem.uri to it } }
         packets.forEach { (uri, payload) ->
@@ -157,7 +157,7 @@ class PhoneWearListenerService : WearableListenerService() {
             WearCodec.decode<WearPlaysDto>(payload)
         } catch (e: SerializationException) {
             Log.w(TAG, "$uri nicht lesbar", e)
-            // Ein kaputtes Paket würde sonst für immer liegen bleiben.
+            // A broken package would otherwise stay around forever.
             dataClient.delete(uri)
             return
         }
@@ -187,10 +187,10 @@ class PhoneWearListenerService : WearableListenerService() {
     }
 
     /**
-     * Die Uhr holt eine Datei (`/earloft/file/<sourceUid>`, Wear-Konzept 8.4; Folgen: [WearEpisodeFile], 16.1; Buchdateien:
-     * [WearBookFile], 16.2; Bilder: [WearCoverFile], Vorschaubilder: [WearThumbnailFile], 17): Das Handy schickt die lokale Datei oder den fertigen Download im Original,
-     * ohne Datei nur die Kopfzeile „keine Datei“. Setzt die Uhr fort (`/earloft/file-from/<offset>/…`), geht nur der Rest hinaus.
-     * Audiodateien laufen unter [WatchFileTransfers], damit der Prozess währenddessen nicht eingefroren wird.
+     * The watch fetches a file (`/earloft/file/<sourceUid>`, Wear concept 8.4; episodes: [WearEpisodeFile], 16.1; book files:
+     * [WearBookFile], 16.2; images: [WearCoverFile], thumbnails: [WearThumbnailFile], 17): the phone sends the local file or the finished download as the original,
+     * without a file only the "no file" header. If the watch resumes (`/earloft/file-from/<offset>/…`), only the rest goes out.
+     * Audio files run under [WatchFileTransfers] so the process isn't frozen in the meantime.
      */
     override fun onChannelOpened(channel: ChannelClient.Channel) {
         val (sourceUid, from) = WearPaths.parseFileChannel(channel.path) ?: return
@@ -208,14 +208,14 @@ class PhoneWearListenerService : WearableListenerService() {
             }
             Log.d(TAG, "Datei $sourceUid für die Uhr: ${file?.length?.let { "$it Bytes ab $from" } ?: "keine Datei"}")
             val send: suspend () -> Unit = { channelClient.sendFile(channel, file?.length ?: 0, file?.input, from) }
-            // Bilder sind klein und kommen beim Blättern in Listen gleich dutzendweise; dafür kein Auftrag.
+            // Images are small and come by the dozen when browsing lists; no work request for them.
             if (file != null && cover == null && thumbnail == null) transfers.track(send) else send()
         }
     }
 
     /**
-     * Das Passwort (bei Jellyfin Benutzer-ID und Token) bzw. der API-Schlüssel eines Audiobookshelf-Servers (16.2) geht nur
-     * als Message an genau die anfragende Uhr, nie als DataItem (Wear-Konzept 4).
+     * The password (for Jellyfin user ID and token) or the API key of an Audiobookshelf server (16.2) is sent only
+     * as a message to exactly the requesting watch, never as a DataItem (Wear concept 4).
      */
     private suspend fun sendPassword(nodeId: String, sourceId: String) {
         val password = serverMirror.password(sourceId) ?: audiobookshelf.apiKey(sourceId)

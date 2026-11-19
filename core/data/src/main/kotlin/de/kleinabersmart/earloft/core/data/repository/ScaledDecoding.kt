@@ -6,15 +6,15 @@ import androidx.core.graphics.scale
 import java.io.File
 
 /**
- * Liest ein Bild höchstens [maxPx] groß (längste Seite): erst grob beim Dekodieren, dann genau skaliert. Für Vorschaubilder in
- * Listen, damit ein großes Cover nicht in voller Größe im Speicher landet. `null`, wenn die Datei fehlt oder kein Bild ist.
+ * Reads an image at most [maxPx] in size (longest side): first coarsely while decoding, then scaled exactly. For thumbnails in
+ * lists, so a large cover doesn't end up in memory at full size. `null` if the file is missing or isn't an image.
  */
 internal fun decodeScaled(file: File, maxPx: Int): Bitmap? {
     if (!file.isFile) return null
     return decodeScaled(maxPx) { options -> BitmapFactory.decodeFile(file.path, options) }
 }
 
-/** Wie oben, aus den Bytes eines Bildes. */
+/** As above, from the bytes of an image. */
 internal fun decodeScaled(bytes: ByteArray, maxPx: Int): Bitmap? =
     decodeScaled(maxPx) { options -> BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) }
 

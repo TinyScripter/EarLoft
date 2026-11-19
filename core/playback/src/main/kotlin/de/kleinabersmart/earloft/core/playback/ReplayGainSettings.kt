@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Einstellungen der Wiedergabe (ReplayGain, [EndlessMixSettings]); als Ganzes in der Komplett-Sicherung. */
+/** Playback settings (ReplayGain, [EndlessMixSettings]); included as a whole in the full backup. */
 internal val Context.playbackSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "playback_settings")
 
 @Singleton
@@ -31,7 +31,7 @@ class ReplayGainSettings @Inject constructor(
         ReplayGainMode.entries.firstOrNull { it.name == prefs[KEY_MODE] } ?: ReplayGainMode.AUTO
     }
 
-    /** Zusätzliche Verstärkung in dB für Titel mit ReplayGain-Werten. */
+    /** Additional gain in dB for titles with ReplayGain values. */
     val preAmpDb: Flow<Float> = context.playbackSettingsDataStore.data.map { it[KEY_PRE_AMP] ?: 0f }
 
     suspend fun setMode(mode: ReplayGainMode) {
@@ -54,7 +54,7 @@ class ReplayGainSettings @Inject constructor(
 @Module
 @InstallIn(SingletonComponent::class)
 internal object PlaybackSettingsBackupModule {
-    /** Gehört in die Komplett-Sicherung (`FullBackup`). */
+    /** Belongs in the full backup (`FullBackup`). */
     @Provides
     @IntoSet
     fun provideBackedUpSettings(@ApplicationContext context: Context) = BackedUpSettings("playback_settings", context.playbackSettingsDataStore)

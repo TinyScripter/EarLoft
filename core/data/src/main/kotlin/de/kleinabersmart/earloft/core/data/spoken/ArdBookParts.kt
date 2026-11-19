@@ -7,12 +7,12 @@ import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdPart
 import kotlin.math.abs
 
 /**
- * Ein Teil eines Buchs aus ARD Sounds in der Bibliothek: seine Datei ([track]), sein Kapitelname und bis wann ARD Sounds ihn
- * anbietet ([until]; bei nicht mehr geführten Teilen seit wann nicht mehr).
+ * A part of a book from ARD Sounds in the library: its file ([track]), its chapter name and until when ARD Sounds
+ * offers it ([until]; for parts no longer listed, since when they are no longer offered).
  */
 internal data class ArdBookPart(val track: BookTrackEntity, val title: String, val until: Long?)
 
-/** Die Teile, wie ARD Sounds sie gerade anbietet, in seiner Reihenfolge (ein noch nicht angefangenes Buch). */
+/** The parts as ARD Sounds currently offers them, in its order (a book not yet started). */
 internal fun freshArdParts(offered: List<ArdPart>): List<ArdBookPart> {
     var start = 0L
     return offered.mapIndexed { index, part ->
@@ -22,13 +22,13 @@ internal fun freshArdParts(offered: List<ArdPart>): List<ArdBookPart> {
 }
 
 /**
- * Führt die Teile eines angefangenen Buchs ([known], nach Spur geordnet) mit denen zusammen, die ARD Sounds gerade anbietet
- * ([offered]), ohne dass sich etwas verschiebt: Jeder bekannte Teil bleibt an seinem Platz. Ein Teil gilt als derselbe bei
- * gleicher Kennung des Titels ([BookTrackEntity.remoteItemId], [ArdPart.id]; die Adresse kann sich bei ARD Sounds ändern), sonst
- * bei gleicher Adresse, sonst bei gleichem Namen und (fast) gleicher Länge (neu veröffentlicht). Was ARD Sounds nicht mehr führt,
- * bleibt mit [BookTrackEntity.unavailableSince]; neue Teile kommen hinten dazu. Längen und Kapitelnamen bekannter Teile bleiben
- * (ARD Sounds benennt Teile je nach ihrer Zahl anders), damit Positionen, Lesezeichen und Kapitel stimmen; geladene bzw. ladende
- * Teile behalten auch ihre Adresse. Die Kennung des Titels kommt immer von ARD Sounds.
+ * Merges the parts of a started book ([known], ordered by track) with those ARD Sounds currently offers
+ * ([offered]) without anything shifting: every known part stays in its place. A part counts as the same with
+ * the same title ID ([BookTrackEntity.remoteItemId], [ArdPart.id]; the URL can change at ARD Sounds), otherwise
+ * with the same URL, otherwise with the same name and (almost) the same length (republished). Whatever ARD Sounds no longer lists
+ * stays with [BookTrackEntity.unavailableSince]; new parts are appended at the end. Lengths and chapter names of known parts stay
+ * (ARD Sounds names parts differently depending on their number), so positions, bookmarks and chapters stay correct; downloaded or downloading
+ * parts also keep their URL. The title ID always comes from ARD Sounds.
  */
 internal fun mergeArdParts(known: List<ArdBookPart>, offered: List<ArdPart>, now: Long): List<ArdBookPart> {
     val matchOf = arrayOfNulls<ArdPart>(known.size)
@@ -73,8 +73,8 @@ internal fun mergeArdParts(known: List<ArdBookPart>, offered: List<ArdPart>, now
 }
 
 /**
- * Bis wann das Buch abrufbar ist: der früheste Ablauf eines abrufbaren Teils, der noch nicht geladen ist; ist alles Abrufbare
- * geladen, [whenAllLoaded]. Teile, die ARD Sounds nicht mehr führt, zählen nicht: Sie kommen nicht wieder.
+ * Until when the book is available: the earliest expiry of an available part that isn't downloaded yet; if everything available
+ * is downloaded, [whenAllLoaded]. Parts that ARD Sounds no longer lists don't count: they won't come back.
  */
 internal fun ardAvailableUntil(parts: List<ArdBookPart>, whenAllLoaded: Long?): Long? {
     val pending = parts.filter { it.track.downloadState != TrackDownload.DONE && it.track.unavailableSince == null }
@@ -82,8 +82,8 @@ internal fun ardAvailableUntil(parts: List<ArdBookPart>, whenAllLoaded: Long?): 
 }
 
 /**
- * Die Teile eines Buchs für die Sicherung (`UserArdBookEntity.parts`), in ihrer Reihenfolge: je Zeile Adresse, Länge, MIME-Typ,
- * seit wann nicht mehr abrufbar, Kapitelname und Kennung des Titels, durch Tabulatoren getrennt.
+ * The parts of a book for the backup (`UserArdBookEntity.parts`), in their order: per line URL, length, MIME type,
+ * since when unavailable, chapter name and title ID, separated by tabs.
  */
 internal fun encodeArdParts(parts: List<KeyedBookPart>): String =
     parts.sortedBy { it.trackIndex }.joinToString("\n") { part ->
@@ -98,9 +98,9 @@ internal fun encodeArdParts(parts: List<KeyedBookPart>): String =
     }
 
 /**
- * Die gesicherten Teile ([encodeArdParts]) als bekannte Teile eines Buchs, von dem noch nichts geladen ist. Leer ohne Sicherung
- * der Teile oder wenn eine Zeile nicht lesbar ist (dann nimmt das Buch die Teile, wie ARD Sounds sie anbietet). Ältere Sicherungen
- * kennen die Kennung des Titels nicht.
+ * The backed-up parts ([encodeArdParts]) as known parts of a book of which nothing is downloaded yet. Empty without backed-up
+ * parts or if a line is unreadable (then the book takes the parts as ARD Sounds offers them). Older backups
+ * don't know the title ID.
  */
 internal fun decodeArdParts(text: String?): List<ArdBookPart> {
     if (text.isNullOrBlank()) return emptyList()
@@ -124,7 +124,7 @@ private fun sameAudio(part: ArdBookPart, offered: ArdPart): Boolean =
     part.title.trim().equals(offered.title.trim(), ignoreCase = true) &&
         (part.track.durationMs <= 0 || abs(part.track.durationMs - offered.durationMs) <= SAME_LENGTH_TOLERANCE_MS)
 
-/** Dateien, die schon (bzw. gerade) geladen werden: Ihre Adresse bleibt. */
+/** Files that are already (or currently) being downloaded: their URL stays. */
 private val KEEP_FILE = setOf(TrackDownload.DONE, TrackDownload.QUEUED, TrackDownload.RUNNING)
 
 private const val SAME_LENGTH_TOLERANCE_MS = 2_000L

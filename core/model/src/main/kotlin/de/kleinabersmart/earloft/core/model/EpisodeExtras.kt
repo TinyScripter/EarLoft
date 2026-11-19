@@ -1,14 +1,14 @@
 package de.kleinabersmart.earloft.core.model
 
 /**
- * Art einer Folge aus dem Feed (`itunes:episodeType`, Konzept 12.5 „Podcasting 2.0“). Trailer fallen in allen Listen weg,
- * sobald das Abo echte Folgen hat; Bonusfolgen sind normale Folgen mit Kennzeichen.
+ * Type of an episode from the feed (`itunes:episodeType`, concept 12.5 "Podcasting 2.0"). Trailers are dropped from all lists
+ * as soon as the subscription has real episodes; bonus episodes are regular episodes with a marker.
  */
 enum class EpisodeType { FULL, TRAILER, BONUS }
 
 /**
- * Mitwirkende einer Folge (`podcast:person`): Name, Rolle und Gruppe wie im Feed (Podcasting-2.0-Taxonomie, klein
- * geschrieben, `null` = „host“), Bild und Webseite nur als absolute http(s)-Adresse.
+ * Contributors of an episode (`podcast:person`): name, role and group as in the feed (Podcasting 2.0 taxonomy, lower
+ * case, `null` = "host"), image and web page only as an absolute http(s) URL.
  */
 data class EpisodePerson(
     val name: String,
@@ -19,11 +19,11 @@ data class EpisodePerson(
 )
 
 /**
- * Transkript einer Folge (`podcast:transcript`, Konzept 12.5 „Transkripte“), in Absätze gefasst. Absätze aus SRT, WebVTT
- * und JSON haben Beginn und Ende (Position in der Folge), solche aus HTML meist nur den Beginn, aus reinem Text keins.
+ * Transcript of an episode (`podcast:transcript`, concept 12.5 "transcripts"), grouped into paragraphs. Paragraphs from SRT, WebVTT
+ * and JSON have a start and end (position in the episode), those from HTML usually only the start, from plain text neither.
  */
 data class Transcript(val segments: List<TranscriptSegment>) {
-    /** Läuft mit der Wiedergabe mit: mindestens ein Absatz hat einen Beginn. */
+    /** Follows along with playback: at least one paragraph has a start. */
     val timed: Boolean get() = segments.any { it.startMs != null }
 }
 

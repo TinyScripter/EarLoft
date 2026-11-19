@@ -18,26 +18,26 @@ import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Öffnet `earloft://song/<id>` an der besten erreichbaren Quelle (Konzept 6.5/7.2). Scheitert das
- * Öffnen am Dateianfang, wird die nächste Quelle versucht. Mitten in der Datei (Seek, erneuter
- * Versuch nach Abbruch) bleibt es bei der Quelle, die den Anfang geliefert hat – Byte-Positionen
- * verschiedener Dateien passen nicht zueinander.
+ * Opens `earloft://song/<id>` at the best reachable source (concept 6.5/7.2). If opening fails at the
+ * start of the file, the next source is tried. In the middle of the file (seek, retry
+ * after an abort) it stays with the source that delivered the start – byte positions
+ * of different files don't match.
  *
- * Läuft auf dem Lade-Thread von ExoPlayer, daher ist Blockieren hier erlaubt.
+ * Runs on ExoPlayer's loader thread, so blocking is allowed here.
  */
 @OptIn(UnstableApi::class)
 internal class SongDataSource(
     private val upstream: DataSource,
-    /** Siehe [PlaybackSourceResolver.candidates]. */
+    /** See [PlaybackSourceResolver.candidates]. */
     private val candidatesOf: suspend (songId: Long) -> List<ResolvedPlayback>,
     private val health: SourceHealth,
-    /** Text der Fehlermeldung, wenn keine Quelle erreichbar ist; Android Auto zeigt ihn dem Fahrer. */
+    /** Text of the error message if no source is reachable; Android Auto shows it to the driver. */
     private val unavailableMessage: String = "No playable source",
-    /** ReplayGain der gewählten Quelle; wird vor dem Abspielen der Samples gemeldet. */
+    /** ReplayGain of the chosen source; reported before the samples are played. */
     private val onResolved: (songId: Long, replayGain: ReplayGain?) -> Unit,
-    /** Der Ort, der den Anfang geliefert hat (Titel-Info). */
+    /** The location that delivered the start (title info). */
     private val onOpened: (songId: Long, playback: ResolvedPlayback) -> Unit = { _, _ -> },
-    /** Ob ein Stream mit diesem Cache-Schlüssel ganz im Stream-Cache liegt, siehe [preferCachedOriginals]. */
+    /** Whether a stream with this cache key is completely in the stream cache, see [preferCachedOriginals]. */
     private val isFullyCached: (cacheKey: String) -> Boolean = { false },
 ) : DataSource {
 
@@ -51,8 +51,8 @@ internal class SongDataSource(
         val tries = if (dataSpec.position == 0L) {
             candidates
         } else {
-            // Auch wenn es den Ort nicht mehr unter den Kandidaten gibt (z. B. die Umwandlung nach dem Wechsel ins WLAN):
-            // Byte-Positionen einer anderen Fassung passen nicht.
+            // Even if the location is no longer among the candidates (e.g. the transcode after switching to Wi-Fi):
+            // byte positions of another version don't match.
             val openedFrom = health.openedFrom(songId)
             listOf(candidates.firstOrNull { it.key == openedFrom?.key } ?: openedFrom ?: candidates.first())
         }
@@ -102,8 +102,8 @@ internal class SongDataSource(
 }
 
 /**
- * Über mobile Daten (umgewandelte Kandidaten vorhanden): Ein Original, das schon ganz im Stream-Cache liegt, kostet nichts und
- * klingt besser – es rückt vor die Umwandlungen. Lokale Dateien und Downloads davor bleiben, wo sie sind.
+ * Over mobile data (transcoded candidates present): an original that is already completely in the stream cache costs nothing and
+ * sounds better – it moves ahead of the transcodes. Local files and downloads before it stay where they are.
  */
 internal fun List<ResolvedPlayback>.preferCachedOriginals(isFullyCached: (cacheKey: String) -> Boolean): List<ResolvedPlayback> {
     val firstTranscoded = indexOfFirst { it.transcodedTo != null }
@@ -114,7 +114,7 @@ internal fun List<ResolvedPlayback>.preferCachedOriginals(isFullyCached: (cacheK
     return take(firstTranscoded) + cached + rest.filterNot { it in cached }
 }
 
-/** Kennung eines Orts – für Streams der Cache-Schlüssel (`sourceUid`), sonst die URI. */
+/** Identifier of a location – for streams the cache key (`sourceUid`), otherwise the URI. */
 internal val ResolvedPlayback.key: String
     get() = when (val location = location) {
         is PlaybackLocation.LocalFile -> location.uri.toString()
@@ -128,8 +128,8 @@ private fun ResolvedPlayback.applyTo(dataSpec: DataSpec): DataSpec = when (val l
 }
 
 /**
- * Merkt sich, welche Quellen gerade nicht erreichbar waren, damit nicht jeder folgende Titel erst
- * in denselben Timeout läuft, und von welchem Ort ein Song zuletzt geöffnet wurde.
+ * Remembers which sources were just unreachable, so that not every following title first
+ * runs into the same timeout, and from which location a song was last opened.
  */
 internal class SourceHealth(
     private val clock: () -> Long = SystemClock::elapsedRealtime,
@@ -145,7 +145,7 @@ internal class SourceHealth(
         if (sourceId != null) failedAt.remove(sourceId)
     }
 
-    /** Stabil: Reihenfolge bleibt, nur kürzlich gescheiterte Quellen rücken nach hinten. */
+    /** Stable: the order stays, only recently failed sources move to the back. */
     fun reachableFirst(candidates: List<ResolvedPlayback>): List<ResolvedPlayback> {
         val now = clock()
         return candidates.sortedBy { candidate ->

@@ -38,11 +38,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Meldet die Hörzeit von Büchern als Sitzungen an Audiobookshelf (dessen Statistik zählt aus Sitzungen). Die App spielt
- * die Dateien direkt ab und legt deshalb selbst keine Server-Sitzung an, sondern meldet jede als „lokale“ Sitzung mit
- * Summen. Eine Sitzung läuft, bis länger als [SESSION_GAP_MS] nichts gehört wurde. Alles wird zuerst lokal gespeichert
- * und bei fehlender Verbindung von [AbsSessionWorker] nachgeliefert; wiederholtes Senden ist unschädlich, weil der Server
- * die Summen je Sitzungs-ID ersetzt. Bücher vom Gerät und Podcasts haben keinen Server und werden übergangen.
+ * Reports the listening time of books as sessions to Audiobookshelf (its statistics count from sessions). The app plays
+ * the files directly and therefore doesn't create a server session itself, but reports each one as a "local" session with
+ * totals. A session runs until nothing has been played for longer than [SESSION_GAP_MS]. Everything is stored locally first
+ * and delivered later by [AbsSessionWorker] if there is no connection; resending is harmless because the server
+ * replaces the totals per session ID. Books from the device and podcasts have no server and are skipped.
  */
 @Singleton
 class AbsSessionReporter @Inject constructor(
@@ -59,8 +59,8 @@ class AbsSessionReporter @Inject constructor(
     private val lastPush = ConcurrentHashMap<String, Long>()
 
     /**
-     * Bucht [listenedMs] gehörte Inhaltszeit in die laufende Sitzung des Buchs [bookId] ein, die jetzt bei [positionMs]
-     * steht (`null`: unbekannt, die bisherige Position bleibt). Gesendet wird höchstens alle [PUSH_INTERVAL_MS], mit [force] (Pause, Wechsel, Ende) sofort.
+     * Books [listenedMs] of listened content time into the running session of the book [bookId], which is now at [positionMs]
+     * (`null`: unknown, the previous position stays). Sent at most every [PUSH_INTERVAL_MS], with [force] (pause, switch, end) immediately.
      */
     suspend fun record(
         bookId: Long,
@@ -71,7 +71,7 @@ class AbsSessionReporter @Inject constructor(
         now: Long = System.currentTimeMillis(),
     ) {
         if (listenedMs <= 0) return
-        // Uhr: Die Hörzeit geht über das Handy an den Server (Wear-Konzept 16.2), das daraus eigene Sitzungen bildet.
+        // Watch: the listening time goes to the server via the phone (Wear concept 16.2), which builds its own sessions from it.
         if (!policy.syncsWithBookServers) return
         val sessionId = mutex.withLock {
             val book = bookDao.book(bookId) ?: return
@@ -101,7 +101,7 @@ class AbsSessionReporter @Inject constructor(
         if (force || sinceLastPush >= PUSH_INTERVAL_MS) push(sessionId)
     }
 
-    /** `true`, wenn die Sitzung gemeldet ist (oder es nichts zu melden gibt). */
+    /** `true` if the session is reported (or there is nothing to report). */
     suspend fun push(sessionId: String): Boolean {
         val session = dao.session(sessionId) ?: return true
         if (!session.dirty) return true
@@ -120,7 +120,7 @@ class AbsSessionReporter @Inject constructor(
         }
     }
 
-    /** Sendet alle ausstehenden Sitzungen und räumt alte, gemeldete auf. `true`, wenn nichts mehr offen ist. */
+    /** Sends all pending sessions and cleans up old, reported ones. `true` if nothing is pending anymore. */
     suspend fun pushPending(): Boolean {
         val done = dao.dirty().map { push(it.sessionId) }.all { it }
         dao.deleteCleanBefore(System.currentTimeMillis() - KEEP_MS)
@@ -163,13 +163,13 @@ class AbsSessionReporter @Inject constructor(
         const val PLAY_METHOD_LOCAL = 3
         const val PUSH_INTERVAL_MS = 30_000L
 
-        /** Pause, nach der eine neue Sitzung beginnt. */
+        /** Pause after which a new session begins. */
         const val SESSION_GAP_MS = 30 * 60_000L
         const val KEEP_MS = 2 * 24 * 60 * 60_000L
     }
 }
 
-/** Holt nach, was offline nicht gemeldet werden konnte. Nur das Netz ist Voraussetzung. */
+/** Catches up on what couldn't be reported while offline. Network is the only requirement. */
 class AbsSessionWorker(
     context: Context,
     params: WorkerParameters,
@@ -189,7 +189,7 @@ class AbsSessionWorker(
     companion object {
         private const val WORK_NAME = "abs-sessions"
 
-        /** Siehe [CatchUpWork.policy]. */
+        /** See [CatchUpWork.policy]. */
         fun schedule(context: Context) {
             val request = OneTimeWorkRequestBuilder<AbsSessionWorker>()
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())

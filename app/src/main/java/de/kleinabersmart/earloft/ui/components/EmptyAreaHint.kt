@@ -19,14 +19,14 @@ import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.model.SpokenMode
 
 /**
- * Öffnet die Einstellung, mit der sich ein Bereich ausblenden lässt (Allgemein → Bereiche). `null`, wenn nur ein Bereich
- * eingeschaltet ist – der lässt sich nicht ausschalten – oder außerhalb von Start und Bibliothek.
+ * Opens the setting that hides an area (General → Areas). `null` if only one area
+ * is enabled – it can't be disabled – or outside Home and Library.
  */
 val LocalOpenAreaSettings = staticCompositionLocalOf<(() -> Unit)?> { null }
 
 /**
- * Bereich ohne Inhalt: der Hinweis [text], an erster Stelle das Einrichten ([setupLabel], [onSetup]; entfällt ohne),
- * darunter der Weg zur Einstellung, die [area] ausblendet ([LocalOpenAreaSettings]).
+ * Area without content: the hint [text], first the setup ([setupLabel], [onSetup]; omitted without them),
+ * below it the way to the setting that hides [area] ([LocalOpenAreaSettings]).
  */
 @Composable
 fun EmptyAreaHint(
@@ -52,7 +52,7 @@ fun EmptyAreaHint(
     }
 }
 
-/** „Musik ausblenden“ usw. */
+/** "Hide music" etc. */
 fun hideAreaLabel(area: SpokenMode): Int = when (area) {
     SpokenMode.MUSIC -> R.string.area_hide_music
     SpokenMode.PODCASTS -> R.string.area_hide_podcasts

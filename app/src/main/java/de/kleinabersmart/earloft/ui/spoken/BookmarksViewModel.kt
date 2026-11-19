@@ -19,9 +19,9 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Lesezeichen eines Buchs bzw. einer Folge (Konzept 12.6); Player, Buchseite und die gesammelte Liste teilen sich das.
- * Änderungen laufen im App-Scope zu Ende: „Rückgängig“ in der Snackbar kommt oft erst, wenn die Seite schon weg ist
- * (Review D13).
+ * Bookmarks of a book or episode (concept 12.6); player, book page and the collected list share this.
+ * Changes complete in the app scope: "Undo" in the snackbar often comes only when the page is already gone
+ * (review D13).
  */
 @HiltViewModel
 class BookmarksViewModel @Inject constructor(
@@ -32,16 +32,16 @@ class BookmarksViewModel @Inject constructor(
     fun of(bookId: Long): Flow<List<Bookmark>> = bookmarks.of(bookId)
 
     /**
-     * Die gesammelten Lesezeichen in Büchern bzw. Folgen je Buch (`byBook`); gruppiert abseits des Main-Threads, eine Ausnahme der
-     * Datenbank wird [LoadState.Failed] statt eines Absturzes (Review V24).
+     * The collected bookmarks in books or episodes per book (`byBook`); grouped off the main thread, a database
+     * exception becomes [LoadState.Failed] instead of a crash (review V24).
      */
     internal fun books(kind: BookKind): Flow<LoadState<List<BookmarkedBook>>> =
         bookmarks.all(kind).map { it.byBook() }.flowOn(Dispatchers.Default).asLoadState()
 
-    /** Ob es in Bücher bzw. Folgen Lesezeichen gibt (Symbol im Kopf der Bibliothek); bei einem Fehler keines. */
+    /** Whether there are bookmarks in books or episodes (icon in the library header); none on error. */
     fun any(kind: BookKind): Flow<Boolean> = bookmarks.all(kind).map { it.isNotEmpty() }.distinctUntilChanged().orOnError(false)
 
-    /** Spielt das Buch bzw. die Folge ab dem Lesezeichen (gesammelte Liste). */
+    /** Plays the book or episode from the bookmark (collected list). */
     fun play(bookmark: Bookmark) {
         launcher.play(bookmark.bookId, bookmark.positionMs)
     }

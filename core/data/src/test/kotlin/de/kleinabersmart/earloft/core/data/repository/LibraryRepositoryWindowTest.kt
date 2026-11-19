@@ -19,7 +19,7 @@ class LibraryRepositoryWindowTest {
         assertEquals(3, starts.size)
         assertTrue(starts.first() >= before - period)
         assertEquals(starts.sorted(), starts)
-        // Jeder Wert liegt später als der vorige: Es wird neu gerechnet statt einmal gemerkt.
+        // Each value comes later than the previous one: it's recomputed instead of remembered once.
         assertTrue(starts.last() >= starts.first() + 30)
     }
 }

@@ -6,18 +6,18 @@ import de.kleinabersmart.earloft.core.network.UnexpectedResponseException
 import java.io.IOException
 
 /**
- * Warum der letzte Abgleich einer Quelle fehlschlug – nur Texte, keine Ausnahme samt Stacktrace (Review S2).
- * Die Einteilung entspricht [de.kleinabersmart.earloft.core.data.repository.ConnectionResult].
+ * Why the last sync of a source failed – only texts, no exception with stack trace (review S2).
+ * The classification corresponds to [de.kleinabersmart.earloft.core.data.repository.ConnectionResult].
  */
 sealed interface SyncFailure {
     data object WrongCredentials : SyncFailure
 
-    /** Unter der Adresse antwortet kein Server der eingerichteten Art. */
+    /** No server of the configured type responds at the address. */
     data object UnexpectedServer : SyncFailure
     data class Unreachable(val reason: String?) : SyncFailure
     data class ServerError(val code: Int, val message: String?) : SyncFailure
 
-    /** Alles andere, etwa ein Datenbankfehler. */
+    /** Everything else, e.g. a database error. */
     data class Other(val message: String) : SyncFailure
 
     companion object {

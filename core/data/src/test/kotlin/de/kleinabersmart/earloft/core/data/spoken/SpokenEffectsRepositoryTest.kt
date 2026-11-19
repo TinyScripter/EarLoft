@@ -21,7 +21,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** Tempo und Effekte: Folge bzw. Buch > Abo > Bereich, eigene Werte nur, solange sie abweichen (Konzept 12.4). */
+/** Speed and effects: episode or book > subscription > section, own values only as long as they differ (concept 12.4). */
 @RunWith(RobolectricTestRunner::class)
 class SpokenEffectsRepositoryTest {
 
@@ -36,7 +36,7 @@ class SpokenEffectsRepositoryTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         settings = SpokenSettings(context)
-        // Der DataStore bleibt zwischen den Tests im Prozess bestehen.
+        // The DataStore persists between tests within the process.
         settings.setBookEffects(SpokenEffects.DEFAULT)
         settings.setPodcastEffects(SpokenEffects.DEFAULT)
         repository = SpokenEffectsRepository(db.bookDao(), db.podcastDao(), settings)
@@ -92,7 +92,7 @@ class SpokenEffectsRepositoryTest {
 
         assertEquals(SpokenEffects(skipSilence = true), settings.bookEffects.first())
         assertNull(db.bookDao().progress(bookId)?.skipSilence)
-        // Folgen bleiben davon unberührt.
+        // Episodes stay unaffected by it.
         assertEquals(false, repository.effectsNow(episodeId).skipSilence)
     }
 

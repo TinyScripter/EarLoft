@@ -20,11 +20,11 @@ import de.kleinabersmart.earloft.core.model.TrackDownload
 import kotlinx.coroutines.CancellationException
 
 /**
- * Arbeitet die Warteschlange der Buch-Downloads Datei für Datei ab. Aufbau wie beim [EpisodeDownloadWorker]:
- * Vordergrund-Worker mit Fortschritt, Netzfehler stellen zurück und versuchen es mit Backoff erneut, dann an der
- * Stelle, an der die Teildatei endet. Mit [KEY_MANUAL_ONLY] (Auftrag, der auch über Mobilfunk lädt) nimmt er nur die von Hand
- * eingereihten Dateien und reicht die der Automatik danach an einen Auftrag im WLAN weiter ([BookDownloads.continueOnWifi]);
- * den beendet WorkManager, sobald das WLAN weg ist.
+ * Works through the queue of book downloads file by file. Structured like the [EpisodeDownloadWorker]:
+ * foreground worker with progress, network errors put the entry back and retry with backoff, then from the
+ * point where the partial file ends. With [KEY_MANUAL_ONLY] (a job that also downloads over mobile data) it only takes the
+ * manually enqueued files and then hands the automation's files to a Wi-Fi job ([BookDownloads.continueOnWifi]);
+ * WorkManager stops that one as soon as Wi-Fi is gone.
  */
 class BookDownloadWorker(
     context: Context,
@@ -41,7 +41,7 @@ class BookDownloadWorker(
     override suspend fun doWork(): Result {
         dao.requeueRunningBookDownloads()
         if (dao.countPendingBookDownloads() == 0) return finish()
-        // Teildateien eines früheren, abgebrochenen Laufs bleiben liegen: der Downloader setzt dort fort.
+        // Partial files from an earlier, aborted run are kept: the downloader resumes there.
         startForeground(progress = null)
         val budget = RetryBudget(runAttemptCount, MAX_ATTEMPTS)
 
@@ -72,7 +72,7 @@ class BookDownloadWorker(
                     if (outcome.isAuthRejection) {
                         dao.markBookDownloadFailed(next.bookId)
                     } else {
-                        // Nur diese Datei gibt auf; „Erneut versuchen“ lädt später genau die fehlenden.
+                        // Only this file gives up; "Retry" later downloads exactly the missing ones.
                         dao.markBookTrackFailed(next.bookId, next.trackIndex)
                         storage.deletePart(next.bookId, next.trackIndex)
                     }
@@ -84,10 +84,10 @@ class BookDownloadWorker(
         return finish()
     }
 
-    /** Räumt Dateien weg, zu denen es keinen Eintrag mehr gibt (Buch vom Server gelöscht oder neu eingelesen). */
+    /** Removes files that no longer have an entry (book deleted on the server or rescanned). */
     private suspend fun finish(): Result {
         storage.deleteOrphans(dao.downloadedBookTracks().mapNotNull { it.filePath })
-        // Wartet nichts mehr (auch nicht nach einem Fehler), setzt keiner eine Teildatei fort.
+        // If nothing is waiting anymore (not even after an error), nobody resumes a partial file.
         if (dao.countPendingBookDownloads() == 0) {
             storage.deleteParts()
         } else if (manualOnly) {
@@ -98,10 +98,10 @@ class BookDownloadWorker(
 
     override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo(buildNotification(pending = 0, progress = null))
 
-    /** Ohne Vordergrund-Erlaubnis (Start aus dem Hintergrund) wird einfach normal weitergeladen. */
+    /** Without foreground permission (started from the background) downloading simply continues normally. */
     /**
-     * Aus dem Hintergrund (z. B. Wiederholung nach Backoff) verweigert das System den Vordergrunddienst; dann wird normal
-     * weitergeladen und in diesem Lauf nicht erneut gefragt (sonst bei jedem Prozent eine Ausnahme samt Stacktrace).
+     * From the background (e.g. retry after backoff) the system refuses the foreground service; then downloading
+     * continues normally and this run doesn't ask again (otherwise an exception plus stack trace at every percent).
      */
     private var foregroundDenied = false
 
@@ -110,7 +110,7 @@ class BookDownloadWorker(
         try {
             setForeground(foregroundInfo(buildNotification(dao.countPendingBookDownloads(), progress)))
         } catch (e: CancellationException) {
-            // Unterklasse von IllegalStateException: Der Worker wurde gestoppt, nicht der Vordergrund verweigert (Review V28).
+            // Subclass of IllegalStateException: the worker was stopped, the foreground was not refused (review V28).
             throw e
         } catch (e: IllegalStateException) {
             foregroundDenied = true
@@ -161,12 +161,12 @@ class BookDownloadWorker(
     }
 
     internal companion object {
-        /** Nur von Hand eingereihte Dateien laden; der Auftrag darf über Mobilfunk laufen. */
+        /** Only download manually enqueued files; the job may run over mobile data. */
         const val KEY_MANUAL_ONLY = "manual_only"
 
         private const val TAG = "BookDownloadWorker"
 
-        /** Derselbe Kanal wie bei den Musik-Downloads. */
+        /** The same channel as for the music downloads. */
         private const val CHANNEL_ID = "downloads"
         private const val NOTIFICATION_ID = 2003
         private const val MAX_ATTEMPTS = 5

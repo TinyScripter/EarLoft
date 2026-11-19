@@ -9,7 +9,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** `fromHtml` braucht Android (`Html`), deshalb Robolectric – ohne die App-Klasse (WorkManager, Hilt). */
+/** `fromHtml` needs Android (`Html`), hence Robolectric – without the app class (WorkManager, Hilt). */
 @Config(application = Application::class)
 @RunWith(RobolectricTestRunner::class)
 class DescriptionTest {

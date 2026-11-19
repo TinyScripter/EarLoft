@@ -19,14 +19,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WearDao {
-    /** Uhr: `remoteId`s der Songs von [sourceId], die fertig geladen sind. */
+    /** Watch: `remoteId`s of the songs from [sourceId] that are fully downloaded. */
     @Query(
         "SELECT ss.remoteId FROM downloads d JOIN song_sources ss ON ss.uid = d.sourceUid " +
             "WHERE ss.sourceId = :sourceId AND d.state = 'DONE'",
     )
     suspend fun doneDownloadRemoteIds(sourceId: String): List<String>
 
-    /** In der Reihenfolge des Hinzufügens (bestimmt die Download-Reihenfolge auf der Uhr). */
+    /** In the order they were added (determines the download order on the watch). */
     @Query("SELECT * FROM wear_selections ORDER BY addedAt, `key`")
     fun observeSelections(): Flow<List<WearSelectionEntity>>
 
@@ -45,12 +45,12 @@ interface WearDao {
     @Query("DELETE FROM wear_selections")
     suspend fun deleteAll()
 
-    // --- Handy: einzeln gewählte Folgen (Wear-Konzept 16.1) ---
+    // --- Phone: individually selected episodes (Wear concept 16.1) ---
 
     @Query("SELECT bookId FROM wear_books")
     fun observeBookIds(): Flow<List<Long>>
 
-    /** Erneutes Wählen behält den ursprünglichen Zeitpunkt (Reihenfolge auf der Uhr). */
+    /** Selecting again keeps the original timestamp (order on the watch). */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertBook(book: WearBookEntity)
 
@@ -60,17 +60,17 @@ interface WearDao {
     @Query("DELETE FROM wear_books")
     suspend fun deleteAllBooks()
 
-    /** Nur die Folgen bzw. nur die Bücher („Podcasts entfernen“ bzw. „Bücher entfernen“ auf der Uhr). */
+    /** Only the episodes or only the books ("Remove podcasts" or "Remove books" on the watch). */
     @Query("DELETE FROM wear_books WHERE bookId IN (SELECT bookId FROM books WHERE kind = :kind)")
     suspend fun deleteBooksOfKind(kind: BookKind)
 
-    /** Zu Ende gehörte Folgen fallen von der Uhr (Entscheidung des Nutzers, 2026-11-05). */
+    /** Episodes listened to the end drop off the watch (user's decision, 2026-11-05). */
     @Query("DELETE FROM wear_books WHERE bookId IN (SELECT bookId FROM book_progress WHERE finished)")
     suspend fun deleteFinishedBooks(): Int
 
     /**
-     * Gewählte Folgen und Bücher in der Reihenfolge des Wählens. Folgen archivierter Abos und Bücher ausgeschalteter Server
-     * bleiben gewählt, aber von der Uhr fern; Bücher vom Gerät (`local…`) und aus ARD Sounds haben keinen Server.
+     * Selected episodes and books in the order they were selected. Episodes of archived subscriptions and books of disabled servers
+     * stay selected but are kept off the watch; books from the device (`local…`) and from ARD Sounds have no server.
      */
     @Query(
         """
@@ -85,11 +85,11 @@ interface WearDao {
     )
     suspend fun selectedSpokenIds(): List<Long>
 
-    // --- Handy: Auswahlen auflösen (Wear-Konzept 5) ---
+    // --- Phone: resolving selections (Wear concept 5) ---
 
     /**
-     * Entfernt Auswahlen, deren Album bzw. Playlist es nicht mehr gibt (Abgleich, Playlist gelöscht,
-     * Server entfernt). Nur am Handy – auf der Uhr zeigt `refId` auf deren eigene Geräte-Playlist.
+     * Removes selections whose album or playlist no longer exists (sync, playlist deleted,
+     * server removed). Only on the phone – on the watch `refId` points to its own device playlist.
      */
     @Query(
         """
@@ -107,11 +107,11 @@ interface WearDao {
     @Query("SELECT songId FROM songs WHERE albumId = :albumId ORDER BY discNumber, trackNumber, title")
     suspend fun getAlbumSongIds(albumId: Long): List<Long>
 
-    /** Wie die Favoriten-Ansicht: zuletzt favorisierte zuerst. */
+    /** Like the favorites view: most recently favorited first. */
     @Query("SELECT songId FROM songs WHERE isFavorite ORDER BY favoriteChangedAt DESC")
     suspend fun getFavoriteSongIds(): List<Long>
 
-    /** Die Songs der favorisierten Alben, zuletzt favorisiertes Album zuerst, darin in Albumreihenfolge. */
+    /** The songs of the favorited albums, most recently favorited album first, within that in album order. */
     @Query(
         """
         SELECT s.songId FROM songs s JOIN albums a ON a.albumId = s.albumId
@@ -121,7 +121,7 @@ interface WearDao {
     )
     suspend fun getFavoriteAlbumSongIds(): List<Long>
 
-    /** Max. ~900 IDs pro Aufruf (SQLite-Variablenlimit). */
+    /** Max. ~900 IDs per call (SQLite variable limit). */
     @Query(
         """
         SELECT s.songId, s.title, s.artistDisplay, s.discNumber, s.trackNumber, s.durationMs,
@@ -142,7 +142,7 @@ interface WearDao {
     )
     suspend fun getSongArtists(songIds: List<Long>): List<WearSongArtistRow>
 
-    /** Alle Quellen der Songs samt fertigem Download (für die Datei, die das Handy der Uhr schicken kann). */
+    /** All sources of the songs together with a finished download (for the file the phone can send to the watch). */
     @Query(
         """
         SELECT ss.uid, ss.songId, ss.sourceId, ss.remoteId, ss.coverRemoteId, src.type AS sourceType,
@@ -157,12 +157,12 @@ interface WearDao {
     )
     suspend fun getSources(songIds: List<Long>): List<WearSourceRow>
 
-    // --- Uhr ---
+    // --- Watch ---
 
     @Query("SELECT uid, songId FROM song_sources WHERE uid IN (:uids)")
     suspend fun getSongIdsOfSources(uids: List<String>): List<SourceSongIdRow>
 
-    /** Server-Quellen, von denen die Uhr direkt laden kann (nicht die Pseudo-Quelle `phone`). Max. ~900 IDs. */
+    /** Server sources the watch can download from directly (not the pseudo source `phone`). Max. ~900 IDs. */
     @Query(
         """
         SELECT ss.uid, ss.songId, src.type AS sourceType, src.priority AS sourcePriority, ss.bitRate, ss.sizeBytes, s.durationMs
@@ -174,7 +174,7 @@ interface WearDao {
     )
     suspend fun getServerCandidates(songIds: List<Long>): List<WearCandidateRow>
 
-    /** Die Pseudo-Quelle `phone` (Typ `PHONE`): Songs, die nur das Handy schicken kann (Fallback, Wear-Konzept 8.4). Max. ~900 IDs. */
+    /** The pseudo source `phone` (type `PHONE`): songs only the phone can send (fallback, Wear concept 8.4). Max. ~900 IDs. */
     @Query(
         """
         SELECT ss.uid, ss.songId, src.type AS sourceType, src.priority AS sourcePriority, ss.bitRate, ss.sizeBytes, s.durationMs
@@ -186,7 +186,7 @@ interface WearDao {
     )
     suspend fun getPhoneCandidates(songIds: List<Long>): List<WearCandidateRow>
 
-    /** Die Quellen der wartenden und laufenden Downloads: Ihr Platz ist schon eingeplant. */
+    /** The sources of the waiting and running downloads: their space is already planned for. */
     @Query(
         """
         SELECT ss.uid, ss.songId, src.type AS sourceType, src.priority AS sourcePriority, ss.bitRate, ss.sizeBytes, s.durationMs
@@ -203,8 +203,8 @@ interface WearDao {
     suspend fun getDoneBytes(): Long
 
     /**
-     * Fertig/gesamt/fehlgeschlagen, belegte Bytes und der geladene Anteil laufender Songs je Auswahl, in deren Reihenfolge
-     * (auf der Uhr zeigt `refId` auf die Geräte-Playlist). Songs in mehreren Auswahlen zählen bei jeder.
+     * Done/total/failed, bytes used and the downloaded share of running songs per selection, in their order
+     * (on the watch `refId` points to the device playlist). Songs in several selections count for each.
      */
     @Query(
         """

@@ -91,7 +91,7 @@ class SubsonicTrackMapperTest {
         assertEquals(listOf("ar1"), track.artists.map { it.remoteId })
         assertEquals(listOf("ar1"), track.albumArtists.map { it.remoteId })
 
-        // Klassisches Subsonic: nur artistId am Song und am Album.
+        // Classic Subsonic: only artistId on the song and on the album.
         val classic = SubsonicTrackMapper.map(
             song.copy(artists = emptyList(), albumArtists = emptyList(), displayAlbumArtist = null, artistId = "ar2"),
             album.copy(artistId = "ar3"),
@@ -116,7 +116,7 @@ class SubsonicTrackMapperTest {
         val first = SubsonicTrackMapper.map(song, album, names).lastModified
         assertEquals(first, SubsonicTrackMapper.map(song.copy(), album, names).lastModified)
         assertNotEquals(first, SubsonicTrackMapper.map(song.copy(title = "Mondlicht (Remaster)"), album, names).lastModified)
-        // Ein zusätzliches Genre in der OpenSubsonic-Liste ist eine Änderung.
+        // An additional genre in the OpenSubsonic list is a change.
         assertNotEquals(first, SubsonicTrackMapper.map(song.copy(genres = listOf(ItemGenreDto("Rap"))), album, names).lastModified)
     }
 

@@ -8,7 +8,7 @@ import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.QueueItemEntity
 import kotlinx.coroutines.flow.Flow
 
-/** Persistierte Warteschlange und Hörverlauf. */
+/** Persisted queue and listening history. */
 @Dao
 abstract class PlaybackDao {
 
@@ -24,7 +24,7 @@ abstract class PlaybackDao {
     @Insert
     protected abstract suspend fun insertQueueItems(items: List<QueueItemEntity>)
 
-    /** Ersetzt die Warteschlange; Songs, die es nicht (mehr) gibt, werden übersprungen. */
+    /** Replaces the queue; songs that don't exist (anymore) are skipped. */
     @Transaction
     open suspend fun replaceQueue(songIds: List<Long>) {
         clearQueue()
@@ -44,8 +44,8 @@ abstract class PlaybackDao {
     protected abstract suspend fun songExists(songId: Long): Boolean
 
     /**
-     * Nur, wenn es den Song noch gibt: Ein gerade entfernter Server nimmt seine Songs mit, der Player meldet sie danach.
-     * @return `false`, wenn der Song fehlt.
+     * Only if the song still exists: a server that was just removed takes its songs with it, and the player reports them afterwards.
+     * @return `false` if the song is missing.
      */
     @Transaction
     open suspend fun insertPlayEventIfSongExists(event: PlayEventEntity): Boolean {

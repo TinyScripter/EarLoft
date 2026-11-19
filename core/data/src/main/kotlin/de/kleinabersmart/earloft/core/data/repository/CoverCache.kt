@@ -9,10 +9,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Cover-Cache auf dem Gerät (Cache-Verzeichnis, das System darf es räumen): Cover vom Server stehen auch bei
- * ausgeschaltetem Server oder ohne Netz zur Verfügung. Je Album liegt eine Datei in der größten bisher angefragten Größe;
- * die älteste Datei fliegt bei Überschreiten von [MAX_BYTES] heraus. Getrennt von [CoverFiles], den dauerhaften
- * Covern der Uhr.
+ * Cover cache on the device (cache directory, the system may clear it): covers from the server are available even when
+ * the server is turned off or without network. There is one file per album in the largest size requested so far;
+ * the oldest file is evicted when [MAX_BYTES] is exceeded. Separate from [CoverFiles], the permanent
+ * covers of the watch.
  */
 @Singleton
 class CoverCache @Inject constructor(
@@ -20,12 +20,12 @@ class CoverCache @Inject constructor(
 ) {
     private val directory = File(context.cacheDir, "album_covers")
 
-    /** `null`, wenn keine Datei da oder nicht lesbar ist. */
+    /** `null` if there is no file or it is unreadable. */
     fun read(albumId: Long): Bitmap? = file(albumId).takeIf { it.isFile }?.let { file ->
         BitmapFactory.decodeFile(file.path)?.also { file.setLastModified(System.currentTimeMillis()) }
     }
 
-    /** Schreibt erst in eine `.part`-Datei, damit ein Abbruch keine halbe Datei hinterlässt. */
+    /** Writes to a `.part` file first, so an abort doesn't leave a half file behind. */
     fun write(albumId: Long, bitmap: Bitmap) {
         directory.mkdirs()
         val target = file(albumId)

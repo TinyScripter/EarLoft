@@ -21,29 +21,29 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Eine Auswahl vom Handy; ihre Songs liegen in der Geräte-Playlist [playlistId] (Wear-Konzept 7.2). */
+/** A selection from the phone; its songs are in the device playlist [playlistId] (Wear concept 7.2). */
 data class SelectionItem(
     val playlistId: Long,
     val kind: WearSelectionKind,
     val title: String,
     val songCount: Int,
-    /** Geladene Songs der Auswahl; `songCount` sind alle. */
+    /** Downloaded songs of the selection; `songCount` is all of them. */
     val downloadedCount: Int = songCount,
-    /** [WearSelectionKind.key] mit den IDs des Handys, z. B. `album:12`. */
+    /** [WearSelectionKind.key] with the phone's IDs, e.g. `album:12`. */
     val key: String = "",
-    /** Fertig geladene Bytes der Auswahl. */
+    /** Fully downloaded bytes of the selection. */
     val bytes: Long = 0,
-    /** Verschiedene Songs der Auswahl (Duplikate einer Playlist zählen einmal, anders als [songCount]). */
+    /** Distinct songs of the selection (duplicates in a playlist count once, unlike [songCount]). */
     val distinctSongs: Int = songCount,
-    /** Geladener Anteil der gerade laufenden Songs, aufsummiert. */
+    /** Downloaded share of the songs currently downloading, summed up. */
     val runningFraction: Double = 0.0,
-    /** Fehlgeschlagene Songs der Auswahl. */
+    /** Failed songs of the selection. */
     val failedCount: Int = 0,
 ) {
-    /** Album- bzw. Playlist-ID am Handy (aus [key]); `null` bei den Favoriten. */
+    /** Album or playlist ID on the phone (from [key]); `null` for the favorites. */
     val phoneRefId: Long? get() = key.substringAfter(':', "").toLongOrNull()
 
-    /** Geladener Anteil 0–1; laufende Songs zählen anteilig. */
+    /** Downloaded share 0–1; running songs count proportionally. */
     val progress: Float
         get() = if (distinctSongs == 0 || downloadedCount >= distinctSongs) {
             1f
@@ -52,7 +52,7 @@ data class SelectionItem(
         }
 }
 
-/** Eine Folge bzw. ein Buch auf der Uhr; [serverId] und [remoteId] wie am Handy (Folgen-Manifest, Wear-Konzept 16.1/16.2). */
+/** An episode or book on the watch; [serverId] and [remoteId] as on the phone (episode manifest, Wear concept 16.1/16.2). */
 data class StoredSpoken(
     val bookId: Long,
     val kind: BookKind,
@@ -60,18 +60,18 @@ data class StoredSpoken(
     val remoteId: String,
     val title: String,
     val author: String,
-    /** Alle Dateien sind geladen. */
+    /** All files are downloaded. */
     val loaded: Boolean,
-    /** Fertig geladene Bytes. */
+    /** Fully downloaded bytes. */
     val bytes: Long,
 )
 
-/** [progress]: geladener Anteil 0–1; [failed]: Eine Datei ließ sich nicht laden, und es wartet keine mehr. */
+/** [progress]: downloaded share 0–1; [failed]: a file could not be downloaded, and none is waiting any more. */
 data class SpokenDownload(val progress: Float, val failed: Boolean)
 
 /**
- * Geladener Anteil der Dateien einer Folge bzw. eines Buchs, nach ihrer Dauer gewichtet (die Größe kennt die Uhr erst beim
- * Laden); [current] ist die gerade ladende Datei dieses Buchs.
+ * Downloaded share of the files of an episode or book, weighted by their duration (the watch only learns the size while
+ * downloading); [current] is the file of this book currently downloading.
  */
 internal fun spokenProgress(tracks: List<BookTrackEntity>, current: SpokenFileProgress?): Float {
     if (tracks.isEmpty()) return 0f
@@ -92,8 +92,8 @@ internal fun spokenProgress(tracks: List<BookTrackEntity>, current: SpokenFilePr
 }
 
 /**
- * Was auf der Uhr liegt und was noch kommt – für die Oberfläche (Konzept 4: Repositories als einzige Schnittstelle zur
- * Datenschicht; Review A1). Die Download-Logik selbst (Planer, Worker) liest die DAOs weiter direkt.
+ * What is on the watch and what is still coming – for the UI (concept 4: repositories as the only interface to the
+ * data layer; Review A1). The download logic itself (planner, worker) still reads the DAOs directly.
  */
 @Singleton
 class WatchStorageRepository @Inject constructor(
@@ -107,16 +107,16 @@ class WatchStorageRepository @Inject constructor(
 ) {
 
     /**
-     * Stand aller Downloads der Uhr: Songs wie am Handy, dazu die Dateien der Folgen und Bücher (Wear-Konzept 16.1/16.2) im
-     * belegten Speicher und unter „noch zu laden“.
+     * Progress of all downloads on the watch: songs as on the phone, plus the files of episodes and books (Wear concept 16.1/16.2) in
+     * the used storage and under "still to download".
      */
     fun overview(): Flow<DownloadOverview> = combine(downloads.overview(), bookDao.observeTrackTotals()) { songs, spoken ->
         songs.copy(usedBytes = songs.usedBytes + spoken.doneBytes, pendingSongs = songs.pendingSongs + spoken.pendingCount)
     }
 
     /**
-     * Die Auswahlen vom Handy mit ihrer Geräte-Playlist und dem Stand der Downloads (Wear-Konzept 7.2), in der
-     * Reihenfolge des Handys; Auswahlen ohne Geräte-Playlist (noch nicht übernommen) fehlen.
+     * The selections from the phone with their device playlist and download progress (Wear concept 7.2), in the
+     * phone's order; selections without a device playlist (not applied yet) are missing.
      */
     fun selections(): Flow<List<SelectionItem>> = combine(
         wearDao.observeSelections(),
@@ -143,35 +143,35 @@ class WatchStorageRepository @Inject constructor(
         }
     }
 
-    /** Folgen und Bücher auf der Uhr mit dem Stand ihrer Dateien; auf der Uhr liegen nur die am Handy gewählten. */
+    /** Episodes and books on the watch with the progress of their files; only those chosen on the phone are on the watch. */
     fun storedSpoken(): Flow<List<StoredSpoken>> = bookDao.observeStoredBooks().map { rows ->
         rows.map {
             StoredSpoken(it.bookId, it.kind, it.serverId, it.remoteId, it.title, it.author, loaded = it.total > 0 && it.done == it.total, bytes = it.doneBytes)
         }
     }
 
-    /** Download-Stand von Folge bzw. Buch [bookId] auf der Uhr; die gerade ladende Datei zählt anteilig. */
+    /** Download progress of episode or book [bookId] on the watch; the file currently downloading counts proportionally. */
     fun spokenDownload(bookId: Long): Flow<SpokenDownload> =
         combine(bookDao.observeTracks(bookId), watchState.spokenFileProgress) { all, current ->
-            // Was nicht mehr abrufbar ist und nie geladen wurde, kommt nicht mehr: Das Buch ist ohne es fertig.
+            // What is no longer available and was never downloaded will not come any more: the book is complete without it.
             val tracks = all.filter { it.unavailableSince == null || it.downloadState == TrackDownload.DONE }
             SpokenDownload(
                 progress = spokenProgress(tracks, current?.takeIf { it.bookId == bookId }),
-                // Erst, wenn nichts mehr wartet: Bis dahin versucht es der Auftrag noch (auch über das Handy).
+                // Only once nothing is waiting: until then the job still tries (via the phone too).
                 failed = tracks.any { it.downloadState == TrackDownload.FAILED } &&
                     tracks.none { it.downloadState == TrackDownload.QUEUED || it.downloadState == TrackDownload.RUNNING },
             )
         }.distinctUntilChanged()
 
-    /** Schlüssel aller Auswahlen vom Handy laut zuletzt übernommenem Manifest ([WearSelectionKind.key]). */
+    /** Keys of all selections from the phone according to the last applied manifest ([WearSelectionKind.key]). */
     fun selectedKeys(): Flow<Set<String>> = wearDao.observeSelections().map { selections -> selections.mapTo(HashSet()) { it.key } }
 
-    /** Alle fertig geladenen Songs. */
+    /** All fully downloaded songs. */
     suspend fun downloadedSongs(): List<Song> = libraryRepository.songs(downloadDao.getDoneSongIds())
 
     /**
-     * Geschätzte Bytes, die über das Handy kommen: Songs nur vom Handy, Server-Songs, bei denen der Server zu oft
-     * scheiterte, und Songs einer Quelle, die die Uhr nicht kennt (Wear-Konzept 8.3).
+     * Estimated bytes that come via the phone: songs only on the phone, server songs where the server failed too
+     * often, and songs from a source the watch does not know (Wear concept 8.3).
      */
     suspend fun phoneBacklogBytes(quality: WearQuality): Long = wearDao.getPendingCandidates()
         .filter { it.sourceType == SourceType.PHONE || watchState.hasServerFailedTooOften(it.uid) || watchState.isMarkedViaPhone(it.uid) }

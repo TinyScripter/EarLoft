@@ -56,10 +56,10 @@ class MusicStatsRepositoryTest {
         fun play(songId: Long, time: String, minutes: Long) =
             PlayEventEntity(songId = songId, playedAt = at(time), listenedMs = minutes * 60_000)
         listOf(
-            play(a, "2025-12-31T23:30:00", 4), // in Zone +1 noch 2025
-            play(a, "2026-01-05T10:00:00", 3), // Montag
+            play(a, "2025-12-31T23:30:00", 4), // still 2025 in zone +1
+            play(a, "2026-01-05T10:00:00", 3), // Monday
             play(b, "2026-01-05T11:00:00", 5),
-            play(c, "2026-11-01T00:30:00", 2), // Sonntag
+            play(c, "2026-11-01T00:30:00", 2), // Sunday
         ).forEach { db.playbackDao().insertPlayEventIfSongExists(it) }
 
         val all = stats.musicStats(zone = zone, today = { today }).first()
@@ -69,7 +69,7 @@ class MusicStatsRepositoryTest {
         assertEquals(2, all.albums)
         assertEquals(2, all.newAlbums)
         assertEquals(listOf(2026, 2025), all.years)
-        // Letzte zwölf Monate: Dezember 2025 bis November 2026.
+        // Last twelve months: December 2025 to November 2026.
         assertEquals(12, all.months.size)
         assertEquals(4 * 60_000L, all.months.first().listenedMs)
         assertEquals(2 * 60_000L, all.months.last().listenedMs)
@@ -80,7 +80,7 @@ class MusicStatsRepositoryTest {
         assertEquals(10 * 60_000L, year.totalMs)
         assertEquals(3, year.songs)
         assertEquals(2, year.albums)
-        // „Old“ lief schon 2025, nur „New“ ist neu.
+        // "Old" already played in 2025, only "New" is new.
         assertEquals(1, year.newAlbums)
         assertEquals(8 * 60_000L, year.weekdays.first().listenedMs)
         assertEquals(2 * 60_000L, year.weekdays.last().listenedMs)

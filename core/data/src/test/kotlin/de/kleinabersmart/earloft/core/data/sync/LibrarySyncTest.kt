@@ -62,7 +62,7 @@ class LibrarySyncTest {
         syncer.syncAdding(db, server)
         db.sourceDao().delete("navidrome")
 
-        // Der Abgleich hielt das alte Objekt noch (wartete am Mutex), als der Server entfernt wurde.
+        // The sync still held the old object (waiting on the mutex) when the server was removed.
         syncer.sync(server)
 
         assertEquals(null, db.sourceDao().get("navidrome"))
@@ -145,7 +145,7 @@ class LibrarySyncTest {
         val songId = db.libraryDao().observeSongRows().first().single().songId
         db.downloadDao().insertIfAbsent(listOf(DownloadEntity("nd:x", songId, DownloadState.DONE, filePath = "/dl/x.flac")))
 
-        // Nur Metadaten (z. B. Album-Cover) geändert: Download bleibt.
+        // Only metadata (e.g. album cover) changed: the download stays.
         syncer.syncAdding(db, FakeSource("nd", listOf(track("x", "Gong", lastModified = 2, sizeBytes = 100))))
         assertEquals(DownloadState.DONE, db.downloadDao().get("nd:x")!!.state)
 
@@ -160,14 +160,14 @@ class LibrarySyncTest {
         syncer.syncAdding(db, FakeSource("nd", listOf(aerosmith, runDmc)))
         assertEquals(2, db.libraryDao().observeSongRows().first().size)
 
-        // Eine zweite Quelle mit nur einer der Fassungen legt sich weiter zu einem der beiden.
+        // A second source with only one of the versions is merged into one of the two.
         syncer.syncAdding(db, FakeSource("local", listOf(aerosmith.copy(remoteId = "1"))))
         assertEquals(2, db.libraryDao().observeSongRows().first().size)
     }
 
     @Test
     fun `two tracks of one source with the same recording id or the same position stay two songs`() = runTest {
-        // Dieselbe Aufnahme auf CD 1 und als Bonus; zwei „Interlude“ ohne Tracknummer.
+        // The same recording on CD 1 and as a bonus; two "Interlude" without track number.
         val original = track("1", "Hey Jude", track = 3, mbidTrack = "rec-1")
         val bonus = original.copy(remoteId = "2", discNumber = 2, trackNumber = 9)
         val interlude = track("3", "Interlude", track = 0)
@@ -175,7 +175,7 @@ class LibrarySyncTest {
         syncer.syncAdding(db, FakeSource("nd", listOf(original, bonus, interlude, interlude2)))
         assertEquals(4, db.libraryDao().observeSongRows().first().size)
 
-        // Eine zweite Quelle mit denselben Tracks legt sich je Track zu einem der Songs, ohne neue.
+        // A second source with the same tracks merges each track into one of the songs, without new ones.
         syncer.syncAdding(db, FakeSource("local", listOf(original, bonus, interlude, interlude2).map { it.copy(remoteId = "l" + it.remoteId) }))
         assertEquals(4, db.libraryDao().observeSongRows().first().size)
     }
@@ -186,14 +186,14 @@ class LibrarySyncTest {
         val flac = mp3.copy(remoteId = "2", genre = "Post-Rock", genres = listOf("Post-Rock"), mimeType = "audio/flac", bitRate = 900)
         suspend fun genres() = db.libraryDao().observeGenreRows().first().map { it.name }
 
-        // Erst die schlechtere Quelle, dann die verlustfreie: Deren Genres gelten.
+        // First the lower-quality source, then the lossless one: its genres apply.
         syncer.syncAdding(db, FakeSource("nd", listOf(mp3)))
         assertEquals(listOf("Pop", "Rock"), genres())
         syncer.syncAdding(db, FakeSource("jf", listOf(flac)))
         assertEquals(1, db.libraryDao().observeSongRows().first().size)
         assertEquals(listOf("Post-Rock"), genres())
 
-        // Eine weitere, schlechtere Quelle ändert nichts.
+        // Another, lower-quality source changes nothing.
         syncer.syncAdding(db, FakeSource("em", listOf(mp3.copy(remoteId = "3", genres = listOf("Schlager"), genre = "Schlager", bitRate = 128))))
         assertEquals(listOf("Post-Rock"), genres())
     }
@@ -208,7 +208,7 @@ class LibrarySyncTest {
         assertEquals(listOf("Walk This Way"), library.getSongRowsOfGenre(Genre.key("RAP")).map { it.title })
         assertEquals("Hip-Hop", db.mergeDao().getSong(library.observeSongRows().first().single().songId)!!.genre)
 
-        // Neu getaggt: nur noch Rock.
+        // Retagged: only Rock now.
         syncer.syncAdding(db, FakeSource("nd", listOf(walk.copy(genre = "Rock", genres = listOf("Rock"), lastModified = 2))))
         assertEquals(listOf("Rock"), library.observeGenreRows().first().map { it.name })
     }

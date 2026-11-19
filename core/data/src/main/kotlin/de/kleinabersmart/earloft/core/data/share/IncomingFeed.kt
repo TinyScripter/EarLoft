@@ -1,9 +1,9 @@
 package de.kleinabersmart.earloft.core.data.share
 
 /**
- * Podcast-Adressen, die andere Apps an EarLoft geben (Konzept 13): geteilter Text oder ein Link mit den Schemata der
- * Podcast-Apps. Ergebnis ist eine Adresse für die Vorschau (`PodcastRepository.openPreview`), die selbst entscheidet, ob es
- * ein Feed ist.
+ * Podcast addresses that other apps hand to EarLoft (concept 13): shared text or a link with the schemes of
+ * podcast apps. The result is an address for the preview (`PodcastRepository.openPreview`), which decides itself whether it
+ * is a feed.
  */
 object IncomingFeed {
     private val SCHEMES = setOf("feed", "pcast", "itpc", "podcast")
@@ -11,8 +11,8 @@ object IncomingFeed {
     private val RSS_LINE = Regex("""^\s*RSS:\s*(\S+)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
 
     /**
-     * `feed://example.com/rss`, `feed:https://example.com/rss`, `itpc://…` usw.; sonst `null`. Ohne Angabe wird es
-     * `http:` – die Vorschau versucht zuerst still HTTPS (Konzept 10), so gehen auch Feeds, die es nur per HTTP gibt.
+     * `feed://example.com/rss`, `feed:https://example.com/rss`, `itpc://…` etc.; otherwise `null`. Without a scheme it becomes
+     * `http:` – the preview first silently tries HTTPS (concept 10), so feeds only available over HTTP work too.
      */
     fun fromLink(link: String): String? {
         val trimmed = link.trim()
@@ -26,7 +26,7 @@ object IncomingFeed {
         }
     }
 
-    /** Aus geteiltem Text die Adresse nach „RSS:“ (so teilt EarLoft selbst), sonst die erste Adresse. */
+    /** From shared text, the address after "RSS:" (that's how EarLoft itself shares), otherwise the first address. */
     fun fromText(text: String): String? {
         val candidate = RSS_LINE.find(text)?.groupValues?.get(1) ?: URL.find(text)?.value ?: return null
         val address = candidate.trimEnd('.', ',', ')', ']', ';')

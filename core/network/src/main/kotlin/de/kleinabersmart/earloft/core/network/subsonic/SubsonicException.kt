@@ -5,7 +5,7 @@ import de.kleinabersmart.earloft.core.network.UnexpectedResponseException
 import de.kleinabersmart.earloft.core.network.subsonic.dto.SubsonicEnvelope
 import kotlinx.serialization.SerializationException
 
-/** Der Server hat mit `status = failed` geantwortet; [serverMessage] ist seine Meldung ohne Code. */
+/** The server answered with `status = failed`; [serverMessage] is its message without the code. */
 class SubsonicException(code: Int, serverMessage: String?) :
     ServerApiException(code, serverMessage, "Subsonic-Fehler $code" + serverMessage?.let { ": $it" }.orEmpty()) {
 
@@ -13,8 +13,8 @@ class SubsonicException(code: Int, serverMessage: String?) :
         get() = isRejectedCredentials || code == TOKEN_AUTH_NOT_SUPPORTED || code == NOT_AUTHORIZED
 
     /**
-     * Passwort bzw. API-Schlüssel abgelehnt: Neue Zugangsdaten können helfen. Bei [TOKEN_AUTH_NOT_SUPPORTED] und
-     * [NOT_AUTHORIZED] (fehlende Berechtigung) ändern sie nichts.
+     * Password or API key rejected: new credentials may help. With [TOKEN_AUTH_NOT_SUPPORTED] and
+     * [NOT_AUTHORIZED] (missing permission) they change nothing.
      */
     val isRejectedCredentials: Boolean get() = code == WRONG_CREDENTIALS || code == INVALID_API_KEY
 
@@ -22,7 +22,7 @@ class SubsonicException(code: Int, serverMessage: String?) :
         const val GENERIC = 0
         const val WRONG_CREDENTIALS = 40
         const val TOKEN_AUTH_NOT_SUPPORTED = 41
-        /** OpenSubsonic-Extension `apiKeyAuthentication`. */
+        /** OpenSubsonic extension `apiKeyAuthentication`. */
         const val INVALID_API_KEY = 44
         const val NOT_AUTHORIZED = 50
         const val NOT_FOUND = 70
@@ -30,8 +30,8 @@ class SubsonicException(code: Int, serverMessage: String?) :
 }
 
 /**
- * Subsonic meldet Fehler auch bei Datei-Endpunkten (Stream, Download) als JSON mit HTTP 200. Liefert den Fehler aus so
- * einer Antwort; `null`, wenn [body] keine Subsonic-Fehlerantwort ist.
+ * Subsonic also reports errors on file endpoints (stream, download) as JSON with HTTP 200. Returns the error from such
+ * a response; `null` if [body] is not a Subsonic error response.
  */
 fun subsonicErrorIn(body: String): SubsonicException? {
     val response = try {
@@ -45,5 +45,5 @@ fun subsonicErrorIn(body: String): SubsonicException? {
     return SubsonicException(response.error?.code ?: SubsonicException.GENERIC, response.error?.message)
 }
 
-/** Die Antwort war kein Subsonic-JSON (falsche URL, Reverse-Proxy-Fehlerseite …). */
+/** The response was not Subsonic JSON (wrong URL, reverse proxy error page …). */
 class NotSubsonicException(message: String, cause: Throwable? = null) : UnexpectedResponseException(message, cause)

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Folgen zum Teilen: eine Kopie im Cache (ShareController), denn FileProvider kennt `noBackupFilesDir` nicht. -->
+<!-- Episodes for sharing: a copy in the cache (ShareController), since FileProvider doesn't know `noBackupFilesDir`. -->
 <paths>
     <cache-path
         name="shared"

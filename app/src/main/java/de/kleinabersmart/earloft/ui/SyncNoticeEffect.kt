@@ -19,7 +19,7 @@ class SyncNoticeViewModel @Inject constructor(notices: SyncNotices) : ViewModel(
     val notices: SharedFlow<SyncNotice> = notices.notices
 }
 
-/** Zeigt Hinweise des Abgleichs (Konflikte, verworfene Änderungen) als Snackbar, solange die App sichtbar ist. */
+/** Shows sync messages (conflicts, discarded changes) as a snackbar while the app is visible. */
 @Composable
 fun SyncNoticeEffect(viewModel: SyncNoticeViewModel = hiltViewModel()) {
     val snackbars = LocalSnackbars.current

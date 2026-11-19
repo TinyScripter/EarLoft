@@ -3,29 +3,29 @@ package de.kleinabersmart.earloft.core.datasource.local
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 
-/** Lesezugriff auf eine Datei an beliebiger Stelle; ein m4b ist zu groß, um ihn ganz zu laden. */
+/** Read access to a file at any position; an m4b is too large to load it entirely. */
 internal interface RandomAccessSource {
     val length: Long
 
-    /** Höchstens [length] Bytes ab [position]; weniger am Dateiende. */
+    /** At most [length] bytes from [position]; fewer at the end of the file. */
     fun read(position: Long, length: Int): ByteArray
 }
 
-/** Ein Kapitel einer MP4-Datei: Beginn in der Datei und Titel. Das Ende ergibt sich aus dem nächsten Beginn. */
+/** A chapter of an MP4 file: start in the file and title. The end follows from the next start. */
 internal data class Mp4ChapterMark(val startMs: Long, val title: String)
 
-/** Kapitel aus [marks] einer Datei von [durationMs], verschoben um [offsetMs] (Beginn der Datei im Buch). */
+/** Chapters from [marks] of a file of [durationMs], shifted by [offsetMs] (start of the file in the book). */
 internal fun List<Mp4ChapterMark>.toChapters(durationMs: Long, offsetMs: Long = 0): List<LocalBookChapter> =
     mapIndexed { index, mark ->
         val end = getOrNull(index + 1)?.startMs ?: durationMs
         LocalBookChapter(mark.title.ifBlank { "${index + 1}" }, offsetMs + mark.startMs, offsetMs + end.coerceAtLeast(mark.startMs))
     }
 
-/** m4b, m4a und mp4 nach Typ oder Endung. */
+/** m4b, m4a and mp4 by type or extension. */
 internal fun isMp4(mimeType: String?, fileName: String): Boolean =
     mimeType?.contains("mp4", ignoreCase = true) == true || fileName.substringAfterLast('.').lowercase() in setOf("m4b", "m4a", "mp4")
 
-/** [RandomAccessSource] über einen [FileChannel]. */
+/** [RandomAccessSource] over a [FileChannel]. */
 internal class ChannelSource(private val channel: FileChannel) : RandomAccessSource {
     override val length: Long get() = channel.size()
 
@@ -42,9 +42,9 @@ internal class ChannelSource(private val channel: FileChannel) : RandomAccessSou
 }
 
 /**
- * Liest die Kapitel eines m4b/m4a aus den MP4-Atomen (Konzept 12.1, Spike „m4b-Kapitel“). Zwei Verfahren sind
- * verbreitet: die Liste `moov/udta/chpl` (Nero, ffmpeg, mp4v2) und eine Textspur, auf die `tref/chap` zeigt
- * (QuickTime/Apple, Audible). Gibt es beides, gilt `chpl`. Defekte Dateien liefern eine leere Liste.
+ * Reads the chapters of an m4b/m4a from the MP4 atoms (concept 12.1, spike "m4b chapters"). Two methods are
+ * common: the list `moov/udta/chpl` (Nero, ffmpeg, mp4v2) and a text track that `tref/chap` points to
+ * (QuickTime/Apple, Audible). If both exist, `chpl` wins. Broken files return an empty list.
  */
 internal object Mp4Chapters {
 
@@ -56,7 +56,7 @@ internal object Mp4Chapters {
             readChpl(moov).ifEmpty { readTextTrack(moov, source) }
         }
     } catch (_: RuntimeException) {
-        // Abgeschnittene oder verdrehte Atome (Index außerhalb, Größe 0): dann eben ohne Kapitel.
+        // Truncated or garbled atoms (index out of range, size 0): then simply without chapters.
         emptyList()
     }
 
@@ -65,7 +65,7 @@ internal object Mp4Chapters {
 
     private class Box(val type: String, val start: Int, val end: Int)
 
-    /** Das `moov`-Atom ohne Kopf; die Mediendaten davor oder dahinter werden übersprungen. */
+    /** The `moov` atom without header; the media data before or after it is skipped. */
     private fun readMoov(source: RandomAccessSource): Buffer? {
         var position = 0L
         while (position + 8 <= source.length) {
@@ -97,8 +97,8 @@ internal object Mp4Chapters {
         val chpl = moov.find(moov.root(), "udta", "chpl") ?: return emptyList()
         var p = chpl.start
         val version = moov.u8(p)
-        p += 4 // Version + Flags
-        if (version == 1) p += 4 // reserviert
+        p += 4 // version + flags
+        if (version == 1) p += 4 // reserved
         val count = moov.u8(p++)
         val marks = mutableListOf<Mp4ChapterMark>()
         repeat(count) {
@@ -131,12 +131,12 @@ internal object Mp4Chapters {
         val chunkOffsets = (moov.find(stbl, "stco") ?: moov.find(stbl, "co64")) ?: return emptyList()
         val wide = chunkOffsets.type == "co64"
 
-        // Größe je Sample.
+        // Size per sample.
         val fixedSize = moov.u32(stsz.start + 4)
         val sampleCount = minOf(moov.u32(stsz.start + 8), MAX_CHAPTERS.toLong()).toInt()
         val sizes = LongArray(sampleCount) { if (fixedSize != 0L) fixedSize else moov.u32(stsz.start + 12 + it * 4) }
 
-        // Beginn je Sample in Zeiteinheiten (stts: Anzahl, Dauer).
+        // Start per sample in time units (stts: count, duration).
         val starts = LongArray(sampleCount)
         var sample = 0
         var time = 0L
@@ -151,7 +151,7 @@ internal object Mp4Chapters {
             }
         }
 
-        // Stelle je Sample: Chunk-Anfang aus stco/co64 plus die Größen der Samples davor im selben Chunk.
+        // Position per sample: chunk start from stco/co64 plus the sizes of the preceding samples in the same chunk.
         val chunkCount = moov.u32(chunkOffsets.start + 4).toInt()
         val runs = (0 until moov.u32(stsc.start + 4).toInt()).map { entry ->
             moov.u32(stsc.start + 8 + entry * 12) to moov.u32(stsc.start + 12 + entry * 12)
@@ -178,7 +178,7 @@ internal object Mp4Chapters {
         return moov.u32(tkhd.start + if (moov.u8(tkhd.start) == 1) 20 else 12)
     }
 
-    /** Textsample: 16-Bit-Länge, dann der Text (UTF-8, oder UTF-16 mit Bytereihenfolge-Marke). */
+    /** Text sample: 16-bit length, then the text (UTF-8, or UTF-16 with byte order mark). */
     private fun sampleText(bytes: ByteArray): String {
         if (bytes.size < 2) return ""
         val length = minOf(((bytes[0].toInt() and 0xFF) shl 8) or (bytes[1].toInt() and 0xFF), bytes.size - 2)
@@ -186,7 +186,7 @@ internal object Mp4Chapters {
         return String(bytes, 2, length, if (utf16) Charsets.UTF_16 else Charsets.UTF_8).trim('\u0000', ' ')
     }
 
-    /** Bytes eines `moov`-Atoms samt Hilfen zum Lesen und zum Durchlaufen der Atombäume. */
+    /** Bytes of a `moov` atom with helpers for reading and traversing the atom trees. */
     private class Buffer(private val data: ByteArray) {
         fun root() = Box("moov", 0, data.size)
 
@@ -216,7 +216,7 @@ internal object Mp4Chapters {
             return list
         }
 
-        /** Folgt dem Pfad aus Atomtypen von [from] aus; `null`, wenn ein Glied fehlt. */
+        /** Follows the path of atom types starting from [from]; `null` if a link is missing. */
         fun find(from: Box, vararg path: String): Box? {
             var box = from
             for (type in path) box = children(box).firstOrNull { it.type == type } ?: return null

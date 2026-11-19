@@ -93,7 +93,7 @@ class BookDownloadStateTest {
         assertNull(db.bookDao().nextQueuedBookTrack())
         val state = db.bookDao().observeBookDownloads().first().single().state()
         assertEquals(TrackDownload.FAILED, state)
-        // Die fertige Datei bleibt, ein neuer Versuch lädt nur die fehlenden.
+        // The finished file stays, a new attempt only downloads the missing ones.
         assertEquals(2, db.bookDao().queueBookDownload(book))
         assertEquals(1, db.bookDao().nextQueuedBookTrack()!!.trackIndex)
     }
@@ -116,7 +116,7 @@ class BookDownloadStateTest {
         assertEquals(TrackDownload.FAILED, download.state)
         assertTrue(download.partial)
         assertEquals(2 to 3, download.doneFiles to download.totalFiles)
-        // „Erneut laden“ nimmt nur die fehlende Datei.
+        // "Download again" only takes the missing file.
         assertEquals(1, db.bookDao().queueBookDownload(book))
         assertEquals(0, db.bookDao().nextQueuedBookTrack()!!.trackIndex)
     }
@@ -130,7 +130,7 @@ class BookDownloadStateTest {
         db.bookDao().markBookTrackRunning(book, 1)
         db.bookDao().markBookTrackDone(book, 1, "/x/book-$book-1.m4b", 400)
 
-        // Metadaten geändert: dieselbe erste Datei, die zweite ist ersetzt (andere Länge).
+        // Metadata changed: the same first file, the second one is replaced (different length).
         db.bookDao().replaceDetails(
             book,
             listOf(BookTrackEntity(book, 0, "file0", 0, 500), BookTrackEntity(book, 1, "file1", 500, 700)),
@@ -153,7 +153,7 @@ class BookDownloadStateTest {
         db.bookDao().markBookTrackRunning(book, 1)
         db.bookDao().markBookTrackDone(book, 1, "/x/book-$book-1.m4b", 400)
 
-        // Auf dem Server kommt eine Datei vor die beiden: Die geladenen rücken auf 1 und 2 und behalten ihre Dateien.
+        // On the server a file comes before the two: the downloaded ones move to 1 and 2 and keep their files.
         db.bookDao().replaceDetails(
             book,
             listOf(BookTrackEntity(book, 0, "intro", 0, 100), BookTrackEntity(book, 1, "file0", 100, 500), BookTrackEntity(book, 2, "file1", 600, 500)),
@@ -188,7 +188,7 @@ class BookDownloadStateTest {
         val manual = addBook(BookKind.BOOK, "m", files = 1)
         assertEquals(2, db.bookDao().queueBookDownloadAutomatic(automatic))
 
-        // Nur die Automatik wartet: Ein Auftrag über Mobilfunk hätte nichts zu tun, der Auftrag bleibt im WLAN.
+        // Only the automation waits: a job over mobile data would have nothing to do, the job stays on Wi-Fi.
         assertEquals(0, db.bookDao().countPendingManualBookDownloads())
         assertNull(db.bookDao().nextQueuedManualBookTrack())
         assertEquals(automatic, db.bookDao().nextQueuedBookTrack()!!.bookId)
@@ -196,7 +196,7 @@ class BookDownloadStateTest {
         db.bookDao().queueBookDownload(manual)
         assertEquals(1, db.bookDao().countPendingManualBookDownloads())
         assertEquals(manual, db.bookDao().nextQueuedManualBookTrack()!!.bookId)
-        // Im WLAN kommt zuerst, was der Nutzer selbst angestoßen hat, obwohl das Buch der Automatik vorher eingereiht war.
+        // On Wi-Fi what the user triggered themselves comes first, even though the automation's book was enqueued earlier.
         assertEquals(manual, db.bookDao().nextQueuedBookTrack()!!.bookId)
         assertEquals(3, db.bookDao().countPendingBookDownloads())
     }
@@ -207,13 +207,13 @@ class BookDownloadStateTest {
         db.bookDao().queueBookDownloadAutomatic(book)
         db.bookDao().markBookTrackRunning(book, 0)
 
-        // Die laufende und die wartenden Dateien gelten danach als von Hand und dürfen über Mobilfunk laden.
+        // The running and waiting files then count as manual and may download over mobile data.
         assertEquals(3, db.bookDao().queueBookDownload(book))
         val tracks = db.bookDao().tracks(book)
         assertEquals(listOf(TrackDownload.RUNNING, TrackDownload.QUEUED, TrackDownload.QUEUED), tracks.map { it.downloadState })
         assertTrue(tracks.none { it.autoDownload })
         assertEquals(3, db.bookDao().countPendingManualBookDownloads())
-        // Nichts mehr zu übernehmen: kein neuer Auftrag.
+        // Nothing left to take over: no new job.
         assertEquals(0, db.bookDao().queueBookDownload(book))
     }
 }

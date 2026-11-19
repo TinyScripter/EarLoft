@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// Zugang zu Podcast-Verzeichnissen (Konzept 12.10); nie im Repo, nur in local.properties.
+// Access to podcast directories (concept 12.10); never in the repo, only in local.properties.
 val localProperties = Properties().apply {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
 }
@@ -27,8 +27,8 @@ android {
     }
 }
 
-// Release ohne Schlüssel: bauen, aber deutlich warnen (Review V23). README und Datenschutzerklärung nennen Podcast Index; fremde
-// Builds ohne eigenen Schlüssel sollen trotzdem gehen, die App bietet das Verzeichnis dann einfach nicht an.
+// Release without keys: build, but warn clearly (review V23). README and privacy policy mention Podcast Index; third-party
+// builds without their own key should still work, the app then simply doesn't offer the directory.
 if (listOf("podcastindex.key", "podcastindex.secret").any { localProperties.getProperty(it).isNullOrBlank() }) {
     tasks.matching { it.name == "preReleaseBuild" }.configureEach {
         doFirst {
@@ -49,11 +49,11 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.okhttp.mockwebserver)
-    // XmlPullParser-Implementierung für die JVM-Tests (android.jar hat nur Stubs).
+    // XmlPullParser implementation for the JVM tests (android.jar only has stubs).
     testImplementation(libs.kxml2)
     testImplementation(libs.kotlinx.coroutines.test)
 
-    // Auf dem Gerät: der XmlPullParser von Android statt kxml2 (Review D24).
+    // On the device: Android's XmlPullParser instead of kxml2 (review D24).
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.runner)
 }

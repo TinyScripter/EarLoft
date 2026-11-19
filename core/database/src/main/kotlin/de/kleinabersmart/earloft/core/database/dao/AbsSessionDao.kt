@@ -6,7 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import de.kleinabersmart.earloft.core.database.entity.AbsSessionEntity
 
-/** Hörsitzungen, die Audiobookshelf gemeldet werden (siehe [AbsSessionEntity]). */
+/** Listening sessions reported to Audiobookshelf (see [AbsSessionEntity]). */
 @Dao
 abstract class AbsSessionDao {
 
@@ -19,7 +19,7 @@ abstract class AbsSessionDao {
     @Query("SELECT * FROM abs_sessions WHERE dirty = 1 ORDER BY updatedAt")
     abstract suspend fun dirty(): List<AbsSessionEntity>
 
-    /** Sitzung als gemeldet markieren – nur, wenn sie sich seit dem Senden nicht geändert hat. */
+    /** Marks a session as reported – only if it hasn't changed since it was sent. */
     @Query("UPDATE abs_sessions SET dirty = 0 WHERE sessionId = :sessionId AND updatedAt = :updatedAt")
     abstract suspend fun markClean(sessionId: String, updatedAt: Long)
 

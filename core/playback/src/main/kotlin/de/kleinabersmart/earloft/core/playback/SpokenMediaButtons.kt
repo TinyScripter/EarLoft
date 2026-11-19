@@ -4,13 +4,13 @@ import android.os.Handler
 import android.view.KeyEvent
 
 /**
- * Kopfhörer- und Medientasten bei Büchern und Folgen (Konzept 12.4): Doppelklick und „Weiter“ springen zum nächsten
- * Kapitel bzw. zur nächsten Folge, „Zurück“ zum Kapitelanfang bzw. ins vorige ([next], [previous]).
+ * Headphone and media buttons for books and episodes (concept 12.4): double click and "next" jump to the next
+ * chapter or the next episode, "previous" to the chapter start or the previous one ([next], [previous]).
  *
- * Media3 erkennt den Doppelklick selbst, macht daraus aber „nächstes Item“ – das hat eine einzelne Folge oder m4b nicht,
- * und Media3 verwirft die Taste. Deshalb übernimmt diese Klasse die Tasten, solange ein Buch oder eine Folge läuft
- * ([isSpoken]), und erkennt den Doppelklick wie Media3: nur für Tasten von außen ([onMediaButton] `external`, etwa
- * Bluetooth), ein einzelner Klick wartet [doubleTapTimeoutMs] auf den zweiten. Musik bleibt bei Media3.
+ * Media3 detects the double click itself, but turns it into "next item" – which a single episode or m4b doesn't have,
+ * and Media3 discards the key. That's why this class takes over the keys while a book or episode is playing
+ * ([isSpoken]) and detects the double click like Media3: only for external keys ([onMediaButton] `external`, e.g.
+ * Bluetooth), a single click waits [doubleTapTimeoutMs] for the second one. Music stays with Media3.
  */
 internal class SpokenMediaButtons(
     private val handler: Handler,
@@ -22,7 +22,7 @@ internal class SpokenMediaButtons(
 ) {
     private var pendingPlayPause: Runnable? = null
 
-    /** `true`: hier erledigt; `false`: Media3 macht weiter. Nur auf dem Main-Thread. */
+    /** `true`: handled here; `false`: Media3 carries on. Main thread only. */
     fun onMediaButton(event: KeyEvent, external: Boolean): Boolean {
         if (!isSpoken()) {
             flush()
@@ -45,7 +45,7 @@ internal class SpokenMediaButtons(
                 return true
             }
             KeyEvent.KEYCODE_HEADSETHOOK, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
-                // Aus der App, der Benachrichtigung oder lange gedrückt: wie bisher.
+                // From the app, the notification or long-pressed: as before.
                 if (!external || event.repeatCount > 0) {
                     flush()
                     return false
@@ -73,7 +73,7 @@ internal class SpokenMediaButtons(
         }
     }
 
-    /** Eine andere Taste kommt: ein wartender Einzelklick gilt sofort, damit die Reihenfolge stimmt. */
+    /** Another key arrives: a pending single click takes effect immediately so the order is right. */
     private fun flush() {
         val pending = pendingPlayPause ?: return
         handler.removeCallbacks(pending)

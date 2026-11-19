@@ -6,20 +6,20 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import de.kleinabersmart.earloft.core.model.SpokenMode
 
-/** Ein fester Ordner des Browse-Trees: Tab der Wurzel oder Unterordner eines Bereichs. */
+/** A fixed folder of the browse tree: a root tab or a subfolder of an area. */
 internal data class BrowseFolder(
     val mediaId: String,
     @param:StringRes val title: Int,
     val mediaType: Int,
-    /** Inhalt als Raster (Cover-Ordner). */
+    /** Content as a grid (cover folders). */
     val gridChildren: Boolean = false,
 ) {
     fun toMediaItem(context: Context): MediaItem = folderMediaItem(mediaId, context.getString(title), mediaType, gridChildren)
 }
 
 /**
- * Die Tabs von Android Auto (höchstens vier) zu den eingeschalteten Bereichen [areas]: bei mehreren „Zuletzt“ und je
- * Bereich ein Tab; bei einem Bereich dessen Ordner selbst, damit keine Ebene verschenkt wird (nur Musik: wie bisher).
+ * Android Auto's tabs (at most four) for the enabled [areas]: with several, "Recent" plus one tab per
+ * area; with a single area its folders themselves, so no level is wasted (music only: as before).
  */
 internal fun rootFolders(areas: List<SpokenMode>): List<BrowseFolder> {
     if (areas.size > 1) {
@@ -42,14 +42,14 @@ internal fun rootFolders(areas: List<SpokenMode>): List<BrowseFolder> {
     }
 }
 
-/** Der Tab eines Bereichs, wenn mehrere eingeschaltet sind. */
+/** An area's tab when several are enabled. */
 internal fun areaFolder(area: SpokenMode): BrowseFolder = when (area) {
     SpokenMode.MUSIC -> BrowseFolder(MediaIds.MUSIC, R.string.area_music, MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
     SpokenMode.PODCASTS -> BrowseFolder(MediaIds.PODCASTS, R.string.area_podcasts, MediaMetadata.MEDIA_TYPE_FOLDER_PODCASTS)
     SpokenMode.BOOKS -> BrowseFolder(MediaIds.BOOKS, R.string.area_books, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS)
 }
 
-/** Die Ordner im Tab eines Bereichs ([areaFolder]). */
+/** The folders in an area's tab ([areaFolder]). */
 internal fun areaChildren(area: SpokenMode): List<BrowseFolder> = when (area) {
     SpokenMode.MUSIC -> listOf(
         BrowseFolder(MediaIds.RECENT, R.string.recently_played, MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS, gridChildren = true),
@@ -68,7 +68,7 @@ internal fun areaChildren(area: SpokenMode): List<BrowseFolder> = when (area) {
     )
 }
 
-/** Der Tab bzw. Ordner hinter [mediaId] ([MediaIds.MUSIC] usw.); `null` bei anderen IDs. */
+/** The tab or folder behind [mediaId] ([MediaIds.MUSIC] etc.); `null` for other IDs. */
 internal fun areaOfTab(mediaId: String): SpokenMode? = SpokenMode.entries.firstOrNull { areaFolder(it).mediaId == mediaId }
 
 private fun podcastFolders() = listOf(

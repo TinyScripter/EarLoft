@@ -28,9 +28,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * Eine Folge bzw. ein Buch des Handys (Wear-Konzept 17): am Handy abspielen oder mit „Download“ auf die Uhr holen. Ob es auf
- * der Uhr ist, erkennt sie an Server bzw. Abo und Kennung ([WearRemoteBookDto.serverId], [WearRemoteBookDto.remoteId]):
- * Das Folgen-Manifest legt genau die gewählten an.
+ * An episode or book of the phone (Wear concept 17): play on the phone or bring it to the watch with "Download". Whether it is on
+ * the watch is recognized by server or subscription and identifier ([WearRemoteBookDto.serverId], [WearRemoteBookDto.remoteId]):
+ * the episode manifest creates exactly the chosen ones.
  */
 @HiltViewModel(assistedFactory = RemoteSpokenViewModel.Factory::class)
 class RemoteSpokenViewModel @AssistedInject constructor(
@@ -41,7 +41,7 @@ class RemoteSpokenViewModel @AssistedInject constructor(
     storage: WatchStorageRepository,
 ) : ViewModel() {
 
-    /** Gewünschter Stand nach einem Tipp, bis das Folgen-Manifest ihn bestätigt (oder [PENDING_TIMEOUT_MS] vergeht). */
+    /** Desired state after a tap until the episode manifest confirms it (or [PENDING_TIMEOUT_MS] passes). */
     private val pending = MutableStateFlow<Boolean?>(null)
     private val failed = MutableStateFlow(false)
     private var pendingTimeout: Job? = null
@@ -64,7 +64,7 @@ class RemoteSpokenViewModel @AssistedInject constructor(
         .orOnError(OnWatchState(OnWatchStatus.NOT_ON_WATCH))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), OnWatchState(OnWatchStatus.NOT_ON_WATCH))
 
-    /** Das Handy spielt das Buch bzw. die Folge an der gemerkten Stelle (wie in der App). @return `false` ohne Handy. */
+    /** The phone plays the book or episode at the saved position (as in the app). @return `false` without a phone. */
     suspend fun play(): Boolean = remote.play(WearRemotePlayRequest(WearRemoteListKind.CONTINUE, refId = item.id))
 
     fun setOnWatch(selected: Boolean) {
@@ -90,7 +90,7 @@ class RemoteSpokenViewModel @AssistedInject constructor(
     }
 
     private companion object {
-        /** Das Handy schickt das Folgen-Manifest erst nach 2 s Ruhe; die Uhr legt danach an. */
+        /** The phone only sends the episode manifest after 2 s of quiet; the watch creates the entries after that. */
         const val PENDING_TIMEOUT_MS = 20_000L
     }
 }

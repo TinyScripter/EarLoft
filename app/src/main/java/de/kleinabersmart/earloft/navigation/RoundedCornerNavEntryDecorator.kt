@@ -25,8 +25,8 @@ import androidx.navigation3.ui.LocalNavAnimatedContentScope
 private val FallbackCornerRadius = 28.dp
 
 /**
- * Rundet die Ecken eines Screens ab, solange er gerade ein- oder ausgeblendet wird (z. B. bei der Zurück-Geste),
- * mit dem Radius der echten Display-Ecken. Im Ruhezustand bleibt der Screen eckig.
+ * Rounds the corners of a screen while it is fading in or out (e.g. during the back gesture),
+ * using the radius of the actual display corners. At rest the screen stays square.
  */
 @Composable
 fun rememberRoundedCornerNavEntryDecorator(): NavEntryDecorator<NavKey> {
@@ -38,7 +38,7 @@ fun rememberRoundedCornerNavEntryDecorator(): NavEntryDecorator<NavKey> {
                 transitionSpec = { tween(100) },
                 label = "screenCornerRadius",
             ) { state -> if (state == EnterExitState.Visible) 0.dp else deviceRadius }
-            // Deckender Hintergrund, sonst scheint bei der Zurück-Geste der Screen dahinter durch.
+            // Opaque background, otherwise the screen behind shows through during the back gesture.
             Box(Modifier.clip(RoundedCornerShape(radius)).background(MaterialTheme.colorScheme.background)) {
                 entry.Content()
             }

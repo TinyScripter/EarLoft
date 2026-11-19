@@ -13,8 +13,8 @@ import androidx.media3.cast.MediaRouteButton
 import androidx.media3.common.util.UnstableApi
 
 /**
- * Cast-Knopf; erscheint erst, wenn Cast bereit ist (ohne Play-Dienste nie). [active]: Es wird gerade auf ein Cast-Gerät
- * gespielt – dann in der Akzentfarbe wie die übrigen eingeschalteten Knöpfe der Wiedergabe-Ansicht.
+ * Cast button; appears only once Cast is ready (never without Play services). [active]: currently playing to a cast
+ * device – then shown in the accent color like the other enabled buttons of the playback screen.
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -25,7 +25,7 @@ fun CastButton(active: Boolean, modifier: Modifier = Modifier) {
     }
 }
 
-/** Name des Cast-Geräts, solange dorthin gespielt wird. */
+/** Name of the cast device while playing to it. */
 @OptIn(UnstableApi::class)
 @Composable
 fun rememberCastDeviceName(isRemote: Boolean): String? {

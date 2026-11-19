@@ -16,13 +16,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Bilder aus dem Internet:
- * - Interpreten: Deezer (Suche per Name, ohne Schlüssel),
- * - Album-Cover: MusicBrainz (Release suchen) und das Cover Art Archive (Bild),
- * - Autoren (Bücher): Audnexus (Suche per Name, ohne Schlüssel).
+ * Images from the internet:
+ * - Artists: Deezer (search by name, no key),
+ * - Album covers: MusicBrainz (search release) and the Cover Art Archive (image),
+ * - Authors (books): Audnexus (search by name, no key).
  *
- * `null` heißt „es gibt dort nichts“; Netzwerkfehler werden als [IOException] geworfen und dürfen nicht
- * als „nicht gefunden“ gemerkt werden.
+ * `null` means "there is nothing there"; network errors are thrown as [IOException] and must not
+ * be remembered as "not found".
  */
 @Singleton
 class OnlineArtworkClient @Inject constructor(
@@ -39,12 +39,12 @@ class OnlineArtworkClient @Inject constructor(
         val results = getJson(search.toString()) ?: return null
         val data = results.optJSONArray("data") ?: return null
         val wanted = name.normalizeForMerge()
-        // Nur ein Treffer mit gleichem Namen; sonst bekäme "Air" das Bild einer anderen Band.
+        // Only a hit with the same name; otherwise "Air" would get the image of another band.
         for (i in 0 until data.length()) {
             val artist = data.optJSONObject(i) ?: continue
             if (artist.optString("name").normalizeForMerge() != wanted) continue
             val picture = artist.optString("picture_xl").ifEmpty { artist.optString("picture_big") }
-            // Ohne Foto liefert Deezer eine Platzhalter-Adresse ohne Bild-ID ("/artist//").
+            // Without a photo, Deezer returns a placeholder URL without an image ID ("/artist//").
             if (picture.isEmpty() || "/artist//" in picture) return null
             return getBytes(picture)
         }
@@ -52,8 +52,8 @@ class OnlineArtworkClient @Inject constructor(
     }
 
     /**
-     * Autorenbild von Audnexus (die Autoren-Daten von Audible, die auch Audiobookshelf nutzt): erst den Autor per Name suchen,
-     * dann sein Bild laden. Nur ein Treffer mit gleichem Namen zählt.
+     * Author image from Audnexus (Audible's author data, also used by Audiobookshelf): first search the author by name,
+     * then load their image. Only a hit with the same name counts.
      */
     suspend fun findAuthorImage(name: String): ByteArray? {
         val search = "$AUDNEXUS/authors".toHttpUrl().newBuilder().addQueryParameter("name", name).build()
@@ -77,13 +77,13 @@ class OnlineArtworkClient @Inject constructor(
             .build()
         val groups = musicBrainzJson(url.toString())?.optJSONArray("release-groups") ?: return null
         val group = groups.optJSONObject(0) ?: return null
-        // Niedrige Treffer-Werte sind eher ein anderes Album mit ähnlichem Titel.
+        // Low match scores are more likely a different album with a similar title.
         if (group.optInt("score") < MIN_SCORE) return null
         val id = group.optString("id").ifEmpty { return null }
         return getBytes("$COVER_ART_ARCHIVE/release-group/$id/front-500")
     }
 
-    /** MusicBrainz erlaubt eine Anfrage pro Sekunde. */
+    /** MusicBrainz allows one request per second. */
     private suspend fun musicBrainzJson(url: String): JSONObject? = musicBrainzLock.withLock {
         val wait = lastMusicBrainzCall + MUSICBRAINZ_INTERVAL_MS - System.currentTimeMillis()
         if (wait > 0) delay(wait)

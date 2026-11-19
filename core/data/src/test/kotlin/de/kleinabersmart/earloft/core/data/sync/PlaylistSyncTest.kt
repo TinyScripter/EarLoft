@@ -72,7 +72,7 @@ class PlaylistSyncTest {
         assertTrue(processor().process())
         assertEquals(listOf("replace pl1 Mix 2 [a, b]"), nd.calls)
 
-        // Der eigene, gesendete Stand gilt beim nächsten Abgleich nicht als Server-Änderung.
+        // Our own sent state doesn't count as a server change on the next sync.
         syncer.syncAdding(db, nd)
         assertEquals("Mix 2", playlists.playlists().first().single().name)
         assertEquals(listOf("A", "B"), titles(id))
@@ -85,7 +85,7 @@ class PlaylistSyncTest {
         val id = playlists.playlists().first().single().id
         val entries = playlists.playlist(id).first()!!.entries
 
-        // Das zweite „A“ nach vorn, „C“ ans Ende.
+        // The second "A" to the front, "C" to the end.
         playlists.reorder(id, listOf(entries[3], entries[1], entries[0], entries[2]).map { it.entryId })
         assertEquals(listOf("A", "B", "A", "C"), titles(id))
         assertEquals(listOf(entries[3].entryId, entries[1].entryId), playlists.playlist(id).first()!!.entries.take(2).map { it.entryId })
@@ -120,7 +120,7 @@ class PlaylistSyncTest {
         val received = mutableListOf<SyncNotice>()
         val job = launch(UnconfinedTestDispatcher(testScheduler)) { notices.notices.toList(received) }
 
-        // Ohne ausstehende Änderung gibt es nichts zu melden.
+        // Without a pending change there is nothing to report.
         nd.putPlaylist("Vom Nachbarn", listOf("b"), remoteId)
         syncer.syncAdding(db, nd)
         assertTrue(received.isEmpty())
@@ -154,7 +154,7 @@ class PlaylistSyncTest {
         syncer.syncAdding(db, nd)
         val id = playlists.playlists().first().single().id
         playlists.addSongs(id, listOf(songId("c")))
-        // Emby: Der erste Versuch hat schon Einträge entfernt und ist dann abgebrochen.
+        // Emby: the first attempt already removed entries and then aborted.
         db.syncDao().getActions().forEach { db.syncDao().incrementAttempts(it.actionId) }
         nd.putPlaylist("Mix", listOf("a"), remoteId)
 
@@ -183,7 +183,7 @@ class PlaylistSyncTest {
         assertTrue(processor().process())
         assertEquals(listOf("create Neu [a, c]"), nd.calls)
 
-        // Der nächste Abgleich erkennt sie wieder und legt sie nicht doppelt an.
+        // The next sync recognizes it again and doesn't create it twice.
         syncer.syncAdding(db, nd)
         assertEquals(listOf(id), playlists.playlists().first().map { it.id })
 

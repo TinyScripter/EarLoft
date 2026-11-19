@@ -17,7 +17,7 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Eine Audiodatei eines lokalen Buchs. [uri] ist die `content://`-Adresse in MediaStore. */
+/** An audio file of a local book. [uri] is the `content://` address in MediaStore. */
 data class LocalBookTrack(val uri: String, val startMs: Long, val durationMs: Long, val mimeType: String?)
 
 data class LocalBookChapter(val title: String, val startMs: Long, val endMs: Long)
@@ -29,12 +29,12 @@ data class LocalBookDetails(
     val durationMs: Long,
     val tracks: List<LocalBookTrack>,
     val chapters: List<LocalBookChapter>,
-    /** Untertitel und Erscheinungsjahr aus den Tags der ersten Datei. */
+    /** Subtitle and publication year from the tags of the first file. */
     val subtitle: String? = null,
     val year: Int? = null,
     /**
-     * Aus den Begleitdateien und Ordnernamen (`books_improvements.md` M7): Beschreibung, Serie im Format von Audiobookshelf
-     * („Name #2“), Verlag, Sprache, ISBN, Genres und das Cover im Ordner (Adresse über die Ordnerfreigabe).
+     * From the companion files and folder names (`books_improvements.md` M7): description, series in Audiobookshelf's format
+     * ("Name #2"), publisher, language, ISBN, genres and the cover in the folder (address via the folder grant).
      */
     val description: String? = null,
     val series: String? = null,
@@ -46,46 +46,46 @@ data class LocalBookDetails(
 )
 
 /**
- * Ein Buch aus dem Ordner „Audiobooks“. [key] ist der Pfad ab „Audiobooks/“, [fingerprint] ändert sich mit den Dateien.
- * [details] fehlt, wenn der Aufrufer das Buch als unverändert bezeichnet hat (dann wurde nichts gelesen) oder sein Ordner
- * gerade nicht lesbar war (dann ist auch [fingerprint] ohne Bedeutung, und das Buch bleibt, wie es gespeichert ist).
+ * A book from the "Audiobooks" folder. [key] is the path from "Audiobooks/", [fingerprint] changes with the files.
+ * [details] is missing if the caller marked the book as unchanged (then nothing was read) or its folder
+ * was unreadable at the moment (then [fingerprint] is meaningless too, and the book stays as stored).
  */
 data class LocalBook(val key: String, val fingerprint: Long, val addedAtMs: Long, val details: LocalBookDetails?)
 
-/** Eine Podcast-Datei. [details] fehlt, wenn der Aufrufer sie als unverändert bezeichnet hat. */
+/** A podcast file. [details] is missing if the caller marked it as unchanged. */
 data class LocalEpisode(val key: String, val fingerprint: Long, val details: LocalEpisodeDetails?)
 
 data class LocalEpisodeDetails(
     val title: String,
     val description: String,
-    /** Erscheinungsdatum aus dem Tag, sonst der Zeitpunkt, an dem die Datei aufs Gerät kam (Unix-ms). */
+    /** Publication date from the tag, otherwise the time the file arrived on the device (Unix ms). */
     val publishedAtMs: Long,
     val track: LocalBookTrack,
     val chapters: List<LocalBookChapter>,
-    /** Die Datei trägt ein eingebettetes Bild. */
+    /** The file carries an embedded image. */
     val hasCover: Boolean,
 )
 
-/** Ein Podcast aus dem Ordner „Podcasts“ mit seinen Folgen. */
+/** A podcast from the "Podcasts" folder with its episodes. */
 data class LocalPodcast(val name: String, val episodes: List<LocalEpisode>)
 
 /**
- * Findet Hörbücher und Podcast-Folgen auf dem Gerät über MediaStore (Konzept 12.1): `m4b` direkt in „Audiobooks“ und Ordner voller
- * MP3-Dateien darin. MediaStore genügt (kein SAF), weil die App die Audio-Berechtigung für die Musik ohnehin hat und
- * MediaStore Dateien in „Audiobooks“ als Audio führt – aber nicht als Musik, sodass sie nicht in der Bibliothek landen.
+ * Finds audiobooks and podcast episodes on the device via MediaStore (concept 12.1): `m4b` directly in "Audiobooks" and folders full
+ * of MP3 files in it. MediaStore suffices (no SAF) because the app has the audio permission for music anyway and
+ * MediaStore lists files in "Audiobooks" as audio – but not as music, so they don't end up in the library.
  */
 @Singleton
 class LocalBookScanner @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    /** Freigabe des Ordners „Audiobooks“ für die Begleitdateien. */
+    /** Grant for the "Audiobooks" folder for the companion files. */
     val folders: LocalBookFolders = LocalBookFolders(context),
 ) {
     private val tagReader = LocalTagReader(context)
 
     /**
-     * Alle Bücher. Für unveränderte (laut [isUnchanged]) werden weder Tags noch Kapitel gelesen.
-     * Ohne Berechtigung wirft das eine `SecurityException`: MediaStore lieferte sonst eine leere Liste, und der
-     * Abgleich löschte alle Bücher samt Fortschritt.
+     * All books. For unchanged ones (according to [isUnchanged]) neither tags nor chapters are read.
+     * Without permission this throws a `SecurityException`: otherwise MediaStore would return an empty list, and the
+     * sync would delete all books including progress.
      */
     suspend fun scan(isUnchanged: suspend (key: String, fingerprint: Long) -> Boolean): List<LocalBook> =
         withContext(Dispatchers.IO) {
@@ -93,8 +93,8 @@ class LocalBookScanner @Inject constructor(
             val trees = folders.trees()
             LocalBookLayout.group(queryRows()).map { book ->
                 val added = book.files.minOf { it.dateAddedSec } * 1000
-                // Begleitdateien nur mit Ordnerfreigabe und nur bei Büchern in einem eigenen Ordner. Ist der Ordner gerade nicht
-                // lesbar, sprängen Titel, Autor und Serie ohne sie bis zum nächsten Abgleich auf Tags und Ordnernamen.
+                // Companion files only with a folder grant and only for books in their own folder. If the folder is currently
+                // unreadable, title, author and series would jump to tags and folder names without them until the next sync.
                 val sidecars = if (book.folderName != null && trees.isNotEmpty()) {
                     val files = folders.list(book.files.first().path.substringBeforeLast('/'), trees)
                         ?: return@map LocalBook(book.key, fingerprint = 0, added, details = null)
@@ -108,8 +108,8 @@ class LocalBookScanner @Inject constructor(
         }
 
     /**
-     * Alle Podcasts aus „Podcasts“ (Unterordner oder Album-Tag, siehe [LocalPodcastLayout]); Fehler und Berechtigung wie bei
-     * [scan]. Unveränderte Folgen (laut [isUnchanged], mit dem Namen ihres Podcasts) werden nicht gelesen.
+     * All podcasts from "Podcasts" (subfolder or album tag, see [LocalPodcastLayout]); errors and permission as with
+     * [scan]. Unchanged episodes (according to [isUnchanged], with the name of their podcast) are not read.
      */
     suspend fun scanPodcasts(isUnchanged: suspend (podcast: String, key: String, fingerprint: Long) -> Boolean): List<LocalPodcast> =
         withContext(Dispatchers.IO) {
@@ -130,7 +130,7 @@ class LocalBookScanner @Inject constructor(
     private suspend fun readEpisode(file: AudioFileRow): LocalEpisodeDetails {
         val uri = contentUri(file.id)
         val tags = tagReader.readSpoken(uri) ?: SpokenTags()
-        // Eingebettete Kapitel (ID3 CHAP, sonst MP4) haben die genauen Grenzen; die Spanne reicht bis ans Dateiende.
+        // Embedded chapters (ID3 CHAP, otherwise MP4) have the exact boundaries; the span extends to the end of the file.
         val chapters = tags.chapters.ifEmpty { (if (isMp4(file)) readMarks(uri) else emptyList()).toChapters(file.durationMs) }
         return LocalEpisodeDetails(
             title = file.title?.trim()?.takeIf { it.isNotEmpty() } ?: file.fileName.substringBeforeLast('.'),
@@ -142,23 +142,23 @@ class LocalBookScanner @Inject constructor(
         )
     }
 
-    /** Eingebettetes Cover (Bilddatei) der Datei; `null`, wenn es keines gibt. */
+    /** Embedded cover (image file) of the file; `null` if there is none. */
     suspend fun cover(trackUri: String): ByteArray? = withContext(Dispatchers.IO) {
         withRetriever(Uri.parse(trackUri)) { it.embeddedPicture }
     }
 
-    /** Cover aus dem Buchordner ([LocalBookDetails.coverUri]); `null`, wenn es nicht (mehr) lesbar ist. */
+    /** Cover from the book folder ([LocalBookDetails.coverUri]); `null` if it is not (or no longer) readable. */
     suspend fun folderCover(uri: String): ByteArray? = withContext(Dispatchers.IO) { folders.read(uri, MAX_IMAGE_BYTES) }
 
     /**
-     * Liest ein Buch. Rangfolge wie bei Audiobookshelf, jeweils das erste Vorhandene: `metadata.opf` vor `desc.txt` bzw.
-     * `reader.txt` vor den Tags vor den Ordnernamen.
+     * Reads a book. Precedence as with Audiobookshelf, the first one present in each case: `metadata.opf` before `desc.txt` or
+     * `reader.txt` before the tags before the folder names.
      */
     private suspend fun read(book: LocalBookFiles, sidecars: BookSidecars): LocalBookDetails {
         var start = 0L
         val tracks = mutableListOf<LocalBookTrack>()
         val chapters = mutableListOf<LocalBookChapter>()
-        // Untertitel und Jahr stehen in jeder Datei gleich; ID3-Kapitel zählen nur bei einer einzelnen Datei.
+        // Subtitle and year are the same in every file; ID3 chapters only count for a single file.
         val tags = tagReader.readSpoken(contentUri(book.files.first().id))
         val multiFile = book.files.size > 1
         for (file in book.files) {
@@ -171,7 +171,7 @@ class LocalBookScanner @Inject constructor(
         val folder = FolderMetadata.parse(book.key)
         val opf = sidecars.opf?.let(::readText)?.let(OpfMetadata::parse)
         val description = sidecars.description?.let(::readText)?.trim()?.ifEmpty { null }
-        // Ein Sprecher je Zeile oder mit Komma getrennt.
+        // One narrator per line or separated by commas.
         val reader = sidecars.reader?.let(::readText)?.lines()?.map { it.trim() }?.filter { it.isNotEmpty() }?.joinToString(", ")?.ifEmpty { null }
         val tagSeries = tags?.series?.let { name -> tags.seriesPart?.let { "$name #$it" } ?: name }
         return LocalBookDetails(
@@ -193,7 +193,7 @@ class LocalBookScanner @Inject constructor(
         )
     }
 
-    /** Text einer Begleitdatei: UTF-8, sonst (Windows-Editoren) Windows-1252. */
+    /** Text of a companion file: UTF-8, otherwise (Windows editors) Windows-1252. */
     private fun readText(file: SideFile): String? {
         val bytes = folders.read(file.uri, MAX_TEXT_BYTES) ?: return null
         val utf8 = String(bytes, Charsets.UTF_8)
@@ -201,9 +201,9 @@ class LocalBookScanner @Inject constructor(
     }
 
     /**
-     * Kapitel einer Datei als Position im Buch. Eingebettete Kapitel (m4b) haben Vorrang; eine einzelne MP3 nimmt ihre
-     * ID3-Kapitel ([id3]); sonst ist bei einem Buch aus mehreren Dateien jede Datei ein Kapitel, und eine einzelne Datei
-     * ohne Kapitel hat keine.
+     * Chapters of a file as a position in the book. Embedded chapters (m4b) take precedence; a single MP3 uses its
+     * ID3 chapters ([id3]); otherwise, for a book made of several files, each file is a chapter, and a single file
+     * without chapters has none.
      */
     private fun chaptersOf(
         file: AudioFileRow,
@@ -235,7 +235,7 @@ class LocalBookScanner @Inject constructor(
             retriever.setDataSource(context, uri)
             block(retriever)
         } catch (e: RuntimeException) {
-            // Bei defekten Dateien wirft der Retriever IllegalArgumentException/RuntimeException.
+            // With broken files the retriever throws IllegalArgumentException/RuntimeException.
             Log.w(TAG, "Metadaten von $uri nicht lesbar", e)
             null
         } finally {
@@ -245,7 +245,7 @@ class LocalBookScanner @Inject constructor(
 
     private fun contentUri(id: Long): Uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
 
-    @Suppress("DEPRECATION") // DATA (der Pfad) ist der einzige Weg, das Verzeichnis auf allen unterstützten Versionen zu erkennen.
+    @Suppress("DEPRECATION") // DATA (the path) is the only way to detect the directory on all supported versions.
     private fun queryRows(root: String = LocalBookLayout.ROOT): List<AudioFileRow> {
         val columns = buildList {
             add(MediaStore.Audio.Media._ID)

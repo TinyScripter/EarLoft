@@ -9,13 +9,13 @@ import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import de.kleinabersmart.earloft.wear.R
 
 /**
- * Eine Auswahl mit ihren Songs (Wear-Konzept 11). Nicht geladene Songs sind ausgegraut und nicht antippbar;
- * [onPlayed] wird nach dem Start der Wiedergabe aufgerufen (Wechsel zur Wiedergabe-Ansicht).
+ * A selection with its songs (Wear concept 11). Songs not downloaded are grayed out and not tappable;
+ * [onPlayed] is called after playback starts (switch to the now playing view).
  */
 @Composable
 fun SelectionScreen(playlistId: Long, onPlayed: () -> Unit) = LocalListScreen(LocalList.OfPlaylist(playlistId), onPlayed)
 
-/** Ein geladenes Album der Uhr, sonst wie [SelectionScreen]. */
+/** A downloaded album of the watch, otherwise like [SelectionScreen]. */
 @Composable
 fun AlbumScreen(albumId: Long, onPlayed: () -> Unit) = LocalListScreen(LocalList.OfAlbum(albumId), onPlayed)
 

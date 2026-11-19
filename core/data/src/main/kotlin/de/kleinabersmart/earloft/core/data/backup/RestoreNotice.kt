@@ -18,19 +18,19 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Eingeschaltete Server, denen nach dem Wiederherstellen Passwort bzw. API-Key fehlen. */
+/** Enabled servers that are missing a password or API key after restoring. */
 data class MissingCredentials(val musicServers: Int, val audiobookServers: Int) {
     val total: Int get() = musicServers + audiobookServers
 }
 
-/** Was nach dem Wiederherstellen zu melden ist: [backup] nach einer Komplett-Sicherung (sonst ein Gerätewechsel). */
+/** What needs to be reported after restoring: [backup] after a full backup (otherwise a device switch). */
 data class RestoreReport(val missing: MissingCredentials, val backup: FullBackupResult? = null)
 
 /**
- * Der Hinweis nach dem Wiederherstellen (Review K9): Server kommen ohne Passwort bzw. API-Key zurück, die liegen nur
- * verschlüsselt auf dem alten Gerät und gehören auch nicht in die Komplett-Sicherung. Das Zurückspielen nach einem
- * Gerätewechsel läuft beim Prozessstart, oft bevor die Oberfläche steht; deshalb merkt eine Datei in `noBackupFilesDir` den
- * Hinweis vor, bis die Oberfläche ihn einmal gezeigt hat. Nach einer Komplett-Sicherung gehört er zur Ergebnis-Meldung.
+ * The notice after restoring (review K9): servers come back without a password or API key, which only exist
+ * encrypted on the old device and don't belong in the full backup either. Restoring after a
+ * device switch runs at process start, often before the UI is up; that's why a file in `noBackupFilesDir` keeps the
+ * notice pending until the UI has shown it once. After a full backup it belongs to the result message.
  */
 @Singleton
 class RestoreNotice @Inject constructor(
@@ -43,21 +43,21 @@ class RestoreNotice @Inject constructor(
     private val backups = Channel<FullBackupResult>(Channel.BUFFERED)
 
     /**
-     * Einmal je Zurückspielen, sobald die Oberfläche lauscht. Nach einem Gerätewechsel nur, wenn noch etwas fehlt (hat der
-     * Nutzer schon alles neu eingegeben, kommt nichts); nach einer Komplett-Sicherung immer, mit ihrem Ergebnis.
+     * Once per restore, as soon as the UI is listening. After a device switch only if something is still missing (if the
+     * user has already re-entered everything, nothing appears); after a full backup always, with its result.
      */
     val reports: Flow<RestoreReport> = merge(
         restored.mapNotNull { take() }.map { RestoreReport(it) },
         backups.receiveAsFlow().map { RestoreReport(missing(), it) },
     )
 
-    /** Nach dem Zurückspielen von Servern beim Gerätewechsel aufrufen. */
+    /** Call after restoring servers during a device switch. */
     internal suspend fun serversRestored() {
         withContext(Dispatchers.IO) { marker.createNewFile() }
         restored.value++
     }
 
-    /** Nach dem Einspielen einer Komplett-Sicherung. */
+    /** After importing a full backup. */
     internal suspend fun backupRestored(result: FullBackupResult) = backups.send(result)
 
     private suspend fun take(): MissingCredentials? {

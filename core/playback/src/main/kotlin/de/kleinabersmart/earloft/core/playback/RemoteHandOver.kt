@@ -4,19 +4,19 @@ import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
 
 /**
- * Der Cast-Empfänger hat die übergebene Warteschlange noch nicht gemeldet (am Gerät gemessen: gut 6 s bei einem Buch von
- * Audiobookshelf). Der Wechsel auf „leer“ davor ist kein Titelwechsel: Die Listener des Service lassen Geschwindigkeit,
- * Hörverlauf und gespeicherte Warteschlange so lange, wie sie sind (R24).
+ * The cast receiver hasn't reported the handed-over queue yet (measured on the device: a good 6 s for a book from
+ * Audiobookshelf). The switch to "empty" before that is not a title change: the service's listeners leave speed,
+ * listening history and saved queue as they are until then (R24).
  */
 internal val Player.awaitsRemoteQueue: Boolean
     get() = deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE && currentTimeline.isEmpty
 
 /**
- * Beim Wechsel aufs Cast-Gerät übergibt der Player die Warteschlange, aber der Empfänger meldet sie erst nach dem Laden
- * zurück (am Gerät gesehen: gut eine Sekunde). Bis dahin ist die Warteschlange leer, und die Wiedergabe-Ansicht zeigte
- * „Nichts läuft“. So lange bleibt hier der letzte Stand vom Handy stehen, schon mit [PlayerState.isRemote]; die Position
- * läuft vom letzten bekannten Wert weiter. Lädt der Empfänger nichts, beendet der Cast-Player die Sitzung, und mit dem
- * Wechsel zurück aufs Handy endet auch das Festhalten.
+ * When switching to the cast device, the player hands over the queue, but the receiver only reports it back after loading
+ * (observed on the device: a good second). Until then the queue is empty, and the now playing view would show
+ * "Nothing playing". For that long the phone's last state is kept here, already with [PlayerState.isRemote]; the position
+ * keeps advancing from the last known value. If the receiver loads nothing, the cast player ends the session, and with the
+ * switch back to the phone the holding ends too.
  */
 internal class RemoteHandOver {
 
@@ -24,12 +24,12 @@ internal class RemoteHandOver {
     private var positionMs = 0L
     private var positionAtMs = 0L
 
-    /** 0, solange nichts läuft. */
+    /** 0 while nothing is playing. */
     private var positionSpeed = 0f
 
     /**
-     * [next] ist der Stand des Players, [queueEmpty] ob seine Warteschlange leer ist, [positionMs] seine Position zum
-     * Zeitpunkt [nowMs]. Liefert den Stand, der angezeigt werden soll.
+     * [next] is the player's state, [queueEmpty] whether its queue is empty, [positionMs] its position at
+     * time [nowMs]. Returns the state to be displayed.
      */
     fun update(previous: PlayerState, next: PlayerState, queueEmpty: Boolean, positionMs: Long, nowMs: Long): PlayerState {
         holding = next.isRemote && queueEmpty && previous.hasMedia && (holding || !previous.isRemote)
@@ -40,7 +40,7 @@ internal class RemoteHandOver {
         return next
     }
 
-    /** Die fortgeschriebene Position, solange festgehalten wird; sonst `null`. */
+    /** The extrapolated position while holding; otherwise `null`. */
     fun positionMs(nowMs: Long): Long? =
         if (holding) positionMs + ((nowMs - positionAtMs) * positionSpeed).toLong() else null
 }

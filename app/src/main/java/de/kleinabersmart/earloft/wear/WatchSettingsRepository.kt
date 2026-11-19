@@ -21,10 +21,10 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Einstellungen der Uhr; sie werden am Handy gesetzt (Wear-Konzept 1, „Einstellungen → Uhr“). */
+/** Settings of the watch; they are set on the phone (Wear concept 1, "Settings → Watch"). */
 data class WatchSettings(
     val quality: WearQuality = WearQuality.OPUS_128,
-    /** Feste Obergrenze in GB; `null` = bis auf 1 GB freien Speicher (W1). */
+    /** Fixed upper limit in GB; `null` = up to 1 GB of free storage (W1). */
     val storageLimitGb: Int? = null,
     val requireCharging: Boolean = true,
 )
@@ -65,7 +65,7 @@ class WatchSettingsRepository @Inject constructor(
 @Module
 @InstallIn(SingletonComponent::class)
 internal object WatchSettingsBackupModule {
-    /** Gehört in die Komplett-Sicherung (`FullBackup`). */
+    /** Part of the full backup (`FullBackup`). */
     @Provides
     @IntoSet
     fun provideBackedUpSettings(@ApplicationContext context: Context) = BackedUpSettings("watch_settings", context.watchSettingsDataStore)

@@ -4,12 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import de.kleinabersmart.earloft.core.designsystem.theme.AlbumColorTheme
 
-/** Ob Mini-Player und Player die Farben des Covers tragen ([ThemeSettings.playerCoverColors]). */
+/** Whether mini player and player use the cover's colors ([ThemeSettings.playerCoverColors]). */
 val LocalPlayerCoverColors = staticCompositionLocalOf { true }
 
 /**
- * Farben für Mini-Player und Player: nach dem Cover ([seedColor]) oder, wenn so eingestellt, die App-Farben des
- * umgebenden Themes (dann auch die Systemfarben, falls eingeschaltet).
+ * Colors for mini player and player: based on the cover ([seedColor]) or, if configured so, the app colors of the
+ * surrounding theme (then also the system colors, if enabled).
  */
 @Composable
 fun PlayerColorTheme(seedColor: Int?, content: @Composable () -> Unit) {

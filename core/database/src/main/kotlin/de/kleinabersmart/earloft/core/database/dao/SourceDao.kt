@@ -10,8 +10,8 @@ import de.kleinabersmart.earloft.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
 
 /**
- * SQL-Liste der Quellarten, die kein Server sind (`SourceType.isServer == false`). Abfragen nach
- * „irgendeinem Server“ filtern mit `type NOT IN` – neue Server-Arten brauchen so keine Anpassung.
+ * SQL list of source types that are not a server (`SourceType.isServer == false`). Queries for
+ * "any server" filter with `type NOT IN` – so new server types need no adjustment.
  */
 internal const val NOT_SERVER_TYPES = "('LOCAL', 'PHONE')"
 
@@ -20,7 +20,7 @@ interface SourceDao {
     @Upsert
     suspend fun upsert(source: SourceEntity)
 
-    /** Legt die Quelle an, ohne Sync-Zustand einer vorhandenen Quelle zu überschreiben. */
+    /** Inserts the source without overwriting the sync state of an existing source. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIfAbsent(source: SourceEntity)
 
@@ -30,7 +30,7 @@ interface SourceDao {
     @Query("SELECT * FROM sources WHERE sourceId = :sourceId")
     suspend fun get(sourceId: String): SourceEntity?
 
-    /** Alle Musikserver gleich welcher Art ([SourceType.isServer], siehe [NOT_SERVER_TYPES]). */
+    /** All music servers of whatever type ([SourceType.isServer], see [NOT_SERVER_TYPES]). */
     @Query("SELECT * FROM sources WHERE type NOT IN $NOT_SERVER_TYPES")
     suspend fun getServers(): List<SourceEntity>
 
@@ -43,7 +43,7 @@ interface SourceDao {
     @Query("UPDATE sources SET enabled = :enabled WHERE sourceId = :sourceId")
     suspend fun setEnabled(sourceId: String, enabled: Boolean)
 
-    /** Entfernt per CASCADE auch alle `song_sources`; danach [LibraryDao.cleanupOrphans] aufrufen. */
+    /** Also removes all `song_sources` via CASCADE; call [LibraryDao.cleanupOrphans] afterwards. */
     @Query("DELETE FROM sources WHERE sourceId = :sourceId")
     suspend fun delete(sourceId: String)
 }

@@ -2,18 +2,18 @@ package de.kleinabersmart.earloft.buildlogic
 
 import org.gradle.api.Project
 
-/** Erste Ziffer des versionCode, damit Handy- und Uhr-APK im selben Play-Eintrag verschiedene Codes haben. */
+/** First digit of the versionCode, so phone and watch APKs in the same Play listing have different codes. */
 enum class Platform(val prefix: Int) {
     MOBILE(1),
     WEAR_OS(2),
 }
 
 /**
- * Gemeinsame Version von Handy und Uhr, gepflegt in `gradle.properties` (`VERSION_MAJOR`, `VERSION_MINOR`,
+ * Shared version of phone and watch, maintained in `gradle.properties` (`VERSION_MAJOR`, `VERSION_MINOR`,
  * `VERSION_PATCH`, `VERSION_TYPE`, `VERSION_BUILD_NUM`).
  *
- * versionCode = `P MM mm pp BB` (Plattform, Major, Minor, Patch, Build), z. B. 1.5.0-beta02 auf dem Handy = 101050002.
- * BB: beta01–89 = 01–89, rc01–09 = 90–98, release = 99. So steigt der Code von beta über rc bis zum Release.
+ * versionCode = `P MM mm pp BB` (platform, major, minor, patch, build), e.g. 1.5.0-beta02 on the phone = 101050002.
+ * BB: beta01–89 = 01–89, rc01–09 = 90–98, release = 99. This way the code rises from beta through rc to the release.
  */
 data class AppVersion(
     val major: Int,

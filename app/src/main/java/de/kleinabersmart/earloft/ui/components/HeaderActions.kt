@@ -9,8 +9,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 
 /**
- * Platz für Knöpfe eines Bereichs im Kopf der App, links von der Lupe (z. B. die Sortierung der Bibliothek). Jeder Bereich
- * (Musik, Podcasts, Bücher) hat seinen eigenen; gezeigt wird der des gewählten Bereichs.
+ * Slot for an area's buttons in the app header, left of the magnifier (e.g. the library sort). Each area
+ * (music, podcasts, books) has its own; the one of the selected area is shown.
  */
 class HeaderActions {
     var content: (@Composable () -> Unit)? by mutableStateOf(null)
@@ -23,7 +23,7 @@ class HeaderActions {
 
 val LocalHeaderActions = staticCompositionLocalOf<HeaderActions?> { null }
 
-/** Zeigt [content] im Kopf, solange dieser Aufruf in der Komposition ist. */
+/** Shows [content] in the header as long as this call is in the composition. */
 @Composable
 fun HeaderAction(content: @Composable () -> Unit) {
     val slot = LocalHeaderActions.current ?: return

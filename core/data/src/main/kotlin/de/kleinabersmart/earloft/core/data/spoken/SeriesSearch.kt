@@ -6,8 +6,8 @@ import de.kleinabersmart.earloft.core.model.SeriesHit
 import de.kleinabersmart.earloft.core.model.parseSeries
 
 /**
- * Die Serien, deren Name [needle] (schon normalisiert) enthält, mit Anzahl der Bücher und dem kleinsten Band als
- * Cover. Ein Buch kann in mehreren Serien stehen; die Serienangabe ist „Name #Band“, der Band zählt nicht zum Namen.
+ * The series whose name contains [needle] (already normalized), with the number of books and the smallest volume as
+ * cover. A book can be in several series; the series entry is "Name #Volume", the volume isn't part of the name.
  */
 internal fun seriesHits(books: List<Book>, needle: String, limit: Int): List<SeriesHit> {
     if (needle.isEmpty()) return emptyList()

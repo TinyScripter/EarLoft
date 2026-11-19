@@ -24,17 +24,17 @@ class SpokenModeViewModel @Inject constructor(
 ) : ViewModel() {
     val mode: StateFlow<SpokenMode> = settings.mode.stateIn(viewModelScope, SharingStarted.Eagerly, SpokenMode.MUSIC)
 
-    /** Die eingeschalteten Bereiche (Allgemein → Bereiche) in der Reihenfolge des Schalters; nie leer. */
+    /** The enabled areas (General → Areas) in the switch's order; never empty. */
     val areas: StateFlow<List<SpokenMode>> = settings.areas.stateIn(viewModelScope, SharingStarted.Eagerly, settings.lastAreas)
 
     /**
-     * Gespeicherter Bereich und eingeschaltete Bereiche, `null`, bis beides gelesen ist; so beginnt der Bereichs-Pager gleich
-     * auf der richtigen Seite und mit den richtigen Seiten.
+     * Stored area and enabled areas, `null` until both are read; this way the area pager starts right
+     * on the correct page and with the correct pages.
      */
     val loaded: StateFlow<LoadedModes?> = combine(settings.mode, settings.areas, ::LoadedModes)
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    /** „Überall suchen“ statt nur im gewählten Bereich (Schalter auf der Such-Seite, bleibt gespeichert). */
+    /** "Search everywhere" instead of only in the selected area (switch on the search page, stays stored). */
     val searchAll: StateFlow<Boolean> = settings.searchAll.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     fun setSearchAll(enabled: Boolean) {
@@ -45,7 +45,7 @@ class SpokenModeViewModel @Inject constructor(
         viewModelScope.launch { settings.setMode(mode) }
     }
 
-    /** Läuft gerade ein von Hand angestoßener Abgleich des aktuellen Modus? */
+    /** Is a manually triggered sync of the current mode running right now? */
     val refreshing: StateFlow<Boolean> = combine(
         mode,
         libraryRefresher.refreshing,
@@ -66,5 +66,5 @@ class SpokenModeViewModel @Inject constructor(
     fun refreshPodcasts() = podcastRefresher.refreshAll()
 }
 
-/** Zu [SpokenModeViewModel.loaded]: der gezeigte Bereich [mode] ist immer einer der [areas]. */
+/** For [SpokenModeViewModel.loaded]: the shown area [mode] is always one of the [areas]. */
 data class LoadedModes(val mode: SpokenMode, val areas: List<SpokenMode>)

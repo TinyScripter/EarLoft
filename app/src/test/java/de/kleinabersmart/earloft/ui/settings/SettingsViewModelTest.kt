@@ -63,7 +63,7 @@ import de.kleinabersmart.earloft.core.data.spoken.LocalBooks
 import java.io.IOException
 import javax.inject.Inject
 
-/** Die Serverliste der Einstellungen mit dem Grund des letzten fehlgeschlagenen Abgleichs (Review A3, S2). */
+/** The server list in settings with the reason for the last failed sync (review A3, S2). */
 @HiltAndroidTest
 @Config(application = HiltTestApplication::class)
 @RunWith(RobolectricTestRunner::class)
@@ -137,7 +137,7 @@ class SettingsViewModelTest {
         assertNull(synced.servers.single().error)
     }
 
-    /** Ein Server, dessen Vollabgleich [scan] liefert. */
+    /** A server whose full sync returns [scan]. */
     private class FakeSource(private val scan: suspend FlowCollector<SourceBatch>.() -> Unit) : MusicDataSource {
         override val sourceId = SERVER_ID
         override val type = SourceType.SUBSONIC

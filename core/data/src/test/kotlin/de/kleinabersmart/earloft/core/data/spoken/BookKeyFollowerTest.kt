@@ -79,7 +79,7 @@ class BookKeyFollowerTest {
 
         follower.moved(ARD_BOOK_SERVER_ID, mapOf("group:alt" to "group:neu"))
 
-        // Beide Einträge zählen jetzt zusammen unter dem neuen Schlüssel; die Tage bleiben.
+        // Both entries now count together under the new key; the days stay.
         assertEquals(
             mapOf("group:neu" to 65_000L, "group:andere" to 1_000L),
             db.statsDao().all().associate { it.itemKey to it.listenedMs },

@@ -31,15 +31,15 @@ import de.kleinabersmart.earloft.core.model.OfflineMark
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Markierung „heruntergeladen“ unten links auf einem Cover (Alben, Bücher, Folgen, Abos): Punkt in der Grundfarbe mit Haken (ganz
- * geladen), mit Kontur statt Füllung (teilweise), grau mit Pfeil (wartet/lädt) oder rot (Fehler). Mit [count] steht die
- * Zahl neben dem Haken (geladene Folgen eines Abos). Ohne [mark] nichts.
+ * "Downloaded" mark at the bottom left of a cover (albums, books, episodes, subscriptions): dot in the primary color with a check mark (fully
+ * downloaded), outlined instead of filled (partially), gray with an arrow (waiting/downloading) or red (error). With [count] the
+ * number is shown next to the check mark (downloaded episodes of a subscription). Nothing without [mark].
  */
 @Composable
 fun OfflineBadge(mark: OfflineMark?, modifier: Modifier = Modifier, count: Int? = null) {
     if (mark == null) return
     val colors = MaterialTheme.colorScheme
-    // Kräftig in beiden Darstellungen: Im Dunklen sind die Container-Farben satt, im Hellen die Grundfarben.
+    // Strong in both themes: in dark mode the container colors are saturated, in light mode the primary colors.
     val dark = LocalDarkTheme.current
     val (container, content) = when (mark) {
         OfflineMark.DONE -> if (dark) colors.primaryContainer to colors.onPrimaryContainer else colors.primary to colors.onPrimary
@@ -69,7 +69,7 @@ fun OfflineBadge(mark: OfflineMark?, modifier: Modifier = Modifier, count: Int? 
     }
 }
 
-/** Kleines Symbol in Zeilen (vor der zweiten Zeile oder neben dem Menü); gleiche Bedeutung wie [OfflineBadge]. */
+/** Small icon in rows (before the second line or next to the menu); same meaning as [OfflineBadge]. */
 @Composable
 fun OfflineMarkIcon(mark: OfflineMark?, modifier: Modifier = Modifier) {
     if (mark == null) return
@@ -87,7 +87,7 @@ fun OfflineMarkIcon(mark: OfflineMark?, modifier: Modifier = Modifier) {
     )
 }
 
-/** Zweite Zeile einer Listenzeile mit der Markierung davor; ohne [mark] nur der Text. */
+/** Second line of a list row with the mark in front; only the text without [mark]. */
 @Composable
 fun MarkedSupportingText(text: String, mark: OfflineMark?, modifier: Modifier = Modifier) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
@@ -96,7 +96,7 @@ fun MarkedSupportingText(text: String, mark: OfflineMark?, modifier: Modifier = 
     }
 }
 
-/** Abstand zwischen Zeilen-Markierung und Text. */
+/** Spacing between the row mark and the text. */
 val MarkGap = 4.dp
 
 private val BadgeSize = 20.dp
@@ -128,7 +128,7 @@ private fun OfflineBadgesSample() {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OfflineMark.entries.forEach { OfflineMarkIcon(it) }
             }
-            // Auf einem bunten Cover muss der Punkt sich abheben.
+            // On a colorful cover the dot has to stand out.
             Surface(color = Color(0xFFE0A030)) {
                 Row(Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OfflineMark.entries.forEach { OfflineBadge(it) }

@@ -20,7 +20,7 @@ class SkippedSilenceTest {
     @Test
     fun `a flush starts the counter again from zero without losing anything`() {
         silence.onFrameCount(88_200)
-        // Gespult oder nächste Datei: Der Prozessor zählt von 0.
+        // Seeked or next file: the processor counts from 0.
         silence.onFrameCount(22_050)
         assertEquals(2_500L, silence.drainMs())
     }
@@ -28,7 +28,7 @@ class SkippedSilenceTest {
     @Test
     fun `remainders under one millisecond carry over`() {
         silence.sampleRate = 48_000
-        silence.onFrameCount(24) // 0,5 ms
+        silence.onFrameCount(24) // 0.5 ms
         assertEquals(0L, silence.drainMs())
         silence.onFrameCount(48)
         assertEquals(1L, silence.drainMs())

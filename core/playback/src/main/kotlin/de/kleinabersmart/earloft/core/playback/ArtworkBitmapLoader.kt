@@ -17,8 +17,8 @@ import kotlinx.coroutines.guava.future
 import java.io.IOException
 
 /**
- * Lädt `earloft://cover/...` und die [CoverProvider]-Adressen über dieselbe Artwork-Pipeline wie die App, damit Benachrichtigung,
- * Sperrbildschirm und Uhr die Cover jeder Quelle bekommen. Alles andere übernimmt Media3.
+ * Loads `earloft://cover/...` and the [CoverProvider] addresses through the same artwork pipeline as the app, so that the notification,
+ * lock screen and watch get the covers of every source. Media3 handles everything else.
  */
 @OptIn(UnstableApi::class)
 internal class ArtworkBitmapLoader(
@@ -35,7 +35,7 @@ internal class ArtworkBitmapLoader(
     override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> = fallback.decodeBitmap(data)
 
     override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> {
-        // `earloft://cover/…` und die gleichen Cover als CoverProvider-Adresse (so tragen sie die Einträge der Warteschlange).
+        // `earloft://cover/…` and the same covers as CoverProvider address (that's how the queue entries carry them).
         val bookId = AppUris.parseBookCoverId(uri.toString()) ?: CoverProvider.bookId(uri)
         if (bookId != null) {
             return scope.future(Dispatchers.IO) { bookCovers.cover(bookId) ?: throw IOException("Kein Cover für Buch $bookId") }

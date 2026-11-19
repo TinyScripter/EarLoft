@@ -1,15 +1,15 @@
 package de.kleinabersmart.earloft.wear.ui
 
 /**
- * Macht aus den Ereignissen der Krone ganze Schritte. Die Krone liefert je Rastung viele kleine Pixelwerte
- * (gemessen auf der Pixel Watch 3: ca. 10 Ereignisse mit zusammen rund 34 px, schnelles Drehen mehr); jedes einzelne
- * als Schritt zu nehmen, wäre viel zu grob. Der Rest unter [pixelsPerStep] bleibt für die nächste Drehung erhalten,
- * ein Richtungswechsel verwirft ihn.
+ * Turns the crown's events into whole steps. The crown delivers many small pixel values per detent
+ * (measured on the Pixel Watch 3: about 10 events totalling around 34 px, more when turning fast); taking each one
+ * as a step would be far too coarse. The remainder below [pixelsPerStep] is kept for the next turn,
+ * a change of direction discards it.
  */
 class CrownStepper(private val pixelsPerStep: Float) {
     private var remainder = 0f
 
-    /** @return ganze Schritte, positiv in Drehrichtung „lauter“, negativ umgekehrt; 0, solange der Schwellwert nicht erreicht ist. */
+    /** @return whole steps, positive in the "louder" direction, negative the other way; 0 as long as the threshold is not reached. */
     fun add(pixels: Float): Int {
         if (pixels * remainder < 0f) remainder = 0f
         remainder += pixels

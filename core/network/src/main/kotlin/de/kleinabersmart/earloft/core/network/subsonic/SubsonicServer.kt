@@ -5,28 +5,28 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 sealed interface SubsonicCredentials {
 
-    /** Token-Authentifizierung: `t = md5(passwort + salt)`. */
+    /** Token authentication: `t = md5(password + salt)`. */
     class Password(val username: String, val password: String) : SubsonicCredentials {
         override fun toString() = "Password(username=$username)"
     }
 
-    /** OpenSubsonic-Extension `apiKey`; ersetzt Benutzername und Passwort. */
+    /** OpenSubsonic extension `apiKey`; replaces username and password. */
     class ApiKey(val key: String) : SubsonicCredentials {
         override fun toString() = "ApiKey(***)"
     }
 }
 
-/** Ein Server mit normalisierter Basis-URL (endet immer auf `/`). */
+/** A server with a normalized base URL (always ends with `/`). */
 data class SubsonicServer(
     val sourceId: String,
     val baseUrl: HttpUrl,
     val credentials: SubsonicCredentials,
-    /** OpenSubsonic-Extension `formPost`: Parameter dürfen im POST-Body stehen (lange Song-Listen). */
+    /** OpenSubsonic extension `formPost`: parameters may go in the POST body (long song lists). */
     val supportsFormPost: Boolean = false,
 ) {
     fun endpoint(name: String): HttpUrl.Builder = baseUrl.newBuilder().addPathSegments("rest/$name")
 
-    /** Gehört [url] zur REST-API dieses Servers? */
+    /** Does [url] belong to this server's REST API? */
     fun owns(url: HttpUrl): Boolean =
         url.scheme == baseUrl.scheme &&
             url.host == baseUrl.host &&
@@ -35,8 +35,8 @@ data class SubsonicServer(
 
     companion object {
         /**
-         * Macht aus einer Nutzereingabe eine Basis-URL: ergänzt `https://`, entfernt angehängtes
-         * `/rest` oder `/app` und sorgt für einen abschließenden `/`. `null` bei ungültiger Eingabe.
+         * Turns user input into a base URL: adds `https://`, strips a trailing
+         * `/rest` or `/app` and ensures a closing `/`. `null` for invalid input.
          */
         fun normalizeBaseUrl(input: String): HttpUrl? {
             val trimmed = input.trim()

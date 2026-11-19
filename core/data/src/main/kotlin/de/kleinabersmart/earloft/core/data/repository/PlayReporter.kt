@@ -17,22 +17,22 @@ import java.io.IOException
 import javax.inject.Inject
 
 /**
- * Gibt eine abgeschlossene Wiedergabe weiter, nachdem sie im Hörverlauf steht. Das Handy scrobbelt über die
- * Sync-Queue ([SyncQueuePlayReporter]), die Uhr schickt sie ans Handy (Wear-Konzept 10).
+ * Passes on a completed playback after it is in the listening history. The phone scrobbles via the
+ * sync queue ([SyncQueuePlayReporter]), the watch sends it to the phone (Wear concept 10).
  */
 interface PlayReporter {
-    /** @param live `false` für nachgereichte Wiedergaben (von der Uhr): nur in die Warteschlange, kein Netz. */
+    /** @param live `false` for plays reported later (from the watch): only into the queue, no network. */
     suspend fun report(songId: Long, playedAt: Long, listenedMs: Long, live: Boolean = true)
 }
 
 /**
- * Meldet die Wiedergabe einem Server (Scrobble), falls der Song dort liegt – genau einem, dem bevorzugten, damit
- * ein weitergeleiteter Last.fm-Account nicht doppelt zählt.
+ * Reports the playback to a server (scrobble) if the song is there – to exactly one, the preferred one, so that
+ * a forwarding Last.fm account doesn't count it twice.
  *
- * Kann der Server Wiedergaben live annehmen ([RemotePlaybackReporting], Jellyfin) und ist sie gerade erst zu Ende
- * gegangen, geht sie sofort dorthin. Klappt das nicht (offline, Server weg) oder ist sie älter (z. B. von der Uhr),
- * kommt sie in die Sync-Queue und wird beim nächsten Verbinden mit ihrem Zeitpunkt nachgereicht (Konzept 14).
- * Eingetragen wird sie vorher: Endet der Prozess während der Live-Meldung, bleibt sie in der Warteschlange.
+ * If the server can accept plays live ([RemotePlaybackReporting], Jellyfin) and it has only just
+ * ended, it goes there immediately. If that fails (offline, server gone) or it is older (e.g. from the watch),
+ * it goes into the sync queue and is reported later with its timestamp on the next connection (concept 14).
+ * It is enqueued beforehand: if the process ends during the live report, it stays in the queue.
  */
 class SyncQueuePlayReporter @Inject constructor(
     private val libraryDao: LibraryDao,
@@ -66,8 +66,8 @@ class SyncQueuePlayReporter @Inject constructor(
     }
 
     /**
-     * @return `true`, wenn der Server die Wiedergabe angenommen hat. Läuft die Zeit ab, obwohl sie angekommen ist, zählt
-     *   sie der Server nach dem Nachreichen doppelt – seltener als eine verlorene Wiedergabe.
+     * @return `true` if the server accepted the playback. If the time runs out although it arrived, the server
+     *   counts it twice after the later report – rarer than a lost playback.
      */
     private suspend fun reportLive(server: PlayableSourceRow, songId: Long): Boolean {
         val source = sources[server.sourceId] as? RemotePlaybackReporting ?: return false
@@ -83,7 +83,7 @@ class SyncQueuePlayReporter @Inject constructor(
     internal companion object {
         private const val TAG = "PlayReporter"
 
-        /** Jünger ist eine gerade zu Ende gegangene Wiedergabe; ältere (Uhr, nachgereicht) brauchen ihren Zeitpunkt. */
+        /** Anything more recent is a playback that just ended; older ones (watch, reported later) need their timestamp. */
         const val LIVE_WINDOW_MS = 5 * 60_000L
         private const val LIVE_TIMEOUT_MS = 10_000L
     }

@@ -132,22 +132,22 @@ fun LibraryScreen(
     val artistSort by viewModel.artistSort.collectAsStateWithLifecycle()
     val songSort by viewModel.songSort.collectAsStateWithLifecycle()
     val favoriteCount by viewModel.favoriteCount.collectAsStateWithLifecycle()
-    // Der Chip „Favoriten“ steht vorn, sobald es etwas zu zeigen gibt, und bleibt, solange er an ist.
+    // The "Favorites" chip comes first as soon as there is something to show, and stays as long as it is on.
     val favoritesChip: (FavoritesChip, Set<Long>) -> FavoritesChipState? = { chip, ids ->
         val on = chip in favoritesOnly
         if (ids.isEmpty() && !on) null else FavoritesChipState(on) { viewModel.toggleFavoritesOnly(chip) }
     }
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val servers by viewModel.servers.collectAsStateWithLifecycle()
-    // Tabs und Seiten teilen sich den Pager-Zustand: Antippen und Wischen führen zum selben Ergebnis.
+    // Tabs and pages share the pager state: tapping and swiping lead to the same result.
     val pagerState = rememberPagerState { LibraryTab.entries.size }
     val scope = rememberCoroutineScope()
-    // Ohne Musik: an erster Stelle einen Server einrichten, darunter der Weg zum Ausblenden des Bereichs.
+    // Without music: setting up a server first, below it the way to hide the area.
     val empty: @Composable () -> Unit = {
         EmptyAreaHint(SpokenMode.MUSIC, stringResource(R.string.library_empty), stringResource(R.string.home_setup_server), onAddServer)
     }
 
-    // Die Sortierung des gezeigten Reiters steht im Kopf der App links von der Lupe; die Genres zeigen Alben, also deren Sortierung.
+    // The sort of the shown tab sits in the app header left of the magnifier; genres show albums, hence their sort.
     HeaderAction {
         when (LibraryTab.entries[pagerState.targetPage]) {
             LibraryTab.ALBUMS, LibraryTab.GENRES ->
@@ -173,9 +173,9 @@ fun LibraryScreen(
             key = { it },
         ) { page ->
             when (LibraryTab.entries[page]) {
-                // Leer heißt: gar keine Alben. Lässt die Auswahl nichts übrig, bleiben die Chips stehen, damit man sie lösen kann.
-                // Die Kopfzeile ist immer da (notfalls leer): Käme sie erst mit dem ersten Favoriten hinzu, hielte das Raster
-                // die erste Kachel fest und schöbe die Chips oben aus dem Bild.
+                // Empty means: no albums at all. If the selection leaves nothing, the chips stay so they can be cleared.
+                // The header row is always there (empty if need be): if it only appeared with the first favorite, the grid would
+                // keep the first tile anchored and push the chips out of view at the top.
                 LibraryTab.ALBUMS -> LoadableList(albums, empty) { all ->
                     val shown = albumsOfDecades.valueOrNull ?: all
                     val favorites = favoritesChip(FavoritesChip.ALBUMS, favoriteAlbumIds)
@@ -235,8 +235,8 @@ fun LibraryScreen(
                 }
                 LibraryTab.GENRES -> LoadableList(
                     genres,
-                    // Musik ohne Genre-Angaben: eigener Hinweis; ganz ohne Musik wie die anderen Reiter. Solange die Songs
-                    // noch laden, ist beides offen (Review D36).
+                    // Music without genre tags: a dedicated hint; with no music at all, like the other tabs. While the songs
+                    // are still loading, both are open (review D36).
                     empty = {
                         when {
                             songs == LoadState.Loading -> LoadingIndicator()
@@ -275,7 +275,7 @@ fun LibraryScreen(
                     favoriteCount = favoriteCount,
                     favoriteAlbumCount = favoriteAlbumIds.size,
                     favoriteArtistCount = favoriteArtistIds.size,
-                    // „Neue Playlist“ und „Favoriten“ stehen immer da; die eigenen Playlists erscheinen, sobald sie geladen sind.
+                    // "New playlist" and "Favorites" are always there; the user's own playlists appear as soon as they are loaded.
                     playlists = playlists.valueOrNull.orEmpty(),
                     servers = servers,
                     onFavoritesClick = onFavoritesClick,
@@ -332,7 +332,7 @@ private fun PlaylistList(
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.favorites_title)) },
                         supportingContent = {
-                            // Songs immer, Alben und Künstler nur, wenn es welche gibt.
+                            // Songs always, albums and artists only if there are any.
                             val parts = listOfNotNull(
                                 pluralStringResource(R.plurals.song_count, favoriteCount, favoriteCount),
                                 favoriteAlbumCount.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.album_count, it, it) },
@@ -367,15 +367,15 @@ private fun PlaylistList(
                 }
             }
         }
-        // Die ersten beiden Zeilen sind „Neue Playlist“ und „Favoriten“.
+        // The first two rows are "New playlist" and "Favorites".
         LazyListFastScroller(state, labelAt = { index -> letterOf(playlists.getOrNull((index - 2).coerceAtLeast(0))?.name.orEmpty()) })
     }
 }
 
 /**
- * Beschriftung eines der sechs Reiter (auch der Podcast-Bibliothek). Mit weniger Rand als `Tab(text = …)` (16 dp je Seite),
- * damit „Playlists“ auch auf schmalen Handys in eine Zeile passt; reicht es trotzdem nicht, wird die Schrift kleiner statt
- * umzubrechen.
+ * Label of one of the six tabs (also of the podcast library). With less padding than `Tab(text = …)` (16 dp per side)
+ * so "Playlists" fits on one line even on narrow phones; if it still doesn't fit, the font gets smaller instead of
+ * wrapping.
  */
 @Composable
 internal fun TabLabel(text: String) {
@@ -389,12 +389,12 @@ internal fun TabLabel(text: String) {
     }
 }
 
-/** Der Chip „Favoriten“ vor den übrigen Chips einer Reihe. */
+/** The "Favorites" chip in front of the other chips of a row. */
 private class FavoritesChipState(val selected: Boolean, val onToggle: () -> Unit)
 
 /**
- * Eine Reihe von Chips zum An- und Abschalten (mehrere zugleich), z. B. Jahrzehnte oder Genres über den Alben; mit [favorites]
- * vorn der Chip „Favoriten“. Passt sie nicht in die Breite, lässt sie sich seitlich wischen.
+ * A row of toggle chips (several at once), e.g. decades or genres above the albums; with [favorites]
+ * the "Favorites" chip in front. If it doesn't fit the width, it can be swiped sideways.
  */
 @Composable
 private fun <T> ToggleChips(
@@ -430,8 +430,8 @@ private fun <T> ToggleChips(
 }
 
 /**
- * Chip-Reihe über Alben bzw. Künstlern; ist etwas ausgewählt ([filtered]), darunter „Abspielen“ und „Zufällig“ für die gezeigten
- * Einträge, oder ein Hinweis, wenn die Auswahl nichts übrig lässt ([nothingShown]).
+ * Chip row above albums or artists; if something is selected ([filtered]), below it "Play" and "Shuffle" for the shown
+ * entries, or a hint if the selection leaves nothing ([nothingShown]).
  */
 @Composable
 private fun FilterHeader(chips: @Composable () -> Unit, filtered: Boolean, nothingShown: Boolean, onPlay: (shuffle: Boolean) -> Unit) {
@@ -449,7 +449,7 @@ private fun FilterHeader(chips: @Composable () -> Unit, filtered: Boolean, nothi
     }
 }
 
-/** „80er“, ab 2000 „2000er“ (Jahrzehnte vor 1910 ebenfalls mit voller Jahreszahl). */
+/** "80s", from 2000 on "2000s" (decades before 1910 also with the full year). */
 @Composable
 private fun decadeLabel(startYear: Int): String =
     stringResource(R.string.decade, if (startYear in 1910..1999) startYear - 1900 else startYear)
@@ -459,11 +459,11 @@ fun AlbumGrid(
     albums: List<Album>,
     onAlbumClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    /** Marke des Schnellscrollers zu jedem Album (z. B. der Anfangsbuchstabe); `null`: nur der Griff. */
+    /** Fast scroller label for each album (e.g. the initial letter); `null`: thumb only. */
     scrollLabel: ((Album) -> String)? = null,
-    /** Eine Zeile über den Alben (z. B. Knöpfe oder die Sortierung), über die ganze Breite. */
+    /** A row above the albums (e.g. buttons or the sort), spanning the full width. */
     header: (@Composable () -> Unit)? = null,
-    /** [header] (Chip-Leiste der Bibliothek) steht beim Scrollen fest darüber, siehe [PinnableHeaderBox]. */
+    /** [header] (the library's chip bar) stays pinned above while scrolling, see [PinnableHeaderBox]. */
     pinHeader: Boolean = false,
 ) {
     val state = rememberLazyGridState()
@@ -509,7 +509,7 @@ private val SongSort.label: Int
         SongSort.RECENTLY_ADDED -> R.string.sort_recently_added
     }
 
-/** Marke des Schnellscrollers passend zur Reihenfolge; nach Datum ohne Marke (nur der Griff). */
+/** Fast scroller label matching the order; by date without a label (thumb only). */
 private fun AlbumSort.scrollLabel(): ((Album) -> String)? = when (this) {
     AlbumSort.TITLE -> { album -> letterOf(album.title.sortKey()) }
     AlbumSort.ARTIST -> { album -> letterOf(album.artist.sortKey()) }
@@ -524,7 +524,7 @@ private fun SongSort.scrollLabel(): ((Song) -> String)? = when (this) {
     SongSort.RECENTLY_ADDED -> null
 }
 
-/** Album-Kacheln mit Play-Knopf für ein Raster; [keyPrefix] trennt mehrere Gruppen derselben Alben in einem Raster. */
+/** Album tiles with a play button for a grid; [keyPrefix] separates several groups of the same albums in one grid. */
 fun LazyGridScope.albumTiles(
     albums: List<Album>,
     onAlbumClick: (Long) -> Unit,
@@ -544,21 +544,21 @@ fun LazyGridScope.albumTiles(
     }
 }
 
-/** Ein Eintrag über die ganze Breite eines Rasters. */
+/** An entry spanning the full width of a grid. */
 fun LazyGridScope.fullWidthItem(key: Any, content: @Composable () -> Unit) {
     item(key = key, span = { GridItemSpan(maxLineSpan) }) { content() }
 }
 
-/** Künstler als Raster, zwei pro Reihe, aufgebaut wie die Autoren der Bücher: Bild, darunter Name und Zahl der Alben. */
+/** Artists as a grid, two per row, structured like the book authors: image, below it name and album count. */
 @Composable
 internal fun ArtistGrid(
     artists: List<Artist>,
     onArtistClick: (Long) -> Unit,
-    /** Nach Name sortiert: der Schnellscroller zeigt den Anfangsbuchstaben. */
+    /** Sorted by name: the fast scroller shows the initial letter. */
     byName: Boolean,
-    /** Eine Zeile über den Künstlern (z. B. Chips), über die ganze Breite. */
+    /** A row above the artists (e.g. chips), spanning the full width. */
     header: (@Composable () -> Unit)? = null,
-    /** [header] steht beim Scrollen fest darüber, siehe [PinnableHeaderBox]. */
+    /** [header] stays pinned above while scrolling, see [PinnableHeaderBox]. */
     pinHeader: Boolean = false,
 ) {
     val state = rememberLazyGridState()
@@ -609,14 +609,14 @@ internal fun ArtistGrid(
     }
 }
 
-/** Songs mit „Zufällig“-Knopf oben; auch für Favoriten und Playlists. */
+/** Songs with a "Shuffle" button at the top; also for favorites and playlists. */
 @Composable
 fun SongList(
     songs: List<Song>,
     onSongClick: (Int) -> Unit,
     onShuffle: () -> Unit,
     actions: SongActions,
-    /** Marke des Schnellscrollers zu jedem Song (z. B. der Anfangsbuchstabe); `null`: nur der Griff. */
+    /** Fast scroller label for each song (e.g. the initial letter); `null`: thumb only. */
     scrollLabel: ((Song) -> String)? = null,
 ) {
     val state = rememberLazyListState()
@@ -637,7 +637,7 @@ fun SongList(
                 SongListItem(song = song, onClick = { onSongClick(index) }, actions = actions)
             }
         }
-        // Index 0 ist der „Zufällig“-Knopf.
+        // Index 0 is the "Shuffle" button.
         LazyListFastScroller(state, labelAt = scrollLabel?.let { label -> { index -> songs.getOrNull((index - 1).coerceAtLeast(0))?.let(label).orEmpty() } })
     }
 }

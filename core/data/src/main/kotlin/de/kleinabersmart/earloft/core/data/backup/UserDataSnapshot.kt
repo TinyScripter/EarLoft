@@ -44,7 +44,7 @@ import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
 import de.kleinabersmart.earloft.core.model.TrackDownload
 
-/** Der Inhalt von `user.db` (bzw. was hineingehört), je Tabelle nach ihrem stabilen Schlüssel. */
+/** The contents of `user.db` (or what belongs in it), per table by its stable key. */
 data class UserDataSnapshot(
     val servers: Map<String, UserServerEntity> = emptyMap(),
     val spokenServers: Map<String, UserSpokenServerEntity> = emptyMap(),
@@ -61,7 +61,7 @@ data class UserDataSnapshot(
     val collectionFavorites: Map<CollectionKey, UserCollectionFavoriteEntity> = emptyMap(),
     val bookmarks: Map<BookmarkKey, UserBookmarkEntity> = emptyMap(),
     val episodeStars: Map<BookKey, UserEpisodeStarEntity> = emptyMap(),
-    /** Bücher aus ARD Sounds in der Bibliothek, nach ihrer Kennung bei ARD Sounds. */
+    /** Books from ARD Sounds in the library, by their ID at ARD Sounds. */
     val ardBooks: Map<String, UserArdBookEntity> = emptyMap(),
 ) {
     val isEmpty: Boolean
@@ -70,14 +70,14 @@ data class UserDataSnapshot(
             playEvents.isEmpty() && wearSelections.isEmpty() && episodeDownloads.isEmpty() && collectionFavorites.isEmpty() &&
             bookmarks.isEmpty() && episodeStars.isEmpty() && ardBooks.isEmpty()
 
-    /** Einträge der gesicherten Playlists, in ihrer Reihenfolge. */
+    /** Entries of the backed-up playlists, in their order. */
     fun entriesOf(playlistKey: String): List<UserSongKey> =
         playlistEntries.values.filter { it.playlistKey == playlistKey }.sortedBy { it.position }.map { it.song }
 
     /**
-     * Playlists, deren Stand ([UserPlaylistEntity.updatedAt]) seit [saved] gleich ist, behalten ihre gesicherten Einträge:
-     * Fehlen Songs (noch nicht wieder da oder aus der Bibliothek verschwunden), gehen sie so nicht verloren. Erst eine
-     * Änderung der Playlist ersetzt die gesicherte Fassung.
+     * Playlists whose state ([UserPlaylistEntity.updatedAt]) is unchanged since [saved] keep their backed-up entries:
+     * if songs are missing (not back yet or gone from the library), they are not lost this way. Only a
+     * change to the playlist replaces the backed-up version.
      */
     fun keepingUnchangedPlaylists(saved: UserDataSnapshot): UserDataSnapshot {
         val unchanged = playlists.filter { (key, playlist) -> saved.playlists[key] == playlist }.keys
@@ -89,8 +89,8 @@ data class UserDataSnapshot(
     }
 
     /**
-     * Dieser Stand, ergänzt um das, was nur in [other] steht. Vorhandene Zeilen bleiben; Fortschritt, Lesezeichen und
-     * Favoriten kommen aus [other], wenn sie dort neuer sind. Einträge von Playlists nur zusammen mit ihrer Playlist.
+     * This snapshot, supplemented by what is only in [other]. Existing rows stay; progress, bookmarks and
+     * favorites come from [other] if they are newer there. Playlist entries only together with their playlist.
      */
     fun plusMissing(other: UserDataSnapshot): UserDataSnapshot {
         val addedPlaylists = other.playlists.keys - playlists.keys
@@ -114,7 +114,7 @@ data class UserDataSnapshot(
         )
     }
 
-    /** Was sich von [previous] zu diesem Stand geändert hat. */
+    /** What changed from [previous] to this snapshot. */
     fun changesSince(previous: UserDataSnapshot): UserDataChanges = UserDataChanges(
         servers = rowChanges(previous.servers, servers),
         spokenServers = rowChanges(previous.spokenServers, spokenServers),
@@ -135,7 +135,7 @@ data class UserDataSnapshot(
     )
 
     companion object {
-        /** Die gesicherten Zeilen aus `user.db`. */
+        /** The backed-up rows from `user.db`. */
         fun ofUser(
             servers: List<UserServerEntity>,
             spokenServers: List<UserSpokenServerEntity>,
@@ -173,13 +173,13 @@ data class UserDataSnapshot(
         )
 
         /**
-         * Was aus der Hauptdatenbank gesichert wird: Musik-Server, ABS-Server, abonnierte Podcasts, die Statistik, der
-         * Fortschritt (bei Audiobookshelf nur der noch nicht gemeldete), die Lesezeichen (ohne gelöschte; bei Audiobookshelf
-         * nur die, die der Server nicht vollständig kennt: noch nicht oder nicht im jetzigen Stand gemeldet oder mit Notiz,
-         * die er nicht speichert), lokale Playlists (mit `backupKey`), Favoriten von
-         * Songs, Alben und Künstlern ohne Server, der Hörverlauf, die Auswahl für die Uhr (schon mit Schlüsseln, siehe `UserDataBackup`), die
-         * Downloads der Folgen gesicherter Abos, die gemerkten Folgen und die Bücher aus ARD Sounds in der Bibliothek samt ihren Teilen
-         * ([ardParts], je Buch).
+         * What is backed up from the main database: music servers, ABS servers, subscribed podcasts, statistics,
+         * progress (for Audiobookshelf only what has not been reported yet), bookmarks (without deleted ones; for Audiobookshelf
+         * only those the server doesn't fully know: not yet reported, not reported in their current state, or with a note,
+         * which it doesn't store), local playlists (with `backupKey`), favorites of
+         * songs, albums and artists without a server, listening history, the selection for the watch (already keyed, see `UserDataBackup`),
+         * downloads of episodes of backed-up subscriptions, saved episodes and the books from ARD Sounds in the library along with their parts
+         * ([ardParts], per book).
          */
         fun ofMain(
             sources: List<SourceEntity>,
@@ -202,12 +202,12 @@ data class UserDataSnapshot(
         ) = ofUser(
             servers = sources.filter { it.type.isServer }.map { it.toUser() },
             spokenServers = spokenServers.map { it.toUser() },
-            // Podcasts vom Gerät baut der Scan aus den Ordnern neu auf.
+            // Podcasts from the device are rebuilt by the scan from the folders.
             podcasts = feeds.filterNot { it.feedId.startsWith(LOCAL_PODCAST_PREFIX) }.map { it.toUser() },
             episodeDownloads = feeds.filterNot { it.feedId.startsWith(LOCAL_PODCAST_PREFIX) }.map { it.feedId }.toSet().let { kept ->
                 episodeDownloads.filter { it.serverId in kept }.map { it.toUser() }
             },
-            // Wie der Fortschritt auch die Folgen vom Gerät (über den Pfad); der Scan legt sie wieder an.
+            // Like progress, also the episodes from the device (by path); the scan creates them again.
             episodeStars = episodeStars.map { UserEpisodeStarEntity(it.serverId, it.remoteId, it.starredAt) },
             ardBooks = ardParts.groupBy { it.remoteId }.let { parts ->
                 ardBooks.map { UserArdBookEntity(it.remoteId, it.addedAt, parts[it.remoteId]?.let(::encodeArdParts)) }
@@ -241,30 +241,30 @@ data class StatKey(val source: String, val groupKey: String, val itemKey: String
 
 data class DayKey(val day: Long, val kind: String, val groupKey: String)
 
-/** Ein Buch oder eine Folge, unabhängig von der `bookId` dieses Geräts. */
+/** A book or an episode, independent of this device's `bookId`. */
 data class BookKey(val serverId: String, val remoteId: String)
 
 data class EntryKey(val playlistKey: String, val position: Int)
 
 data class PlayKey(val song: UserSongKey, val playedAt: Long)
 
-/** Ein Lesezeichen: sein Buch bzw. seine Folge und die Stelle darin. */
+/** A bookmark: its book or episode and the position in it. */
 data class BookmarkKey(val serverId: String, val remoteId: String, val positionMs: Long)
 
 val UserBookmarkEntity.key: BookmarkKey get() = BookmarkKey(serverId, remoteId, positionMs)
 
-/** Der Server hat es so, wie es hier steht; die Notiz kennt er nicht. */
+/** The server has it as it is here; it doesn't know the note. */
 private val BookmarkEntity.knownToServer: Boolean get() = remoteTime != null && !dirty && note.isEmpty()
 
-/** Ein Album (Album-Künstler, Titel) oder ein Künstler (Name, leerer Titel), normalisiert. */
+/** An album (album artist, title) or an artist (name, empty title), normalized. */
 data class CollectionKey(val kind: FavoriteKind, val artist: String, val title: String)
 
 val UserCollectionFavoriteEntity.key: CollectionKey get() = CollectionKey(kind, artist, title)
 
-/** Der geräteübergreifende Schlüssel des Songs. */
+/** The cross-device key of the song. */
 val KeyedSong.key: UserSongKey get() = UserSongKey(albumArtist, album, disc, track, title)
 
-/** Der Inhalt von `user.db`. */
+/** The contents of `user.db`. */
 suspend fun UserDataDao.snapshot() = UserDataSnapshot.ofUser(
     servers = servers(),
     spokenServers = spokenServers(),
@@ -284,7 +284,7 @@ suspend fun UserDataDao.snapshot() = UserDataSnapshot.ofUser(
     ardBooks = ardBooks(),
 )
 
-/** [mine], wo es mindestens so neu ist wie [other], sonst [other]. */
+/** [mine] where it is at least as new as [other], otherwise [other]. */
 private fun <K, V> newest(mine: Map<K, V>, other: Map<K, V>, time: (V) -> Long): Map<K, V> =
     other + mine.filter { (key, value) -> other[key]?.let { time(it) <= time(value) } ?: true }
 
@@ -317,7 +317,7 @@ fun KeyedBookmark.toUser() = with(bookmark) {
     UserBookmarkEntity(serverId, remoteId, positionMs, title, note, createdAt, updatedAt, remoteTime)
 }
 
-/** Zurück in die Hauptdatenbank; der Abgleichsstand beginnt von vorn. */
+/** Back into the main database; the sync state starts over. */
 fun UserServerEntity.toMain() = SourceEntity(
     sourceId = sourceId,
     type = type,
@@ -339,7 +339,7 @@ fun UserSpokenServerEntity.toMain() = SpokenServerEntity(
     hiddenLibraries = hiddenLibraries,
 )
 
-/** `lastRefreshAt = 0`: Beim nächsten Öffnen der App gilt der Podcast als veraltet und holt seine Folgen. */
+/** `lastRefreshAt = 0`: the next time the app is opened, the podcast counts as stale and fetches its episodes. */
 fun UserPodcastEntity.toMain() = PodcastFeedEntity(
     feedId = feedId,
     url = url,
@@ -376,7 +376,7 @@ fun UserListeningStatEntity.toMain() = ListeningStatEntity(
 
 fun UserListeningDayEntity.toMain() = ListeningDayEntity(day, kind, groupKey, listenedMs, savedMs)
 
-/** Geladen oder wartend zählt als gewollt; entfernt oder fehlgeschlagen nicht. */
+/** Downloaded or queued counts as wanted; removed or failed does not. */
 fun KeyedEpisodeDownload.toUser() = UserEpisodeDownloadEntity(
     serverId = serverId,
     remoteId = remoteId,
@@ -394,11 +394,11 @@ fun UserBookProgressEntity.toMain(bookId: Long) = BookProgressEntity(
     hidden = hidden,
     skipSilence = skipSilence,
     volumeBoostDb = volumeBoostDb,
-    // Die Sicherung kennt den Zeitpunkt des Endes nicht; der letzte Stand ist die beste Näherung (wie die Migration auf v43).
+    // The backup doesn't know when it was finished; the last update is the best approximation (like the migration to v43).
     finishedAt = updatedAt.takeIf { finished },
 )
 
-/** [dirty]: noch beim Server anzulegen (siehe `UserDataBackup.applyBookmarks`). */
+/** [dirty]: still to be created on the server (see `UserDataBackup.applyBookmarks`). */
 fun UserBookmarkEntity.toMain(bookId: Long, dirty: Boolean) = BookmarkEntity(
     bookId = bookId,
     positionMs = positionMs,

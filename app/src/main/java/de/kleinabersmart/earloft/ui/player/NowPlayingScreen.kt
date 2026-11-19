@@ -76,7 +76,7 @@ fun NowPlayingScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isFavorite by viewModel.isCurrentFavorite.collectAsStateWithLifecycle()
-    // Erst in den Blättern (Slider, Zeit, Songtext) gelesen, damit nicht der ganze Screen alle 250 ms neu zusammengesetzt wird.
+    // Read only in the leaves (slider, time, lyrics) so the whole screen isn't recomposed every 250 ms.
     val position = rememberPlaybackPosition(state.isPlaying, viewModel.positionJumps, state.current) { viewModel.currentPositionMs }
     val lyricsVisible by viewModel.lyricsVisible.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
@@ -144,7 +144,7 @@ private fun NowPlayingContent(
     modifier: Modifier = Modifier,
     castDeviceName: String? = null,
     castButton: @Composable () -> Unit = {},
-    /** Warteschlange rechts neben der Wiedergabe auf breiten Fenstern; schmal öffnet [onOpenQueue] eine eigene Seite. */
+    /** Queue to the right of playback on wide windows; when narrow, [onOpenQueue] opens a separate page. */
     queuePane: @Composable (Modifier) -> Unit = {},
 ) {
     var sleepSheetVisible by remember { mutableStateOf(false) }
@@ -155,14 +155,14 @@ private fun NowPlayingContent(
         )
     }
     BoxWithConstraints(modifier.fillMaxSize().safeDrawingPadding()) {
-        // Breit (Tablet quer): links Cover und Steuerung, rechts Warteschlange oder Songtext.
-        // Handy quer: zu niedrig für Cover über Titel und Steuerung, daher links Cover mit den Knöpfen, rechts der Rest.
+        // Wide (tablet in landscape): cover and controls on the left, queue or lyrics on the right.
+        // Phone in landscape: too low for cover above title and controls, hence cover with the buttons on the left, the rest on the right.
         val short = maxHeight < ShortHeight && maxWidth > maxHeight
         val wide = maxWidth >= TwoColumnMinWidth && !short
-        // Auf kleinen Handys bekommt das Hochformat unten etwas Rand, sonst klebt der Play-Knopf am Bildschirmrand.
+        // On small phones portrait gets a bit of bottom margin, otherwise the play button sticks to the screen edge.
         val tight = maxHeight < 700.dp
 
-        // Läuft ein Timer, schaltet ein Tipp auf den Mond ihn aus; sonst öffnet er die Auswahl.
+        // If a timer is running, tapping the moon turns it off; otherwise it opens the selection.
         val sleepActive = sleepTimerRemainingMs != null
         val actionRow: @Composable () -> Unit = {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
@@ -182,7 +182,7 @@ private fun NowPlayingContent(
                     )
                 }
                 if (wide) {
-                    // Die Warteschlange steht schon rechts; der Knopf holt sie nur hinter dem Songtext hervor.
+                    // The queue is already on the right; the button only brings it out from behind the lyrics.
                     ToggleIconButton(
                         icon = DesignR.drawable.ic_queue_music,
                         active = !lyricsVisible,
@@ -229,7 +229,7 @@ private fun NowPlayingContent(
                 actionRow()
                 EmptyHint(stringResource(R.string.player_nothing_playing))
             } else if (short) {
-                // Links Cover (oder Songtext) mit den Knöpfen darunter, rechts Titel und Steuerung.
+                // Cover (or lyrics) on the left with the buttons below, title and controls on the right.
                 Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                     Column(Modifier.weight(1f).fillMaxHeight().padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         if (lyricsVisible) {
@@ -267,7 +267,7 @@ private fun NowPlayingContent(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        // Ohne fillMaxWidth, damit das Cover bei wenig Höhe schrumpft statt die Knöpfe zu überdecken.
+                        // Without fillMaxWidth so the cover shrinks when there's little height instead of covering the buttons.
                         AlbumArt(
                             albumId = current.albumId,
                             modifier = Modifier
@@ -293,9 +293,9 @@ private fun NowPlayingContent(
                     }
                 }
             } else {
-                // Cover oben mit den Knöpfen darunter; alles ab dem Titel sitzt im übrigen Platz mittig (oben und unten
-                // gleich viel Luft). Mit Songtext bekommt dieser den ganzen Platz, und der Titelblock rückt nach unten.
-                // Auf Tablets im Hochformat nicht über die ganze Breite ziehen.
+                // Cover at the top with the buttons below; everything from the title on sits centered in the remaining space (equal
+                // room above and below). With lyrics, they get all the space and the title block moves down.
+                // On tablets in portrait, don't stretch across the full width.
                 Column(
                     Modifier
                         .weight(1f)
@@ -310,7 +310,7 @@ private fun NowPlayingContent(
                                 LyricsPane(lyrics = lyrics?.lyrics, fromLrclib = lyrics?.fromLrclib == true, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
                             }
                         } else {
-                            // Quadrat im Restplatz, mit etwas Luft zur Kopfzeile und zur Knopfreihe.
+                            // Square in the remaining space, with some room to the header and the button row.
                             FitSquare(
                                 Modifier.weight(1f, fill = false).fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
                                 maxSide = 420.dp,
@@ -332,12 +332,12 @@ private fun NowPlayingContent(
     }
 }
 
-/** Darunter (und breiter als hoch) liegt Now Playing in zwei Spalten statt Cover über den Knöpfen. */
+/** Below this (and wider than tall), now playing uses two columns instead of the cover above the buttons. */
 internal val ShortHeight = 480.dp
 
 /**
- * Kopfzeile aller Wiedergabe-Ansichten (Musik, Bücher, Folgen): Schließen links, rechts [actions] (Teilen, bei
- * Büchern und Folgen auch die Uhr). Ohne Titel – dass etwas läuft, sagt der Player selbst.
+ * Header of all playback screens (music, books, episodes): close on the left, [actions] on the right (share, for
+ * books and episodes also the watch). No title – the player itself shows that something is playing.
  */
 @Composable
 internal fun PlayerTopBar(closeLabel: String, onClose: () -> Unit, actions: @Composable RowScope.() -> Unit = {}) {
@@ -349,7 +349,7 @@ internal fun PlayerTopBar(closeLabel: String, onClose: () -> Unit, actions: @Com
     }
 }
 
-/** Restzeit des Sleep-Timers; läuft er bis zum Ende ([toEnd]: Kapitel bzw. Folge), steht das davor. */
+/** Remaining time of the sleep timer; if it runs until the end ([toEnd]: chapter or episode), that is shown in front. */
 @Composable
 internal fun SleepTimerLine(remainingMs: Long?, toEnd: SleepTimerEnd? = null) {
     if (remainingMs == null) return
@@ -359,7 +359,7 @@ internal fun SleepTimerLine(remainingMs: Long?, toEnd: SleepTimerEnd? = null) {
         SleepTimerEnd.BOOK -> R.string.sleep_timer_until_book_end
         null -> R.string.sleep_timer_remaining
     }
-    // Eigene Zeile ohne Kürzung, damit die Restzeit auch bei langen Zeiten und großer Schrift ganz zu lesen ist.
+    // Separate line without truncation so the remaining time is fully readable even with long durations and large font.
     Text(
         stringResource(text, formatDuration(remainingMs)),
         style = MaterialTheme.typography.labelLarge,
@@ -369,7 +369,7 @@ internal fun SleepTimerLine(remainingMs: Long?, toEnd: SleepTimerEnd? = null) {
     )
 }
 
-/** Titel, Interpret, Album, Cast-Hinweis, Fortschritt und die Wiedergabe-Knöpfe. */
+/** Title, artist, album, cast hint, progress and the playback buttons. */
 @Composable
 private fun TrackInfoAndControls(
     current: QueueEntry,
@@ -468,8 +468,8 @@ private fun TrackInfoAndControls(
 }
 
 /**
- * Zwei Kinder: Cover samt Knöpfen ganz oben, der Titelblock danach mit dem restlichen Platz je zur Hälfte davor und
- * dahinter, damit der freie Raum oben und unten gleich groß ist.
+ * Two children: cover with buttons at the very top, then the title block with half of the remaining space before and
+ * after it, so the free space above and below is equal.
  */
 internal object CoverThenCentered : Arrangement.Vertical {
     override fun Density.arrange(totalSize: Int, sizes: IntArray, outPositions: IntArray) {
@@ -485,7 +485,7 @@ internal object CoverThenCentered : Arrangement.Vertical {
 
 @Composable
 private fun SeekBar(durationMs: Long, positionMs: () -> Long, onSeek: (Long) -> Unit) {
-    // Während des Ziehens die Fingerposition zeigen, nicht die (verzögerte) Player-Position.
+    // While dragging, show the finger position, not the (delayed) player position.
     var dragFraction by remember { mutableStateOf<Float?>(null) }
     val position = positionMs()
     val fraction = dragFraction ?: if (durationMs > 0) (position.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
@@ -511,8 +511,8 @@ private fun SeekBar(durationMs: Long, positionMs: () -> Long, onSeek: (Long) -> 
 }
 
 /**
- * ⋮ am Ende der Aktionszeile: Mix ab dem laufenden Song (er spielt weiter, der Mix ersetzt, was nach ihm kommt), laufenden
- * Song zu einer Playlist, Warteschlange als Playlist speichern, Equalizer (nur wenn es einen gibt), Titel-Info.
+ * ⋮ at the end of the action row: mix from the current song (it keeps playing, the mix replaces what comes after it), current
+ * song to a playlist, save queue as playlist, equalizer (only if there is one), track info.
  */
 @Composable
 private fun PlayerMoreMenu(state: PlayerState) {
@@ -569,7 +569,7 @@ private fun PlayerMoreMenu(state: PlayerState) {
         }
     }
     playlistSongs?.let { AddToPlaylistDialog(songIds = it, onDismiss = { playlistSongs = null }) }
-    // Folgt dem laufenden Titel, auch wenn er während der Anzeige wechselt.
+    // Follows the current title, even if it changes while being shown.
     if (infoVisible) TrackInfoSheet(songId = current.songId, title = current.title, onDismiss = { infoVisible = false })
 }
 

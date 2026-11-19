@@ -12,7 +12,7 @@ import de.kleinabersmart.earloft.core.model.LOCAL_BOOK_SERVER_ID
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Reiter „Alle“ der Bücher: Filter und Reihenfolge. */
+/** The books' "All" tab: filter and order. */
 class BookListsTest {
 
     private fun book(
@@ -55,7 +55,7 @@ class BookListsTest {
         assertEquals(emptyList<SeriesSection>(), emptyList<BookWithProgress>().seriesSections())
     }
 
-    // Nach Titel, wie die Datenbank sie liefert.
+    // By title, as the database returns them.
     private val books = listOf(
         book(1, "Altes Buch", "Zora Zeh", addedAt = 10, durationMs = 5_000, year = "1999"),
         book(2, "Band zwei", "Anna Alt", series = "Saga #2", addedAt = 30, year = "2021", progress = progress(300, updatedAt = 50)),
@@ -71,7 +71,7 @@ class BookListsTest {
         assertEquals(listOf(1L, 2L, 3L, 4L), ids(BookSort.TITLE))
         assertEquals(listOf(3L, 2L, 4L, 1L), ids(BookSort.AUTHOR))
         assertEquals(listOf(4L, 2L, 3L, 1L), ids(BookSort.RECENTLY_ADDED))
-        // Nie gestartete hinten, untereinander in der Reihenfolge nach Titel.
+        // Never-started ones last, among themselves in title order.
         assertEquals(listOf(3L, 2L, 1L, 4L), ids(BookSort.RECENTLY_PLAYED))
         assertEquals(listOf(3L, 1L, 2L, 4L), ids(BookSort.DURATION))
         assertEquals(listOf(2L, 4L, 1L, 3L), ids(BookSort.YEAR))
@@ -130,7 +130,7 @@ class BookListsTest {
             book(4, "Vier", "B", genres = listOf("Sci Fi")),
         )
         val groups = spelled.genreGroups()
-        // Die häufigste Schreibweise gibt den Namen; ein Buch steht nur einmal darin.
+        // The most frequent spelling gives the name; a book appears in it only once.
         assertEquals(listOf("Krimi", "Sci Fi"), groups.map { it.name })
         assertEquals(listOf(3L, 1L, 2L), groups.first().books.map { it.book.id })
         assertEquals(listOf(4L, 2L), groups.last().books.map { it.book.id })
@@ -146,11 +146,11 @@ class BookListsTest {
         )
         val series = more.seriesGroups()
         assertEquals(listOf("Anthologie", "Bunte Reihe", "Saga"), series.sortedSeries(SeriesSort.NAME).map { it.name })
-        // Saga zuletzt vor 70 (Band eins beendet), Anthologie vor 90; die nie gehörte Reihe bleibt hinten.
+        // Saga last at 70 (volume one finished), anthology at 90; the never-played series stays last.
         assertEquals(listOf("Anthologie", "Saga", "Bunte Reihe"), series.sortedSeries(SeriesSort.RECENTLY_PLAYED).map { it.name })
         val authors = more.authorGroups()
         assertEquals(listOf("Anna Alt", "Bert Bau", "Zora Zeh"), authors.sortedAuthors(AuthorSort.NAME).map { it.name })
-        // Gleich viele bleiben nach Name.
+        // Equal counts stay sorted by name.
         assertEquals(listOf("Anna Alt", "Bert Bau", "Zora Zeh"), authors.sortedAuthors(AuthorSort.BOOK_COUNT).map { it.name })
         val oneMore = (more + book(7, "Noch eins", "Zora Zeh")).authorGroups()
         assertEquals(listOf("Zora Zeh", "Anna Alt", "Bert Bau"), oneMore.sortedAuthors(AuthorSort.BOOK_COUNT).map { it.name })

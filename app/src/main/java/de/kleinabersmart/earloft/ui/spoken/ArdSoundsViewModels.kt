@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 import javax.inject.Inject
 
-/** Was eine Abfrage bei ARD Sounds liefert: lädt, fertig oder gescheitert (ohne Verbindung, Schnittstelle geändert). */
+/** What a query to ARD Sounds yields: loading, done or failed (no connection, interface changed). */
 sealed interface ArdLoad<out T> {
     data object Loading : ArdLoad<Nothing>
     data class Done<T>(val value: T) : ArdLoad<T>
@@ -46,21 +46,21 @@ private suspend fun <T> ardLoad(block: suspend () -> T): ArdLoad<T> = try {
 }
 
 /**
- * Seite „ARD Sounds“ in *Bücher* (`books_improvements.md` M9): die Sendungen der Rubriken Hörbuch und Hörspiel und die Suche nach
- * Titeln. Gesucht wird erst auf die Lupe, wie bei den Podcasts.
+ * "ARD Sounds" page in *Books* (`books_improvements.md` M9): the shows of the categories audiobook and radio play and the
+ * title search. The search only runs on the magnifier, as with podcasts.
  */
 @HiltViewModel
 class ArdSoundsViewModel @Inject constructor(private val ardBooks: ArdBooks) : ViewModel() {
 
-    /** Kennung bei ARD Sounds → `bookId` der Bücher in der Bibliothek (Häkchen in den Listen). */
+    /** ID at ARD Sounds → `bookId` of the books in the library (check marks in the lists). */
     val library: StateFlow<Map<String, Long>> = ardBooks.library
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    /** Die abonnierten Sendungen („Meine Reihen“). */
+    /** The subscribed shows ("My series"). */
     val subscriptions: StateFlow<List<ArdSubscription>> = ardBooks.subscriptions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** Kennungen der abonnierten Sendungen (Glocke in der Liste). */
+    /** IDs of the subscribed shows (bell in the list). */
     val subscribed: StateFlow<Set<String>> = ardBooks.subscriptions
         .map { list -> list.mapTo(HashSet()) { it.showId } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
@@ -75,11 +75,11 @@ class ArdSoundsViewModel @Inject constructor(private val ardBooks: ArdBooks) : V
     private val _shows = MutableStateFlow<ArdLoad<List<ArdShow>>>(ArdLoad.Loading)
     val shows: StateFlow<ArdLoad<List<ArdShow>>> = _shows.asStateFlow()
 
-    /** `null` = keine Suche (die Rubriken stehen da). */
+    /** `null` = no search (the categories are shown). */
     private val _search = MutableStateFlow<Pair<String, ArdLoad<List<ArdBookSummary>>>?>(null)
     val search: StateFlow<Pair<String, ArdLoad<List<ArdBookSummary>>>?> = _search.asStateFlow()
 
-    /** Je Rubrik gemerkt, solange die Seite lebt (gescheiterte nicht). */
+    /** Remembered per category while the page lives (failed ones not). */
     private val loaded = HashMap<ArdCategory, List<ArdShow>>()
     private var showsJob: Job? = null
     private var searchJob: Job? = null
@@ -119,7 +119,7 @@ class ArdSoundsViewModel @Inject constructor(private val ardBooks: ArdBooks) : V
     fun retry() = selectCategory(_category.value)
 }
 
-/** Die Bücher einer Sendung aus ARD Sounds. */
+/** The books of a show from ARD Sounds. */
 @HiltViewModel(assistedFactory = ArdShowViewModel.Factory::class)
 class ArdShowViewModel @AssistedInject constructor(
     @Assisted private val showId: String,
@@ -132,15 +132,15 @@ class ArdShowViewModel @AssistedInject constructor(
     private val _books = MutableStateFlow<ArdLoad<List<ArdBookSummary>>>(ArdLoad.Loading)
     val books: StateFlow<ArdLoad<List<ArdBookSummary>>> = _books.asStateFlow()
 
-    /** Ob die Sendung abonniert ist: Ihre neuen Bücher kommen dann von selbst in die Bibliothek. */
+    /** Whether the show is subscribed: its new books then arrive in the library automatically. */
     val subscribed: StateFlow<Boolean> = ardBooks.subscriptions
         .map { list -> list.any { it.showId == showId } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    // Kanal: Ein Ergebnis während einer Drehung (kein Sammler) bliebe sonst verloren.
+    // Channel: a result during a rotation (no collector) would otherwise be lost.
     private val _subscription = Channel<SubscriptionResult>(Channel.BUFFERED)
 
-    /** Was ein Tipp auf „Abonnieren“ bewirkt hat, für den Hinweis unten. */
+    /** What a tap on "Subscribe" did, for the hint at the bottom. */
     val subscription: Flow<SubscriptionResult> = _subscription.receiveAsFlow()
 
     enum class SubscriptionResult { SUBSCRIBED, UNSUBSCRIBED, FAILED }
@@ -177,12 +177,12 @@ class ArdShowViewModel @AssistedInject constructor(
     }
 }
 
-/** Was nach dem Aufnehmen in die Bibliothek geschehen soll. */
+/** What should happen after adding to the library. */
 enum class ArdBookAction { ADD, PLAY, DOWNLOAD }
 
 /**
- * Vorschau eines Buchs aus ARD Sounds: Angaben und Teile von dort. Abspielen, Laden und Hinzufügen nehmen es in die Bibliothek
- * auf (`books_improvements.md` M9: sofort, ohne Probe wie bei den Podcasts); danach übernimmt die normale Buchseite.
+ * Preview of a book from ARD Sounds: details and parts from there. Play, download and add take it into the library
+ * (`books_improvements.md` M9: immediately, without a trial as with podcasts); afterwards the regular book page takes over.
  */
 @HiltViewModel(assistedFactory = ArdBookPreviewViewModel.Factory::class)
 class ArdBookPreviewViewModel @AssistedInject constructor(
@@ -197,23 +197,23 @@ class ArdBookPreviewViewModel @AssistedInject constructor(
 
     private val _book = MutableStateFlow<ArdLoad<ArdBook?>>(ArdLoad.Loading)
 
-    /** `Done(null)`: ARD Sounds führt das Buch nicht (mehr). */
+    /** `Done(null)`: ARD Sounds doesn't carry the book (any more). */
     val book: StateFlow<ArdLoad<ArdBook?>> = _book.asStateFlow()
 
     private val _working = MutableStateFlow(false)
     val working: StateFlow<Boolean> = _working.asStateFlow()
 
-    // Kanal: Ein Ergebnis während einer Drehung (kein Sammler) bliebe sonst verloren.
+    // Channel: a result during a rotation (no collector) would otherwise be lost.
     private val _added = Channel<Added>(Channel.BUFFERED)
 
-    /** Das Buch ist in der Bibliothek; mit [Added.openPlayer] läuft es schon. [Added.message] ist ein Hinweis zum Download. */
+    /** The book is in the library; with [Added.openPlayer] it is already playing. [Added.message] is a hint about the download. */
     val added: Flow<Added> = _added.receiveAsFlow()
 
     data class Added(val bookId: Long, val openPlayer: Boolean, val message: Int? = null)
 
     private val _failed = Channel<Unit>(Channel.CONFLATED)
 
-    /** Aufnehmen ging nicht (keine Verbindung). */
+    /** Adding failed (no connection). */
     val failed: Flow<Unit> = _failed.receiveAsFlow()
 
     init {

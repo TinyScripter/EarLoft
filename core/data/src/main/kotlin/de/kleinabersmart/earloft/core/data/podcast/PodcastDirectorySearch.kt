@@ -19,36 +19,36 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Ergebnis einer Verzeichnissuche: die gemischten Treffer und die Verzeichnisse, die nicht geantwortet haben. */
+/** Result of a directory search: the merged hits and the directories that didn't respond. */
 data class DirectorySearchResult(val hits: List<DirectoryPodcast>, val failed: Set<PodcastDirectory>)
 
-/** Suche in den eingeschalteten öffentlichen Verzeichnissen (Konzept 12.10). */
+/** Search in the enabled public directories (concept 12.10). */
 @Singleton
 class PodcastDirectorySearch @Inject constructor(
     private val api: PodcastDirectoryApi,
     private val settings: PodcastSettings,
 ) {
-    /** Die Verzeichnisse, die dieser Build kennt (für die Einstellungen). */
+    /** The directories this build knows (for the settings). */
     val available: List<PodcastDirectory> get() = api.available
 
-    /** Eingeschaltet und in diesem Build vorhanden, in Anzeigereihenfolge. */
+    /** Enabled and available in this build, in display order. */
     val enabled: Flow<List<PodcastDirectory>> = settings.directories.map { on -> api.available.filter { it in on } }
 
-    /** Die eingeschalteten Verzeichnisse mit Charts bzw. Trends („Entdecken“, Konzept 12.10). */
+    /** The enabled directories with charts or trends ("Discover", concept 12.10). */
     val discoverable: Flow<List<PodcastDirectory>> = enabled.map { list -> list.filter { it.discoverable } }
 
-    /** Das Land der Apple-Charts (wie bei der Suche). */
+    /** The country of the Apple charts (as for search). */
     val country: Flow<String> = settings.appleCountry
 
-    /** Fragt alle eingeschalteten Verzeichnisse gleichzeitig; ein Fehler oder Zeitüberschreitung trifft nur das eine. */
+    /** Queries all enabled directories at once; an error or timeout only affects that one. */
     suspend fun search(term: String): DirectorySearchResult {
         val country = settings.appleCountry.first()
         return ask(enabled.first(), "Suche") { api.search(it, term, country) }
     }
 
     /**
-     * Beliebte Podcasts aus den eingeschalteten Verzeichnissen mit Charts: Apple für das eingestellte Land, Podcast Index in
-     * der Sprache des Geräts; [category] schränkt ein. Gemischt und zusammengelegt wie die Suche.
+     * Popular podcasts from the enabled directories with charts: Apple for the configured country, Podcast Index in
+     * the device language; [category] narrows it down. Merged and deduplicated like the search.
      */
     suspend fun popular(category: PodcastCategory?, language: String = Locale.getDefault().language): DirectorySearchResult {
         val country = settings.appleCountry.first()

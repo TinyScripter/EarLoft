@@ -5,7 +5,7 @@ import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.DownloadState
 import de.kleinabersmart.earloft.core.model.SourceType
 
-/** Projektion für Song-Listen (Song + Albumtitel). */
+/** Projection for song lists (song + album title). */
 data class SongRow(
     val songId: Long,
     val title: String,
@@ -32,7 +32,7 @@ data class ArtistRow(
     val albumCount: Int,
 )
 
-/** Ein Genre (Schreibweisen ohne Unterschied von Groß/Klein zusammengefasst) mit seinen sichtbaren Alben und Songs. */
+/** A genre (spellings merged regardless of case) with its visible albums and songs. */
 data class AlbumGenreRow(
     val albumId: Long,
     val genre: String,
@@ -49,10 +49,10 @@ data class GenreRow(
     val songCount: Int,
 )
 
-/** Zu welchem Album ein Song gehört. */
+/** Which album a song belongs to. */
 data class SongAlbumRow(val songId: Long, val albumId: Long)
 
-/** Eine Song-Quelle samt Eigenschaften ihrer Quelle – Grundlage der Quellenwahl beim Abspielen. */
+/** A song source together with properties of its source – basis for choosing the source during playback. */
 data class PlayableSourceRow(
     val uid: String,
     val songId: Long,
@@ -65,7 +65,7 @@ data class PlayableSourceRow(
     val bitRate: Int?,
 )
 
-/** Was ein Buch bzw. eine Folge für ihr Bild braucht (ohne Beschreibung und andere lange Spalten). */
+/** What a book or episode needs for its image (without description and other long columns). */
 data class BookCoverRow(
     val bookId: Long,
     val serverId: String,
@@ -73,13 +73,13 @@ data class BookCoverRow(
     val coverUrl: String?,
 )
 
-/** Der ganze Autoren- bzw. Sprechereintrag eines Buchs; die einzelnen Namen trennt der Aufrufer (`parsePeople`). */
+/** The whole author or narrator entry of a book; the caller splits the individual names (`parsePeople`). */
 data class BookPeopleRow(
     val bookId: Long,
     val names: String,
 )
 
-/** ReplayGain-Werte einer Song-Quelle. */
+/** ReplayGain values of a song source. */
 data class ReplayGainRow(
     val rgTrackGainDb: Float?,
     val rgTrackPeak: Float?,
@@ -87,7 +87,7 @@ data class ReplayGainRow(
     val rgAlbumPeak: Float?,
 )
 
-/** Offline-Verfügbarkeit eines Songs: lokale Quelle und ggf. Download (`state == null`: keiner). */
+/** Offline availability of a song: local source and, if any, download (`state == null`: none). */
 data class SongOfflineRow(
     val songId: Long,
     val isLocal: Boolean,
@@ -96,7 +96,7 @@ data class SongOfflineRow(
     val bytesTotal: Long?,
 )
 
-/** Ein Album mit mindestens einem Download. */
+/** An album with at least one download. */
 data class AlbumDownloadRow(
     val albumId: Long,
     val title: String,
@@ -109,7 +109,7 @@ data class AlbumDownloadRow(
     val doneBytes: Long,
 )
 
-/** Download-Stand eines Albums in Zahlen, für die Markierung auf Kacheln; `localCount` = Songs mit lokaler Quelle. */
+/** Download state of an album in numbers, for the badge on tiles; `localCount` = songs with a local source. */
 data class AlbumDownloadSummaryRow(
     val albumId: Long,
     val songCount: Int,
@@ -119,7 +119,7 @@ data class AlbumDownloadSummaryRow(
     val failedCount: Int,
 )
 
-/** Summen über alle Downloads. */
+/** Totals over all downloads. */
 data class DownloadTotalsRow(
     val doneCount: Int,
     val pendingCount: Int,
@@ -144,12 +144,12 @@ data class PlaylistEntryRow(
     val missingOnServer: Boolean,
 )
 
-/** Angaben, mit denen ein Album-Cover im Internet gesucht wird. */
+/** Details used to search for an album cover on the internet. */
 data class AlbumLookupRow(val albumId: Long, val title: String, val artist: String, val mbid: String?)
 
-// --- Uhr (Wear-Konzept 4.1/5) ---
+// --- Watch (Wear concept 4.1/5) ---
 
-/** Ein Song mit den Album-Angaben, die das Manifest für die Uhr braucht. */
+/** A song with the album details the manifest for the watch needs. */
 data class WearSongRow(
     val songId: Long,
     val title: String,
@@ -168,7 +168,7 @@ data class WearSongRow(
 
 data class WearSongArtistRow(val songId: Long, val name: String)
 
-/** Eine Song-Quelle; [downloadPath] ist gesetzt, wenn sie fertig heruntergeladen ist. */
+/** A song source; [downloadPath] is set when it is fully downloaded. */
 data class WearSourceRow(
     val uid: String,
     val songId: Long,
@@ -192,7 +192,7 @@ data class SourceSongIdRow(val uid: String, val songId: Long)
 
 data class RemoteSongIdRow(val remoteId: String, val songId: Long)
 
-/** Eine Server-Quelle eines Songs mit dem, was der Planer der Uhr für die Speicherschätzung braucht. */
+/** A server source of a song with what the watch's planner needs for the storage estimate. */
 data class WearCandidateRow(
     val uid: String,
     val songId: Long,
@@ -203,27 +203,27 @@ data class WearCandidateRow(
     val durationMs: Long,
 )
 
-/** Fortschritt einer Auswahl auf der Uhr; jeder Song zählt einmal, auch bei Duplikaten in der Playlist. */
+/** Progress of a selection on the watch; each song counts once, even with duplicates in the playlist. */
 data class WearSelectionProgressRow(
     val key: String,
     val total: Int,
     val done: Int,
     val failed: Int,
-    /** Fertig geladene Bytes der Auswahl. */
+    /** Fully downloaded bytes of the selection. */
     val bytes: Long = 0,
-    /** Geladener Anteil der gerade laufenden Songs (0–1 je Song, aufsummiert). */
+    /** Downloaded share of the currently running songs (0–1 per song, summed up). */
     val runningFraction: Double = 0.0,
 )
 
 /**
- * Was der Mix über einen Song wissen muss: erster Künstler (Song-Künstler, sonst Album-Künstler), Genres, Jahr (Song, sonst
- * Album) und Hörverlauf.
+ * What the mix needs to know about a song: first artist (song artist, otherwise album artist), genres, year (song, otherwise
+ * album) and listening history.
  */
 data class MixCandidateRow(
     val songId: Long,
     val albumId: Long,
     val artistId: Long?,
-    /** Alle Genres des Songs, getrennt durch [GENRE_SEPARATOR]; `null` ohne Genre. */
+    /** All genres of the song, separated by [GENRE_SEPARATOR]; `null` without a genre. */
     val genres: String?,
     val year: Int?,
     val isFavorite: Boolean,
@@ -231,12 +231,12 @@ data class MixCandidateRow(
     val lastPlayedAt: Long?,
 ) {
     companion object {
-        /** Trennt die Genres in [genres] (`char(31)` in SQL). */
+        /** Separates the genres in [genres] (`char(31)` in SQL). */
         const val GENRE_SEPARATOR = '\u001F'
     }
 }
 
-/** Eine Quelle eines Songs mit ihren Eigenschaften (Titel-Info). */
+/** A source of a song with its properties (track info). */
 data class SongSourceInfoRow(
     val sourceId: String,
     val sourceName: String,
@@ -249,12 +249,12 @@ data class SongSourceInfoRow(
     val isDownloaded: Boolean,
 )
 
-/** Eine gezählte Wiedergabe eines sichtbaren Songs (Musik-Statistik). */
+/** A counted play of a visible song (music statistics). */
 data class MusicPlayRow(val songId: Long, val albumId: Long, val playedAt: Long, val listenedMs: Long)
 
 /**
- * Eine Zeile der Bestenlisten der Musik-Statistik: Song, Album, Künstler oder Genre. [id] ist die Kennung (bei Genres
- * `null`), [albumId] das Album für das Cover (bei Künstlern und Genres `null`).
+ * A row of the music statistics' top lists: song, album, artist or genre. [id] is the ID (`null` for
+ * genres), [albumId] the album for the cover (`null` for artists and genres).
  */
 data class TopPlayedRow(
     val id: Long?,

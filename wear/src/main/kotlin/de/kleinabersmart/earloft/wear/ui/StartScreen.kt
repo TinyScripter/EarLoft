@@ -39,14 +39,14 @@ import de.kleinabersmart.earloft.wear.R
 import de.kleinabersmart.earloft.wear.download.SelectionItem
 import de.kleinabersmart.earloft.wear.sync.PhoneStatus
 
-/** Wohin ein Eintrag des Startbildschirms führt. */
+/** Where an entry of the start screen leads. */
 enum class StartTarget { MUSIC, PODCASTS, BOOKS, STORAGE, PHONE_MUSIC, PHONE_PODCASTS, PHONE_BOOKS }
 
 /**
- * Startbildschirm (Wear-Konzept 11, 14): oben die Uhr selbst mit Musik, Podcasts und Büchern (je nur, wenn etwas davon auf der
- * Uhr ist), darunter – solange ein Handy mit der App verbunden ist – das Handy als Fernsteuerung mit seiner Musik, seinen
- * Podcasts und Büchern (von dort lässt sich auch auswählen, was auf die Uhr kommt, Wear-Konzept 17). Ohne Handy und ohne Inhalte
- * erklärt er stattdessen die Einrichtung (Handy fehlt, App fehlt).
+ * Start screen (Wear concept 11, 14): at the top the watch itself with music, podcasts and books (each only if some of it is on the
+ * watch), below it – as long as a phone with the app is connected – the phone as a remote control with its music, its
+ * podcasts and books (from there you can also choose what goes onto the watch, Wear concept 17). Without a phone and without content
+ * it explains the setup instead (phone missing, app missing).
  */
 @Composable
 fun StartScreen(
@@ -55,7 +55,7 @@ fun StartScreen(
     viewModel: StartViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    // Ob ein Handy verbunden ist, meldet die API nicht als Ereignis.
+    // Whether a phone is connected is not reported by the API as an event.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
     StartContent(
         state = state,
@@ -86,7 +86,7 @@ private fun StartContent(
             if (state.hasContent || state.phoneConnected) {
                 header(R.string.start_section_watch, transformationSpec)
                 action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(false) }, secondary = state.nowPlaying)
-                // Je Art nur ein Eintrag, wenn etwas davon auf der Uhr ist (auch wenn es noch lädt).
+                // Only one entry per kind if some of it is on the watch (even if it is still downloading).
                 if (state.hasMusic) action(R.string.list_music, transformationSpec, onClick = { onClick(StartTarget.MUSIC) })
                 if (state.hasEpisodes) action(R.string.list_podcasts, transformationSpec, onClick = { onClick(StartTarget.PODCASTS) })
                 if (state.hasBooks) action(R.string.list_books, transformationSpec, onClick = { onClick(StartTarget.BOOKS) })
@@ -95,15 +95,15 @@ private fun StartContent(
                 if (state.phoneConnected) {
                     header(R.string.start_section_phone, transformationSpec)
                     action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(true) }, secondary = state.phoneNowPlaying)
-                    // Nur die am Handy eingeschalteten Bereiche (Allgemein → Bereiche).
+                    // Only the sections enabled on the phone (General → Sections).
                     if (SpokenMode.MUSIC in state.areas) action(R.string.list_music, transformationSpec, onClick = { onClick(StartTarget.PHONE_MUSIC) })
                     if (SpokenMode.PODCASTS in state.areas) action(R.string.list_podcasts, transformationSpec, onClick = { onClick(StartTarget.PHONE_PODCASTS) })
                     if (SpokenMode.BOOKS in state.areas) action(R.string.list_books, transformationSpec, onClick = { onClick(StartTarget.PHONE_BOOKS) })
                 } else if (state.phone == PhoneStatus.NotConnected) {
-                    // Der Abschnitt bleibt, damit die Fernsteuerung nicht ohne Erklärung verschwindet.
+                    // The section stays so that the remote control does not disappear without explanation.
                     header(R.string.start_section_phone, transformationSpec)
                     message(R.string.remote_unreachable, transformationSpec)
-                    // Als letztes Element läge der Hinweis am runden Rand und würde abgeschnitten; der Abstand lässt ihn weiter hochscrollen.
+                    // As the last element the hint would sit at the round edge and be cut off; the spacing lets it scroll up further.
                     item { Spacer(Modifier.height(BOTTOM_HINT_SPACE)) }
                 }
             } else {
@@ -140,7 +140,7 @@ private fun TransformingLazyColumnScope.setup(
             }
             action(R.string.setup_install_on_phone, transformationSpec) { onOpenOnPhone(phone.nodeId) }
         }
-        // Mit Handy zeigt der Startbildschirm das Menü, nicht die Einrichtung.
+        // With a phone the start screen shows the menu, not the setup.
         is PhoneStatus.Connected -> Unit
     }
 }

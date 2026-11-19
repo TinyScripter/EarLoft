@@ -13,19 +13,19 @@ import de.kleinabersmart.earloft.core.wearsync.sendPayload
 import javax.inject.Inject
 
 /**
- * Fragt beim Handy nach Passwort, Token bzw. API-Schlüssel einer Quelle (Wear-Konzept 6): wenn sie der Uhr fehlen, wenn sie sich
- * am Handy geändert haben und wenn der Server sie abgelehnt hat. Die Antwort kommt als Message an den [WatchListenerService] und
- * ersetzt die gespeicherten. Ist das Handy nicht erreichbar, fragt der nächste Anlass erneut.
+ * Asks the phone for a source's password, token or API key (Wear concept 6): when the watch lacks them, when they
+ * changed on the phone and when the server rejected them. The answer arrives as a message at the [WatchListenerService] and
+ * replaces the stored ones. If the phone is unreachable, the next occasion asks again.
  */
 class CredentialsRequester @Inject constructor(
     @ApplicationContext context: Context,
     private val dataClient: DataClient,
     private val messageClient: MessageClient,
 ) {
-    /** Wann zuletzt nach fehlenden Zugangsdaten je Quelle gefragt wurde. */
+    /** When missing credentials were last requested, per source. */
     private val asked = context.getSharedPreferences("credentials_requests", Context.MODE_PRIVATE)
 
-    /** [phoneNodeId]: das Handy, von dem die Server stammen; ohne Angabe das, das die Serverliste geschrieben hat. */
+    /** [phoneNodeId]: the phone the servers come from; if not given, the one that wrote the server list. */
     suspend fun request(sourceIds: Collection<String>, phoneNodeId: String? = null) {
         if (sourceIds.isEmpty()) return
         val nodeId = phoneNodeId ?: dataClient.payloadsAt(WearPaths.SERVERS).keys.firstOrNull() ?: return
@@ -38,8 +38,8 @@ class CredentialsRequester @Inject constructor(
     }
 
     /**
-     * Wie [request], aber je Quelle höchstens alle [MISSING_RETRY_MS]: Hat das Handy selbst keine Zugangsdaten (nach einer
-     * Wiederherstellung noch nicht eingegeben), antwortet es nicht, und sonst weckte jeder Start der Uhr das Handy.
+     * Like [request], but at most every [MISSING_RETRY_MS] per source: if the phone itself has no credentials (not yet
+     * entered after a restore), it does not answer, and otherwise every start of the watch would wake the phone.
      */
     suspend fun requestMissing(sourceIds: Collection<String>, phoneNodeId: String? = null) {
         val now = System.currentTimeMillis()

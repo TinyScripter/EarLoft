@@ -4,8 +4,8 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 
 /**
- * App-interne URIs. Sie enthalten nur lokale IDs – welche Quelle tatsächlich geladen wird,
- * entscheidet die App erst beim Zugriff (siehe Konzept 7.2).
+ * App-internal URIs. They only contain local IDs – which source is actually loaded
+ * is decided by the app only on access (see concept 7.2).
  */
 object AppUris {
     const val SCHEME = "earloft"
@@ -23,7 +23,7 @@ object AppUris {
 
     fun bookCover(bookId: Long): String = "$BOOK_COVER_PREFIX$bookId"
 
-    /** Autoren haben keine ID, nur den Namen (prozentkodiert). */
+    /** Authors have no ID, only the name (percent-encoded). */
     fun authorImage(name: String): String = "$AUTHOR_IMAGE_PREFIX${URLEncoder.encode(name, "UTF-8")}"
 
     fun parseAuthorImageName(uri: String): String? = uri.removePrefixOrNull(AUTHOR_IMAGE_PREFIX)?.let { URLDecoder.decode(it, "UTF-8") }

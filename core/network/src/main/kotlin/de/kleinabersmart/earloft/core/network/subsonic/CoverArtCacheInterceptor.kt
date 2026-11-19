@@ -6,8 +6,8 @@ import okhttp3.Response
 import javax.inject.Inject
 
 /**
- * Cover ändern sich praktisch nie. Unabhängig von den Cache-Headern des Servers dürfen sie deshalb
- * lange im HTTP-Cache bleiben – so erscheinen sie auch offline. Gilt für Subsonic (`getCoverArt`) und
+ * Covers practically never change. Regardless of the server's cache headers they may therefore
+ * stay in the HTTP cache for a long time – this way they also show up offline. Applies to Subsonic (`getCoverArt`) and
  * Jellyfin (`Items/<id>/Images/Primary`).
  */
 class CoverArtCacheInterceptor @Inject constructor() : Interceptor {

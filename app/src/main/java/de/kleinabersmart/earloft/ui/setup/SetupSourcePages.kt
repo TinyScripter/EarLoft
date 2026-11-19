@@ -26,9 +26,9 @@ import de.kleinabersmart.earloft.ui.spoken.summary
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Was die Seiten Begrüßung, Bereiche und Quellen auslösen: Sicherung bzw. Podcast-Datenbank einspielen (Dateiauswahl wie in
- * den Einstellungen), Formulare öffnen (Navigation von außen) und Einstellungen schalten (aus dem `SettingsViewModel`, wie
- * auf den Einstellungsseiten). Die Schalter für Dateien auf dem Gerät fragen vorher die Berechtigung an.
+ * What the welcome, areas and sources pages trigger: importing a backup or podcast database (file picker as in
+ * the settings), opening forms (navigation from outside) and toggling settings (from the `SettingsViewModel`, as
+ * on the settings pages). The switches for files on the device ask for permission first.
  */
 internal class SetupActions(
     val onRestoreBackup: () -> Unit,
@@ -49,7 +49,7 @@ internal class SetupActions(
     val setAuthorImages: (Boolean) -> Unit,
 )
 
-/** Musik, Podcasts, Bücher an oder aus; die Quellen-Seiten danach gibt es nur für die eingeschalteten. */
+/** Music, podcasts, books on or off; the source pages after it exist only for the enabled ones. */
 internal fun LazyListScope.areasPage(state: SettingsUiState, actions: SetupActions) {
     pageHeader(R.string.setup_areas_title, R.string.setup_areas_text, icon = DesignR.drawable.ic_settings)
     group("areas") {
@@ -62,7 +62,7 @@ internal fun LazyListScope.areasPage(state: SettingsUiState, actions: SetupActio
                     icon = areaIcon(area),
                     checked = enabled,
                     onCheckedChange = { actions.setArea(area, it) },
-                    // Der letzte eingeschaltete Bereich bleibt an (wie unter Einstellungen → Allgemein).
+                    // The last enabled area stays on (as under Settings → General).
                     enabled = !enabled || state.areas.size > 1,
                 )
             }
@@ -136,7 +136,7 @@ internal fun LazyListScope.podcastsPage(state: SettingsUiState, actions: SetupAc
             }
         }
         row("add-podcast") { AddRow(stringResource(R.string.podcast_add), actions.onAddPodcast) }
-        // Abos samt Fortschritt aus einer anderen Podcast-App (wie Einstellungen → Podcasts).
+        // Subscriptions including progress from another podcast app (as in Settings → Podcasts).
         row("import-database") {
             ActionRow(
                 stringResource(R.string.settings_db_import),
@@ -206,7 +206,7 @@ internal fun LazyListScope.booksPage(state: SettingsUiState, servers: List<Spoke
     }
 }
 
-/** Eine schon eingerichtete Quelle; ein Tipp öffnet sie zum Bearbeiten. */
+/** An already configured source; a tap opens it for editing. */
 @Composable
 private fun SourceRow(title: String, subtitle: String?, icon: Int, onClick: (() -> Unit)? = null) {
     ListItem(
@@ -220,7 +220,7 @@ private fun SourceRow(title: String, subtitle: String?, icon: Int, onClick: (() 
     )
 }
 
-/** Eine Aktion mit Erklärung, etwa eine Datei einspielen. */
+/** An action with an explanation, e.g. importing a file. */
 @Composable
 internal fun ActionRow(title: String, summary: String, icon: Int, onClick: () -> Unit) {
     ListItem(
@@ -231,7 +231,7 @@ internal fun ActionRow(title: String, summary: String, icon: Int, onClick: () ->
     )
 }
 
-/** Öffnet das Formular für eine neue Quelle. */
+/** Opens the form for a new source. */
 @Composable
 private fun AddRow(label: String, onClick: () -> Unit) {
     ListItem(

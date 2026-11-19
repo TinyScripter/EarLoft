@@ -26,7 +26,7 @@ class BookStorageTest {
 
     @Test
     fun `a name another file of the book still holds is not reused`() {
-        // Datei A war Index 0 und ist auf dem Server auf Index 1 gerückt, ihr Pfad blieb; die neue Datei auf Index 0 lädt jetzt.
+        // File A was index 0 and moved to index 1 on the server, its path stayed; the new file at index 0 is now downloading.
         val loadedA = storage.fileFor(7, 0, "audio/mpeg").absolutePath
         val loadedB = storage.fileFor(7, 1, "audio/mpeg").absolutePath
         val file = storage.freeFileFor(7, 0, "audio/mpeg", taken = listOf(loadedA, loadedB))

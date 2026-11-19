@@ -15,8 +15,8 @@ import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 /**
- * Podcasts im Browse-Tree (Konzept 7.1): Weiterhören (die Warteschlange der App), neue Folgen, Abos, geladene Folgen. Archivierte
- * Abos, Probeabos und ausgeschaltete Server fehlen schon in den Abfragen. Ob Podcasts eingeschaltet sind, prüft [BrowseTree].
+ * Podcasts in the browse tree (concept 7.1): continue listening (the app's queue), new episodes, subscriptions, downloaded episodes. Archived
+ * subscriptions, trial subscriptions and disabled servers are already excluded by the queries. [BrowseTree] checks whether podcasts are enabled.
  */
 internal class PodcastBrowse @Inject constructor(
     @param:ApplicationContext private val context: Context,
@@ -24,7 +24,7 @@ internal class PodcastBrowse @Inject constructor(
     private val bookRepository: BookRepository,
     private val continueListening: ContinueListening,
 ) {
-    /** Inhalt eines Podcast-Ordners; `null`, wenn [parentId] keiner ist. */
+    /** Content of a podcast folder; `null` if [parentId] isn't one. */
     suspend fun children(parentId: String): List<MediaItem>? = when {
         parentId == MediaIds.EPISODES_CONTINUE -> continueEpisodes(Int.MAX_VALUE)
         parentId == MediaIds.EPISODES_NEW -> episodeItems(podcastRepository.recentEpisodes(NEW_LIMIT).first())
@@ -34,10 +34,10 @@ internal class PodcastBrowse @Inject constructor(
         else -> null
     }
 
-    /** „Weiterhören“, höchstens [limit] Folgen. */
+    /** "Continue listening", at most [limit] episodes. */
     suspend fun continueEpisodes(limit: Int): List<MediaItem> = episodeItems(continueListening.episodes.first().take(limit))
 
-    /** Treffer der Suche bzw. andere Folgen als abspielbare Einträge. */
+    /** Search results or other episodes as playable entries. */
     suspend fun episodeItems(episodes: List<BookWithProgress>): List<MediaItem> {
         if (episodes.isEmpty()) return emptyList()
         val feedTitles = podcastRepository.feeds.first().associate { it.id to it.title }
@@ -49,8 +49,8 @@ internal class PodcastBrowse @Inject constructor(
     }
 
     /**
-     * Die Folge, mit der ein Podcast auf Zuruf startet: seine erste in „Weiterhören“, sonst die neueste nicht zu Ende
-     * gehörte, sonst die neueste.
+     * The episode a podcast starts with on voice request: its first in "Continue listening", otherwise the newest one not
+     * finished, otherwise the newest.
      */
     suspend fun startEpisodeOf(feedId: String): Long? {
         continueListening.episodes.first().firstOrNull { it.book.serverId == feedId }?.let { return it.book.id }
@@ -58,7 +58,7 @@ internal class PodcastBrowse @Inject constructor(
         return (episodes.firstOrNull { it.progress?.finished != true } ?: episodes.firstOrNull())?.book?.id
     }
 
-    /** Fertig geladene Folgen, neueste zuerst. */
+    /** Fully downloaded episodes, newest first. */
     private suspend fun downloadedEpisodes(): List<BookWithProgress> =
         podcastRepository.downloadedIds().first()
             .mapNotNull { bookRepository.book(it).first() }
@@ -70,15 +70,15 @@ internal class PodcastBrowse @Inject constructor(
 }
 
 /**
- * Bücher im Browse-Tree (Konzept 7.1): Weiterhören, zuletzt hinzugefügt, alle, nach Autor und nach Serie. Ausgeschaltete Server
- * fehlen schon in den Abfragen. Ob Bücher eingeschaltet sind, prüft [BrowseTree].
+ * Books in the browse tree (concept 7.1): continue listening, recently added, all, by author and by series. Disabled servers
+ * are already excluded by the queries. [BrowseTree] checks whether books are enabled.
  */
 internal class BookBrowse @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val bookRepository: BookRepository,
     private val episodeQueue: EpisodeQueue,
 ) {
-    /** Inhalt eines Bücher-Ordners; `null`, wenn [parentId] keiner ist. */
+    /** Content of a books folder; `null` if [parentId] isn't one. */
     suspend fun children(parentId: String): List<MediaItem>? = when {
         parentId == MediaIds.BOOKS_CONTINUE -> continueBooks(LIST_LIMIT)
         parentId == MediaIds.BOOKS_RECENT -> bookItems(bookRepository.recentlyAdded(LIST_LIMIT).first())
@@ -96,7 +96,7 @@ internal class BookBrowse @Inject constructor(
         else -> null
     }
 
-    /** „Weiterhören“ in der Reihenfolge der App, höchstens [limit] Bücher. */
+    /** "Continue listening" in the app's order, at most [limit] books. */
     suspend fun continueBooks(limit: Int): List<MediaItem> =
         bookItems(bookRepository.continueListening(limit, startOrder = episodeQueue.order).first())
 
@@ -106,7 +106,7 @@ internal class BookBrowse @Inject constructor(
         return books.map { it.toPlayableSpokenItem(context, it.book.authorLine, downloads[it.book.id]?.state) }
     }
 
-    /** Das erste angefangene, nicht beendete Buch (Sprachbefehl ohne Begriff, wenn sonst nichts passt). */
+    /** The first started, unfinished book (voice command without a term, if nothing else fits). */
     suspend fun firstStartedId(): Long? = bookRepository.continueListening(1, startOrder = episodeQueue.order).first().firstOrNull()?.book?.id
 
     private suspend fun allBooks(): List<BookWithProgress> = bookRepository.books().first()

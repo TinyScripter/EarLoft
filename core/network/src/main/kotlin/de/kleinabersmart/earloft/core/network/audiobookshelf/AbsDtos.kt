@@ -2,7 +2,7 @@ package de.kleinabersmart.earloft.core.network.audiobookshelf
 
 import kotlinx.serialization.Serializable
 
-// Nur die Felder, die die App braucht; Unbekanntes (u. a. das Anmelde-Token in /api/me) wird ignoriert.
+// Only the fields the app needs; unknown ones (among others the login token in /api/me) are ignored.
 
 @Serializable
 data class AbsLibrariesResponse(val libraries: List<AbsLibraryDto> = emptyList())
@@ -11,9 +11,9 @@ data class AbsLibrariesResponse(val libraries: List<AbsLibraryDto> = emptyList()
 data class AbsLibraryDto(
     val id: String,
     val name: String = "",
-    /** `book` oder `podcast`. */
+    /** `book` or `podcast`. */
     val mediaType: String = "book",
-    /** Ordner der Bibliothek auf dem Server; ein Upload landet in einem davon (`books_improvements.md` M9). */
+    /** Library folders on the server; an upload ends up in one of them (`books_improvements.md` M9). */
     val folders: List<AbsFolderDto> = emptyList(),
 )
 
@@ -27,9 +27,9 @@ data class AbsAuthorsResponse(val authors: List<AbsAuthorDto> = emptyList())
 data class AbsAuthorDto(
     val id: String,
     val name: String = "",
-    /** Pfad des Bilds auf dem Server; `null`, wenn der Autor keines hat. */
+    /** Path of the image on the server; `null` if the author has none. */
     val imagePath: String? = null,
-    /** Beschreibung des Autors (gepflegt oder per „Match“ von Audible übernommen). */
+    /** Description of the author (maintained or taken over from Audible via "Match"). */
     val description: String? = null,
 )
 
@@ -55,7 +55,7 @@ data class AbsMediaDto(
     val duration: Double = 0.0,
     val numChapters: Int = 0,
     val numAudioFiles: Int = 0,
-    /** Nur mit `expanded=1`. */
+    /** Only with `expanded=1`. */
     val chapters: List<AbsChapterDto> = emptyList(),
     val audioFiles: List<AbsAudioFileDto> = emptyList(),
 )
@@ -68,13 +68,13 @@ data class AbsMetadataDto(
     val narratorName: String? = null,
     val seriesName: String? = null,
     val description: String? = null,
-    /** Zum Teilen über Open Library (Konzept 13); die ASIN bleibt bewusst weg. */
+    /** For sharing via Open Library (concept 13); the ASIN is deliberately left out. */
     val isbn: String? = null,
-    /** Für die Buchseite; das Jahr kommt als Text („2014“). */
+    /** For the book page; the year comes as text ("2014"). */
     val publishedYear: String? = null,
     val publisher: String? = null,
     val language: String? = null,
-    /** Kann Einträge mit mehreren Genres enthalten („Polizei, Thriller“). */
+    /** May contain entries with multiple genres ("Polizei, Thriller"). */
     val genres: List<String> = emptyList(),
 )
 
@@ -97,28 +97,28 @@ data class AbsAudioFileDto(
 
 @Serializable
 data class AbsMeResponse(
-    /** Kennung des Kontos; die Sitzungen, die die App meldet, gehören diesem Konto. */
+    /** ID of the account; the sessions the app reports belong to this account. */
     val id: String = "",
     val mediaProgress: List<AbsMediaProgressDto> = emptyList(),
     val bookmarks: List<AbsBookmarkDto> = emptyList(),
-    /** `root`, `admin` oder `user`; Administratoren dürfen immer hochladen. */
+    /** `root`, `admin` or `user`; administrators may always upload. */
     val type: String = "",
     val permissions: AbsPermissionsDto = AbsPermissionsDto(),
 ) {
-    /** Darf das Konto Bücher hochladen (`POST /api/upload`)? */
+    /** May the account upload books (`POST /api/upload`)? */
     val canUpload: Boolean get() = type == "root" || type == "admin" || permissions.upload
 }
 
 @Serializable
 data class AbsPermissionsDto(val upload: Boolean = false)
 
-/** Lesezeichen des Kontos; der Server erkennt es an Eintrag und [time] (Sekunden). */
+/** Bookmarks of the account; the server identifies one by entry and [time] (seconds). */
 @Serializable
 data class AbsBookmarkDto(
     val libraryItemId: String,
     val time: Double,
     val title: String = "",
-    /** Unix-ms. */
+    /** Unix ms. */
     val createdAt: Long = 0,
 )
 
@@ -133,9 +133,9 @@ data class AbsMediaProgressDto(
     val progress: Double = 0.0,
     val currentTime: Double = 0.0,
     val isFinished: Boolean = false,
-    /** Unix-ms der letzten Änderung auf dem Server. */
+    /** Unix ms of the last change on the server. */
     val lastUpdate: Long = 0,
-    /** Aus „Weiterhören“ genommen; fällt auf dem Server mit der nächsten neuen Position. */
+    /** Removed from "Continue listening"; cleared on the server with the next new position. */
     val hideFromContinueListening: Boolean = false,
 )
 
@@ -145,6 +145,6 @@ data class AbsProgressUpdate(
     val duration: Double,
     val progress: Double,
     val isFinished: Boolean,
-    /** Immer mitgeschickt (ohne Standardwert, sonst fiele `false` weg); Audiobookshelf 2.37 übernimmt es per PATCH. */
+    /** Always sent (without a default value, otherwise `false` would be omitted); Audiobookshelf 2.37 applies it via PATCH. */
     val hideFromContinueListening: Boolean,
 )

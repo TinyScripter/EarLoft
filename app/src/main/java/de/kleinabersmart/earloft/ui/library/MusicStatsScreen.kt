@@ -48,7 +48,7 @@ import java.time.Month
 import java.time.format.TextStyle
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Welche Bestenliste eine Zeile zeigt; bestimmt Bild und Sprungziel. */
+/** Which top list a row shows; determines image and jump target. */
 private enum class TopKind(@StringRes val title: Int) {
     ARTISTS(R.string.music_stats_top_artists),
     ALBUMS(R.string.music_stats_top_albums),
@@ -57,8 +57,8 @@ private enum class TopKind(@StringRes val title: Int) {
 }
 
 /**
- * Reiter „Statistik“ der Musik-Bibliothek (Konzept 8 „Musik-Statistik“): gehörte Zeit und Wiedergaben, Bestenlisten,
- * Verlauf je Monat und Wochentag; wie die Statistik von Podcasts und Büchern je Jahr wählbar.
+ * "Statistics" tab of the music library (concept 8 "Music statistics"): listening time and plays, top lists,
+ * history per month and weekday; selectable per year like the statistics of podcasts and books.
  */
 @Composable
 fun MusicStatsScreen(
@@ -129,7 +129,7 @@ private fun LazyListScope.topList(kind: TopKind, entries: List<MusicTopEntry>, o
     if (entries.isEmpty()) return
     item(key = "top-$kind") { SectionHeader(stringResource(kind.title)) }
     val max = entries.maxOf { it.plays }.coerceAtLeast(1)
-    // Genres haben keine ID; ihr Name bleibt unverändert, denn die Abfrage fasst nur ASCII-Schreibweisen zusammen.
+    // Genres have no ID; their name stays unchanged, because the query only merges ASCII spellings.
     groupedItems(entries, key = { "$kind-${it.id ?: it.title}" }) { entry ->
         TopRow(kind, entry, share = entry.plays.toFloat() / max, onClick = { onClick(kind, entry) })
     }
@@ -154,7 +154,7 @@ private fun Summary(stats: MusicStats) {
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(top = 8.dp),
         )
-        // In „Gesamt“ sind alle gehörten Alben neu.
+        // In "All time" all played albums are new.
         if (stats.year != null && stats.newAlbums > 0) {
             Text(
                 pluralStringResource(R.plurals.music_stats_new_albums, stats.newAlbums, stats.newAlbums),

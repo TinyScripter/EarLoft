@@ -21,7 +21,7 @@ class RetryBudgetTest {
         val budget = RetryBudget(runAttemptCount = 4, maxAttempts = 5)
 
         assertEquals(listOf(true, false, false), List(3) { budget.giveUp(interrupted) })
-        // Der nächste Lauf darf wieder eine aufgeben.
+        // The next run may give up on one again.
         assertEquals(true, RetryBudget(runAttemptCount = 5, maxAttempts = 5).giveUp(interrupted))
     }
 

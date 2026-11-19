@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@array/android_wear_capabilities">
-    <!-- Damit das Handy erkennt, dass die Uhr-App installiert ist (WearCapabilities.WATCH_APP). -->
+    <!-- So that the phone detects that the watch app is installed (WearCapabilities.WATCH_APP). -->
     <string-array name="android_wear_capabilities" translatable="false">
         <item>earloft_watch_app</item>
     </string-array>

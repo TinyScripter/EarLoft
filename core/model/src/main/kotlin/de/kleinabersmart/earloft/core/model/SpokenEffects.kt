@@ -3,25 +3,25 @@ package de.kleinabersmart.earloft.core.model
 import kotlin.math.abs
 
 /**
- * Tempo und Wiedergabe-Effekte einer Ebene (Konzept 12.4): eines Buchs bzw. einer Folge, eines Abos oder des Bereichs.
- * `null` = von der nächsten Ebene übernehmen (Folge bzw. Buch > Abo > Bereich).
+ * Speed and playback effects of one layer (concept 12.4): of a book or episode, a subscription or the section.
+ * `null` = inherit from the next layer (episode or book > subscription > section).
  */
 data class EffectOverrides(
     val speed: Float? = null,
     val skipSilence: Boolean? = null,
-    /** Lautstärke anheben in dB, 0 = aus. */
+    /** Volume boost in dB, 0 = off. */
     val volumeBoostDb: Int? = null,
 ) {
     val isEmpty: Boolean get() = speed == null && skipSilence == null && volumeBoostDb == null
 
-    /** Diese Werte, wo gesetzt, sonst die von [fallback]. */
+    /** These values where set, otherwise those of [fallback]. */
     infix fun over(fallback: EffectOverrides): EffectOverrides = EffectOverrides(
         speed = speed ?: fallback.speed,
         skipSilence = skipSilence ?: fallback.skipSilence,
         volumeBoostDb = volumeBoostDb ?: fallback.volumeBoostDb,
     )
 
-    /** Nur die Werte, die von [inherited] abweichen; gleiche fallen weg und folgen damit künftig der Ebene darunter. */
+    /** Only the values that differ from [inherited]; equal ones are dropped and thus follow the layer below from now on. */
     fun minus(inherited: SpokenEffects): EffectOverrides = EffectOverrides(
         speed = speed?.takeUnless { sameSpeed(it, inherited.speed) },
         skipSilence = skipSilence?.takeUnless { it == inherited.skipSilence },
@@ -29,45 +29,45 @@ data class EffectOverrides(
     )
 }
 
-/** Was beim Abspielen eines Buchs bzw. einer Folge gilt, nach der Rangfolge aufgelöst. */
+/** What applies when playing a book or episode, resolved by precedence. */
 data class SpokenEffects(
     val speed: Float = 1f,
     val skipSilence: Boolean = false,
     val volumeBoostDb: Int = 0,
-    /** Nur Folgen, je Abo: so viel am Anfang überspringen (nur beim Start bei 0) bzw. am Ende (zählt als gehört). */
+    /** Episodes only, per subscription: skip this much at the start (only when starting at 0) or at the end (counts as played). */
     val skipIntroMs: Long = 0,
     val skipOutroMs: Long = 0,
 ) {
-    /** Stille kürzen oder Lautstärke anheben ist an (das Tempo zählt nicht dazu). */
+    /** Silence trimming or volume boost is on (speed doesn't count). */
     val hasAudioEffects: Boolean get() = skipSilence || volumeBoostDb > 0
 
     companion object {
         val DEFAULT = SpokenEffects()
 
-        /** Wahl für „Lautstärke anheben“; der `LoudnessEnhancer` begrenzt selbst, darüber übersteuert es hörbar. */
+        /** Choices for "Volume boost"; the `LoudnessEnhancer` limits itself, above this it audibly distorts. */
         val VOLUME_BOOST_CHOICES = listOf(0, 3, 6, 9)
 
-        /** Wahl für das Standardtempo in den Einstellungen; im Player geht es feiner (Schritt 0,05). */
+        /** Choices for the default speed in the settings; the player allows finer steps (0.05). */
         val SPEED_CHOICES = listOf(0.75f, 0.9f, 1f, 1.1f, 1.2f, 1.25f, 1.3f, 1.4f, 1.5f, 1.75f, 2f, 2.5f, 3f)
 
-        /** Wahl für Intro und Outro überspringen, in Sekunden (0 = aus). */
+        /** Choices for skipping intro and outro, in seconds (0 = off). */
         val SKIP_CHOICES_S = listOf(0, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180)
     }
 }
 
 /**
- * Die Ebenen eines Buchs bzw. einer Folge: eigene Werte, die des Abos (nur Folgen) und die Vorgabe des Bereichs, dazu
- * Intro und Outro des Abos.
+ * The layers of a book or episode: own values, those of the subscription (episodes only) and the section's default, plus
+ * the subscription's intro and outro.
  */
 data class EffectLayers(
     val own: EffectOverrides = EffectOverrides(),
-    /** `null` bei Büchern und Folgen ohne Abo. */
+    /** `null` for books and episodes without a subscription. */
     val feed: EffectOverrides? = null,
     val area: SpokenEffects = SpokenEffects.DEFAULT,
     val skipIntroS: Int = 0,
     val skipOutroS: Int = 0,
 ) {
-    /** Was ohne eigene Werte gälte (Abo, sonst Bereich). */
+    /** What would apply without own values (subscription, otherwise section). */
     val inherited: SpokenEffects
         get() {
             val merged = (feed ?: EffectOverrides()) over area.overrides()
@@ -90,8 +90,8 @@ data class EffectLayers(
         }
 }
 
-/** Die Vorgabe als Ebene, bei der jeder Wert gesetzt ist. */
+/** The default as a layer in which every value is set. */
 fun SpokenEffects.overrides(): EffectOverrides = EffectOverrides(speed, skipSilence, volumeBoostDb)
 
-/** Tempi gelten als gleich, wenn sie sich um weniger als einen halben Schritt (0,05) unterscheiden. */
+/** Speeds count as equal if they differ by less than half a step (0.05). */
 fun sameSpeed(a: Float, b: Float): Boolean = abs(a - b) < 0.01f

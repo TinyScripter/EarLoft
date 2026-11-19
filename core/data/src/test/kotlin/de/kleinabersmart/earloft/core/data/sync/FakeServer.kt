@@ -22,7 +22,7 @@ import de.kleinabersmart.earloft.core.network.subsonic.SubsonicException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
-/** Server im Speicher: liefert [tracks], merkt sich Aufrufe in [calls] und hält Playlists. */
+/** In-memory server: returns [tracks], records calls in [calls] and holds playlists. */
 internal class FakeServer(
     override val sourceId: String,
     var tracks: List<RawTrack> = emptyList(),
@@ -33,7 +33,7 @@ internal class FakeServer(
     var failure: Exception? = null
     val playlists = LinkedHashMap<String, RemotePlaylist>()
     val lyrics = HashMap<String, Lyrics>()
-    /** Für den Zwischenabgleich: neue Alben und Favoriten (`remoteId` → Zeitpunkt). */
+    /** For the quick sync: new albums and favorites (`remoteId` → timestamp). */
     var newTracks: List<RawTrack> = emptyList()
     var starred: Map<String, Long> = emptyMap()
     var starredAlbums: Map<String, Long> = emptyMap()
@@ -42,7 +42,7 @@ internal class FakeServer(
     private var clock = 1_000L
     private var nextId = 1
 
-    /** Legt an oder ändert (z. B. „ein anderer Client“); jede Änderung bekommt ein neues `changedAt`. */
+    /** Creates or modifies (e.g. "another client"); every change gets a new `changedAt`. */
     fun putPlaylist(name: String, songRemoteIds: List<String>, remoteId: String = "pl${nextId++}"): String {
         playlists[remoteId] = RemotePlaylist(RemotePlaylistInfo(remoteId, name, clock++), songRemoteIds)
         return remoteId
@@ -109,7 +109,7 @@ internal class FakeServer(
     }
 }
 
-/** Lokale Quelle: nur Tracks, keine Server-Funktionen. */
+/** Local source: tracks only, no server features. */
 internal class FakeLocalSource(private val tracks: List<RawTrack>) : MusicDataSource {
     override val sourceId = "local"
     override val type = SourceType.LOCAL
@@ -159,8 +159,8 @@ internal fun EarLoftDatabase.librarySyncer(
 )
 
 /**
- * Gleicht [source] ab; einen Server legt es vorher an, wie das Serverformular ([LibrarySyncer] legt nur die lokale
- * Quelle selbst an, damit ein gerade entfernter Server nicht zurückkommt).
+ * Syncs [source]; creates a server beforehand, like the server form does ([LibrarySyncer] only creates the local
+ * source itself, so that a server that was just removed doesn't come back).
  */
 internal suspend fun LibrarySyncer.syncAdding(db: EarLoftDatabase, source: MusicDataSource) {
     if (source.type.isServer) db.sourceDao().insertIfAbsent(SourceEntity(source.sourceId, source.type, source.displayName))

@@ -22,10 +22,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Zugangsdaten geschützter Feeds je Abo (Konzept 12.10 „Geschützte Feeds“), verschlüsselt im [SecretStore] unter
- * `feed:<feedId>:auth`. Wie alle Passwörter gehen sie nicht ins Backup, nicht in OPML- oder Datenbank-Export und nicht an die
- * Uhr. Der Feed-Abruf holt sie je Abo ([forFeed]); für Streams, Downloads und Bilder hält [start] die [FeedAuthRegistry]
- * aktuell. Verschwindet ein Abo (beendet, Probeabo aufgeräumt), verschwinden auch seine Zugangsdaten.
+ * Credentials of protected feeds per subscription (concept 12.10 "Protected feeds"), encrypted in the [SecretStore] under
+ * `feed:<feedId>:auth`. Like all passwords, they are not included in the backup, the OPML or database export, or sent to the
+ * watch. The feed fetch gets them per subscription ([forFeed]); for streams, downloads and images [start] keeps the [FeedAuthRegistry]
+ * up to date. When a subscription disappears (ended, trial subscription cleaned up), its credentials disappear too.
  */
 @Singleton
 class FeedCredentials @Inject constructor(
@@ -37,10 +37,10 @@ class FeedCredentials @Inject constructor(
     private val mutex = Mutex()
     private val started = AtomicBoolean(false)
 
-    /** Entschlüsselte Zugangsdaten je Abo, `null` = keine; nur Abos, die schon nachgesehen wurden. */
+    /** Decrypted credentials per subscription, `null` = none; only subscriptions that have already been looked up. */
     private val known = HashMap<String, FeedAuth?>()
 
-    /** Die Abos beim letzten Blick in die Datenbank; nur wer dort stand und fehlt, ist wirklich weg (nicht ein neues). */
+    /** The subscriptions at the last look into the database; only one that was there and is missing is really gone (not a new one). */
     private var lastFeedIds: Set<String> = emptySet()
     private val changes = MutableStateFlow(0)
 
@@ -53,10 +53,10 @@ class FeedCredentials @Inject constructor(
 
     suspend fun forFeed(feedId: String): FeedAuth? = mutex.withLock { lookup(feedId) }
 
-    /** Für die Abo-Einstellungen: die aktuellen Zugangsdaten, nach jeder Änderung neu. */
+    /** For the subscription settings: the current credentials, refreshed after every change. */
     fun observe(feedId: String): Flow<FeedAuth?> = changes.map { forFeed(feedId) }.distinctUntilChanged()
 
-    /** Speichert ([auth]) bzw. löscht (`null`) die Zugangsdaten des Abos. */
+    /** Stores ([auth]) or deletes (`null`) the subscription's credentials. */
     suspend fun set(feedId: String, auth: FeedAuth?) {
         mutex.withLock {
             if (auth == null) secrets.remove(key(feedId)) else secrets.put(key(feedId), auth.encode())

@@ -30,8 +30,8 @@ class LibrarySettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
     /**
-     * Musik auf dem Gerät (MediaStore) in die Bibliothek aufnehmen (Standard: aus, siehe [LocalSourcesDefault]). Aus = nur
-     * Server; die lokalen Songs verschwinden dann aus der Bibliothek, siehe [LibraryRefresher].
+     * Include music on the device (MediaStore) in the library (default: off, see [LocalSourcesDefault]). Off = servers
+     * only; the local songs then disappear from the library, see [LibraryRefresher].
      */
     val useLocalMedia: Flow<Boolean> = context.librarySettingsDataStore.data.map { it[KEY_LOCAL_MEDIA] ?: false }
 
@@ -39,35 +39,35 @@ class LibrarySettings @Inject constructor(
         context.librarySettingsDataStore.edit { it[KEY_LOCAL_MEDIA] = enabled }
     }
 
-    /** Abstand des automatischen Vollabgleichs der Server in Tagen: [SYNC_NEVER], 1, 7 oder 30. */
+    /** Interval of the automatic full sync of the servers in days: [SYNC_NEVER], 1, 7 or 30. */
     val syncIntervalDays: Flow<Int> = context.librarySettingsDataStore.data.map { it[KEY_SYNC_DAYS] ?: DEFAULT_SYNC_DAYS }
 
     suspend fun setSyncIntervalDays(days: Int) {
         context.librarySettingsDataStore.edit { it[KEY_SYNC_DAYS] = days.coerceAtLeast(SYNC_NEVER) }
     }
 
-    /** Reihenfolge der Alben in der Bibliothek (Standard: nach Titel). */
+    /** Order of albums in the library (default: by title). */
     val albumSort: Flow<AlbumSort> = context.librarySettingsDataStore.data.map { it[KEY_ALBUM_SORT].toEnum(AlbumSort.TITLE) }
 
     suspend fun setAlbumSort(sort: AlbumSort) {
         context.librarySettingsDataStore.edit { it[KEY_ALBUM_SORT] = sort.name }
     }
 
-    /** Reihenfolge der Künstler in der Bibliothek (Standard: nach Name). */
+    /** Order of artists in the library (default: by name). */
     val artistSort: Flow<ArtistSort> = context.librarySettingsDataStore.data.map { it[KEY_ARTIST_SORT].toEnum(ArtistSort.NAME) }
 
     suspend fun setArtistSort(sort: ArtistSort) {
         context.librarySettingsDataStore.edit { it[KEY_ARTIST_SORT] = sort.name }
     }
 
-    /** Reihenfolge der Songs in der Bibliothek (Standard: nach Titel). */
+    /** Order of songs in the library (default: by title). */
     val songSort: Flow<SongSort> = context.librarySettingsDataStore.data.map { it[KEY_SONG_SORT].toEnum(SongSort.TITLE) }
 
     suspend fun setSongSort(sort: SongSort) {
         context.librarySettingsDataStore.edit { it[KEY_SONG_SORT] = sort.name }
     }
 
-    /** Streams über mobile Daten: Original oder vom Server umgewandelt (Standard: Original). Im WLAN immer Original. */
+    /** Streams over mobile data: original or transcoded by the server (default: original). On Wi-Fi always original. */
     val mobileStreamQuality: Flow<MobileStreamQuality> =
         context.librarySettingsDataStore.data.map { it[KEY_MOBILE_STREAM_QUALITY].toEnum(MobileStreamQuality.ORIGINAL) }
 
@@ -76,7 +76,7 @@ class LibrarySettings @Inject constructor(
     }
 
     companion object {
-        /** Kein automatischer Abgleich; nur von Hand (und beim Einrichten oder Einschalten eines Servers). */
+        /** No automatic sync; only manually (and when setting up or enabling a server). */
         const val SYNC_NEVER = 0
         val SYNC_DAY_CHOICES = listOf(SYNC_NEVER, 1, 7, 30)
         const val DEFAULT_SYNC_DAYS = 1
@@ -87,7 +87,7 @@ class LibrarySettings @Inject constructor(
         private val KEY_SONG_SORT = stringPreferencesKey("song_sort")
         private val KEY_MOBILE_STREAM_QUALITY = stringPreferencesKey("mobile_stream_quality")
 
-        /** Unbekannte Werte (z. B. aus einer neueren Sicherung) fallen auf [default] zurück. */
+        /** Unknown values (e.g. from a newer backup) fall back to [default]. */
         private inline fun <reified T : Enum<T>> String?.toEnum(default: T): T =
             enumValues<T>().firstOrNull { it.name == this } ?: default
     }

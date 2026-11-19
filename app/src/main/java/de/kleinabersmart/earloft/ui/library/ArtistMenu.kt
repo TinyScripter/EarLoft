@@ -31,9 +31,9 @@ import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Kontextmenü eines Künstlers (Langklick auf Kachel oder Zeile, ⋮ auf der Künstlerseite), aufgebaut wie das der Alben: oben der
- * Name, darunter Als Nächstes spielen, Zur Warteschlange (alle seine Songs), Mix starten, Zu Favoriten, Teilen, Herunterladen bzw. Download entfernen
- * (seine Alben). Erst einbinden, wenn es offen ist.
+ * Context menu of an artist (long press on tile or row, ⋮ on the artist page), structured like the album menu: the
+ * name at the top, below it Play next, Add to queue (all their songs), Start mix, Add to favorites, Share, Download or Remove download
+ * (their albums). Only include it while it is open.
  */
 @Composable
 fun ArtistMenu(
@@ -73,7 +73,7 @@ fun ArtistMenu(
         MixMenuItem(MixSeed.Artist(artistId), onDismiss)
         CollectionFavoriteMenuItem(FavoriteKind.ARTIST, artistId, onDismiss)
         ShareMenuItem(ShareTarget.Artist(artistId), onDismiss)
-        // Wie bei den Alben: rein lokale Künstler brauchen keinen Download; teilweise geladen bietet beides.
+        // As with albums: purely local artists need no download; partially downloaded offers both.
         if (offline.downloadableCount > 0 && !offline.isFullyOffline && offline.pendingCount == 0) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.action_download_artist)) },

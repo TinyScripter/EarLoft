@@ -3,7 +3,7 @@ package de.kleinabersmart.earloft.core.data.podcast
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Regeln für das Aufräumen der Probeabos (Konzept 12.10). */
+/** Rules for cleaning up trial subscriptions (concept 12.10). */
 class TrialPodcastsTest {
 
     private fun episode(id: Long, feed: String = "f", finished: Boolean = false, progress: Boolean = false, downloaded: Boolean = false) =

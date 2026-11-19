@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "de.kleinabersmart.earloft.core.database"
 
-    // Migrationstests (Robolectric) lesen die exportierten Schemas als Assets.
+    // Migration tests (Robolectric) read the exported schemas as assets.
     sourceSets.getByName("test").assets.directories.add("$projectDir/schemas")
 }
 
@@ -19,7 +19,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
 }
 
-// Neue Schemas entstehen im selben Lauf; erst danach dürfen die Test-Assets zusammengestellt werden.
+// New schemas are created in the same run; only afterwards may the test assets be assembled.
 tasks.matching { it.name.startsWith("merge") && it.name.endsWith("UnitTestAssets") }.configureEach {
     dependsOn("copyRoomSchemas")
 }

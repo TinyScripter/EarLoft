@@ -13,7 +13,7 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
-/** Geschützte Feeds (Konzept 12.10): Basic-Anmeldung nur auf dem Host des Feeds. */
+/** Protected feeds (concept 12.10): basic auth only on the feed's host. */
 class FeedAuthTest {
 
     private lateinit var feedServer: MockWebServer
@@ -85,7 +85,7 @@ class FeedAuthTest {
 
         assertEquals("bert", registry.forUrl(feedServer.url("/bert/media/1.mp3"))?.username)
         assertEquals("anna", registry.forUrl(feedServer.url("/anna/cover.jpg"))?.username)
-        // Kein Pfad passt: der erste, wie bisher.
+        // No path matches: the first one, as before.
         assertEquals("anna", registry.forUrl(feedServer.url("/media/1.mp3"))?.username)
     }
 

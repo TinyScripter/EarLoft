@@ -11,15 +11,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.core.playback.AudioEffectSession
 
 /**
- * Öffnet den Equalizer des Systems bzw. einer Equalizer-App für die Wiedergabe der App (Konzept 7 „Equalizer“). `null`, wenn
- * es keinen gibt, der Dienst nicht läuft oder auf ein anderes Gerät gespielt wird ([isRemote]: dort wirkt er nicht). Außerhalb
- * des Menüs aufrufen: Der Starter muss das Schließen des Menüs überleben.
+ * Opens the system equalizer or an equalizer app for the app's playback (concept 7 "Equalizer"). `null` if
+ * there is none, the service isn't running or playback goes to another device ([isRemote]: it has no effect there). Call it
+ * outside the menu: the launcher must survive the menu closing.
  */
 @Composable
 fun rememberEqualizerLauncher(isRemote: Boolean, viewModel: EqualizerViewModel = hiltViewModel()): (() -> Unit)? {
     val context = LocalContext.current
     val sessionId by viewModel.sessionId.collectAsStateWithLifecycle()
-    // Mit Ergebnis starten: Nur so erfährt der Equalizer, welche App ihn öffnet.
+    // Start for result: only that way does the equalizer learn which app opens it.
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
     val intent = remember(sessionId) {
         sessionId?.let { id ->

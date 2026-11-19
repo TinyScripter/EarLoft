@@ -96,7 +96,7 @@ class PodcastFeedParserTest {
 
         assertEquals("Banse & Buermeyer", feed.title)
         assertEquals("Philip & Ulf", feed.author)
-        // Nur einmal: Was danach noch kodiert ist, war im Titel so gemeint.
+        // Only once: whatever is still encoded afterwards was meant that way in the title.
         assertEquals("BlackRock & Co – \"Teil\" ❤ &lt;b&gt; &unbekannt; & mehr", feed.episodes.single().title)
         assertEquals("Fragen & Antworten", feed.episodes.single().chapters.single().title)
     }
@@ -169,11 +169,11 @@ class PodcastFeedParserTest {
         for (bytes in listOf("﻿$laughs".toByteArray(Charsets.UTF_16BE), laughs.toByteArray(Charsets.UTF_16LE))) {
             assertNull(bytes.inputStream().rejectingEntityDeclarations())
         }
-        // 64 KB Kommentar vor der Deklaration: Sie steht hinter dem geprüften Anfang.
+        // 64 KB of comment before the declaration: it lies beyond the checked beginning.
         val padded = "<?xml version=\"1.0\"?><!--${"x".repeat(70_000)}--><!DOCTYPE rss [<!ENTITY lol \"lol\">]><rss/>"
         assertNull(padded.byteInputStream().rejectingEntityDeclarations())
 
-        // Ein Feed mit Kommentar und schlichtem DOCTYPE, auch in UTF-16, bleibt lesbar.
+        // A feed with a comment and a plain DOCTYPE, also in UTF-16, stays readable.
         val fine = """<?xml version="1.0" encoding="UTF-16"?><!-- Feed --><!DOCTYPE rss><rss version="2.0"><channel><title>Gut</title></channel></rss>"""
         assertEquals("Gut", PodcastFeedParser.parse("﻿$fine".toByteArray(Charsets.UTF_16BE).inputStream()).title)
         assertEquals("Lang", parse("<rss><channel><title>Lang</title><description>${"x".repeat(70_000)}</description></channel></rss>").title)
@@ -213,7 +213,7 @@ class PodcastFeedParserTest {
 
     @Test
     fun `chapters are found whichever address the podcast namespace has`() {
-        // So steht es im Feed des Podcastindex („Podcasting 2.0“) selbst.
+        // This is how it appears in the Podcast Index's own feed ("Podcasting 2.0").
         val namespaces = listOf(
             "https://github.com/Podcastindex-org/podcast-namespace/blob/main/docs/1.0.md",
             "http://podcastindex.org/namespace/1.0",
@@ -396,7 +396,7 @@ class PodcastFeedParserTest {
         assertEquals(2, bonus.season)
         assertEquals(12, bonus.episodeNumber)
         assertEquals(EpisodeType.BONUS, bonus.episodeType)
-        // Nennt die Folge eigene Mitwirkende, gelten die des Podcasts nicht; ohne Namen fällt einer weg.
+        // If the episode names its own contributors, the podcast's don't apply; one without a name is dropped.
         assertEquals(listOf(EpisodePerson("Bob", role = "guest", url = "https://example.com/bob")), bonus.persons)
         assertEquals("https://example.com/12.vtt", bonus.transcriptUrl)
         assertEquals("text/vtt", bonus.transcriptType)
@@ -406,7 +406,7 @@ class PodcastFeedParserTest {
         assertNull(trailer.episodeNumber)
         assertEquals(EpisodeType.TRAILER, trailer.episodeType)
         assertEquals(listOf(EpisodePerson("Anna", role = "host", imageUrl = "https://example.com/anna.jpg")), trailer.persons)
-        // Ohne Typ zählt die Dateiendung.
+        // Without a type, the file extension counts.
         assertEquals("https://example.com/t.srt", trailer.transcriptUrl)
     }
 

@@ -7,7 +7,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.util.Locale
 
-/** Robolectric für `android.icu` (übliches Land einer Sprache). */
+/** Robolectric for `android.icu` (usual country of a language). */
 @RunWith(RobolectricTestRunner::class)
 class AppleCountryTest {
 

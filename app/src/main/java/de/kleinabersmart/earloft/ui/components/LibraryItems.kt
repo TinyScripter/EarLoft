@@ -65,7 +65,7 @@ import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 import coil3.compose.AsyncImage
 import de.kleinabersmart.earloft.core.model.AppUris
 
-/** Aktionen, die auf jeden Song in einer Liste angewendet werden können. */
+/** Actions that can be applied to any song in a list. */
 interface SongActions {
     fun playNext(song: Song)
     fun addToQueue(song: Song)
@@ -74,10 +74,10 @@ interface SongActions {
 }
 
 /**
- * Eine Song-Zeile. Mit [trackNumber] wird statt des Covers die Titelnummer gezeigt
- * (Album-Ansicht). Die Zeile zeigt den Download-Zustand (vor der zweiten Zeile) und das Menü „Herunterladen“ bzw.
- * „Download entfernen“, sofern ein [LocalOfflineController] bereitsteht; [offline] überschreibt den Zustand (Vorschau). [onRemoveFromPlaylist] ergänzt das Menü in
- * Playlists, [warning] erscheint als zweite Zeile (z. B. „Nicht auf …“).
+ * A song row. With [trackNumber], the track number is shown instead of the cover
+ * (album view). The row shows the download state (before the second line) and the "Download" or
+ * "Remove download" menu, if a [LocalOfflineController] is available; [offline] overrides the state (preview). [onRemoveFromPlaylist] extends the menu in
+ * playlists, [warning] appears as the second line (e.g. "Not on …").
  */
 @Composable
 fun SongListItem(
@@ -207,8 +207,8 @@ fun SongListItem(
 }
 
 /**
- * Download-Zustand eines Songs vor der zweiten Zeile: wie [OfflineMarkIcon], beim Laden ein Fortschrittskreis.
- * Lokale und reine Stream-Songs zeigen nichts.
+ * Download state of a song before the second line: like [OfflineMarkIcon], a progress circle while downloading.
+ * Local and stream-only songs show nothing.
  */
 @Composable
 private fun OfflineIndicator(offline: SongOfflineStatus, modifier: Modifier = Modifier) {
@@ -229,7 +229,7 @@ private fun OfflineIndicator(offline: SongOfflineStatus, modifier: Modifier = Mo
     }
 }
 
-/** Künstler-Zeile; Langklick öffnet das [ArtistMenu]. */
+/** Artist row; long press opens the [ArtistMenu]. */
 @Composable
 fun ArtistListItem(
     artist: Artist,
@@ -254,7 +254,7 @@ fun ArtistListItem(
     }
 }
 
-/** Genre-Zeile: Name, darunter Zahl der Alben und Songs. */
+/** Genre row: name, below it the number of albums and songs. */
 @Composable
 fun GenreListItem(
     genre: Genre,
@@ -279,7 +279,7 @@ fun GenreListItem(
     )
 }
 
-/** Album-Zeile mit der Download-Markierung vor dem Interpreten; Langklick öffnet das [AlbumMenu]. */
+/** Album row with the download mark before the artist; long press opens the [AlbumMenu]. */
 @Composable
 fun AlbumListItem(
     album: Album,
@@ -309,8 +309,8 @@ fun AlbumListItem(
 }
 
 /**
- * Album-Kachel für Raster und horizontale Listen; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts auf
- * dem Cover, unten links die Download-Markierung ([OfflineBadge]). Langklick öffnet das [AlbumMenu].
+ * Album tile for grids and horizontal lists; with [onPlay], a play (with [playing] pause) button sits at the bottom right of
+ * the cover, the download mark ([OfflineBadge]) at the bottom left. Long press opens the [AlbumMenu].
  */
 @Composable
 fun AlbumCard(
@@ -360,7 +360,7 @@ fun AlbumCard(
     }
 }
 
-/** Künstler-Kachel für horizontale Listen: Bild (wie die Autoren der Bücher eckig), Name, Albenzahl; Langklick öffnet das [ArtistMenu]. */
+/** Artist tile for horizontal lists: image (square like the book authors), name, album count; long press opens the [ArtistMenu]. */
 @Composable
 fun ArtistCard(
     artist: Artist,
@@ -399,7 +399,7 @@ fun ArtistCard(
     }
 }
 
-/** Abschnittsüberschrift in Listen, bündig mit dem Text der Gruppe darunter ([GroupedItem]). */
+/** Section header in lists, aligned with the text of the group below ([GroupedItem]). */
 @Composable
 fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     Text(
@@ -409,14 +409,14 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** Abstand des Regal-Inhalts zum Rand eines [Shelf]; Reihen darin richten ihr erstes Cover daran aus. */
+/** Distance of the shelf content from the edge of a [Shelf]; rows inside align their first cover with it. */
 val ShelfInset = 12.dp
 
 private val ShelfShape = RoundedCornerShape(24.dp)
 
 /**
- * Abschnitt als „Regal“: abgesetzte Fläche mit Überschrift (rechts davon optional [action]) und darunter [content],
- * meist eine horizontale Reihe. Mit [onTitleClick] ist die Überschrift antippbar.
+ * Section as a "shelf": raised surface with a header (optionally [action] to its right) and [content] below,
+ * usually a horizontal row. With [onTitleClick] the header is tappable.
  */
 @Composable
 fun Shelf(
@@ -453,16 +453,16 @@ fun Shelf(
 
 private val GridTileShape = RoundedCornerShape(16.dp)
 
-/** Innenabstand einer Rasterkachel ([gridTile]). */
+/** Inner padding of a grid tile ([gridTile]). */
 val GridTilePadding = 8.dp
 
 /**
- * Rasterkachel: eigene Fläche ([color], meist `surfaceContainer`), damit Cover und Titel als Einheit von den Nachbarn
- * getrennt sind. Vor dem Klick-Modifier setzen, damit die Berührungswelle die ganze Kachel füllt.
+ * Grid tile: its own surface ([color], usually `surfaceContainer`) so cover and title are separated from their neighbors as a
+ * unit. Apply before the click modifier so the ripple fills the whole tile.
  */
 fun Modifier.gridTile(color: Color): Modifier = clip(GridTileShape).background(color)
 
-/** Hinweis für leere Listen. */
+/** Hint for empty lists. */
 @Composable
 fun EmptyHint(text: String, modifier: Modifier = Modifier) {
     Text(
@@ -476,25 +476,25 @@ fun EmptyHint(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** Ladekreis mittig im verfügbaren Platz. */
+/** Loading spinner centered in the available space. */
 @Composable
 fun LoadingIndicator(modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
 }
 
-/** Hinweis, wenn ein Inhalt nicht gelesen werden konnte ([LoadState.Failed]). */
+/** Hint when content couldn't be read ([LoadState.Failed]). */
 @Composable
 fun LoadFailedHint(modifier: Modifier = Modifier) {
     EmptyHint(stringResource(R.string.load_failed), modifier)
 }
 
-/** Liste mit Ladekreis, Fehler- und Leer-Hinweis; [content] bekommt nur nicht leere Listen. */
+/** List with loading spinner, error and empty hint; [content] only receives non-empty lists. */
 @Composable
 fun <T> LoadableList(state: LoadState<List<T>>, emptyText: String, content: @Composable (List<T>) -> Unit) {
     LoadableList(state, empty = { EmptyHint(emptyText) }, content)
 }
 
-/** Wie oben, aber mit eigenem Inhalt für die leere Liste ([empty], etwa [EmptyAreaHint]). */
+/** Like above, but with custom content for the empty list ([empty], e.g. [EmptyAreaHint]). */
 @Composable
 fun <T> LoadableList(state: LoadState<List<T>>, empty: @Composable () -> Unit, content: @Composable (List<T>) -> Unit) {
     when (state) {
@@ -504,7 +504,7 @@ fun <T> LoadableList(state: LoadState<List<T>>, empty: @Composable () -> Unit, c
     }
 }
 
-/** `m:ss` bzw. `h:mm:ss`. */
+/** `m:ss` or `h:mm:ss`. */
 fun formatDuration(durationMs: Long): String {
     val totalSeconds = (durationMs / 1000).coerceAtLeast(0)
     val hours = totalSeconds / 3600
@@ -559,14 +559,14 @@ private fun SongListItemPreview() {
     }
 }
 
-/** Runder Interpreten-Platzhalter; mit eingeschalteter Option liegt das Bild aus dem Internet darüber. */
+/** Round artist placeholder; with the option enabled, the image from the internet is laid on top. */
 @Composable
 fun ArtistAvatar(
     artistId: Long,
     modifier: Modifier = Modifier,
     iconSize: Dp = 48.dp,
 ) {
-    // Eckig mit runden Ecken wie Cover und Autorenbilder; Gesichter sitzen meist oben, daher oben ausgerichtet.
+    // Square with rounded corners like covers and author images; faces are usually at the top, hence top-aligned.
     Box(
         modifier = modifier
             .aspectRatio(1f)

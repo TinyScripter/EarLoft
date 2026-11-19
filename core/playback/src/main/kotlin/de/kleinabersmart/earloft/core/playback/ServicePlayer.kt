@@ -14,13 +14,13 @@ import kotlinx.coroutines.flow.flowOn
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Datei eines Buchs bzw. einer Folge, die Position darin und das Tempo. */
+/** File of a book or episode, the position in it and the speed. */
 data class BookPlayerPosition(val trackIndex: Int, val positionInTrackMs: Long, val speed: Float)
 
 /**
- * Der Player des laufenden [PlaybackService] für Beobachter im selben Prozess (Widget). Sie brauchen dadurch keinen
- * [PlaybackConnection]-Controller auf den eigenen Service – der hielte ihn gebunden, sodass er nie beendet würde.
- * Nur auf dem Main-Thread benutzen.
+ * The player of the running [PlaybackService] for observers in the same process (widget). That way they don't need a
+ * [PlaybackConnection] controller to their own service – it would keep it bound so that it never ends.
+ * Only use on the main thread.
  */
 @Singleton
 class ServicePlayer @Inject constructor() {
@@ -38,20 +38,20 @@ class ServicePlayer @Inject constructor() {
     }
 
     /**
-     * „Als gehört markieren“ für das geladene Buch bzw. die Folge [bookId]: Der Player hält an (bzw. spielt mit
-     * [playNext] die nächste Folge der Warteschlange) und überschreibt den Stand nicht wieder. `false`, wenn [bookId]
-     * nicht geladen ist oder kein Service läuft; dann genügt es, den Stand zu schreiben.
+     * "Mark as played" for the loaded book or episode [bookId]: the player pauses (or, with
+     * [playNext], plays the next episode of the queue) and doesn't overwrite the state again. `false` if [bookId]
+     * is not loaded or no service is running; then writing the state is enough.
      */
     fun markFinished(bookId: Long, playNext: Boolean): Boolean = finisher?.invoke(bookId, playNext) ?: false
 
-    /** Datei und Position darin, solange das Buch [bookId] geladen ist; sonst `null` (auch ohne laufenden Service). */
+    /** File and position in it while the book [bookId] is loaded; otherwise `null` (also without a running service). */
     fun bookPosition(bookId: Long): BookPlayerPosition? {
         val player = player.value ?: return null
         val item = player.currentMediaItem?.takeIf { it.bookId == bookId } ?: return null
         return BookPlayerPosition(item.bookTrackIndex ?: 0, player.currentPosition, player.playbackParameters.speed)
     }
 
-    /** Sprünge der Position (Spulen, Dateiwechsel) und Tempowechsel; ohne laufenden Service nichts. */
+    /** Position jumps (seeking, file changes) and speed changes; nothing without a running service. */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun timingChanges(): Flow<Unit> = player.flatMapLatest { player ->
         if (player == null) {

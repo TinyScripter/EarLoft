@@ -8,7 +8,7 @@ import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-/** Führt den Call asynchron aus; Abbrechen der Coroutine bricht auch den Call ab. */
+/** Executes the call asynchronously; cancelling the coroutine also cancels the call. */
 internal suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
     continuation.invokeOnCancellation { cancel() }
     enqueue(

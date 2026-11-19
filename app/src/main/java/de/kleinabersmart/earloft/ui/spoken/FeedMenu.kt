@@ -31,10 +31,10 @@ import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Kontextmenü eines Abos (Langklick), aufgebaut wie das der Alben: oben der Titel, darunter Nächste Folge abspielen,
- * Nächste Folge in die Warteschlange, Aktualisieren, Alle als gehört markieren (mit Rückfrage), Downloads gehörter Folgen
- * löschen, Teilen und die Einstellungen des Abos. „Abo beenden“ steht bewusst nur in den Einstellungen. Podcasts vom Gerät haben
- * keinen Feed und keine Downloads; diese Einträge fehlen dort. Erst einbinden, wenn es offen ist.
+ * Context menu of a subscription (long press), built like the one for albums: the title at the top, below it play next episode,
+ * add next episode to the queue, refresh, mark all as played (with confirmation), delete downloads of played episodes,
+ * share and the subscription's settings. "Unsubscribe" is deliberately only in the settings. Podcasts from the device have
+ * no feed and no downloads; those entries are missing there. Only include it when it is open.
  */
 @Composable
 fun FeedMenu(
@@ -61,7 +61,7 @@ fun FeedMenu(
         current?.next?.let { next ->
             DropdownMenuItem(
                 text = {
-                    // Welche Folge es wird, steht darunter.
+                    // Which episode it will be is shown below.
                     Column {
                         Text(stringResource(R.string.feed_menu_play_next))
                         Text(

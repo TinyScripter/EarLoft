@@ -32,12 +32,12 @@ sealed interface BookLaunchEvent {
 }
 
 /**
- * Mit „Vor dem Streamen über mobile Daten fragen“: Das Buch würde über mobile Daten gestreamt. [openPlayer]: Nach
- * „Abspielen“ soll die Wiedergabe-Ansicht aufgehen (Start von der Buchseite).
+ * With "Ask before streaming over mobile data": the book would be streamed over mobile data. [openPlayer]: after
+ * "Play" the now-playing view should open (started from the book page).
  */
 data class MobileStreamQuestion(val bookId: Long, val title: String, val startPositionMs: Long?, val openPlayer: Boolean)
 
-/** Startet Bücher aus der UI; meldet, wenn es nicht klappt oder der Stand eines anderen Geräts übernommen wurde. */
+/** Starts books from the UI; reports when it fails or another device's progress was adopted. */
 @Singleton
 class BookLauncher @Inject constructor(
     @param:ApplicationContext private val context: Context,
@@ -49,18 +49,18 @@ class BookLauncher @Inject constructor(
     private val _events = MutableSharedFlow<BookLaunchEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<BookLaunchEvent> = _events.asSharedFlow()
 
-    // Zustand statt Ereignis: Die offene Frage übersteht so eine Drehung des Geräts.
+    // State instead of event: this way the open question survives a device rotation.
     private val _question = MutableStateFlow<MobileStreamQuestion?>(null)
 
-    /** Die offene Rückfrage zu mobilen Daten; beantwortet mit [playConfirmed] oder [dismissQuestion]. */
+    /** The open question about mobile data; answered with [playConfirmed] or [dismissQuestion]. */
     val question: StateFlow<MobileStreamQuestion?> = _question.asStateFlow()
 
     private val _confirmedStarts = MutableSharedFlow<Long>(extraBufferCapacity = 4)
 
-    /** Bücher, die nach der Rückfrage gestartet wurden und deren Wiedergabe-Ansicht aufgehen soll. */
+    /** Books that were started after the question and whose now-playing view should open. */
     val confirmedStarts: SharedFlow<Long> = _confirmedStarts.asSharedFlow()
 
-    /** „Abspielen“ in der Rückfrage gilt, bis die App beendet wird oder das Fragen wieder eingeschaltet wird. */
+    /** "Play" in the question applies until the app is closed or asking is turned on again. */
     @Volatile private var mobileConfirmed = false
 
     init {
@@ -74,8 +74,8 @@ class BookLauncher @Inject constructor(
     }
 
     /**
-     * Ohne Rückfrage zu mobilen Daten: die Uhr startet das Buch, auf dem Handy sähe niemand die Frage. Nach der Antwort
-     * „Abspielen“ gilt die Erlaubnis bis zum Ende der App.
+     * Without the mobile-data question: the watch starts the book, nobody would see the question on the phone. After the answer
+     * "Play" the permission applies until the app ends.
      */
     fun playConfirmed(bookId: Long, startPositionMs: Long? = null, rememberForSession: Boolean = false, openPlayer: Boolean = false) {
         if (rememberForSession) mobileConfirmed = true
@@ -85,14 +85,14 @@ class BookLauncher @Inject constructor(
         }
     }
 
-    /** „Abbrechen“ in der Rückfrage. */
+    /** "Cancel" in the question. */
     fun dismissQuestion() {
         _question.value = null
     }
 
     /**
-     * Wie [play], wartet aber, bis das Buch läuft; `false`, wenn es sich nicht starten ließ oder erst die Rückfrage zu
-     * mobilen Daten kommt. Der Start läuft im App-Scope zu Ende, auch wenn der Aufrufer vorher verschwindet.
+     * Like [play], but waits until the book is playing; `false` if it couldn't be started or the mobile-data question
+     * comes first. The start completes in the app scope even if the caller disappears beforehand.
      */
     suspend fun playAndAwait(bookId: Long): Boolean = scope.async { start(bookId, null, openPlayer = true) }.await()
 
@@ -111,7 +111,7 @@ class BookLauncher @Inject constructor(
         return prepared != null
     }
 
-    /** Fragen ist eingeschaltet, das Netz ist volumenbegrenzt, und nicht alle Dateien liegen auf dem Gerät. */
+    /** Asking is enabled, the network is metered, and not all files are on the device. */
     private suspend fun wouldStreamOverMobile(bookId: Long): Boolean {
         if (!settings.askBeforeMobileStreaming.first()) return false
         val manager = context.getSystemService(ConnectivityManager::class.java) ?: return false
@@ -126,7 +126,7 @@ class BookLauncher @Inject constructor(
 
 @HiltViewModel
 class BookLaunchViewModel @Inject constructor(val launcher: BookLauncher, private val settings: SpokenSettings) : ViewModel() {
-    /** Antwort auf [MobileStreamQuestion]: „Abspielen“ bis zum Ende der App, [always] schaltet das Fragen ab. */
+    /** Answer to [MobileStreamQuestion]: "Play" until the app ends, [always] turns asking off. */
     fun playOverMobile(question: MobileStreamQuestion, always: Boolean) {
         if (always) viewModelScope.launch { settings.setAskBeforeMobileStreaming(false) }
         launcher.playConfirmed(question.bookId, question.startPositionMs, rememberForSession = !always, openPlayer = question.openPlayer)

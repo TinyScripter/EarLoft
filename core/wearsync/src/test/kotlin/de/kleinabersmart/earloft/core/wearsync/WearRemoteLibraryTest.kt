@@ -16,7 +16,7 @@ class WearRemoteLibraryTest {
         for (ref in refs) {
             val uid = WearThumbnailFile.uid(ref)
             assertEquals(ref, WearThumbnailFile.parse(uid))
-            // Kein Schrägstrich im Pfad des Kanals.
+            // No slash in the channel's path.
             assertEquals(false, uid.contains('/'))
         }
         assertNull(WearThumbnailFile.parse("cover:abs:item"))

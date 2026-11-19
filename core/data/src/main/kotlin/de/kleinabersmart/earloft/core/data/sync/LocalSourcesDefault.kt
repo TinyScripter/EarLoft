@@ -6,9 +6,9 @@ import androidx.datastore.preferences.core.Preferences
 import de.kleinabersmart.earloft.core.datasource.local.AudioPermission
 
 /**
- * Musik, Bücher und Podcasts auf dem Gerät sind standardmäßig aus; die Berechtigung kommt erst beim Einschalten. Früher
- * galt „an“: Installationen, die einen Schalter nie angefasst haben, behalten ihn, wenn die App die Musik schon lesen
- * darf, sonst gilt „aus“. Der Wert wird dabei gespeichert, die Migration läuft also nur einmal je Schlüssel.
+ * Music, books and podcasts on the device are off by default; the permission is only requested when turning them on. It used
+ * to be "on": installations that never touched a switch keep it on if the app is already allowed to read music,
+ * otherwise "off" applies. The value is stored in the process, so the migration runs only once per key.
  */
 internal class LocalSourcesDefault(
     private val context: Context,

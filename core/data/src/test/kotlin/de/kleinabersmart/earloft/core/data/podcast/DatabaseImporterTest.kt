@@ -82,7 +82,7 @@ class DatabaseImporterTest {
         assertEquals(1_690_000, stats.sumOf { it.listenedMs })
         assertEquals(setOf(ListeningStatEntity.SOURCE_IMPORTED), stats.map { it.source }.toSet())
         assertEquals("Altes Abo", stats.single { it.itemKey == "old-1" }.groupTitle)
-        // Das archivierte Abo kommt als archiviertes Abo.
+        // The archived subscription comes in as an archived subscription.
         assertEquals(true, db.podcastDao().feedByUrl(OLD_URL)!!.archived)
     }
 
@@ -107,7 +107,7 @@ class DatabaseImporterTest {
             "&path=https%3A%2F%2Fwww.ardsounds.de%2Fsendung%2Fx%2Furn%3Aard%3Ashow%3A$show%2F&format=Atom"
         val ard = ImportData(
             feeds = listOf(
-                // So schrieben ältere Exporte (und der Export ohne RSS-Bridge) ein Abo: archiviert, damit andere Apps es nicht abonnieren.
+                // This is how older exports (and the export without RSS-Bridge) wrote a subscription: archived so other apps don't subscribe to it.
                 ImportFeed("ardsounds:urn:ard:show:8e6d4d6fa453e7f7", "Kalk & Welk", active = false),
                 ImportFeed(bridge("7ae4f72cbe4a75e2"), "Hateland", active = true),
                 ImportFeed(bridge("b4ca0b835f537610"), "Satire Deluxe", active = false),

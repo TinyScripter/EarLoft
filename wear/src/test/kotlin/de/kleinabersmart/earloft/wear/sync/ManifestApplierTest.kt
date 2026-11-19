@@ -33,7 +33,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Die Uhr stellt aus dem Manifest die Songs des Handys wieder her (Wear-Konzept 7.1). */
+/** The watch restores the phone's songs from the manifest (Wear concept 7.1). */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class ManifestApplierTest {
@@ -41,7 +41,7 @@ class ManifestApplierTest {
     private lateinit var db: EarLoftDatabase
     private lateinit var applier: ManifestApplier
 
-    /** Sampler-Titel auf zwei Servern – am Handy ein Song. */
+    /** Compilation track on two servers – one song on the phone. */
     private val sampler = song(
         "nd:s1", "Erster Schritt", album = "Sampler 2023", albumArtist = "Verschiedene Künstler", artist = "Band A",
         servers = listOf(server("nd", "s1"), server("office", "o1")), isCompilation = true,
@@ -51,11 +51,11 @@ class ManifestApplierTest {
         servers = listOf(server("nd", "s2")), isCompilation = true, track = 2,
     )
 
-    /** Gleichnamige Alben verschiedener Künstler mit gleichnamigem ersten Titel. */
+    /** Albums with the same name by different artists with an identically named first track. */
     private val introA = song("nd:a1", "Intro", album = "Greatest Hits", albumArtist = "Alpha", servers = listOf(server("nd", "a1")))
     private val introB = song("nd:b1", "Intro", album = "Greatest Hits", albumArtist = "Beta", servers = listOf(server("nd", "b1")))
 
-    /** Nur auf dem Handy. */
+    /** Only on the phone. */
     private val summer = song(
         "local:5", "Sommerlied", album = "Lokal", albumArtist = "Ich", servers = emptyList(),
         phoneFile = PhoneFileDto("local:5", 4_000, "audio/mpeg"),
@@ -139,7 +139,7 @@ class ManifestApplierTest {
 
     @Test
     fun `a song loaded over the phone keeps its download when the watch learns its server`() = runTest {
-        // Am Handy auf Jellyfin, die Uhr kennt den Server noch nicht (ältere Uhr-App): Sie lud die Datei übers Handy.
+        // On Jellyfin on the phone, the watch does not know the server yet (older watch app): it downloaded the file via the phone.
         val onJellyfin = summer.copy(serverSources = listOf(server("jf", "x")))
         applier.apply(manifest(listOf("album:9" to listOf(onJellyfin))))
         val id = songId("phone:local:5")
@@ -148,7 +148,7 @@ class ManifestApplierTest {
         db.sourceDao().upsert(SourceEntity("jf", SourceType.JELLYFIN, "Jellyfin"))
         applier.apply(manifest(listOf("album:9" to listOf(onJellyfin))))
 
-        // Beide Quellen gehören zum selben Song; der Download über das Handy bleibt (sonst löschte der Abgleich die Datei).
+        // Both sources belong to the same song; the download via the phone stays (otherwise the sync would delete the file).
         assertEquals(id, songId("jf:x"))
         assertEquals(DownloadState.DONE, db.downloadDao().get("phone:local:5")?.state)
     }

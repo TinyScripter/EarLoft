@@ -14,17 +14,17 @@ import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.model.TrackDownload
 
 /*
- * Einträge des Browse-Trees für Podcasts und Bücher (Konzept 7.1) und die Darstellungs-Hinweise für Android Auto.
+ * Browse tree entries for podcasts and books (concept 7.1) and the display hints for Android Auto.
  */
 
-/** Hinweise an der Wurzel: Ordner und Titel als Liste, wenn ein Ordner nichts anderes sagt ([gridChildrenExtras]). */
+/** Hints at the root: folders and titles as a list, unless a folder says otherwise ([gridChildrenExtras]). */
 @OptIn(UnstableApi::class)
 internal fun rootExtras(): Bundle = Bundle().apply {
     putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)
     putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)
 }
 
-/** An einem Ordner: Android Auto zeigt seinen Inhalt als Raster. */
+/** On a folder: Android Auto shows its content as a grid. */
 @OptIn(UnstableApi::class)
 internal fun gridChildrenExtras(): Bundle = Bundle().apply {
     putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM)
@@ -32,8 +32,8 @@ internal fun gridChildrenExtras(): Bundle = Bundle().apply {
 }
 
 /**
- * Stellt den Eintrag unter die Überschrift [title]. Android Auto fasst aufeinanderfolgende Einträge mit derselben
- * Überschrift zu einer Gruppe zusammen (Tab „Zuletzt“, Suchtreffer).
+ * Puts the entry under the heading [title]. Android Auto groups consecutive entries with the same
+ * heading together (tab "Recent", search results).
  */
 @OptIn(UnstableApi::class)
 internal fun MediaItem.inGroup(title: String): MediaItem {
@@ -44,8 +44,8 @@ internal fun MediaItem.inGroup(title: String): MediaItem {
 }
 
 /**
- * Ein Buch oder eine Folge zum Abspielen. Android Auto zeigt den Fortschritt ([MediaConstants.EXTRAS_KEY_COMPLETION_STATUS])
- * und ob es geladen ist; Dateien vom Gerät gelten wie in der App nicht als „geladen“.
+ * A book or episode to play. Android Auto shows the progress ([MediaConstants.EXTRAS_KEY_COMPLETION_STATUS])
+ * and whether it is downloaded; files from the device don't count as "downloaded", as in the app.
  */
 @OptIn(UnstableApi::class)
 internal fun BookWithProgress.toPlayableSpokenItem(context: Context, subtitle: String, download: TrackDownload?): MediaItem {
@@ -94,7 +94,7 @@ internal fun PodcastFeed.toBrowsableMediaItem(context: Context): MediaItem =
         artworkUri = CoverProvider.feedCoverUri(context, id),
     )
 
-/** Ein Autor oder eine Serie mit dem Cover des ersten Buchs und der Zahl der Bücher. */
+/** An author or series with the cover of the first book and the number of books. */
 internal fun BookGroup.toBrowsableMediaItem(context: Context, mediaId: String): MediaItem =
     folderMediaItem(
         mediaId,

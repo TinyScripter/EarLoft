@@ -10,7 +10,7 @@ class RemoteQueueWatchTest {
 
     @Test
     fun `tracks that show up and vanish again were rejected`() {
-        // Am Gerät (Navidrome per HTTPS): angenommen, in ca. 3 s durchgelaufen, danach ohne Titel.
+        // On the device (Navidrome via HTTPS): accepted, finished in about 3 s, then without a track.
         val watch = RemoteQueueWatch().apply { start(album) }
 
         assertFalse(watch.onItems(emptyList()))
@@ -22,7 +22,7 @@ class RemoteQueueWatchTest {
 
     @Test
     fun `a slow receiver is not a failure`() {
-        // Ein Buch von Audiobookshelf: erst nach etwa 9 s gemeldet, dann bleibt es.
+        // A book from Audiobookshelf: only reported after about 9 s, then it stays.
         val watch = RemoteQueueWatch().apply { start(listOf("book:7/0")) }
 
         assertFalse(watch.onItems(emptyList()))
@@ -40,7 +40,7 @@ class RemoteQueueWatchTest {
 
     @Test
     fun `the old queue still in view does not count`() {
-        // Direkt nach dem Senden ist kurz noch die Folge von vorher zu sehen, dann wird es leer.
+        // Right after sending, the previous episode is briefly still visible, then it goes empty.
         val watch = RemoteQueueWatch().apply { start(album) }
 
         assertFalse(watch.onItems(listOf("book:5/0")))

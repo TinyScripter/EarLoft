@@ -6,8 +6,8 @@ import kotlin.math.abs
 import kotlin.random.Random
 
 /**
- * Wonach der Mix sucht, abgeleitet aus den Songs des Ausgangspunkts: [genres] (klein geschrieben) mit Gewicht 0–1 (das
- * häufigste 1), die Künstler und das mittlere Jahr.
+ * What the mix looks for, derived from the songs of the starting point: [genres] (lowercase) weighted 0–1 (the
+ * most frequent 1), the artists and the median year.
  */
 internal data class MixProfile(
     val genres: Map<String, Double>,
@@ -30,20 +30,20 @@ internal data class MixProfile(
 
 internal fun String.genreKey(): String? = trim().lowercase().takeIf { it.isNotEmpty() }
 
-/** Die Genres des Songs als Schlüssel (klein geschrieben, ohne doppelte). */
+/** The song's genres as keys (lowercase, without duplicates). */
 internal val MixCandidateRow.genreKeys: List<String>
     get() = genres?.split(MixCandidateRow.GENRE_SEPARATOR)?.mapNotNull { it.genreKey() }?.distinct().orEmpty()
 
 /**
- * Stellt aus Kandidaten einen Mix zusammen (rein, ohne Datenbank; Konzept 8 „Mix“). Punkte gibt es für das Genre des
- * Ausgangspunkts, ein nahes Jahr, dieselben Künstler, Vorschläge des Servers ([similar], die ersten am meisten),
- * Favoriten und oft Gehörtes; kürzlich Gehörtes verliert, etwas Zufall mischt.
+ * Builds a mix from candidates (pure, no database; concept 8 "Mix"). Points are awarded for the genre of the
+ * starting point, a nearby year, the same artists, suggestions from the server ([similar], the first ones most),
+ * favorites and frequently played songs; recently played songs lose points, a bit of randomness mixes things up.
  *
- * Gewählt wird in Runden, jeweils nach Punkten: erst die passenden Songs (Server-Vorschlag, sonst gleiches Genre; ohne Genres
- * im Ausgangspunkt nahes Jahr oder gleicher Künstler) mit höchstens [MAX_PER_ALBUM] je Album und [MAX_PER_ARTIST] je
- * Künstler (die des Ausgangspunkts [seedArtistLimit]), dann dieselben mit doppelten Grenzen, dann alle mit einfachen, zuletzt
- * ohne Grenzen. So füllt eine kleine Bibliothek den Mix lieber mit mehr vom selben Genre als mit Fremdem aus demselben
- * Jahr. Die Auswahl kommt gemischt, möglichst ohne denselben Künstler zweimal hintereinander; [first] beginnt.
+ * Selection happens in rounds, each by points: first the matching songs (server suggestion, otherwise same genre; with no genres
+ * in the starting point, nearby year or same artist) with at most [MAX_PER_ALBUM] per album and [MAX_PER_ARTIST] per
+ * artist (those of the starting point [seedArtistLimit]), then the same with doubled limits, then all with single limits, finally
+ * without limits. This way a small library would rather fill the mix with more of the same genre than with unrelated songs from the same
+ * year. The selection comes shuffled, avoiding the same artist twice in a row where possible; [first] starts.
  */
 internal object MixPicker {
 
@@ -91,7 +91,7 @@ internal object MixPicker {
             perAlbum.merge(row.albumId, 1, Int::plus)
             row.artistId?.let { perArtist.merge(it, 1, Int::plus) }
         }
-        /** [factor] vervielfacht die Grenzen je Album und Künstler; 0 = keine Grenzen. */
+        /** [factor] multiplies the limits per album and artist; 0 = no limits. */
         fun fill(rows: List<MixCandidateRow>, factor: Int) {
             for (row in rows) {
                 if (picked.size >= size) return
@@ -127,7 +127,7 @@ internal object MixPicker {
         random: Random,
     ): Double {
         var score = 0.0
-        // Mehrere Genres: Es zählt das, das am besten passt.
+        // Several genres: the best-matching one counts.
         row.genreKeys.maxOfOrNull { profile.genres[it] ?: 0.0 }?.let { score += GENRE_WEIGHT * it }
         val year = row.year
         if (profile.year != null && year != null) {
@@ -145,7 +145,7 @@ internal object MixPicker {
         return score + random.nextDouble() * NOISE
     }
 
-    /** Passt zum Ausgangspunkt: vom Server vorgeschlagen, sonst gleiches Genre; ohne Genres im Profil nahes Jahr oder gleicher Künstler. */
+    /** Matches the starting point: suggested by the server, otherwise same genre; with no genres in the profile, nearby year or same artist. */
     private fun MixCandidateRow.matches(profile: MixProfile, similarRank: Map<Long, Int>): Boolean {
         if (songId in similarRank) return true
         if (profile.genres.isNotEmpty()) return genreKeys.any { it in profile.genres }
@@ -156,7 +156,7 @@ internal object MixPicker {
             profile.year == null
     }
 
-    /** Ordnet so, dass derselbe Künstler möglichst nicht zweimal hintereinander kommt; sonst bleibt die Reihenfolge. */
+    /** Orders so that the same artist does not come twice in a row where possible; otherwise the order stays. */
     private fun spreadArtists(rows: List<MixCandidateRow>, previousArtist: Long?): List<MixCandidateRow> {
         val pending = rows.toMutableList()
         val result = ArrayList<MixCandidateRow>(rows.size)

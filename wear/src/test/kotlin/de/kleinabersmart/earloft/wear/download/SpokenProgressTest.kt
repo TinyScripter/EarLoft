@@ -12,7 +12,7 @@ class SpokenProgressTest {
 
     @Test
     fun `files count by duration, the running one by its bytes`() {
-        // 1 h fertig, 1 h zur Hälfte, 2 h offen: 1,5 von 4 h.
+        // 1 h done, 1 h half done, 2 h open: 1.5 of 4 h.
         val tracks = listOf(track(0, 3_600_000, TrackDownload.DONE), track(1, 3_600_000, TrackDownload.RUNNING), track(2, 7_200_000))
         val progress = spokenProgress(tracks, SpokenFileProgress(7, 1, done = 50, total = 100))
 

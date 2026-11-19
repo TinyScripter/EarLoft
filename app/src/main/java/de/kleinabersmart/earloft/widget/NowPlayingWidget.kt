@@ -79,13 +79,13 @@ import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 import de.kleinabersmart.earloft.core.playback.R as PlaybackR
 
 /**
- * Widget 4 × 1: Cover links vollflächig & ungeschnitten; rechts Titel, Künstler und Steuerung zentriert. Jedes Widget hat
- * eigene Bereiche und Farben ([WidgetConfig], beim Anlegen in [WidgetConfigActivity] gewählt, im Glance-Zustand des
- * Widgets).
+ * Widget 4 × 1: cover on the left, full-bleed and uncropped; on the right title, artist and controls centered. Each widget has
+ * its own areas and colors ([WidgetConfig], chosen when created in [WidgetConfigActivity], in the widget's Glance
+ * state).
  */
 class NowPlayingWidget : GlanceAppWidget() {
 
-    // Die tatsächliche Größe wird gebraucht, damit das Cover genau die Höhe füllt (siehe [NowPlayingContent]).
+    // The actual size is needed so the cover fills exactly the height (see [NowPlayingContent]).
     override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -93,7 +93,7 @@ class NowPlayingWidget : GlanceAppWidget() {
         updater.onWidgetShown()
         provideContent {
             val state by updater.state.collectAsState()
-            // Noch nicht eingestellt (der Updater holt das für alte Widgets nach): alle Bereiche, Coverfarben.
+            // Not configured yet (the updater catches up on this for old widgets): all areas, cover colors.
             val config = currentState<Preferences>().widgetConfig() ?: WidgetConfig()
             val entry = state.entryFor(config.areas)
             GlanceTheme(colors = widgetColors(entry, config.colors)) {
@@ -106,7 +106,7 @@ class NowPlayingWidget : GlanceAppWidget() {
 class NowPlayingWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = NowPlayingWidget()
 
-    /** Das letzte Widget ist weg: Die Spielzeit muss nicht mehr mitlaufen. */
+    /** The last widget is gone: the playing time no longer needs to keep running. */
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
         context.widgetEntryPoint().widgetUpdater().onAllWidgetsRemoved()
@@ -114,8 +114,8 @@ class NowPlayingWidgetReceiver : GlanceAppWidgetReceiver() {
 }
 
 /**
- * Nach dem Cover, wenn so eingestellt und es eine Farbe hat; sonst die App-Farben aus dem Logo bzw. die Systemfarben
- * (Standard von Glance, ab Android 12; davor ebenfalls die App-Farben). Ohne Coverfarbe gelten bei „Cover“ die App-Farben.
+ * Based on the cover, if configured so and it has a color; otherwise the app colors from the logo or the system colors
+ * (Glance default, from Android 12; before that also the app colors). Without a cover color, "Cover" uses the app colors.
  */
 @Composable
 private fun widgetColors(entry: WidgetEntry?, colors: WidgetColors): ColorProviders {
@@ -144,23 +144,23 @@ private val WIDGET_PADDING = 8.dp
 private val MIN_COVER = 32.dp
 
 /**
- * Darunter passen Titel, Kapitel, Spielzeit und Knöpfe nicht mehr übereinander; das Kapitel entfällt dann. Das 4×1-Widget ist am
- * Pixel 10 Pro etwa 100 dp hoch; wer das Kapitel sehen will, zieht es eine Zeile höher (M4).
+ * Below this, title, chapter, playing time and buttons no longer fit on top of each other; the chapter is then omitted. The 4×1 widget is
+ * about 100 dp tall on the Pixel 10 Pro; anyone who wants to see the chapter drags it one row taller (M4).
  */
 private val CHAPTER_MIN_HEIGHT = 104.dp
 
 /**
- * Ab dieser Höhe darf der Titel zwei bzw. drei Zeilen haben (eine Zeile etwa 20 dp; dazu Kapitel, Untertitel und Knöpfe).
- * Im hochgezogenen Widget ist die Textspalte schmal, weil das Cover die Höhe füllt; mit einer Zeile blieb vom Titel wenig.
+ * From this height the title may have two or three lines (one line about 20 dp; plus chapter, subtitle and buttons).
+ * In the enlarged widget the text column is narrow because the cover fills the height; with one line little was left of the title.
  */
 private val TITLE_TWO_LINES_MIN_HEIGHT = 140.dp
 private val TITLE_THREE_LINES_MIN_HEIGHT = 180.dp
 
 /**
- * [entry]: was das Widget für seine Bereiche zeigt. Steht es nicht im Player (dort läuft ein anderer Bereich), gibt es nur
- * „Abspielen“, und das setzt es erst fort; die übrigen Knöpfe wirkten sonst auf das Laufende. Lief aus [areas] noch nie
- * etwas, startet „Abspielen“ wie eine Medientaste, was zuletzt lief – nur, wenn das Widget für alle Bereiche gilt; sonst
- * öffnet es die App.
+ * [entry]: what the widget shows for its areas. If it isn't in the player (another area is playing there), there is only
+ * "Play", which resumes it first; the other buttons would otherwise act on what is playing. If nothing from [areas] has ever
+ * played, "Play" starts what played last, like a media button – only if the widget applies to all areas; otherwise
+ * it opens the app.
  */
 @Composable
 private fun NowPlayingContent(state: WidgetState, entry: WidgetEntry?, areas: Set<SpokenMode>) {
@@ -168,7 +168,7 @@ private fun NowPlayingContent(state: WidgetState, entry: WidgetEntry?, areas: Se
     val nowPlaying = entry?.nowPlaying
     val isCurrent = entry != null && state.isCurrent(entry)
     val isPlaying = isCurrent && nowPlaying?.isPlaying == true
-    // Ohne Steuerung des Laufenden: Musik, Buch bzw. Folge dieses Widgets erst wieder laden.
+    // Without controlling what is playing: reload this widget's music, book or episode first.
     val controls = nowPlaying?.takeIf { isCurrent }
 
     Row(
@@ -180,8 +180,8 @@ private fun NowPlayingContent(state: WidgetState, entry: WidgetEntry?, areas: Se
             .padding(WIDGET_PADDING),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 1. Cover: füllt die volle Höhe, die Breite folgt dem Seitenverhältnis (Album quadratisch, Buch hochkant), unverzerrt
-        // und ohne Leerraum links. Ohne feste Breite würde ein quadratisches Cover in einem zu breiten Feld mittig stehen.
+        // 1. Cover: fills the full height, the width follows the aspect ratio (album square, book portrait), undistorted
+        // and without empty space on the left. Without a fixed width a square cover would sit centered in a field that's too wide.
         val coverHeight = (LocalSize.current.height - WIDGET_PADDING * 2).coerceAtLeast(MIN_COVER)
         val coverUri = entry?.coverUri
         val coverWidth = if (coverUri != null) coverHeight * entry.coverAspectRatio else coverHeight
@@ -195,7 +195,7 @@ private fun NowPlayingContent(state: WidgetState, entry: WidgetEntry?, areas: Se
                 .cornerRadius(12.dp),
         )
 
-        // 2. Rechter Bereich: Zentrierter Text & Steuerung
+        // 2. Right area: centered text & controls
         Column(
             modifier = GlanceModifier
                 .defaultWeight()
@@ -204,7 +204,7 @@ private fun NowPlayingContent(state: WidgetState, entry: WidgetEntry?, areas: Se
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Track-Titel
+            // Track title
             Text(
                 text = nowPlaying?.title ?: context.getString(R.string.player_nothing_playing),
                 maxLines = when {
@@ -220,12 +220,12 @@ private fun NowPlayingContent(state: WidgetState, entry: WidgetEntry?, areas: Se
                 ),
             )
 
-            // Bei Büchern und Folgen mit Kapiteln das laufende Kapitel, sofern das Widget dafür hoch genug ist.
+            // For books and episodes with chapters, the current chapter, if the widget is tall enough for it.
             val chapter = nowPlaying?.chapter?.takeIf { nowPlaying.isBook && LocalSize.current.height >= CHAPTER_MIN_HEIGHT }
             if (chapter != null) Subtitle(chapter)
 
-            // Untertitel: bei Musik der Künstler, bei Büchern und Folgen die Spielzeit (statt Autor bzw. Abo); solange sie
-            // nicht feststeht, der Autor.
+            // Subtitle: for music the artist, for books and episodes the playing time (instead of author or subscription); as long as it
+            // isn't known, the author.
             val clock = entry?.clock?.takeIf { nowPlaying?.isBook == true }
             if (clock != null) {
                 BookClockLine(clock)
@@ -235,13 +235,13 @@ private fun NowPlayingContent(state: WidgetState, entry: WidgetEntry?, areas: Se
 
             Spacer(modifier = GlanceModifier.defaultWeight())
 
-            // 3. Wiedergabe-Steuerung
+            // 3. Playback controls
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (controls != null) {
-                    // Bei Büchern und Folgen Spulen statt Titelsprung (wie im Buch-Player und in der Benachrichtigung).
+                    // For books and episodes, seeking instead of track skipping (as in the book player and in the notification).
                     val isBook = controls.isBook
                     val back = state.seekOf(controls).backSeconds
                     ControlButton(
@@ -297,7 +297,7 @@ private fun ControlButton(
     label: String,
     action: Action,
     isPrimary: Boolean = false,
-    /** Zahl im Symbol (Sprungweite in Sekunden bei Büchern). */
+    /** Number in the icon (skip interval in seconds for books). */
     badge: String? = null,
 ) {
     if (isPrimary) {
@@ -364,10 +364,10 @@ private fun Subtitle(text: String) {
 }
 
 /**
- * „00:45:12 / 03:12:01“ (gespielt / gesamt). Läuft das Buch bei 1×, zählt ein Chronometer im Launcher selbst hoch, und
- * zwar nur, solange das Widget zu sehen ist; die App sendet dafür nichts. Sonst fester Text: pausiert, weil ein
- * angehaltener Chronometer beim erneuten Aufbau durch den Launcher von seiner Basis aus neu rechnete; bei anderem Tempo,
- * weil er nur in Echtzeit zählt (dann setzt der Updater die Zeit jede Sekunde neu).
+ * "00:45:12 / 03:12:01" (played / total). If the book plays at 1×, a chronometer in the launcher counts up by itself, and
+ * only while the widget is visible; the app sends nothing for it. Otherwise a fixed text: when paused, because a
+ * stopped chronometer would recompute from its base when the launcher rebuilds it; at other speeds,
+ * because it only counts in real time (then the updater resets the time every second).
  */
 @Composable
 private fun BookClockLine(clock: BookClock) {
@@ -382,13 +382,13 @@ private fun BookClockLine(clock: BookClock) {
         val id = R.id.widget_book_clock
         setChronometer(id, clock.measuredAtMs - clock.positionMs, "${chronometerPrefix(clock.positionMs)}%s$total", true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // Wie bei Glance selbst: Hell/Dunkel wechselt der Launcher, ohne dass das Widget neu gebaut wird.
+            // As with Glance itself: the launcher switches light/dark without the widget being rebuilt.
             setColorInt(id, "setTextColor", color.argb(context, night = false), color.argb(context, night = true))
         } else {
             setTextColor(id, color.getColor(context).toArgb())
         }
     }
-    // Ohne Größe füllt der Rahmen, den Glance um die RemoteViews legt, die ganze Spalte.
+    // Without a size, the frame that Glance puts around the RemoteViews fills the whole column.
     AndroidRemoteViews(views, GlanceModifier.wrapContentSize().padding(top = SUBTITLE_PADDING))
 }
 
@@ -403,7 +403,7 @@ private fun ColorProvider.argb(context: Context, night: Boolean): Int {
 private fun playerCommand(command: String): Action =
     actionRunCallback<WidgetPlayerAction>(actionParametersOf(WidgetPlayerAction.CommandKey to command))
 
-/** Das Buch bzw. die Folge [bookId] an der gespeicherten Stelle, ohne: die gespeicherte Musik-Warteschlange. */
+/** The book or episode [bookId] at the stored position; without it: the stored music queue. */
 private fun resumeAction(bookId: Long?): Action =
     if (bookId == null) {
         playerCommand(WidgetPlayerAction.RESUME_MUSIC)
@@ -428,7 +428,7 @@ private fun playIntent(context: Context): Intent =
         .setData("earloft://widget/media_button/${KeyEvent.KEYCODE_MEDIA_PLAY}".toUri())
         .putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY))
 
-/** Steuert den laufenden Service über die [PlaybackConnection]. */
+/** Controls the running service via the [PlaybackConnection]. */
 class WidgetPlayerAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val connection = context.widgetEntryPoint().playbackConnection()

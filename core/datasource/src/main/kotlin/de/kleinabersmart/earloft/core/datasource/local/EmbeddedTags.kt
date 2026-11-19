@@ -10,8 +10,8 @@ import androidx.media3.extractor.metadata.vorbis.VorbisComment
 import java.nio.charset.Charset
 
 /**
- * Tags einer lokalen Datei, die MediaStore nicht liefert (Konzept 6.2). Leere Werte sind `null`.
- * MBIDs: [recordingMbid] ↔ `mbidTrack`, [releaseMbid] ↔ `mbidAlbum` – wie bei Subsonic.
+ * Tags of a local file that MediaStore doesn't provide (concept 6.2). Empty values are `null`.
+ * MBIDs: [recordingMbid] ↔ `mbidTrack`, [releaseMbid] ↔ `mbidAlbum` – as with Subsonic.
  */
 internal data class EmbeddedTags(
     val recordingMbid: String? = null,
@@ -26,7 +26,7 @@ internal data class EmbeddedTags(
         private const val UFID_OWNER = "http://musicbrainz.org"
         private val MBID = Regex("""[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}""")
 
-        /** Liest die Einträge aller Spuren; die jeweils erste Angabe gewinnt. */
+        /** Reads the entries of all tracks; the first value found wins in each case. */
         @OptIn(UnstableApi::class)
         fun from(metadata: List<Metadata>): EmbeddedTags {
             val tags = mutableMapOf<String, String>()
@@ -41,7 +41,7 @@ internal data class EmbeddedTags(
                                 val description = entry.description ?: continue
                                 entry.values.firstOrNull()?.let { tags.putIfAbsent(description.uppercase(), it) }
                             }
-                            // MP4 `©lyr` liefert Media3 als Textframe mit der ID3-Kennung.
+                            // Media3 delivers MP4 `©lyr` as a text frame with the ID3 identifier.
                             "USLT" -> if (uslt == null) uslt = entry.values.firstOrNull()
                         }
                         is InternalFrame -> tags.putIfAbsent(entry.description.uppercase(), entry.text)
@@ -66,15 +66,15 @@ internal data class EmbeddedTags(
         }
 
         /**
-         * Nur ein einzelner Eintrag ist eindeutig: Mehrere (`a;b`) gehören zu mehreren Künstlern und passen
-         * nicht zum einen Namen, den MediaStore liefert.
+         * Only a single entry is unambiguous: several (`a;b`) belong to several artists and don't match
+         * the one name MediaStore provides.
          */
         private fun firstMbid(value: String): String? {
             val found = MBID.findAll(value).map { it.value.lowercase() }.toList()
             return found.singleOrNull()
         }
 
-        /** `UFID`: Besitzer, 0-Byte, Kennung. Nur der MusicBrainz-Besitzer zählt. */
+        /** `UFID`: owner, 0 byte, identifier. Only the MusicBrainz owner counts. */
         private fun decodeUfid(data: ByteArray): String? {
             val end = data.indexOf(0)
             if (end < 0) return null
@@ -83,7 +83,7 @@ internal data class EmbeddedTags(
             return String(data, end + 1, data.size - end - 1, Charsets.ISO_8859_1)
         }
 
-        /** `USLT`: Kodierung, Sprache (3), Beschreibung (terminiert), Text. */
+        /** `USLT`: encoding, language (3), description (terminated), text. */
         internal fun decodeUslt(data: ByteArray): String? {
             if (data.size < 5) return null
             val encoding = data[0].toInt()

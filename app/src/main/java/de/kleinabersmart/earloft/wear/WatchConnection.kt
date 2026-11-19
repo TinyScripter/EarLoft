@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Ob eine Uhr mit EarLoft gekoppelt ist (Wear-Konzept 5: Uhr-Funktionen nur dann zeigen). */
+/** Whether a watch with EarLoft is paired (Wear concept 5: show watch features only then). */
 @Singleton
 class WatchConnection @Inject constructor(
     private val capabilityClient: CapabilityClient,
@@ -27,9 +27,9 @@ class WatchConnection @Inject constructor(
     private val nodeClient: NodeClient,
 ) {
     /**
-     * Gekoppelt genügt – die Auswahl gilt auch, wenn die Uhr gerade nicht verbunden ist. Erkannt wird die
-     * Uhr-App an der Capability oder am DataItem [WearPaths.WATCH_INFO] (Capabilities kommen nicht überall
-     * an, Wear-Konzept 4). Beim Deinstallieren der Uhr-App löschen die Play-Dienste das DataItem.
+     * Paired is enough – the selection also applies if the watch isn't currently connected. The watch app
+     * is recognized by the capability or by the DataItem [WearPaths.WATCH_INFO] (capabilities don't arrive
+     * everywhere, Wear concept 4). When the watch app is uninstalled, Play services delete the DataItem.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val watchAppInstalled: Flow<Boolean> =
@@ -44,8 +44,8 @@ class WatchConnection @Inject constructor(
             .distinctUntilChanged()
 
     /**
-     * Für den Einrichtungsassistenten (Konzept 15): EarLoft auf der Uhr, eine verbundene Uhr ohne EarLoft oder keine Uhr.
-     * Ohne Uhr-App zählt nur eine gerade verbundene Uhr; gekoppelte, aber getrennte kennt der Data Layer nicht.
+     * For the setup wizard (concept 15): EarLoft on the watch, a connected watch without EarLoft, or no watch.
+     * Without the watch app only a currently connected watch counts; the Data Layer doesn't know paired but disconnected ones.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val setup: Flow<WatchSetup> = watchAppInstalled.mapLatest { installed ->
@@ -57,8 +57,8 @@ class WatchConnection @Inject constructor(
     }.onEach { lastSetup = it }
 
     /**
-     * Was [setup] zuletzt ergab, `null` vor der ersten Antwort: Jede Seite des Assistenten fragt neu, beginnt aber mit dem
-     * bekannten Stand statt mit „keine Uhr“ (sonst spränge die Zahl der Schritte, Review D27).
+     * What [setup] last returned, `null` before the first answer: each page of the wizard asks again, but starts with the
+     * known state instead of "no watch" (otherwise the number of steps would jump, review D27).
      */
     @Volatile
     var lastSetup: WatchSetup? = null

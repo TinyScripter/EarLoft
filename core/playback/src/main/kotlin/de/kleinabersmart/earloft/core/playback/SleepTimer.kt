@@ -17,31 +17,31 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Wo ein Buch bzw. eine Folge gerade steht (Buchpositionen): [ends] sind die Stellen, an denen der Timer „bis zum Ende“
- * anhalten kann, aufsteigend – bei Büchern mit Kapiteln jedes Kapitelende, sonst nur das Ende des Ganzen.
+ * Where a book or episode currently is (book positions): [ends] are the positions where the timer "until the end"
+ * can stop, ascending – for books with chapters every chapter end, otherwise only the end of the whole.
  */
 internal class SpokenSpot(val bookId: Long, val positionMs: Long, val speed: Float, val ends: List<Long>) {
-    /** Das Ende des Abschnitts, in dem [positionMs] liegt. */
+    /** The end of the section in which [positionMs] lies. */
     fun endAfter(positionMs: Long): Long = ends.firstOrNull { it > positionMs } ?: ends.last()
 
-    /** Anfang des Abschnitts, der bei [endMs] endet. */
+    /** Start of the section that ends at [endMs]. */
     fun startOf(endMs: Long): Long = ends.lastOrNull { it < endMs } ?: 0L
 }
 
-/** Das, was der [SleepTimer] vom Player braucht; so lässt er sich ohne echten Player testen. */
+/** What the [SleepTimer] needs from the player; this way it can be tested without a real player. */
 internal interface SleepTimerTarget {
     var volume: Float
     val isPlaying: Boolean
 
-    /** Ein Buch oder eine Folge ist geladen (auch wenn [spokenSpot] noch fehlt, weil die Zeitachse lädt). */
+    /** A book or episode is loaded (even if [spokenSpot] is still missing because the timeline is loading). */
     val isSpoken: Boolean
     fun pause()
     fun play()
 
-    /** Stand des laufenden Buchs bzw. der Folge; `null` bei Musik oder solange die Zeitachse lädt. */
+    /** State of the current book or episode; `null` for music or while the timeline is loading. */
     fun spokenSpot(): SpokenSpot?
 
-    /** Bei Büchern und Folgen [heardMs] gehörte Zeit zurück (mit Tempo umgerechnet); bei Musik nichts. */
+    /** For books and episodes rewind [heardMs] of listened time (converted with speed); nothing for music. */
     fun rewind(heardMs: Long)
 }
 
@@ -52,7 +52,7 @@ internal fun Player.asSleepTimerTarget(spot: () -> SpokenSpot?, rewind: (Long) -
             this@asSleepTimerTarget.volume = value
         }
     override val isPlaying: Boolean get() = this@asSleepTimerTarget.isPlaying
-    // Während der Übergabe ans Cast-Gerät ist die Warteschlange einige Sekunden leer: kein Ende, „bis zum Ende“ wartet (Review D9).
+    // During the handover to the cast device the queue is empty for a few seconds: not an end, "until the end" waits (review D9).
     override val isSpoken: Boolean get() = currentMediaItem?.isSpoken == true || awaitsRemoteQueue
     override fun pause() = this@asSleepTimerTarget.pause()
     override fun play() = this@asSleepTimerTarget.play()
@@ -60,24 +60,24 @@ internal fun Player.asSleepTimerTarget(spot: () -> SpokenSpot?, rewind: (Long) -
     override fun rewind(heardMs: Long) = rewind.invoke(heardMs)
 }
 
-/** Lautstärke [remainingMs] vor Ablauf: linear von 1 (Beginn des Ausblendens) auf 0. */
+/** Volume [remainingMs] before expiry: linear from 1 (start of fade-out) to 0. */
 internal fun fadeVolume(remainingMs: Long): Float = (remainingMs.toFloat() / SleepTimer.FADE_MS).coerceIn(0f, 1f)
 
-/** Ein laufender Sleep-Timer: Restzeit (Echtzeit) und ob er bis zum Ende des Kapitels bzw. der Folge läuft. */
+/** A running sleep timer: remaining time (real time) and whether it runs until the end of the chapter or episode. */
 data class SleepTimerState(val remainingMs: Long, val toEnd: Boolean)
 
 /**
- * Sleep-Timer: Nach der eingestellten Dauer oder am Ende des Kapitels bzw. der Folge wird ausgeblendet und pausiert. Die
- * Zeit läuft im Prozess des [PlaybackService], nicht in der UI, und überlebt deshalb das Schließen der App. Handy und Uhr
- * haben je ihren eigenen Timer, weil die Uhr eigenständig spielt.
+ * Sleep timer: after the set duration or at the end of the chapter or episode it fades out and pauses. The
+ * time runs in the process of the [PlaybackService], not in the UI, and therefore survives closing the app. Phone and watch
+ * each have their own timer because the watch plays independently.
  *
- * „Bis zum Ende“ rechnet die Restzeit bei jedem Schritt aus der Position neu: Tempowechsel zählen sofort, und wer in ein
- * anderes Kapitel spult, schläft an dessen Ende ein. Solange pausiert ist, wird nicht ausgeblendet.
+ * "Until the end" recomputes the remaining time from the position on every step: speed changes count immediately, and whoever
+ * seeks into another chapter falls asleep at its end. While paused, nothing fades out.
  *
- * Schütteln ([extend]) verlängert in den letzten [SHAKE_WINDOW_MS], solange abgespielt wird, und bis [SHAKE_AFTER_MS]
- * nach dem Anhalten ([shakeWindow]): um die zuletzt gewählte Dauer bzw. bis zum Ende des nächsten Kapitels.
+ * Shaking ([extend]) extends during the last [SHAKE_WINDOW_MS] while playing, and up to [SHAKE_AFTER_MS]
+ * after stopping ([shakeWindow]): by the last chosen duration or until the end of the next chapter.
  *
- * Alle Methoden gehören auf den Main-Thread.
+ * All methods belong on the main thread.
  */
 @Singleton
 class SleepTimer internal constructor(
@@ -88,46 +88,46 @@ class SleepTimer internal constructor(
 
     private val _state = MutableStateFlow<SleepTimerState?>(null)
 
-    /** `null`, solange kein Timer läuft; sonst etwa jede Sekunde neu. */
+    /** `null` while no timer is running; otherwise updated about every second. */
     val state: StateFlow<SleepTimerState?> = _state.asStateFlow()
 
-    /** Restzeit, etwa jede Sekunde neu; `null`, solange kein Timer läuft. */
+    /** Remaining time, updated about every second; `null` while no timer is running. */
     val remainingMs: Flow<Long?> = _state.map { it?.remainingMs }.distinctUntilChanged()
 
     private val _shakeWindow = MutableStateFlow(false)
 
-    /** Jetzt verlängert Schütteln den Timer; nur dann braucht es den Sensor. */
+    /** Shaking now extends the timer; only then is the sensor needed. */
     val shakeWindow: StateFlow<Boolean> = _shakeWindow.asStateFlow()
 
     private var target: SleepTimerTarget? = null
     private var job: Job? = null
     private var afterJob: Job? = null
 
-    /** Was gerade läuft bzw. zuletzt abgelaufen ist (für das Schütteln danach). */
+    /** What is currently running or last expired (for shaking afterwards). */
     private var plan: Plan? = null
     private var firedAt: Long? = null
 
-    /** Zuletzt gewählte Dauer; Schütteln verlängert darum. */
+    /** Last chosen duration; shaking extends by it. */
     private var lastDurationMs = PRESET_MINUTES.first() * MS_PER_MINUTE
 
     internal fun attach(target: SleepTimerTarget) {
         this.target = target
     }
 
-    /** Der Service wird beendet: Ein Timer ohne Player hätte nichts mehr zu tun. */
+    /** The service is ending: a timer without a player would have nothing left to do. */
     internal fun detach() {
         cancel()
         target = null
     }
 
-    /** Startet den Timer neu mit fester Dauer; ein laufender wird ersetzt. */
+    /** Restarts the timer with a fixed duration; a running one is replaced. */
     fun start(durationMs: Long) {
         if (durationMs <= 0) return
         lastDurationMs = durationMs
         launch(Plan.Duration(now() + durationMs))
     }
 
-    /** Bis zum Ende des Kapitels (Bücher mit Kapiteln) bzw. des Buchs oder der Folge; ohne Buch oder Folge nichts. */
+    /** Until the end of the chapter (books with chapters), the book or the episode; nothing without a book or episode. */
     fun startToEnd() {
         if (target?.isSpoken != true) return
         launch(Plan.ToEnd())
@@ -146,23 +146,23 @@ class SleepTimer internal constructor(
     }
 
     /**
-     * Schütteln: Kurz vor Ablauf geht es von vorn los (feste Dauer) bzw. bis zum Ende des nächsten Kapitels, was schon
-     * ausgeblendet war, wird bei Büchern und Folgen zurückgespult. Kurz nach Ablauf zusätzlich wieder abspielen.
-     * `true`, wenn der Timer verlängert wurde.
+     * Shaking: shortly before expiry it starts over (fixed duration) or runs until the end of the next chapter; whatever was already
+     * faded out is rewound for books and episodes. Shortly after expiry it also resumes playback.
+     * `true` if the timer was extended.
      */
     fun extend(): Boolean {
         val target = target ?: return false
         if (!_shakeWindow.value) return false
         val plan = plan ?: return false
         val firedAt = firedAt
-        // Das Fenster nach dem Anhalten schließt ein `delay`, und das zählt Uptime: Im Tiefschlaf blieb es Stunden offen, und
-        // Bewegung in der Tasche am Morgen hätte die Wiedergabe gestartet. Maßgeblich ist die Echtzeit (Review D11).
+        // The window after stopping is closed by a `delay`, which counts uptime: in deep sleep it stayed open for hours, and
+        // movement in the pocket in the morning would have started playback. Real time is what counts (review D11).
         if (firedAt != null && now() - firedAt > SHAKE_AFTER_MS) {
             closeAfterWindow()
             return false
         }
         val fired = firedAt != null
-        // Zurückgespult wird nur, was wirklich leiser lief (pausiert blendet „bis zum Ende“ nicht aus).
+        // Only what actually played quieter is rewound (while paused "until the end" doesn't fade out).
         val faded = target.volume < 1f
         val heard = when {
             fired -> FADE_MS
@@ -172,7 +172,7 @@ class SleepTimer internal constructor(
         if (heard > 0) target.rewind(heard)
         val next = when (plan) {
             is Plan.Duration -> null
-            // Ohne weiteres Kapitel (Folge, letztes Kapitel) um die zuletzt gewählte Dauer.
+            // Without a further chapter (episode, last chapter) by the last chosen duration.
             is Plan.ToEnd -> plan.endMs?.let { end ->
                 target.spokenSpot()?.takeIf { it.bookId == plan.bookId }?.endAfter(end)?.takeIf { it > end }
             }?.let { Plan.ToEnd(bookId = plan.bookId, endMs = it, fromMs = plan.fromMs) }
@@ -212,9 +212,9 @@ class SleepTimer internal constructor(
             }
             if (remaining <= plan.slackMs) break
             _state.value = SleepTimerState(remaining, toEnd = plan is Plan.ToEnd)
-            // Nur während der Wiedergabe: Pausiert bräuchte der Sensor nur Akku, und jede Bewegung spulte zurück.
+            // Only during playback: when paused the sensor would only drain battery, and every movement would rewind.
             _shakeWindow.value = remaining <= SHAKE_WINDOW_MS && target.isPlaying
-            // Pausiert läuft „bis zum Ende“ nicht weiter; ausgeblendet wird erst, wenn es wieder läuft.
+            // When paused "until the end" doesn't continue; fading out only happens once it plays again.
             val fading = remaining <= FADE_MS && (plan is Plan.Duration || target.isPlaying)
             if (fading) {
                 target.volume = fadeVolume(remaining)
@@ -226,7 +226,7 @@ class SleepTimer internal constructor(
             }
         }
         target.pause()
-        // Die Position bleibt, beim nächsten Abspielen soll es wieder in voller Lautstärke losgehen.
+        // The position stays; the next playback should start at full volume again.
         target.volume = 1f
         _state.value = null
         firedAt = now()
@@ -252,7 +252,7 @@ class SleepTimer internal constructor(
     }
 
     private sealed interface Plan {
-        /** Ab dieser Restzeit gilt der Timer als abgelaufen. */
+        /** From this remaining time on, the timer counts as expired. */
         val slackMs: Long
 
         class Duration(val endsAt: Long) : Plan {
@@ -260,9 +260,9 @@ class SleepTimer internal constructor(
         }
 
         /**
-         * Bis [endMs] im Buch [bookId]; alle stehen erst nach dem ersten Schritt fest. Wer vor [fromMs] spult (nach einer
-         * Verlängerung der Anfang des ursprünglichen Kapitels), schläft am Ende des neuen Kapitels ein. Knapp vor der
-         * Grenze anhalten: Eine Folge ginge sonst schon in die nächste über.
+         * Until [endMs] in the book [bookId]; all of them are only fixed after the first step. Whoever seeks before [fromMs] (after an
+         * extension, the start of the original chapter) falls asleep at the end of the new chapter. Stop just before the
+         * boundary: otherwise an episode would already move on to the next one.
          */
         class ToEnd(var bookId: Long? = null, var endMs: Long? = null, var fromMs: Long? = null) : Plan {
             override val slackMs = END_SLACK_MS
@@ -271,7 +271,7 @@ class SleepTimer internal constructor(
             fun remaining(target: SleepTimerTarget): Step {
                 val spot = target.spokenSpot()
                 if (spot == null) {
-                    // Gerade über die Grenze ins nächste Item (Folge zu Ende, nächste lädt): Das war das Ende.
+                    // Just crossed the boundary into the next item (episode finished, next one loading): that was the end.
                     if (lastRemaining < CROSS_TOLERANCE_MS) return Step.Remaining(0)
                     return if (target.isSpoken) Step.Wait else Step.Stop
                 }
@@ -286,9 +286,9 @@ class SleepTimer internal constructor(
                 var from = fromMs ?: spot.startOf(end)
                 val overshoot = position - end
                 when {
-                    // Natürlich über die Grenze gelaufen (zwischen zwei Schritten): anhalten.
+                    // Naturally ran past the boundary (between two steps): stop.
                     overshoot >= 0 && overshoot <= CROSS_TOLERANCE_MS * spot.speed -> return Step.Remaining(0)
-                    // Gespult: Es gilt das Ende des Abschnitts, in dem man jetzt ist.
+                    // Seeked: the end of the section you are in now applies.
                     overshoot >= 0 || position < from -> {
                         end = spot.endAfter(position)
                         from = spot.startOf(end)
@@ -304,27 +304,27 @@ class SleepTimer internal constructor(
     }
 
     companion object {
-        /** Zeitspanne vor Ablauf, in der die Lautstärke sinkt. */
+        /** Time span before expiry during which the volume decreases. */
         const val FADE_MS = 20_000L
         private const val FADE_STEP_MS = 250L
         private const val TICK_MS = 1_000L
         private const val MS_PER_MINUTE = 60_000L
 
-        /** „Bis zum Ende“ hält so knapp vor der Grenze an. */
+        /** "Until the end" stops this close before the boundary. */
         internal const val END_SLACK_MS = 300L
 
-        /** So weit hinter der Grenze gilt sie noch als „gerade erreicht“ statt als übersprungen. */
+        /** This far past the boundary it still counts as "just reached" rather than skipped. */
         private const val CROSS_TOLERANCE_MS = 3_000L
         private const val MIN_SPEED = 0.1f
 
-        /** Schütteln verlängert in den letzten Sekunden und noch eine Weile nach dem Anhalten. */
+        /** Shaking extends during the last seconds and for a while after stopping. */
         const val SHAKE_WINDOW_MS = 60_000L
         const val SHAKE_AFTER_MS = 120_000L
 
-        /** Dauern, die beide Apps zur Auswahl anbieten. */
+        /** Durations both apps offer for selection. */
         val PRESET_MINUTES = listOf(15, 30, 45, 60)
 
-        /** Schrittweite und Obergrenze für die eigene Dauer. */
+        /** Step size and upper limit for the custom duration. */
         const val STEP_MINUTES = 5
         const val MAX_MINUTES = 240
     }

@@ -1,25 +1,25 @@
 package de.kleinabersmart.earloft.core.model
 
-/** Ob und wie ein Song ohne Netz verfügbar ist. */
+/** Whether and how a song is available without network. */
 enum class SongOfflineState {
-    /** Liegt als lokale Datei vor – ein Download ist unnötig. */
+    /** Exists as a local file – a download is unnecessary. */
     LOCAL,
     DOWNLOADED,
     QUEUED,
     DOWNLOADING,
     FAILED,
 
-    /** Nur per Stream verfügbar. */
+    /** Only available via streaming. */
     NONE,
 }
 
 data class SongOfflineStatus(
     val state: SongOfflineState,
-    /** 0..1 während des Ladens, sonst `null`. */
+    /** 0..1 while downloading, otherwise `null`. */
     val progress: Float? = null,
 )
 
-/** Offline-Zustand aller Songs eines Albums. */
+/** Offline state of all songs of an album. */
 data class AlbumOfflineStatus(val songs: Map<Long, SongOfflineStatus>) {
     private fun count(state: SongOfflineState) = songs.values.count { it.state == state }
 
@@ -28,12 +28,12 @@ data class AlbumOfflineStatus(val songs: Map<Long, SongOfflineStatus>) {
     val pendingCount: Int get() = count(SongOfflineState.QUEUED) + count(SongOfflineState.DOWNLOADING)
     val failedCount: Int get() = count(SongOfflineState.FAILED)
 
-    /** Songs, die überhaupt heruntergeladen werden können (nicht lokal). */
+    /** Songs that can be downloaded at all (not local). */
     val downloadableCount: Int get() = songs.size - localCount
 
     val isFullyOffline: Boolean get() = songs.isNotEmpty() && localCount + downloadedCount == songs.size
 
-    /** Hat das Album Downloads (fertig, laufend oder fehlgeschlagen)? */
+    /** Does the album have downloads (finished, running or failed)? */
     val hasDownloads: Boolean get() = downloadedCount + pendingCount + failedCount > 0
 
     companion object {
@@ -42,8 +42,8 @@ data class AlbumOfflineStatus(val songs: Map<Long, SongOfflineStatus>) {
 }
 
 /**
- * Offline-Zustand beliebiger Songs: Lokale Songs und Songs mit Download sind bekannt, alle anderen
- * sind [SongOfflineState.NONE].
+ * Offline state of arbitrary songs: local songs and songs with a download are known, all others
+ * are [SongOfflineState.NONE].
  */
 class SongOfflineLookup(
     private val downloads: Map<Long, SongOfflineStatus>,
@@ -64,20 +64,20 @@ class SongOfflineLookup(
     }
 }
 
-/** Markierung „heruntergeladen“ auf Covern und in Zeilen; ohne Download gibt es keine (`null`). */
+/** "Downloaded" marker on covers and in rows; without a download there is none (`null`). */
 enum class OfflineMark {
-    /** Ganz geladen. */
+    /** Fully downloaded. */
     DONE,
 
-    /** Nur ein Teil geladen (Album). */
+    /** Only partially downloaded (album). */
     PARTIAL,
 
-    /** Wartet oder lädt. */
+    /** Waiting or downloading. */
     PENDING,
     FAILED,
 }
 
-/** Download-Stand eines Albums in Zahlen, für Kacheln und Zeilen; [localCount] zählt Songs mit lokaler Datei. */
+/** Download state of an album in numbers, for tiles and rows; [localCount] counts songs with a local file. */
 data class AlbumDownloadSummary(
     val songCount: Int,
     val localCount: Int,
@@ -85,7 +85,7 @@ data class AlbumDownloadSummary(
     val pendingCount: Int,
     val failedCount: Int,
 ) {
-    /** Laden geht vor Fehler, Fehler vor fertig; lokale Songs zählen als vorhanden, markieren aber allein nichts. */
+    /** Downloading takes precedence over failed, failed over finished; local songs count as present but don't mark anything on their own. */
     val mark: OfflineMark?
         get() = when {
             pendingCount > 0 -> OfflineMark.PENDING
@@ -96,7 +96,7 @@ data class AlbumDownloadSummary(
         }
 }
 
-/** Ein Album mit mindestens einem Download – für die Downloads-Übersicht. */
+/** An album with at least one download – for the downloads overview. */
 data class DownloadedAlbum(
     val album: Album,
     val downloadedSongs: Int,
@@ -111,7 +111,7 @@ data class DownloadOverview(
     val failedSongs: Int,
     val usedBytes: Long,
     val freeBytes: Long,
-    /** Fortschritt des gerade laufenden Downloads (0..1), sonst `null`. */
+    /** Progress of the currently running download (0..1), otherwise `null`. */
     val currentProgress: Float?,
 ) {
     companion object {

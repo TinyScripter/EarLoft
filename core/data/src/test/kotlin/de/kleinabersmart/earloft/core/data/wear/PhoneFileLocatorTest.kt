@@ -69,12 +69,12 @@ class PhoneFileLocatorTest {
             .build()
         syncer = db.librarySyncer()
         localFile = folder.newFile("lokal.mp3").apply { writeBytes(ByteArray(300_000) { (it % 251).toByte() }) }
-        // „A“ gibt es auch lokal (wird mit dem Server-Song zusammengeführt), „Sommerlied“ nur lokal.
+        // "A" also exists locally (merged with the server song), "Sommerlied" only locally.
         val local = FileLocalSource(listOf(track("1", "A", 1), track("2", "Sommerlied", 1, album = "Lokal")), localFile)
         val context = ApplicationProvider.getApplicationContext<Context>()
         val client = OkHttpClient()
         val api = AbsApi(client)
-        // Ohne Schlüssel ist kein Server eingetragen; Bilder kommen in den Tests über `store`.
+        // Without a key no server is registered; images arrive via `store` in the tests.
         val secrets = object : SecretStore {
             override suspend fun get(key: String): String? = null
             override suspend fun put(key: String, value: String) = Unit
@@ -177,7 +177,7 @@ class PhoneFileLocatorTest {
         lastModified = 1,
     )
 
-    /** Lokale Quelle, deren Songs alle auf dieselbe echte Datei zeigen. */
+    /** Local source whose songs all point to the same real file. */
     private class FileLocalSource(private val tracks: List<RawTrack>, private val file: File) : MusicDataSource {
         override val sourceId = "local"
         override val type = SourceType.LOCAL

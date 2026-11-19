@@ -15,11 +15,11 @@ import de.kleinabersmart.earloft.core.database.entity.SongEntity
 import de.kleinabersmart.earloft.core.database.entity.SongGenreEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 
-/** Lookups und Schreibzugriffe für die Deduplizierung beim Bibliotheks-Abgleich. */
+/** Lookups and writes for deduplication during the library sync. */
 @Dao
 interface MergeDao {
 
-    // --- Künstler ---
+    // --- Artists ---
 
     @Query("SELECT * FROM artists WHERE mbid = :mbid LIMIT 1")
     suspend fun findArtistByMbid(mbid: String): ArtistEntity?
@@ -33,7 +33,7 @@ interface MergeDao {
     @Update
     suspend fun updateArtist(artist: ArtistEntity)
 
-    // --- Alben ---
+    // --- Albums ---
 
     @Query("SELECT * FROM albums WHERE mbid = :mbid LIMIT 1")
     suspend fun findAlbumByMbid(mbid: String): AlbumEntity?
@@ -92,7 +92,7 @@ interface MergeDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSongGenres(genres: List<SongGenreEntity>)
 
-    // --- Song-Quellen ---
+    // --- Song sources ---
 
     @Query("SELECT * FROM song_sources WHERE uid = :uid")
     suspend fun getSongSource(uid: String): SongSourceEntity?
@@ -103,7 +103,7 @@ interface MergeDao {
     @Query("SELECT * FROM song_sources WHERE songId = :songId")
     suspend fun getSourcesOfSong(songId: Long): List<SongSourceEntity>
 
-    /** Der Song hat außer [exceptUid] schon eine Quelle von [sourceId]. */
+    /** The song already has a source from [sourceId] other than [exceptUid]. */
     @Query("SELECT EXISTS (SELECT 1 FROM song_sources WHERE songId = :songId AND sourceId = :sourceId AND uid != :exceptUid)")
     suspend fun hasOtherSourceFrom(songId: Long, sourceId: String, exceptUid: String): Boolean
 
@@ -114,8 +114,8 @@ interface MergeDao {
     suspend fun updateSongSource(songSource: SongSourceEntity)
 
     /**
-     * Die Datei auf dem Server hat sich geändert: fertigen Download neu laden. Bis dahin wird
-     * gestreamt; die alte Datei wird beim Fertigstellen ersetzt.
+     * The file on the server has changed: re-download the finished download. Until then it is
+     * streamed; the old file is replaced on completion.
      */
     @Query("UPDATE downloads SET state = 'QUEUED', bytesDone = 0 WHERE sourceUid = :uid AND state = 'DONE'")
     suspend fun requeueDownload(uid: String)
@@ -123,11 +123,11 @@ interface MergeDao {
     @Query("UPDATE song_sources SET seenInGeneration = :generation WHERE uid = :uid")
     suspend fun markSeen(uid: String, generation: Long)
 
-    /** Mark-and-Sweep: Quellen, die beim letzten Vollabgleich nicht mehr gesehen wurden. */
+    /** Mark-and-sweep: sources that were no longer seen during the last full sync. */
     @Query("DELETE FROM song_sources WHERE sourceId = :sourceId AND seenInGeneration < :generation")
     suspend fun deleteStaleSongSources(sourceId: String, generation: Long): Int
 
-    // --- Album- und Künstler-Quellen ---
+    // --- Album and artist sources ---
 
     @Query("SELECT * FROM album_sources WHERE sourceId = :sourceId AND remoteId = :remoteId")
     suspend fun getAlbumSource(sourceId: String, remoteId: String): AlbumSourceEntity?
@@ -153,7 +153,7 @@ interface MergeDao {
     @Query("DELETE FROM artist_sources WHERE sourceId = :sourceId AND seenInGeneration < :generation")
     suspend fun deleteStaleArtistSources(sourceId: String, generation: Long)
 
-    /** Künstler des Songs und seines Albums. */
+    /** Artists of the song and its album. */
     @Query(
         """
         SELECT * FROM artists

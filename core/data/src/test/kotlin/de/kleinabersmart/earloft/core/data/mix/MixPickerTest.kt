@@ -45,7 +45,7 @@ class MixPickerTest {
         val metal = (30L until 40L).map { row(it, genre = "Metal", year = 2015, artist = it, album = it) }
 
         assertEquals(mapOf("rap" to 1.0, "hip-hop" to 1.0), MixProfile.of(listOf(both)).genres)
-        // Platz für einen Song neben dem Ausgangspunkt: Der passende kommt vor allem Fremden.
+        // Room for one song next to the starting point: the matching one comes before anything unrelated.
         assertEquals(listOf(1L, 10L), pick(seed, metal + both, size = 2))
     }
 
@@ -53,11 +53,11 @@ class MixPickerTest {
     fun `limits songs per album and per artist unless nothing else is left`() {
         val seed = row(1, genre = "Jazz", artist = 1, album = 1)
         val jazzArtists = (10L until 15L).map { row(it, genre = "Jazz", artist = it, album = it) }
-        // Ein Album mit zehn Jazz-Songs eines Künstlers und zehn Songs anderer Künstler ohne Genre.
+        // An album with ten jazz songs by one artist and ten songs by other artists without a genre.
         val sameAlbum = (20L until 30L).map { row(it, genre = "Jazz", artist = 2, album = 2) }
         val others = (30L until 40L).map { row(it, artist = it, album = it) }
 
-        // Erst je Album zwei, dann reichen die passenden nicht: doppelte Grenze vor Fremdem.
+        // First two per album, then the matching ones aren't enough: doubled limit before unrelated ones.
         val mix = pick(seed, jazzArtists + sameAlbum + others, size = 8)
         assertEquals(setOf(10L, 11L, 12L, 13L, 14L), mix.filter { it in 10L until 15L }.toSet())
         assertEquals(2, mix.count { it in 20L until 30L })
@@ -65,7 +65,7 @@ class MixPickerTest {
         assertEquals(2 * MixPicker.MAX_PER_ALBUM, longer.count { it in 20L until 30L })
         assertEquals(2, longer.count { it in 30L until 40L })
 
-        // Reicht der Rest nicht, wird ohne Grenzen aufgefüllt.
+        // If the rest isn't enough, it's filled up without limits.
         val full = pick(seed, sameAlbum, size = 11)
         assertEquals(11, full.size)
     }

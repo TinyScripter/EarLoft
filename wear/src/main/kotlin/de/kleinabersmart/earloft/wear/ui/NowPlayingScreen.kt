@@ -90,12 +90,12 @@ import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
- * Wiedergabe (Wear-Konzept 11): Das Cover füllt, leicht unscharf, den Kreis innerhalb des Fortschrittsrings; darauf Titel und
- * Steuerung, Wiedergabe/Pause genau in der Mitte. Akzentfarben kommen aus dem Cover, die Krone ändert die Lautstärke.
- * Ohne passende Ausgabe (Kopfhörer) hält die Wiedergabe an; ein Tipp auf den Hinweis öffnet die Bluetooth-Einstellungen.
- * Bei einem Buch oder einer Folge springen die Knöpfe neben Wiedergabe/Pause um die Sprungweiten, Zufall gibt es dann nicht;
- * mit Kapiteln steht das laufende über dem Titel, und ein Knopf neben dem Sleep-Timer öffnet die Liste. Bei Büchern mit
- * Kapiteln zeigt der Ring nur das laufende Kapitel ([RingWindow]).
+ * Now playing (Wear concept 11): the cover, slightly blurred, fills the circle inside the progress ring; on top of it title and
+ * controls, play/pause exactly in the center. Accent colors come from the cover, the crown changes the volume.
+ * Without a suitable output (headphones) playback pauses; a tap on the hint opens the Bluetooth settings.
+ * For a book or episode the buttons next to play/pause skip by the skip intervals, and there is no shuffle then;
+ * with chapters the current one is shown above the title, and a button next to the sleep timer opens the list. For books with
+ * chapters the ring only shows the current chapter ([RingWindow]).
  */
 @Composable
 fun NowPlayingScreen(
@@ -115,9 +115,9 @@ fun NowPlayingScreen(
 }
 
 /**
- * Wiedergabe-Ansicht des Handys (Wear-Konzept 15): dieselbe Ansicht, aber Bedienung und Anzeige gehören dem Handy.
- * Die Krone ändert die Lautstärke des Handys; Sleep-Timer (der des Handys, nur wenn es ihn anbietet) und Kapitel wie auf der Uhr
- * selbst.
+ * The phone's now playing view (Wear concept 15): the same view, but controls and display belong to the phone.
+ * The crown changes the phone's volume; sleep timer (the phone's, only if it offers one) and chapters as on the watch
+ * itself.
  */
 @Composable
 fun RemoteNowPlayingScreen(
@@ -148,10 +148,10 @@ private fun NowPlayingHost(
     onOpenChapters: () -> Unit = {},
 ) {
     val modelState by model.state.collectAsStateWithLifecycle()
-    // Bei Büchern mit Kapiteln gilt der Ring nur für das laufende Kapitel; Position und Länge der Modelle sind Buchzeiten.
+    // For books with chapters the ring only applies to the current chapter; position and length of the models are book times.
     val window = ringWindow(modelState.spoken, chapter)
     val state = if (window != null) modelState.copy(durationMs = window.durationMs) else modelState
-    // Als Lambda weitergereicht und erst beim Zeichnen gelesen: Der 500-ms-Takt setzt sonst die ganze Ansicht neu zusammen.
+    // Passed on as a lambda and only read while drawing: otherwise the 500 ms tick recomposes the whole view.
     val position = model.positionMs.collectAsStateWithLifecycle()
     val positionMs = remember(position, window) {
         if (window != null) { { window.toRing(position.value) } } else { { position.value } }
@@ -171,7 +171,7 @@ private fun NowPlayingHost(
             volumeVisible = volumeVisible,
             sleepTimerAvailable = sleepTimerAvailable,
             sleepTimerRemainingMs = sleepTimerRemainingMs,
-            // Läuft ein Timer, schaltet ein Tipp ihn aus; sonst öffnet er die Auswahl.
+            // If a timer is running, a tap turns it off; otherwise it opens the selection.
             onSleepTimer = { if (sleepTimerRemainingMs != null) model.cancelSleepTimer() else onOpenSleepTimer() },
             chapterTitle = chapter?.title,
             chaptersAvailable = chaptersAvailable,
@@ -221,8 +221,8 @@ private fun NowPlayingContent(
     var dragProgress by remember { mutableStateOf<Float?>(null) }
     var seekTarget by remember { mutableStateOf<Long?>(null) }
     val currentPositionMs by rememberUpdatedState(positionMs)
-    // Nach dem Loslassen bleibt die Anzeige am Ziel, bis der Player nachgekommen ist (die Position wird nur alle 500 ms gelesen),
-    // höchstens SEEK_HOLD_MAX_MS lang.
+    // After releasing, the display stays at the target until the player has caught up (the position is only read every 500 ms),
+    // for at most SEEK_HOLD_MAX_MS.
     LaunchedEffect(seekTarget) {
         val target = seekTarget ?: return@LaunchedEffect
         withTimeoutOrNull(SEEK_HOLD_MAX_MS) {
@@ -235,8 +235,8 @@ private fun NowPlayingContent(
     }
     val focusRequester = remember { FocusRequester() }
     var hasFocus by remember { mutableStateOf(false) }
-    // Beim Bildschirmwechsel verliert das Feld den Fokus gleich wieder (die Liste davor wird abgebaut); ohne Fokus
-    // kommt die Krone nie an. Deshalb nach jedem Verlust erneut anfordern.
+    // On a screen change the field loses focus again right away (the list before it is torn down); without focus
+    // the crown never gets through. Hence request it again after every loss.
     LaunchedEffect(hasFocus) {
         if (!hasFocus) {
             delay(FOCUS_RETRY_MS)
@@ -257,7 +257,7 @@ private fun NowPlayingContent(
             contentAlignment = Alignment.Center,
         ) {
             CoverBackground(cover)
-            // Vor der Steuerung gezeichnet: Berührungen auf den Knöpfen gehen an die Knöpfe, nicht an den Ring.
+            // Drawn before the controls: touches on the buttons go to the buttons, not to the ring.
             SeekRing(
                 positionMs = shownPositionMs,
                 durationMs = duration,
@@ -280,11 +280,11 @@ private fun NowPlayingContent(
                 modifier = Modifier.fillMaxSize().padding(COVER_INSET),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // Oben und unten gleich viel Platz (je weight 1): So sitzt die Steuerung, und mit ihr Wiedergabe/Pause, genau in der Mitte des Kreises.
+                // Equal space above and below (weight 1 each): this way the controls, and with them play/pause, sit exactly in the center of the circle.
                 val chapterLine = chapterTitle?.takeIf { spoken != null }
                 RoundTextStack(
                     bottomToCenter = PLAY_BUTTON_SIZE / 2,
-                    // Kinder: [Kapitel,] Titel, Interpret bzw. Hinweis. Ohne Ausgabe ist der Hinweis das Wichtigste, sonst der Titel.
+                    // Children: [chapter,] title, artist or hint. Without output the hint is the most important, otherwise the title.
                     priority = when {
                         chapterLine == null -> if (state.outputSuppressed) listOf(1, 0) else listOf(0, 1)
                         state.outputSuppressed -> listOf(2, 1, 0)
@@ -343,7 +343,7 @@ private fun NowPlayingContent(
                         ControlButton(R.drawable.ic_skip_next, R.string.player_next, SKIP_BUTTON_SIZE, onNext)
                     }
                 }
-                // Die kleinen Knöpfe mit Abstand zu Wiedergabe/Pause, damit niemand beim Pausieren den Sleep-Timer trifft.
+                // The small buttons spaced away from play/pause so that nobody hits the sleep timer when pausing.
                 Column(
                     Modifier.weight(1f).fillMaxWidth().padding(top = SECONDARY_ROW_GAP),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -358,7 +358,7 @@ private fun NowPlayingContent(
                                 active = state.shuffle,
                                 toggle = true,
                             )
-                            // Wie am Handy reihum: aus → alle → Titel; die Beschreibung nennt den Zustand.
+                            // Cycles as on the phone: off → all → track; the description names the state.
                             ControlButton(
                                 if (state.repeatMode == Player.REPEAT_MODE_ONE) R.drawable.ic_repeat_one else R.drawable.ic_repeat,
                                 when (state.repeatMode) {
@@ -400,10 +400,10 @@ private fun NowPlayingContent(
 }
 
 /**
- * Die Zeilen über der Steuerung, von unten nach oben gestapelt; die unterste endet [bottomToCenter] über der Bildschirmmitte.
- * Auf runden Uhren bekommt jede Zeile nur die Breite, die das Cover auf ihrer Höhe hergibt. Bei großer Schrift oder kleiner
- * Uhr (WO-V1, WO-V16) entfallen Zeilen, die in die Uhrzeit reichten oder schmaler als [MIN_LINE_WIDTH] würden: [priority]
- * nennt die Kinder nach Wichtigkeit, das erste bleibt immer. Leere Zeilen (etwa ohne Interpret) nehmen keinen Platz ein.
+ * The lines above the controls, stacked from bottom to top; the lowest ends [bottomToCenter] above the screen center.
+ * On round watches each line only gets the width the cover allows at its height. With large font or a small
+ * watch (WO-V1, WO-V16), lines that would reach into the clock or become narrower than [MIN_LINE_WIDTH] are dropped: [priority]
+ * lists the children by importance, the first always stays. Empty lines (e.g. without artist) take no space.
  */
 @Composable
 private fun RoundTextStack(
@@ -419,13 +419,13 @@ private fun RoundTextStack(
         val textRadius = min(screen.width, screen.height) / 2f - COVER_INSET.toPx()
         val toCenter = bottomToCenter.toPx()
         val heights = measurables.map { it.maxIntrinsicHeight(constraints.maxWidth) }
-        // Breite auf dem Abstand d von der Mitte: die Sehne des Cover-Kreises, auf eckigen Uhren die volle Breite.
+        // Width at distance d from the center: the chord of the cover circle, on square watches the full width.
         fun widthAt(d: Float): Int {
             if (!round) return constraints.maxWidth
             val half = sqrt((textRadius * textRadius - d * d).coerceAtLeast(0f))
             return (2 * half).toInt().coerceAtMost(constraints.maxWidth)
         }
-        // Die oberste Zeile ist die schmalste; passt sie, passen alle darunter.
+        // The top line is the narrowest; if it fits, all below it fit.
         fun fits(lines: Collection<Int>): Boolean {
             val total = lines.sumOf { heights[it] }
             val topDistance = toCenter + total
@@ -452,8 +452,8 @@ private fun RoundTextStack(
 }
 
 /**
- * [ProgressRing] mit Ziehen und Bedienhilfe. Der Ring liest die Position erst beim Zeichnen; neu zusammengesetzt wird nur, wenn
- * sich die angesagte Sekunde ändert.
+ * [ProgressRing] with dragging and accessibility. The ring only reads the position while drawing; it only recomposes when
+ * the announced second changes.
  */
 @Composable
 private fun SeekRing(
@@ -491,7 +491,7 @@ private fun SeekRing(
     )
 }
 
-/** Ring um den Rand mit Lücke oben (Wear-Konzept 11); [progress] füllt ihn im Uhrzeigersinn und wird erst beim Zeichnen gelesen. */
+/** Ring around the edge with a gap at the top (Wear concept 11); [progress] fills it clockwise and is only read while drawing. */
 @Composable
 private fun ProgressRing(progress: () -> Float, modifier: Modifier = Modifier) {
     val trackColor = MaterialTheme.colorScheme.surfaceContainer
@@ -509,7 +509,7 @@ private fun ProgressRing(progress: () -> Float, modifier: Modifier = Modifier) {
     }
 }
 
-/** Das Cover als Hintergrund: groß, nur leicht unscharf, abgedunkelt und zum Rand hin weich nach Schwarz, mit Abstand zum Ring. */
+/** The cover as background: large, only slightly blurred, darkened and fading softly to black toward the edge, with a gap to the ring. */
 @Composable
 private fun CoverBackground(cover: android.graphics.Bitmap?, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize().padding(COVER_INSET).clip(CircleShape)) {
@@ -518,12 +518,12 @@ private fun CoverBackground(cover: android.graphics.Bitmap?, modifier: Modifier 
                 bitmap = cover.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                // Unbounded: Sonst verblasst die Unschärfe an den Rändern des Bildes zu Transparenz.
+                // Unbounded: otherwise the blur fades to transparency at the edges of the image.
                 modifier = Modifier.fillMaxSize().blur(COVER_BLUR, BlurredEdgeTreatment.Unbounded),
             )
-            // Abdunkeln: Titel und Knöpfe müssen auch auf hellen Covern lesbar bleiben.
+            // Darken: title and buttons must stay readable on bright covers too.
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = COVER_DIM)))
-            // Nach außen weich zu Schwarz: Das Cover endet nicht an einer harten Kante, sondern geht in den schwarzen Hintergrund über.
+            // Soft to black toward the outside: the cover does not end at a hard edge but blends into the black background.
             Box(
                 Modifier.fillMaxSize().background(
                     Brush.radialGradient(COVER_FADE_START to Color.Transparent, 1f to Color.Black),
@@ -541,21 +541,21 @@ private const val SEEK_HOLD_MAX_MS = 2_000L
 private val SEEK_BAND_WIDTH = 32.dp
 private val RING_STROKE = 5.dp
 
-/** Abstand des Covers vom Rand: Ring (5 dp) plus Luft, damit das Cover den Fortschrittsring nicht berührt. */
+/** Distance of the cover from the edge: ring (5 dp) plus some air so that the cover does not touch the progress ring. */
 private val COVER_INSET = 14.dp
 private val COVER_BLUR = 3.dp
 private const val COVER_DIM = 0.3f
 
-/** Ab diesem Anteil des Radius beginnt der Verlauf nach Schwarz (am Rand ist es ganz schwarz). */
+/** From this fraction of the radius on, the gradient to black begins (at the edge it is fully black). */
 private const val COVER_FADE_START = 0.6f
 private val TEXT_PADDING = 12.dp
 
-/** Platz für die Ziffern der Uhrzeit oben; in sp, weil sie mit der Schriftgröße wachsen. */
+/** Space for the clock digits at the top; in sp because they grow with the font size. */
 private val TIME_TEXT_RESERVE = 20.sp
 
 /**
- * Schmaler wird eine Zeile über der Steuerung nicht, sonst entfällt sie (etwa die halbe Breite einer kleinen Uhr). Sie gilt
- * für die oberste Zeile: Eine weitere Zeile darunter soll den Titel nicht bis auf ein paar Buchstaben kürzen.
+ * A line above the controls does not get narrower than this, otherwise it is dropped (about half the width of a small watch). It applies
+ * to the top line: another line below it should not shorten the title down to a few letters.
  */
 private val MIN_LINE_WIDTH = 96.dp
 private val PLAY_BUTTON_SIZE = 64.dp
@@ -563,12 +563,12 @@ private val SKIP_BUTTON_SIZE = 52.dp
 private val SEEK_ICON_SIZE = 38.dp
 private val CONTROL_SPACING = 2.dp
 
-/** Zufall, Sleep-Timer und Kapitel: kleiner als die Hauptsteuerung und deutlich von ihr abgerückt. */
+/** Shuffle, sleep timer and chapters: smaller than the main controls and clearly set apart from them. */
 private val SECONDARY_BUTTON_SIZE = 40.dp
 private val SECONDARY_ROW_GAP = 10.dp
 private val SECONDARY_SPACING = 8.dp
 
-/** Lautstärkebalken in der Mitte, solange an der Krone gedreht wird. */
+/** Volume bar in the center while the crown is being turned. */
 @Composable
 private fun VolumeIndicator(volume: Float, modifier: Modifier = Modifier) {
     val percent = (volume * 100).toInt()
@@ -601,7 +601,7 @@ private fun VolumeIndicator(volume: Float, modifier: Modifier = Modifier) {
     }
 }
 
-/** Zeit beim Ziehen am Ring: „1:23 / 3:45“. */
+/** Time while dragging the ring: "1:23 / 3:45". */
 @Composable
 private fun PositionIndicator(positionMs: () -> Long, durationMs: Long, modifier: Modifier = Modifier) {
     Box(
@@ -617,7 +617,7 @@ private fun PositionIndicator(positionMs: () -> Long, durationMs: Long, modifier
 private val VOLUME_BAR_WIDTH = 110.dp
 private val VOLUME_BAR_HEIGHT = 8.dp
 
-/** [active]: in der Akzentfarbe gefüllt, sonst gedämpft auf dem Cover. */
+/** [active]: filled in the accent color, otherwise muted on the cover. */
 @Composable
 private fun ControlButton(
     iconRes: Int,
@@ -629,7 +629,7 @@ private fun ControlButton(
 ) {
     IconButton(
         onClick = onClick,
-        // Der aktive Zustand ist sonst nur an der Farbe zu erkennen; Screenreader bekommen ihn als „ausgewählt“.
+        // Otherwise the active state is only recognizable by color; screen readers get it as "selected".
         modifier = Modifier.size(size).then(if (toggle) Modifier.semantics { selected = active } else Modifier),
         colors = if (active) IconButtonDefaults.filledIconButtonColors() else IconButtonDefaults.filledTonalIconButtonColors(),
     ) {
@@ -641,7 +641,7 @@ private fun ControlButton(
     }
 }
 
-/** Zurück- oder Vorspringen mit der Sekundenzahl im Pfeil (wie im Buch-Player am Handy). */
+/** Skip back or forward with the number of seconds in the arrow (like in the book player on the phone). */
 @Composable
 private fun SeekButton(iconRes: Int, seconds: Int, description: String, onClick: () -> Unit) {
     IconButton(
@@ -653,16 +653,16 @@ private fun SeekButton(iconRes: Int, seconds: Int, description: String, onClick:
             Icon(
                 painterResource(iconRes),
                 contentDescription = description,
-                // Größer als die anderen Symbole: Die Zahl muss in den Kreis des Pfeils passen.
+                // Larger than the other icons: the number has to fit into the arrow's circle.
                 modifier = Modifier.size(SEEK_ICON_SIZE),
             )
-            // Die Zahl steckt schon in der Beschreibung des Symbols; TalkBack soll sie nicht noch einmal vorlesen.
+            // The number is already in the icon's description; TalkBack should not read it out again.
             Text(seconds.toString(), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp).clearAndSetSemantics {})
         }
     }
 }
 
-/** Buntes Beispiel-Cover für die Vorschau (Verlauf mit einem hellen Fleck, wie echte Cover es oft haben). */
+/** Colorful sample cover for the preview (gradient with a bright spot, as real covers often have). */
 private fun previewCover(): android.graphics.Bitmap {
     val size = 200
     val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)

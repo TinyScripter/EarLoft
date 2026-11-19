@@ -1,14 +1,14 @@
 package de.kleinabersmart.earloft.cast
 
 /**
- * Hat der Empfänger eine Warteschlange, die während der Sitzung an ihn ging, verworfen? Nach dem Senden ist die
- * Zeitachse des Players leer, bis der Empfänger meldet (bei Büchern von Audiobookshelf am Gerät bis etwa 9 s).
- * Erreicht er den Server nicht, nimmt er die Titel an, läuft sie in wenigen Sekunden ergebnislos durch und steht
- * danach ohne Titel da (am Gerät gesehen). Verworfen heißt deshalb: Erst leer, dann Titel der neuen Warteschlange,
- * dann wieder leer ([onItems]) – oder bis zum Ende der Frist nie Titel ([onTimeout]).
+ * Has the receiver discarded a queue sent to it during the session? After sending, the player's
+ * timeline is empty until the receiver reports (for Audiobookshelf books up to about 9 s on the device).
+ * If it can't reach the server, it accepts the titles, runs through them fruitlessly within a few seconds and ends up
+ * without titles (seen on the device). Discarded therefore means: first empty, then titles of the new queue,
+ * then empty again ([onItems]) – or never any titles until the deadline ends ([onTimeout]).
  *
- * Titel zählen nur, wenn sie zur neuen Warteschlange gehören und der Player dazwischen leer war; ein Neuladen
- * derselben Titel (oder die alte Warteschlange, die noch kurz zu sehen ist) löst so nichts aus. Nur Main-Thread.
+ * Titles only count if they belong to the new queue and the player was empty in between; reloading
+ * the same titles (or the old queue, still briefly visible) thus triggers nothing. Main thread only.
  */
 internal class RemoteQueueWatch {
 
@@ -18,7 +18,7 @@ internal class RemoteQueueWatch {
 
     val isWatching: Boolean get() = expected != null
 
-    /** Eine Warteschlange mit diesen Media-IDs ging hinaus. */
+    /** A queue with these media IDs went out. */
     fun start(mediaIds: Collection<String>) {
         expected = mediaIds.toSet()
         wasEmpty = false
@@ -29,7 +29,7 @@ internal class RemoteQueueWatch {
         expected = null
     }
 
-    /** Die Zeitachse hat sich geändert; `true`: Der Empfänger hat die Warteschlange verworfen. */
+    /** The timeline has changed; `true`: the receiver has discarded the queue. */
     fun onItems(mediaIds: List<String>): Boolean {
         val expected = expected ?: return false
         when {
@@ -45,7 +45,7 @@ internal class RemoteQueueWatch {
         return false
     }
 
-    /** Ende der Frist; `true`: Es kamen nie Titel an und es sind keine da. */
+    /** End of the deadline; `true`: no titles ever arrived and there are none. */
     fun onTimeout(itemCount: Int): Boolean {
         if (!isWatching) return false
         val failed = !sawItems && itemCount == 0

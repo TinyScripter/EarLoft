@@ -25,7 +25,7 @@ data class WatchSelectionItem(
     val songCount: Int,
 )
 
-/** Eine einzeln gewählte Folge bzw. ein Buch (Wear-Konzept 16.1/16.2); [subtitle] ist der Podcast bzw. der Autor. */
+/** A single selected episode or book (Wear concept 16.1/16.2); [subtitle] is the podcast or the author. */
 data class WatchEpisodeItem(
     val bookId: Long,
     val title: String,
@@ -35,10 +35,10 @@ data class WatchEpisodeItem(
 
 data class WatchSettingsUiState(
     val settings: WatchSettings = WatchSettings(),
-    /** `null` = wird geladen. */
+    /** `null` = loading. */
     val selections: List<WatchSelectionItem>? = null,
     val episodes: List<WatchEpisodeItem> = emptyList(),
-    /** Letzter Bericht der Uhr; `null`, solange sie nichts gemeldet hat. */
+    /** The watch's last report; `null` as long as it hasn't reported anything. */
     val status: WearStatusDto? = null,
 )
 

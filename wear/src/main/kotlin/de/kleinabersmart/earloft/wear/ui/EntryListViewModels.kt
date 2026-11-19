@@ -38,10 +38,10 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Ein Eintrag einer Liste von Alben, Künstlern, Playlists, Abos, Folgen oder Büchern. [artist] ist beim Album der Künstler,
- * bei Folgen und Büchern Podcast bzw. Autor; ohne ihn steht [albumCount] (Künstler) oder die Zahl der Titel da (bei
- * [songCount] 0 nichts), bei teilweise geladenen Listen der Stand ([loadedCount] von [songCount]). Nicht [enabled]: noch nicht
- * geladen. [started]: angefangen (Folge, Buch). [cover]: Vorschaubild, ohne es keins.
+ * An entry in a list of albums, artists, playlists, subscriptions, episodes or books. [artist] is the artist for an album,
+ * the podcast or author for episodes and books; without it [albumCount] (artists) or the number of tracks is shown (nothing for
+ * [songCount] 0), for partially downloaded lists the progress ([loadedCount] of [songCount]). Not [enabled]: not yet
+ * downloaded. [started]: started (episode, book). [cover]: thumbnail, none without it.
  */
 data class ListEntry(
     val key: Long,
@@ -53,14 +53,14 @@ data class ListEntry(
     val albumCount: Int? = null,
     val cover: CoverRef? = null,
     val started: Boolean = false,
-    /** Statt [title]: ein fester Eintrag mit eigenem Namen (z. B. die Warteschlange). */
+    /** Instead of [title]: a fixed entry with its own name (e.g. the queue). */
     @param:StringRes val titleRes: Int? = null,
 )
 
 sealed interface EntryListState {
     data object Loading : EntryListState
 
-    /** Nichts zu zeigen: leer, oder das Handy hat (noch) nichts geschrieben. */
+    /** Nothing to show: empty, or the phone has not written anything (yet). */
     data class Message(@StringRes val textRes: Int) : EntryListState
 
     data class Ready(val entries: List<ListEntry>) : EntryListState
@@ -68,20 +68,20 @@ sealed interface EntryListState {
 
 private const val STATE_SUBSCRIPTION_MS = 5_000L
 
-/** Die Quelle (meist Room) hat eine Ausnahme geworfen ([orOnError]). */
+/** The source (usually Room) threw an exception ([orOnError]). */
 private val LoadFailed = EntryListState.Message(R.string.list_load_failed)
 
-/** Ein Album mit mindestens einem geladenen Titel auf der Uhr. */
+/** An album with at least one downloaded track on the watch. */
 private data class LoadedAlbum(val album: Album, val loadedCount: Int)
 
-/** Die auf der Uhr geladenen Alben (mindestens ein Titel heruntergeladen), sortiert wie die Bibliothek. */
+/** The albums downloaded on the watch (at least one track downloaded), sorted like the library. */
 private fun loadedAlbums(library: LibraryRepository, downloads: DownloadRepository): Flow<List<LoadedAlbum>> =
     combine(library.albums(), library.songs(), downloads.songStatuses()) { albums, songs, offline ->
         val loadedPerAlbum = songs.filter { offline[it.id].state == SongOfflineState.DOWNLOADED }.groupingBy { it.albumId }.eachCount()
         albums.mapNotNull { album -> loadedPerAlbum[album.id]?.let { LoadedAlbum(album, it) } }
     }
 
-/** Die auf der Uhr geladenen Alben, mit [artistId] nur die dieses Künstlers. */
+/** The albums downloaded on the watch, with [artistId] only those of this artist. */
 @HiltViewModel(assistedFactory = LocalAlbumsViewModel.Factory::class)
 class LocalAlbumsViewModel @AssistedInject constructor(
     @Assisted artistId: Long?,
@@ -104,7 +104,7 @@ class LocalAlbumsViewModel @AssistedInject constructor(
     }
 }
 
-/** Die Künstler der geladenen Alben; als Bild das Cover ihres ersten Albums (Künstlerbilder gibt es auf der Uhr nicht). */
+/** The artists of the downloaded albums; as image the cover of their first album (there are no artist images on the watch). */
 @HiltViewModel
 class LocalArtistsViewModel @Inject constructor(
     library: LibraryRepository,
@@ -125,7 +125,7 @@ class LocalArtistsViewModel @Inject constructor(
     }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 }
 
-/** Die Playlists der Auswahl vom Handy (Favoriten und Alben haben eigene Einträge). */
+/** The playlists of the selection from the phone (favorites and albums have their own entries). */
 @HiltViewModel
 class LocalPlaylistsViewModel @Inject constructor(storage: WatchStorageRepository) : ViewModel() {
     val state: StateFlow<EntryListState> = storage.selections().map { all ->
@@ -136,8 +136,8 @@ class LocalPlaylistsViewModel @Inject constructor(storage: WatchStorageRepositor
 }
 
 /**
- * Alle Alben des Handys (Fernsteuerung), mit [artistId] nur die dieses Künstlers, mit [favorites] nur die favorisierten (zuletzt
- * favorisierte zuerst); mit Vorschaubild vom Handy.
+ * All albums of the phone (remote control), with [artistId] only those of this artist, with [favorites] only the favorited ones (most recently
+ * favorited first); with thumbnail from the phone.
  */
 @HiltViewModel(assistedFactory = RemoteAlbumsViewModel.Factory::class)
 class RemoteAlbumsViewModel @AssistedInject constructor(
@@ -164,7 +164,7 @@ class RemoteAlbumsViewModel @AssistedInject constructor(
     }
 }
 
-/** Die Künstler des Handys, mit [favorites] nur die favorisierten (zuletzt favorisierte zuerst); als Bild das Cover ihres ersten Albums. */
+/** The phone's artists, with [favorites] only the favorited ones (most recently favorited first); as image the cover of their first album. */
 @HiltViewModel(assistedFactory = RemoteArtistsViewModel.Factory::class)
 class RemoteArtistsViewModel @AssistedInject constructor(@Assisted favorites: Boolean, remote: PhoneRemote) : ViewModel() {
     val state: StateFlow<EntryListState> = remote.library.map { library ->
@@ -188,16 +188,16 @@ class RemoteArtistsViewModel @AssistedInject constructor(@Assisted favorites: Bo
     }
 }
 
-/** Die Einträge mit den Kennungen [ids] in deren Reihenfolge; unbekannte Kennungen entfallen. */
+/** The entries with the identifiers [ids] in their order; unknown identifiers are dropped. */
 private fun <T> List<T>.inOrderOf(ids: List<Long>, id: (T) -> Long): List<T> {
     val byId = associateBy(id)
     return ids.mapNotNull { byId[it] }
 }
 
 /**
- * Podcasts bzw. Bücher auf der Uhr (Wear-Konzept 16.1/16.2): die Folgen bzw. offenen Bücher vom Handy in der Reihenfolge der
- * Warteschlange (wie am Handy gewählt, Gestartetes vorn), mit Bild; noch nicht vollständig geladene sind ausgegraut. Ein Tipp
- * spielt auf der Uhr.
+ * Podcasts or books on the watch (Wear concept 16.1/16.2): the episodes or open books from the phone in the order of the
+ * queue (as chosen on the phone, started ones first), with image; those not yet fully downloaded are grayed out. A tap
+ * plays on the watch.
  */
 @HiltViewModel(assistedFactory = LocalSpokenViewModel.Factory::class)
 class LocalSpokenViewModel @AssistedInject constructor(
@@ -234,7 +234,7 @@ class LocalSpokenViewModel @AssistedInject constructor(
         }
     }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 
-    /** @return `false`, wenn sich die Folge bzw. das Buch nicht laden ließ (z. B. Datei inzwischen weg). */
+    /** @return `false` if the episode or book could not be loaded (e.g. file gone in the meantime). */
     suspend fun play(bookId: Long): Boolean = playback.playBook(bookId) != null
 
     @AssistedFactory
@@ -243,7 +243,7 @@ class LocalSpokenViewModel @AssistedInject constructor(
     }
 }
 
-/** Ein Buch bzw. eine Folge des Handys als Listeneintrag; [ListEntry.key] ist die Buch-ID am Handy. */
+/** A book or episode of the phone as a list entry; [ListEntry.key] is the book ID on the phone. */
 private fun WearRemoteBookDto.toEntry() = ListEntry(
     key = id,
     title = title,
@@ -254,9 +254,9 @@ private fun WearRemoteBookDto.toEntry() = ListEntry(
 )
 
 /**
- * Die Warteschlange der Podcasts und darunter die Abos des Handys (Wear-Konzept 17); [ListEntry.key] ist die Position,
- * [feedAt] liefert das Abo dazu, [QUEUE_KEY] die Warteschlange (immer da, auch wenn sie leer ist; nicht bei älteren Handys,
- * die sie nicht liefern).
+ * The podcast queue and below it the phone's subscriptions (Wear concept 17); [ListEntry.key] is the position,
+ * [feedAt] returns the matching subscription, [QUEUE_KEY] the queue (always there, even if empty; not for older phones
+ * that do not provide it).
  */
 @HiltViewModel
 class RemotePodcastsViewModel @Inject constructor(remote: PhoneRemote) : ViewModel() {
@@ -283,7 +283,7 @@ class RemotePodcastsViewModel @Inject constructor(remote: PhoneRemote) : ViewMod
     }
 }
 
-/** Die Hörbücher des Handys, angefangene zuerst (Wear-Konzept 17). */
+/** The phone's audiobooks, started ones first (Wear concept 17). */
 @HiltViewModel
 class RemoteBooksViewModel @Inject constructor(remote: PhoneRemote) : ViewModel() {
     private val books = remote.library.map { it?.books }
@@ -300,7 +300,7 @@ class RemoteBooksViewModel @Inject constructor(remote: PhoneRemote) : ViewModel(
     fun bookOf(key: Long): WearRemoteBookDto? = books.value?.firstOrNull { it.id == key }
 }
 
-/** Die Folgen eines Abos am Handy, einmal beim Öffnen abgefragt: angefangene zuerst, dann die neuesten (Wear-Konzept 17). */
+/** The episodes of a subscription on the phone, queried once on opening: started ones first, then the newest (Wear concept 17). */
 @HiltViewModel(assistedFactory = RemoteEpisodesViewModel.Factory::class)
 class RemoteEpisodesViewModel @AssistedInject constructor(
     @Assisted feedId: String,
@@ -334,7 +334,7 @@ class RemoteEpisodesViewModel @AssistedInject constructor(
     }
 }
 
-/** Alle Playlists des Handys (Fernsteuerung). */
+/** All playlists of the phone (remote control). */
 @HiltViewModel
 class RemotePlaylistsViewModel @Inject constructor(remote: PhoneRemote) : ViewModel() {
     val state: StateFlow<EntryListState> = remote.library.map { library ->

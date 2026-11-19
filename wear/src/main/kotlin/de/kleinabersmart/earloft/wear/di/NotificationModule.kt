@@ -8,8 +8,8 @@ import de.kleinabersmart.earloft.core.data.refresh.NewContent
 import de.kleinabersmart.earloft.core.data.refresh.NewContentNotifier
 
 /**
- * Die Uhr gleicht weder Podcasts noch Bücher ab (die Worker aus `core:data` laufen hier nie, Hilt verlangt aber eine
- * Bindung), also gibt es auch nichts zu melden.
+ * The watch syncs neither podcasts nor books (the workers from `core:data` never run here, but Hilt requires a
+ * binding), so there is nothing to report either.
  */
 @Module
 @InstallIn(SingletonComponent::class)

@@ -5,8 +5,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 
 /**
- * Zählt die tatsächlich gehörte Zeit pro Titel und schreibt einen Eintrag in den Hörverlauf ([recordPlay]: Song,
- * Zeitpunkt, gehörte Millisekunden), sobald ein Titel mindestens halb bzw. 30 Sekunden lang gehört wurde.
+ * Counts the actually listened time per title and writes an entry to the listening history ([recordPlay]: song,
+ * timestamp, listened milliseconds) as soon as a title has been listened to for at least half its length or 30 seconds.
  */
 internal class PlayTracker(
     private val player: Player,
@@ -17,13 +17,13 @@ internal class PlayTracker(
     private var durationMs: Long = 0
     private var listenedMs: Long = 0
     private var playingSince: Long? = null
-    /** Wanduhrzeit, zu der zuletzt gehört wurde – Ende des Hörens, auch wenn erst später abgeschlossen wird. */
+    /** Wall-clock time of the last listening – the end of listening, even if it's only completed later. */
     private var lastHeardAt: Long = 0
 
-    /** Wo der Titel spielt (Handy oder Cast); wechselt es, läuft derselbe Titel weiter statt neu zu beginnen. */
+    /** Where the title plays (phone or cast); if that changes, the same title continues instead of starting anew. */
     private var playbackType = player.deviceInfo.playbackType
 
-    /** Die Warteschlange ging gerade an den Cast-Empfänger ([awaitsRemoteQueue]). */
+    /** The queue just went to the cast receiver ([awaitsRemoteQueue]). */
     private var handingOver = false
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -35,8 +35,8 @@ internal class PlayTracker(
     }
 
     override fun onPlaybackStateChanged(playbackState: Int) {
-        // Ende der Warteschlange: Es folgt kein Titelwechsel, der den Titel abschließen würde.
-        // Der Titel bleibt gesetzt – „Abspielen“ startet ihn ohne Titelwechsel neu.
+        // End of the queue: no title change follows that would complete the title.
+        // The title stays set – "Play" restarts it without a title change.
         if (playbackState == Player.STATE_ENDED) recordCurrent()
     }
 
@@ -46,8 +46,8 @@ internal class PlayTracker(
             handingOver = true
             return
         }
-        // Beim Wechsel zwischen Handy und Cast-Gerät kommt derselbe Titel als neue Warteschlange wieder: weiterzählen, sonst
-        // stünde er doppelt im Hörverlauf.
+        // When switching between phone and cast device, the same title comes back as a new queue: keep counting, otherwise
+        // it would appear twice in the listening history.
         val type = player.deviceInfo.playbackType
         val continues = mediaItem?.songId != null && mediaItem.songId == songId &&
             reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED && (handingOver || type != playbackType)
@@ -64,7 +64,7 @@ internal class PlayTracker(
         if (player.isPlaying) playingSince = SystemClock.elapsedRealtime()
     }
 
-    /** Beim Beenden des Service aufrufen, damit der letzte Titel nicht verloren geht. */
+    /** Call when the service ends, so the last title isn't lost. */
     fun finishCurrent() {
         recordCurrent()
         songId = null

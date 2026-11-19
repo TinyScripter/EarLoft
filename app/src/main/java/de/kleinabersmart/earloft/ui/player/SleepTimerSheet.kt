@@ -33,7 +33,7 @@ import kotlin.math.roundToInt
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.playback.SleepTimer
 
-/** Wo der Sleep-Timer „bis zum Ende“ anhält: am Kapitelende (Bücher mit Kapiteln), am Ende der Folge bzw. des Buchs. */
+/** Where the sleep timer stops "until the end": at the end of the chapter (books with chapters), at the end of the episode or book. */
 enum class SleepTimerEnd { CHAPTER, EPISODE, BOOK }
 
 fun sleepTimerEnd(episode: Boolean, hasChapters: Boolean): SleepTimerEnd = when {
@@ -43,8 +43,8 @@ fun sleepTimerEnd(episode: Boolean, hasChapters: Boolean): SleepTimerEnd = when 
 }
 
 /**
- * Auswahl des Einschlaf-Timers: bei Büchern mit Kapiteln und Folgen zuerst „Ende des Kapitels“ bzw. „Ende der Folge“
- * ([toEnd]), dann feste Dauern oder eigene Dauer per Schieberegler. Beenden geschieht über das Symbol selbst.
+ * Sleep timer selection: for books with chapters and for episodes, first "End of chapter" or "End of episode"
+ * ([toEnd]), then fixed durations or a custom duration via slider. Stopping happens via the icon itself.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,7 +54,7 @@ fun SleepTimerSheet(
     toEnd: SleepTimerEnd? = null,
     onStartToEnd: () -> Unit = {},
 ) {
-    // Gleich ganz offen und scrollbar: Halb aufgeklappt lagen „Eigene Dauer“ und „Start“ auf kleinen Handys unter dem Rand.
+    // Fully expanded and scrollable right away: half expanded, "Custom duration" and "Start" were below the edge on small phones.
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(
@@ -62,7 +62,7 @@ fun SleepTimerSheet(
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
-            // Ein Buch ohne Kapitel endet erst nach Stunden; dort gibt es diese Wahl nicht.
+            // A book without chapters only ends after hours; this choice isn't offered there.
             val endLabel = when (toEnd) {
                 SleepTimerEnd.CHAPTER -> R.string.sleep_timer_chapter_end
                 SleepTimerEnd.EPISODE -> R.string.sleep_timer_episode_end
@@ -107,7 +107,7 @@ private fun CustomDuration(onStart: (minutes: Int) -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Slider(
                 value = minutes,
-                // Auf ganze Schritte einrasten: Der Regler liefert Zwischenwerte (39,99 statt 40), die abgeschnitten 39 ergäben.
+                // Snap to whole steps: the slider returns intermediate values (39.99 instead of 40), which truncated would give 39.
                 onValueChange = { minutes = (it / step).roundToInt() * step.toFloat() },
                 valueRange = step.toFloat()..SleepTimer.MAX_MINUTES.toFloat(),
                 steps = SleepTimer.MAX_MINUTES / step - 2,

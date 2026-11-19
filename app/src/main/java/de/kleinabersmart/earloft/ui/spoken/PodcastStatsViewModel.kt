@@ -18,11 +18,11 @@ import javax.inject.Inject
 class PodcastStatsViewModel @Inject constructor(repository: StatsRepository) : ViewModel() {
     private val year = MutableStateFlow<Int?>(null)
 
-    /** `null`, solange die Zahlen noch geladen werden. */
+    /** `null` as long as the numbers are still loading. */
     val stats: StateFlow<PodcastStats?> =
         year.flatMapLatest { repository.podcastStats(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Zeigt die Zahlen dieses Jahres; `null` für „Gesamt“. */
+    /** Shows this year's numbers; `null` for "Total". */
     fun selectYear(value: Int?) {
         year.value = value
     }

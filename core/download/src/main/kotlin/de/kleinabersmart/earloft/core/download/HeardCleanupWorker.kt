@@ -14,9 +14,9 @@ import de.kleinabersmart.earloft.core.data.work.ensurePeriodicWork
 import java.util.concurrent.TimeUnit
 
 /**
- * Löscht einmal am Tag die Downloads zu Ende gehörter Folgen, deren Frist abgelaufen ist ([EpisodeDownloads.removeExpiredHeard]).
- * Läuft die App, prüft sie zusätzlich bei jeder Änderung; ohne den Auftrag geschähe das Aufräumen aber nur, solange der
- * Prozess zufällig lebt.
+ * Once a day deletes the downloads of fully played episodes whose period has expired ([EpisodeDownloads.removeExpiredHeard]).
+ * While the app is running it also checks on every change; without this job, however, cleanup would only happen while the
+ * process happens to be alive.
  */
 class HeardCleanupWorker(
     context: Context,

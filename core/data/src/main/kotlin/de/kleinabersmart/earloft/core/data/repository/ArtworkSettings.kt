@@ -15,20 +15,20 @@ import javax.inject.Singleton
 internal val Context.artworkSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "artwork_settings")
 
 /**
- * Bilder aus dem Internet. Beide Optionen sind standardmäßig aus, weil dafür Namen von Interpreten und
- * Alben an Dritte (Deezer, MusicBrainz) gehen.
+ * Images from the internet. Both options are off by default because they send names of artists and
+ * albums to third parties (Deezer, MusicBrainz).
  */
 @Singleton
 class ArtworkSettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
-    /** Interpreten-Bilder von Deezer nachladen. */
+    /** Fetch artist images from Deezer. */
     val artistImages: Flow<Boolean> = context.artworkSettingsDataStore.data.map { it[KEY_ARTIST_IMAGES] ?: false }
 
-    /** Fehlende Album-Cover über MusicBrainz und das Cover Art Archive nachladen. */
+    /** Fetch missing album covers via MusicBrainz and the Cover Art Archive. */
     val albumCovers: Flow<Boolean> = context.artworkSettingsDataStore.data.map { it[KEY_ALBUM_COVERS] ?: false }
 
-    /** Fehlende Autorenbilder (Bücher) von Audnexus nachladen; der Name des Autors geht dabei an Dritte. */
+    /** Fetch missing author images (books) from Audnexus; the author's name is sent to third parties. */
     val authorImages: Flow<Boolean> = context.artworkSettingsDataStore.data.map { it[KEY_AUTHOR_IMAGES] ?: false }
 
     suspend fun setAuthorImages(enabled: Boolean) {

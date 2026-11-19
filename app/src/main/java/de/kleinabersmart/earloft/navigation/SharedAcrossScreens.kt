@@ -7,13 +7,13 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.navigation3.ui.LocalNavAnimatedContentScope
 
-/** Der [SharedTransitionScope] um die `NavDisplay`; `null` außerhalb (Vorschau, Tests). */
+/** The [SharedTransitionScope] around the `NavDisplay`; `null` outside of it (preview, tests). */
 val LocalSharedTransitionScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
 
 /**
- * Teilt [content] mit dem Element gleichen [key]s auf der anderen Seite: Beim Seitenwechsel bleibt es stehen (oder
- * gleitet an seine neue Stelle), statt mit der Seite aus- und wieder einzublenden. Außerhalb der `NavDisplay` ein
- * schlichter Rahmen.
+ * Shares [content] with the element with the same [key] on the other page: during a page transition it stays in place (or
+ * glides to its new position) instead of fading out and back in with the page. Outside the `NavDisplay` a
+ * plain wrapper.
  */
 @Composable
 fun SharedAcrossScreens(key: Any, modifier: Modifier = Modifier, content: @Composable () -> Unit) {

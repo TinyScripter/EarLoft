@@ -28,15 +28,15 @@ import de.kleinabersmart.earloft.core.database.model.TopPlayedRow
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Der Song (Alias `s`) hat mindestens eine Quelle, deren Server eingeschaltet ist. Deaktivierte Server
- * blenden ihre Inhalte aus, ohne etwas zu löschen (Downloads, Favoriten, Playlists bleiben erhalten).
+ * The song (alias `s`) has at least one source whose server is enabled. Disabled servers
+ * hide their content without deleting anything (downloads, favorites, playlists are kept).
  */
 const val SONG_VISIBLE = """EXISTS (
     SELECT 1 FROM song_sources vss JOIN sources vsrc ON vsrc.sourceId = vss.sourceId
     WHERE vss.songId = s.songId AND vsrc.enabled = 1
 )"""
 
-/** Der Song (Alias `s`) liegt als Datei auf dem Gerät (eingeschaltete lokale Quelle). */
+/** The song (alias `s`) is a file on the device (enabled local source). */
 const val SONG_LOCAL = """EXISTS (
     SELECT 1 FROM song_sources lss JOIN sources lsrc ON lsrc.sourceId = lss.sourceId
     WHERE lss.songId = s.songId AND lsrc.type = 'LOCAL' AND lsrc.enabled = 1
@@ -60,8 +60,8 @@ private const val SELECT_ARTIST_ROWS = """
 """
 
 /**
- * Genres der sichtbaren Songs (`song_genres`, ein Song kann mehrere haben); Schreibweisen, die sich nur in
- * Groß-/Kleinschreibung unterscheiden, sind eins (`genreKey`).
+ * Genres of the visible songs (`song_genres`, a song can have several); spellings that differ only in
+ * case are one (`genreKey`).
  */
 private const val SELECT_GENRE_ROWS = """
     SELECT MIN(g.genre) AS name, COUNT(DISTINCT s.albumId) AS albumCount, COUNT(*) AS songCount
@@ -69,14 +69,14 @@ private const val SELECT_GENRE_ROWS = """
     GROUP BY g.genreKey
 """
 
-/** Wiedergaben sichtbarer Songs zwischen `:from` (einschließlich) und `:to` (ausschließlich), samt Song (`s`) und Album (`a`). */
+/** Plays of visible songs between `:from` (inclusive) and `:to` (exclusive), with song (`s`) and album (`a`). */
 private const val FROM_PLAYS_IN_RANGE = """
     FROM play_events pe
     JOIN songs s ON s.songId = pe.songId AND pe.playedAt >= :from AND pe.playedAt < :to AND $SONG_VISIBLE
     JOIN albums a ON a.albumId = s.albumId
 """
 
-/** Merkmale sichtbarer Songs für den Mix (`MixCandidateRow`); Bedingungen hängen hinten an. */
+/** Features of visible songs for the mix (`MixCandidateRow`); conditions are appended at the end. */
 private const val SELECT_MIX_CANDIDATES = """
     SELECT s.songId, s.albumId,
            COALESCE(
@@ -90,7 +90,7 @@ private const val SELECT_MIX_CANDIDATES = """
     FROM songs s JOIN albums a ON a.albumId = s.albumId AND $SONG_VISIBLE
 """
 
-/** Lesender Zugriff auf die Bibliothek für UI und Wiedergabe. */
+/** Read access to the library for UI and playback. */
 @Dao
 abstract class LibraryDao {
 
@@ -124,7 +124,7 @@ abstract class LibraryDao {
     @Query("SELECT * FROM song_sources WHERE songId = :songId")
     abstract suspend fun getSourcesOfSong(songId: Long): List<SongSourceEntity>
 
-    // --- Listen für die UI ---
+    // --- Lists for the UI ---
 
     @Query("$SELECT_ALBUM_ROWS GROUP BY a.albumId ORDER BY a.sortTitle COLLATE NOCASE")
     abstract fun observeAlbumRows(): Flow<List<AlbumRow>>
@@ -150,9 +150,9 @@ abstract class LibraryDao {
     abstract fun observeAlbumRowsOfArtist(artistId: Long): Flow<List<AlbumRow>>
 
     /**
-     * Alben in der Reihenfolge [sort] (Name eines `AlbumSort` außer `RECENTLY_PLAYED`, siehe
-     * [observeAlbumRowsByLastPlayed]): `ARTIST` nach dem ersten Album-Künstler (ohne „The“), dann Jahr; `YEAR` das neueste
-     * zuerst; `RECENTLY_ADDED` das zuletzt hinzugefügte zuerst; sonst und bei Gleichstand nach Titel.
+     * Albums in the order [sort] (name of an `AlbumSort` except `RECENTLY_PLAYED`, see
+     * [observeAlbumRowsByLastPlayed]): `ARTIST` by the first album artist (without "The"), then year; `YEAR` newest
+     * first; `RECENTLY_ADDED` most recently added first; otherwise and on a tie by title.
      */
     @Query(
         """
@@ -171,7 +171,7 @@ abstract class LibraryDao {
     )
     abstract fun observeAlbumRowsSorted(sort: String): Flow<List<AlbumRow>>
 
-    /** Alben, das zuletzt gehörte zuerst; nie gehörte danach nach Titel. */
+    /** Albums, most recently played first; never-played ones after that by title. */
     @Query(
         """
         $SELECT_ALBUM_ROWS
@@ -183,7 +183,7 @@ abstract class LibraryDao {
     )
     abstract fun observeAlbumRowsByLastPlayed(): Flow<List<AlbumRow>>
 
-    /** Künstler in der Reihenfolge [sort] (Name eines `ArtistSort`): `ALBUM_COUNT` die mit den meisten Alben zuerst. */
+    /** Artists in the order [sort] (name of an `ArtistSort`): `ALBUM_COUNT` those with the most albums first. */
     @Query(
         """
         $SELECT_ARTIST_ROWS
@@ -194,8 +194,8 @@ abstract class LibraryDao {
     abstract fun observeArtistRowsSorted(sort: String): Flow<List<ArtistRow>>
 
     /**
-     * Songs in der Reihenfolge [sort] (Name eines `SongSort`): `ARTIST` nach dem ersten Künstler (ohne „The“), darin wie
-     * `ALBUM` Album für Album in Albumreihenfolge; `RECENTLY_ADDED` der zuletzt hinzugefügte zuerst; sonst nach Titel.
+     * Songs in the order [sort] (name of a `SongSort`): `ARTIST` by the first artist (without "The"), within that like
+     * `ALBUM` album by album in album order; `RECENTLY_ADDED` most recently added first; otherwise by title.
      */
     @Query(
         """
@@ -221,7 +221,7 @@ abstract class LibraryDao {
     @Query("$SELECT_GENRE_ROWS ORDER BY name COLLATE NOCASE")
     abstract suspend fun getGenreRows(): List<GenreRow>
 
-    /** Alben mit mindestens einem Song des Genres ([genreKey] = `Genre.key`); `songCount` zählt alle sichtbaren Songs des Albums. */
+    /** Albums with at least one song of the genre ([genreKey] = `Genre.key`); `songCount` counts all visible songs of the album. */
     @Query(
         """
         $SELECT_ALBUM_ROWS
@@ -235,7 +235,7 @@ abstract class LibraryDao {
     )
     abstract fun observeAlbumRowsOfGenre(genreKey: String): Flow<List<AlbumRow>>
 
-    /** Die Songs des Genres ([genreKey] = `Genre.key`), Album für Album in Albumreihenfolge. */
+    /** The songs of the genre ([genreKey] = `Genre.key`), album by album in album order. */
     @Query(
         """
         $SELECT_SONG_ROWS
@@ -245,7 +245,7 @@ abstract class LibraryDao {
     )
     abstract suspend fun getSongRowsOfGenre(genreKey: String): List<SongRow>
 
-    /** Jahrzehnte (`startYear` = 1970, 1980, …) mit der Zahl ihrer sichtbaren Alben; Alben ohne plausibles Jahr fehlen. */
+    /** Decades (`startYear` = 1970, 1980, …) with the number of their visible albums; albums without a plausible year are missing. */
     @Query(
         """
         SELECT (a.year / 10) * 10 AS startYear, COUNT(*) AS albumCount
@@ -258,8 +258,8 @@ abstract class LibraryDao {
     abstract fun observeDecadeRows(): Flow<List<DecadeRow>>
 
     /**
-     * Je Album seine Genres (alle Genres seiner Songs, Schreibweisen wie dort), für die Genre-Auswahl der Bibliothek; Alben
-     * ohne Genre fehlen.
+     * Per album its genres (all genres of its songs, spellings as there), for the library's genre selection; albums
+     * without a genre are missing.
      */
     @Query(
         """
@@ -270,8 +270,8 @@ abstract class LibraryDao {
     abstract fun observeAlbumGenreRows(): Flow<List<AlbumGenreRow>>
 
     /**
-     * Alben, auf denen [artistId] mindestens einen Song singt bzw. spielt, ohne Album-Künstler zu sein (Gäste, Sampler),
-     * nach Jahr.
+     * Albums on which [artistId] sings or plays at least one song without being the album artist (guests, compilations),
+     * by year.
      */
     @Query(
         """
@@ -288,8 +288,8 @@ abstract class LibraryDao {
     abstract fun observeAppearsOnAlbumRows(artistId: Long): Flow<List<AlbumRow>>
 
     /**
-     * Alle Songs eines Künstlers: seine Alben ganz und von anderen Alben die Songs, die er singt bzw. spielt; Album für Album
-     * nach Jahr, darin in Albumreihenfolge.
+     * All songs of an artist: all of their albums and, from other albums, the songs they sing or play; album by album
+     * by year, within that in album order.
      */
     @Query(
         """
@@ -301,7 +301,7 @@ abstract class LibraryDao {
     )
     abstract suspend fun getSongRowsOfArtist(artistId: Long): List<SongRow>
 
-    /** Die meistgehörten Songs eines Künstlers (wie [getSongRowsOfArtist]); nie gehörte fehlen. */
+    /** An artist's most played songs (like [getSongRowsOfArtist]); never-played ones are missing. */
     @Query(
         """
         $SELECT_SONG_ROWS
@@ -317,14 +317,14 @@ abstract class LibraryDao {
 
     // --- Mix ---
 
-    /** Mix-Merkmale der Songs [songIds] (höchstens ~900, SQLite-Variablenlimit). */
+    /** Mix features of the songs [songIds] (at most ~900, SQLite variable limit). */
     @Query("$SELECT_MIX_CANDIDATES WHERE s.songId IN (:songIds)")
     abstract suspend fun getMixRows(songIds: List<Long>): List<MixCandidateRow>
 
     /**
-     * Bis zu [limit] zufällige Songs, die zum Ausgangspunkt eines Mixes passen könnten: eines der Genres [genreKeys]
-     * (`Genre.key`), einer der Künstler [artistIds] (als Song- oder Album-Künstler) oder ein Jahr zwischen [fromYear] und
-     * [toYear]. Ohne Jahr `fromYear > toYear` übergeben.
+     * Up to [limit] random songs that could match a mix's starting point: one of the genres [genreKeys]
+     * (`Genre.key`), one of the artists [artistIds] (as song or album artist) or a year between [fromYear] and
+     * [toYear]. Without a year, pass `fromYear > toYear`.
      */
     @Query(
         """
@@ -345,13 +345,13 @@ abstract class LibraryDao {
         limit: Int,
     ): List<MixCandidateRow>
 
-    /** Bis zu [limit] zufällige sichtbare Songs, um einen Mix aufzufüllen. */
+    /** Up to [limit] random visible songs to fill up a mix. */
     @Query("$SELECT_MIX_CANDIDATES ORDER BY RANDOM() LIMIT :limit")
     abstract suspend fun getRandomMixCandidates(limit: Int): List<MixCandidateRow>
 
     /**
-     * Bis zu [limit] zufällige sichtbare Songs, die ohne Netz spielen: lokale Datei oder fertiger Download („Weiterspielen“
-     * ohne Netz, Review V9).
+     * Up to [limit] random visible songs that play without network: local file or finished download ("Keep playing"
+     * offline, review V9).
      */
     @Query(
         """
@@ -364,13 +364,13 @@ abstract class LibraryDao {
     )
     abstract suspend fun getOfflineMixCandidates(limit: Int): List<MixCandidateRow>
 
-    // --- Statistik ---
+    // --- Statistics ---
 
-    /** Alle gezählten Wiedergaben sichtbarer Songs (Musik-Statistik). */
+    /** All counted plays of visible songs (music statistics). */
     @Query("SELECT pe.songId, s.albumId, pe.playedAt, pe.listenedMs FROM play_events pe JOIN songs s ON s.songId = pe.songId WHERE $SONG_VISIBLE")
     abstract fun observeMusicPlays(): Flow<List<MusicPlayRow>>
 
-    /** Die zwischen [from] (einschließlich) und [to] (ausschließlich) meistgespielten Songs; bei Gleichstand der zuletzt gehörte. */
+    /** The most played songs between [from] (inclusive) and [to] (exclusive); on a tie the most recently played. */
     @Query(
         """
         SELECT s.songId AS id, s.title, s.artistDisplay AS subtitle, s.albumId, COUNT(*) AS plays, SUM(pe.listenedMs) AS listenedMs
@@ -382,7 +382,7 @@ abstract class LibraryDao {
     )
     abstract fun observeTopSongs(from: Long, to: Long, limit: Int): Flow<List<TopPlayedRow>>
 
-    /** Wie [observeTopSongs], je Album. */
+    /** Like [observeTopSongs], per album. */
     @Query(
         """
         SELECT a.albumId AS id, a.title, a.albumArtistDisplay AS subtitle, a.albumId, COUNT(*) AS plays, SUM(pe.listenedMs) AS listenedMs
@@ -394,7 +394,7 @@ abstract class LibraryDao {
     )
     abstract fun observeTopAlbums(from: Long, to: Long, limit: Int): Flow<List<TopPlayedRow>>
 
-    /** Wie [observeTopSongs], je Künstler: dem ersten des Songs, sonst dem ersten des Albums (wie beim Mix). */
+    /** Like [observeTopSongs], per artist: the song's first one, otherwise the album's first (as in the mix). */
     @Query(
         """
         SELECT ar.artistId AS id, ar.name AS title, NULL AS subtitle, NULL AS albumId, COUNT(*) AS plays, SUM(pe.listenedMs) AS listenedMs
@@ -411,8 +411,8 @@ abstract class LibraryDao {
     abstract fun observeTopArtists(from: Long, to: Long, limit: Int): Flow<List<TopPlayedRow>>
 
     /**
-     * Wie [observeTopSongs], je Genre (Schreibweisen wie im Reiter „Genres“ zusammengefasst); eine Wiedergabe zählt bei jedem
-     * Genre des Songs.
+     * Like [observeTopSongs], per genre (spellings merged as in the "Genres" tab); a play counts for every
+     * genre of the song.
      */
     @Query(
         """
@@ -426,11 +426,11 @@ abstract class LibraryDao {
     )
     abstract fun observeTopGenres(from: Long, to: Long, limit: Int): Flow<List<TopPlayedRow>>
 
-    /** Die Songs, die die Quelle [sourceId] unter [remoteIds] führt (höchstens ~900). */
+    /** The songs the source [sourceId] carries under [remoteIds] (at most ~900). */
     @Query("SELECT remoteId, songId FROM song_sources WHERE sourceId = :sourceId AND remoteId IN (:remoteIds)")
     abstract suspend fun getSongIdsByRemoteId(sourceId: String, remoteIds: List<String>): List<RemoteSongIdRow>
 
-    /** Welche Künstler zu welchem Album gehören (Albumkünstler); die Uhr leitet daraus ihre Künstler ab. */
+    /** Which artists belong to which album (album artists); the watch derives its artists from this. */
     @Query("SELECT * FROM album_artists")
     abstract fun observeAlbumArtists(): Flow<List<AlbumArtistCrossRef>>
 
@@ -440,7 +440,7 @@ abstract class LibraryDao {
     @Query("$SELECT_SONG_ROWS WHERE s.albumId = :albumId ORDER BY s.discNumber, s.trackNumber, s.title")
     abstract fun observeSongRowsOfAlbum(albumId: Long): Flow<List<SongRow>>
 
-    /** Die Songs mehrerer Alben, je Album in Albumreihenfolge; max. ~900 IDs pro Aufruf (SQLite-Variablenlimit). */
+    /** The songs of several albums, per album in album order; max. ~900 IDs per call (SQLite variable limit). */
     @Query("$SELECT_SONG_ROWS WHERE s.albumId IN (:albumIds) ORDER BY s.albumId, s.discNumber, s.trackNumber, s.title")
     abstract suspend fun getSongRowsOfAlbums(albumIds: List<Long>): List<SongRow>
 
@@ -468,7 +468,7 @@ abstract class LibraryDao {
     @Query("SELECT isFavorite FROM artists WHERE artistId = :artistId")
     abstract fun observeIsArtistFavorite(artistId: Long): Flow<Boolean?>
 
-    /** Reihenfolge entspricht nicht [songIds]; max. ~900 IDs pro Aufruf (SQLite-Variablenlimit). */
+    /** Order does not match [songIds]; max. ~900 IDs per call (SQLite variable limit). */
     @Query("$SELECT_SONG_ROWS WHERE s.songId IN (:songIds)")
     abstract suspend fun getSongRows(songIds: List<Long>): List<SongRow>
 
@@ -494,8 +494,8 @@ abstract class LibraryDao {
     abstract fun observeRecentlyPlayedAlbumRows(limit: Int): Flow<List<AlbumRow>>
 
     /**
-     * Die seit [since] am häufigsten gehörten Alben (mindestens [minPlays] gezählte Wiedergaben), bei Gleichstand das zuletzt
-     * gehörte zuerst. `songCount` zählt die sichtbaren Songs des Albums (wie auf der Albumseite), nicht die Wiedergaben.
+     * The albums played most often since [since] (at least [minPlays] counted plays), on a tie the most recently
+     * played first. `songCount` counts the visible songs of the album (as on the album page), not the plays.
      */
     @Query(
         """
@@ -512,7 +512,7 @@ abstract class LibraryDao {
     )
     abstract fun observeMostPlayedAlbumRows(since: Long, minPlays: Int, limit: Int): Flow<List<AlbumRow>>
 
-    /** Alben, die schon einmal gespielt wurden, zuletzt aber vor [playedBefore]; das älteste zuerst. */
+    /** Albums that have been played before, but last before [playedBefore]; oldest first. */
     @Query(
         """
         $SELECT_ALBUM_ROWS
@@ -528,15 +528,15 @@ abstract class LibraryDao {
     @Query("SELECT COUNT(DISTINCT s.albumId) FROM songs s WHERE $SONG_VISIBLE")
     abstract fun observeAlbumCount(): Flow<Int>
 
-    /** Höchste vergebene `songId` (0 ohne Songs); Ids werden nie wiederverwendet, spätere Songs haben also eine größere. */
+    /** Highest assigned `songId` (0 without songs); IDs are never reused, so later songs have a larger one. */
     @Query("SELECT COALESCE(MAX(songId), 0) FROM songs")
     abstract suspend fun maxSongId(): Long
 
-    /** Sichtbare Songs, die nach [songId] angelegt wurden. */
+    /** Visible songs created after [songId]. */
     @Query("SELECT COUNT(*) FROM songs s WHERE s.songId > :songId AND $SONG_VISIBLE")
     abstract suspend fun countVisibleSongsAfter(songId: Long): Int
 
-    /** Alben mit sichtbaren Songs, die nach [songId] angelegt wurden; `songCount` zählt nur diese, die meisten zuerst. */
+    /** Albums with visible songs created after [songId]; `songCount` counts only those, most first. */
     @Query("$SELECT_ALBUM_ROWS AND s.songId > :songId GROUP BY a.albumId ORDER BY songCount DESC, a.sortTitle")
     abstract suspend fun albumsWithSongsAfter(songId: Long): List<AlbumRow>
 
@@ -546,7 +546,7 @@ abstract class LibraryDao {
     @Query("$SELECT_ARTIST_ROWS GROUP BY ar.artistId ORDER BY RANDOM() LIMIT :limit")
     abstract suspend fun getRandomArtistRows(limit: Int): List<ArtistRow>
 
-    // --- Volltextsuche (FTS4-MATCH-Ausdruck, z. B. "sig* ros*") ---
+    // --- Full-text search (FTS4 MATCH expression, e.g. "sig* ros*") ---
 
     @Query(
         """
@@ -583,7 +583,7 @@ abstract class LibraryDao {
     )
     abstract suspend fun searchArtistRows(match: String, limit: Int): List<ArtistRow>
 
-    // --- Wiedergabe & Artwork ---
+    // --- Playback & artwork ---
 
     @Query(
         """
@@ -609,7 +609,7 @@ abstract class LibraryDao {
     @Query("SELECT songId, albumId FROM songs WHERE songId IN (:songIds)")
     abstract suspend fun getAlbumIdsOfSongs(songIds: List<Long>): List<SongAlbumRow>
 
-    /** Die eingeschalteten Quellen eines Songs, lokale zuerst, dann nach Priorität (Titel-Info). */
+    /** The enabled sources of a song, local ones first, then by priority (track info). */
     @Query(
         """
         SELECT ss.sourceId, src.name AS sourceName, src.type AS sourceType, ss.mimeType, ss.bitRate, ss.sizeBytes,
@@ -631,7 +631,7 @@ abstract class LibraryDao {
     @Query("SELECT songId FROM songs WHERE albumId = :albumId")
     abstract suspend fun getSongIdsOfAlbum(albumId: Long): List<Long>
 
-    /** Bevorzugt die Cover-Quelle des Albums, sonst irgendeine Quelle eines Album-Songs. */
+    /** Prefers the album's cover source, otherwise any source of an album song. */
     @Query(
         """
         SELECT ss.uid, ss.songId, ss.sourceId, ss.remoteId, ss.coverRemoteId, src.type AS sourceType,
@@ -652,7 +652,7 @@ abstract class LibraryDao {
     @Query("SELECT artistId FROM artists")
     abstract suspend fun getAllArtistIds(): List<Long>
 
-    /** Ändert sich, sobald Alben oder Interpreten hinzukommen oder wegfallen (Anlass, ihre Bilder für offline zu laden). */
+    /** Changes as soon as albums or artists are added or removed (reason to load their images for offline use). */
     @Query(
         "SELECT (SELECT COUNT(*) || ':' || IFNULL(MAX(albumId), 0) FROM albums) || '/' || " +
             "(SELECT COUNT(*) || ':' || IFNULL(MAX(artistId), 0) FROM artists)",
@@ -677,7 +677,7 @@ abstract class LibraryDao {
     @Query("UPDATE albums SET seedColor = :color WHERE albumId = :albumId")
     abstract suspend fun setSeedColor(albumId: Long, color: Int)
 
-    // --- Aufräumen ---
+    // --- Cleanup ---
 
     @Query("DELETE FROM songs WHERE songId NOT IN (SELECT songId FROM song_sources)")
     protected abstract suspend fun deleteSongsWithoutSources(): Int
@@ -706,9 +706,9 @@ abstract class LibraryDao {
     protected abstract suspend fun repairAlbumCovers()
 
     /**
-     * Räumt nach dem Entfernen von Quellen bzw. nach einem Mark-and-Sweep-Abgleich auf:
-     * Songs ohne Quelle, danach leere Alben, nicht mehr referenzierte Künstler und
-     * Cover-Verweise auf gelöschte Quellen.
+     * Cleans up after sources are removed or after a mark-and-sweep sync:
+     * songs without a source, then empty albums, artists no longer referenced and
+     * cover references to deleted sources.
      */
     @Transaction
     open suspend fun cleanupOrphans() {

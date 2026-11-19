@@ -3,8 +3,8 @@ package de.kleinabersmart.earloft.core.data.wear
 import android.content.Context
 
 /**
- * Merkt sich die Kennungen der zuletzt importierten Pakete der Uhr: Stürzt das Handy zwischen Import und Löschen des
- * DataItems ab, kommt ein Paket erneut an und darf nicht doppelt zählen.
+ * Remembers the identifiers of the most recently imported packets from the watch: if the phone crashes between import and
+ * deleting the DataItem, a packet arrives again and must not be counted twice.
  */
 internal class ImportedPackets(context: Context, preferencesName: String) {
     private val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
@@ -13,7 +13,7 @@ internal class ImportedPackets(context: Context, preferencesName: String) {
 
     operator fun contains(packetId: String): Boolean = packetId in seen()
 
-    /** Erst nach dem Import aufrufen: Ein Absturz dazwischen lässt das Paket lieber doppelt als gar nicht ankommen. */
+    /** Only call after the import: a crash in between would rather let the packet arrive twice than not at all. */
     fun remember(packetId: String) {
         preferences.edit().putString(KEY_PACKETS, (seen() + packetId).takeLast(REMEMBERED_PACKETS).joinToString(SEPARATOR)).apply()
     }

@@ -14,8 +14,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * Knopf „Download“ einer Auswahl des Handys ([kind] mit [refId]: Album, Playlist, Favoriten; Wear-Konzept 17): Stand aus der
- * Auswahl der Uhr und Tipp, der die Auswahl am Handy setzt. Gehört einem ViewModel ([scope]).
+ * "Download" button of a phone selection ([kind] with [refId]: album, playlist, favorites; Wear concept 17): state from the
+ * watch's selection and a tap that sets the selection on the phone. Belongs to a ViewModel ([scope]).
  */
 internal class SelectionOnWatch(
     private val kind: WearSelectionKind,
@@ -27,8 +27,8 @@ internal class SelectionOnWatch(
     private val key = kind.key(refId)
 
     /**
-     * Gewünschter Stand nach einem Tipp, bis das Manifest des Handys ihn bestätigt (oder [PENDING_TIMEOUT_MS] vergeht):
-     * Der Knopf spränge sonst bis zum nächsten Manifest zurück.
+     * Desired state after a tap until the phone's manifest confirms it (or [PENDING_TIMEOUT_MS] passes):
+     * otherwise the button would jump back until the next manifest.
      */
     private val pending = MutableStateFlow<Boolean?>(null)
     private val failed = MutableStateFlow(false)
@@ -42,7 +42,7 @@ internal class SelectionOnWatch(
             onWatchState(confirmed, wanted, item?.progress, failedNow, downloadFailed = (item?.failedCount ?: 0) > 0)
         }.orOnError(null).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Holt die Auswahl auf die Uhr bzw. nimmt sie herunter; das Handy wählt aus und schickt ein neues Manifest. */
+    /** Brings the selection to the watch or removes it; the phone selects and sends a new manifest. */
     fun set(selected: Boolean) {
         scope.launch {
             failed.value = false

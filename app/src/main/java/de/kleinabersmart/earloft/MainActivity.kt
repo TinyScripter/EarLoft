@@ -73,22 +73,22 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var bookLauncher: BookLauncher
 
-    /** Der Tipp auf die Benachrichtigung der laufenden Musik soll immer die Wiedergabe-Ansicht zeigen. */
+    /** Tapping the notification of the playing music should always show the playback screen. */
     private var openNowPlaying by mutableStateOf(false)
 
-    /** Von einer anderen App geteilte Podcast-Adresse (Konzept 13); die Oberfläche öffnet sie als Vorschau. */
+    /** Podcast address shared by another app (concept 13); the UI opens it as a preview. */
     private var sharedFeedUrl by mutableStateOf<String?>(null)
 
-    /** Tipp auf eine Benachrichtigung über Neues; gesetzt erst, wenn der Bereich gespeichert ist (siehe [openNewContent]). */
+    /** Tap on a new-content notification; only set once the area is stored (see [openNewContent]). */
     private var newContentTarget by mutableStateOf<NewContentTarget?>(null)
 
-    /** Zählt die abgefangenen Lautstärketasten beim Casten; jede Änderung blendet [CastVolumeIndicator] ein. */
+    /** Counts the intercepted volume keys while casting; every change shows [CastVolumeIndicator]. */
     private var castVolumePresses by mutableIntStateOf(0)
 
     /**
-     * Beim Casten ändern die Lautstärketasten die Lautstärke des Cast-Geräts und die App zeigt sie selbst an: Die
-     * System-Oberfläche des Pixels zeigt ihren Dialog für Cast-Sitzungen nur sporadisch. Im Hintergrund bleibt es beim
-     * System. Den aktuellen [PlaybackConnection.state] hält die App-Oberfläche verbunden, solange sie sichtbar ist.
+     * While casting, the volume keys change the cast device's volume and the app shows it itself: the
+     * Pixel's system UI only sporadically shows its dialog for cast sessions. In the background the
+     * system handles it. The app UI keeps the current [PlaybackConnection.state] connected while it is visible.
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (!isCastVolumeKey(keyCode)) return super.onKeyDown(keyCode, event)
@@ -113,12 +113,12 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * „Abspielen“ in der Benachrichtigung über eine neue Folge: abspielen und die Wiedergabe-Ansicht zeigen. Über die App,
-     * damit die Rückfrage zu mobilen Daten erscheinen kann; danach verschwindet die Benachrichtigung.
+     * "Play" in the new-episode notification: play and show the playback screen. Goes through the app
+     * so the mobile data prompt can appear; afterwards the notification disappears.
      */
     private fun playNewEpisode(intent: Intent) {
         if (intent.action != AppNewContentNotifier.ACTION_PLAY_EPISODE) return
-        // Nur aus der eigenen Benachrichtigung: Die MainActivity ist exportiert, der Alias nicht (Review D30).
+        // Only from our own notification: MainActivity is exported, the alias isn't (review D30).
         if (intent.component?.className != AppNewContentNotifier.PLAY_ALIAS) return
         val bookId = intent.getLongExtra(NewEpisodeActionReceiver.EXTRA_BOOK_ID, -1).takeIf { it >= 0 } ?: return
         NotificationManagerCompat.from(this).cancel(AppNewContentNotifier.notificationId(SpokenMode.PODCASTS))
@@ -129,9 +129,9 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Neue Musik, Folgen oder Bücher: Erst wird der Bereich gewählt (Start und Bibliothek fahren dorthin), dann öffnet
-     * die Oberfläche Start bzw. die Seite des einzelnen Albums, Podcasts oder Buchs. Andersherum schlösse der Wechsel des
-     * Bereichs die eben geöffnete Seite wieder.
+     * New music, episodes or books: first the area is selected (Home and Library switch to it), then
+     * the UI opens Home or the page of the single album, podcast or book. The other way round, switching the
+     * area would close the page that was just opened.
      */
     private fun openNewContent(target: NewContentTarget?) {
         if (target == null) return
@@ -141,10 +141,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Geteilter Text oder ein Link wie `feed://…`: Die Adresse öffnet die Vorschau als Probeabo (Konzept 12.10, 13). */
+    /** Shared text or a link like `feed://…`: the address opens the preview as a trial subscription (concept 12.10, 13). */
     private fun openSharedFeed(intent: Intent) {
         val address = when (intent.action) {
-            // EXTRA_TEXT ist eine CharSequence; formatierter Text (Spanned) käme über getStringExtra als null an.
+            // EXTRA_TEXT is a CharSequence; formatted text (Spanned) would arrive as null via getStringExtra.
             Intent.ACTION_SEND -> intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.let(IncomingFeed::fromText)
             Intent.ACTION_VIEW -> intent.dataString?.let(IncomingFeed::fromLink)
             else -> null
@@ -152,7 +152,7 @@ class MainActivity : ComponentActivity() {
         if (address != null) sharedFeedUrl = address
     }
 
-    /** Sprachsuche des Systems („Spiele … mit EarLoft“): abspielen und die Wiedergabe-Ansicht zeigen. */
+    /** System voice search ("Play … with EarLoft"): play and show the playback screen. */
     private fun playFromSearch(intent: Intent) {
         if (intent.action != MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH) return
         playbackConnection.playFromSearch(intent.getStringExtra(SearchManager.QUERY).orEmpty())
@@ -160,8 +160,8 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Abgleiche beim Öffnen der App, nur für die eingeschalteten Bereiche; der bloße Start des Prozesses (Hintergrund-Jobs,
-     * Uhr) gleicht nichts ab.
+     * Syncs when the app is opened, only for the enabled areas; merely starting the process (background jobs,
+     * watch) syncs nothing.
      */
     override fun onStart() {
         super.onStart()
@@ -176,10 +176,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // Nur beim frischen Start: Nach einer Neuerstellung (Drehung, Prozess) steht der Intent noch an der Activity. Was die
-        // Oberfläche bis dahin nicht abgeholt hat (etwa während der Frage nach der Berechtigung), kommt aus dem Zustand.
-        // Aus „Zuletzt verwendet“ stellt das System den Intent des ersten Starts wieder zu (Abspielen, Sprachsuche, geteilter
-        // Link); der Auftrag war aber schon erledigt und soll nicht noch einmal laufen.
+        // Only on a fresh start: after recreation (rotation, process death) the intent is still on the activity. Whatever the
+        // UI hasn't picked up by then (e.g. while asking for the permission) comes from the saved state.
+        // From "Recents" the system redelivers the intent of the first start (play, voice search, shared
+        // link); but that job was already done and must not run again.
         if (savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0) {
             openNowPlaying = intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)
             playFromSearch(intent)
@@ -196,8 +196,8 @@ class MainActivity : ComponentActivity() {
             val systemColorsSetting by themeSettings.systemColors.collectAsStateWithLifecycle(initialValue = null)
             val useLocalMedia by librarySettings.useLocalMedia.collectAsStateWithLifecycle(initialValue = null)
             val setupPending by setupState.pending.collectAsStateWithLifecycle(initialValue = null)
-            // Bis die Einstellungen gelesen sind (wenige Millisekunden; beim ersten Start bis die Sicherung zurückgespielt
-            // ist): nichts zeichnen statt kurz falsch.
+            // Until the settings are read (a few milliseconds; on first start until the backup has been
+            // restored): draw nothing rather than briefly something wrong.
             val mode = themeMode ?: return@setContent
             val systemColors = systemColorsSetting ?: return@setContent
             val localMedia = useLocalMedia ?: return@setContent
@@ -210,7 +210,7 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
             }
-            // Symbole der Systemleisten passend zur App statt zum System.
+            // System bar icons matching the app instead of the system.
             DisposableEffect(darkTheme) {
                 enableEdgeToEdge(
                     statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { darkTheme },
@@ -265,7 +265,7 @@ class MainActivity : ComponentActivity() {
         const val STATE_SHARED_FEED = "shared_feed"
         const val STATE_NEW_CONTENT = "new_content"
 
-        // Wie die Standardwerte von enableEdgeToEdge (dort nicht öffentlich).
+        // Like the default values of enableEdgeToEdge (not public there).
         val LIGHT_SCRIM = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
         val DARK_SCRIM = Color.argb(0x80, 0x1b, 0x1b, 0x1b)
     }

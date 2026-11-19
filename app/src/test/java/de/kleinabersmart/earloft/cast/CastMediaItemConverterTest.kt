@@ -22,7 +22,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import javax.inject.Inject
 
-/** Einträge des Empfängers zurück in Items, wenn die App sich wieder an eine laufende Sitzung hängt. */
+/** Receiver entries back into items when the app reattaches to a running session. */
 @HiltAndroidTest
 @Config(application = HiltTestApplication::class)
 @RunWith(RobolectricTestRunner::class)

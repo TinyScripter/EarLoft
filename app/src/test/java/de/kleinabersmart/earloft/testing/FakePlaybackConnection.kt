@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.flowOf
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Wiedergabe ohne `MediaController`: Tests setzen [state] und [currentPositionMs] und lesen die Befehle in [commands]. */
+/** Playback without `MediaController`: tests set [state] and [currentPositionMs] and read the commands in [commands]. */
 @Singleton
 class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
 
@@ -31,10 +31,10 @@ class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
 
     private val _commands = MutableStateFlow<List<Command>>(emptyList())
 
-    /** Alle Befehle in der Reihenfolge ihres Eingangs. */
+    /** All commands in the order they arrived. */
     val commands: StateFlow<List<Command>> = _commands
 
-    /** Wartet, bis [count] Befehle eingegangen sind (`BookLauncher` startet Bücher im `ApplicationScope`). */
+    /** Waits until [count] commands have arrived (`BookLauncher` starts books in the `ApplicationScope`). */
     suspend fun awaitCommands(count: Int = 1): List<Command> = awaitReal { _commands.first { it.size >= count } }
 
     private fun record(command: Command) {
@@ -83,12 +83,12 @@ class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
         data class PlayBook(val bookId: Long, val startPositionMs: Long?) : Command
         data class SeekToTrack(val trackIndex: Int, val positionMs: Long) : Command
 
-        /** Befehle, deren Argumente die Tests bisher nicht prüfen. */
+        /** Commands whose arguments the tests don't check so far. */
         data class Simple(val name: String) : Command
     }
 }
 
-/** Ersetzt im Test-Graphen den echten `MediaController` durch [FakePlaybackConnection]. */
+/** Replaces the real `MediaController` with [FakePlaybackConnection] in the test graph. */
 @Module
 @TestInstallIn(components = [SingletonComponent::class], replaces = [PlaybackConnectionBindings::class])
 object FakePlaybackModule {

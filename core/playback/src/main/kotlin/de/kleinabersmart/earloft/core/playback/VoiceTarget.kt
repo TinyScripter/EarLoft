@@ -3,12 +3,12 @@ package de.kleinabersmart.earloft.core.playback
 import de.kleinabersmart.earloft.core.data.search.AreaSearchResults
 import de.kleinabersmart.earloft.core.model.Song
 
-/** Was auf „Spiele …“ hin läuft (Android Auto, Assistant, `MEDIA_PLAY_FROM_SEARCH`). */
+/** What plays on "Play …" (Android Auto, Assistant, `MEDIA_PLAY_FROM_SEARCH`). */
 internal sealed interface VoiceTarget {
-    /** Ein Buch oder eine Folge. */
+    /** A book or an episode. */
     data class Spoken(val bookId: Long) : VoiceTarget
 
-    /** Ein Podcast: seine nächste Folge ([PodcastBrowse.startEpisodeOf]). */
+    /** A podcast: its next episode ([PodcastBrowse.startEpisodeOf]). */
     data class Feed(val feedId: String) : VoiceTarget
     data class Songs(val songs: List<Song>) : VoiceTarget
     data class Artist(val artistId: Long) : VoiceTarget
@@ -17,9 +17,9 @@ internal sealed interface VoiceTarget {
 }
 
 /**
- * Wählt aus den Treffern der eingeschalteten Bereiche: zuerst genaue Titel (Buch, Podcast, Song, Folge), dann wie bisher bei
- * der Musik der erste Künstler bzw. das erste Album, dann der erste Podcast, das erste Buch (die Suche findet Bücher auch über
- * den Autor), die erste Folge, zuletzt alle passenden Songs.
+ * Picks from the results of the enabled areas: exact titles first (book, podcast, song, episode), then, as before for
+ * music, the first artist or the first album, then the first podcast, the first book (search also finds books via
+ * the author), the first episode, and finally all matching songs.
  */
 internal fun chooseVoiceTarget(query: String, hits: AreaSearchResults): VoiceTarget {
     val wanted = query.trim()

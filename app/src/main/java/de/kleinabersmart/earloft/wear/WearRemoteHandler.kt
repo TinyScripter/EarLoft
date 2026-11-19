@@ -35,13 +35,13 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Eine Titelliste des Handys mit ihrem Namen (Album, Playlist, Favoriten, alles). */
+/** A track list of the phone with its name (album, playlist, favorites, everything). */
 internal class RemoteTrackList(val title: String, val songs: List<Song>)
 
 /**
- * Führt aus, was die Uhr dem Handy aufträgt (Wear-Konzept 15): Bedienbefehle, „diese Liste abspielen“ und die
- * Titel einer Liste anzeigen. Alles läuft über die [PlaybackConnection] bzw. den [BookLauncher], also wie eine
- * Bedienung in der App selbst.
+ * Executes what the watch tells the phone to do (Wear concept 15): control commands, "play this list" and showing the
+ * tracks of a list. Everything goes through the [PlaybackConnection] or the [BookLauncher], i.e. like an
+ * interaction in the app itself.
  */
 @Singleton
 class WearRemoteHandler @Inject constructor(
@@ -67,7 +67,7 @@ class WearRemoteHandler @Inject constructor(
             WearRemoteAction.SKIP_FORWARD -> playback.skipForward()
             WearRemoteAction.VOLUME_STEPS -> changeVolume(command.value.toInt())
             WearRemoteAction.CYCLE_REPEAT -> playback.cycleRepeatMode()
-            // Der Sleep-Timer gehört auf den Main-Thread; die Nachrichten der Uhr kommen auf einem anderen an.
+            // The sleep timer belongs on the main thread; the watch's messages arrive on another one.
             WearRemoteAction.SLEEP_TIMER_START -> withContext(Dispatchers.Main) {
                 playback.startSleepTimer(command.value.toInt().coerceIn(1, SleepTimer.MAX_MINUTES))
             }
@@ -76,7 +76,7 @@ class WearRemoteHandler @Inject constructor(
         }
     }
 
-    /** Bei Büchern ist das Ziel eine Position im ganzen Buch; die Datei dazu sucht die Zeitachse. */
+    /** For books the target is a position in the whole book; the timeline finds the matching file. */
     private suspend fun seek(positionMs: Long) {
         val bookId = playback.state.value.spoken?.bookId
         val target = bookId?.let { books.timeline(it) }?.locate(positionMs)
@@ -94,14 +94,14 @@ class WearRemoteHandler @Inject constructor(
             return
         }
         val byId = request.startSongId?.let { id -> list.songs.indexOfFirst { it.id == id } }?.takeIf { it >= 0 }
-        // Hat sich die Liste inzwischen verschoben, gilt der Titel, nicht die Position.
+        // If the list has shifted in the meantime, the track counts, not the position.
         val startIndex = request.startIndex.takeIf { it in list.songs.indices && (request.startSongId == null || list.songs[it].id == request.startSongId) }
             ?: byId
             ?: 0
         playback.play(list.songs, startIndex, request.shuffle)
     }
 
-    /** Antwortet der Uhr [nodeId] mit den Titeln der Liste (gzip, höchstens [WearRemoteTracksResult.MAX_TRACKS]). */
+    /** Replies to the watch [nodeId] with the list's tracks (gzip, at most [WearRemoteTracksResult.MAX_TRACKS]). */
     suspend fun sendTracks(nodeId: String, request: WearRemoteTracksRequest) {
         val list = resolve(request.kind, request.refId)
         val result = if (list == null) {
@@ -118,7 +118,7 @@ class WearRemoteHandler @Inject constructor(
     }
 
     /**
-     * Antwortet der Uhr [nodeId] mit den Folgen eines Abos (Wear-Konzept 17): angefangene zuerst, dann die neuesten
+     * Replies to the watch [nodeId] with a subscription's episodes (Wear concept 17): started ones first, then the newest
      * [WearRemoteEpisodesResult.MAX_NEWEST].
      */
     suspend fun sendEpisodes(nodeId: String, request: WearRemoteEpisodesRequest) {
@@ -139,14 +139,14 @@ class WearRemoteHandler @Inject constructor(
         messageClient.sendPayload(nodeId, WearPaths.REMOTE_EPISODES_RESULT, WearCodec.encodeCompressed(result))
     }
 
-    /** `null`, wenn Album bzw. Playlist nicht (mehr) existiert. */
+    /** `null` if the album or playlist doesn't exist (any more). */
     internal suspend fun resolve(kind: WearRemoteListKind, refId: Long?): RemoteTrackList? = when (kind) {
         WearRemoteListKind.ALBUM -> refId?.let { library.album(it).first() }?.let { RemoteTrackList(it.album.title, it.songs) }
         WearRemoteListKind.PLAYLIST -> refId?.let { playlists.playlist(it).first() }
             ?.let { details -> RemoteTrackList(details.playlist.name, details.entries.map { it.song }) }
         WearRemoteListKind.FAVORITES -> RemoteTrackList("", favorites.favorites().first())
         WearRemoteListKind.ALL -> RemoteTrackList("", library.songs().first())
-        // Bücher und Folgen sind keine Songs; sie spielt [play] über den [BookLauncher].
+        // Books and episodes aren't songs; [play] plays them via the [BookLauncher].
         WearRemoteListKind.CONTINUE -> null
     }
 
@@ -162,10 +162,10 @@ class WearRemoteHandler @Inject constructor(
     }
 }
 
-/** Angefangen und nicht zu Ende gehört. */
+/** Started and not fully played. */
 private val BookWithProgress.isStarted: Boolean get() = progress?.let { !it.finished && it.positionMs > 0 } == true
 
-/** Angefangene zuerst (zuletzt gehörte vorn), dann der Rest in seiner Reihenfolge. */
+/** Started ones first (most recently played in front), then the rest in its order. */
 private fun List<BookWithProgress>.startedFirst(): List<BookWithProgress> {
     val (started, rest) = partition { it.isStarted }
     return started.sortedByDescending { it.progress?.updatedAt ?: 0 } + rest
@@ -173,18 +173,18 @@ private fun List<BookWithProgress>.startedFirst(): List<BookWithProgress> {
 
 private fun BookWithProgress.toRemote() = WearRemoteBookDto(book.id, book.title, book.author, book.serverId, book.remoteId, isStarted)
 
-/** Hörbücher für den Bibliotheksindex der Uhr (Wear-Konzept 17): angefangene zuerst, dann in der Reihenfolge des Handys. */
+/** Audiobooks for the watch's library index (Wear concept 17): started ones first, then in the phone's order. */
 internal fun remoteBooks(books: List<BookWithProgress>): List<WearRemoteBookDto> = books.startedFirst().map { it.toRemote() }
 
-/** Die Warteschlange der Podcasts ([episodes] schon in deren Reihenfolge) für die Uhr; höchstens [MAX_QUEUE] Folgen. */
+/** The podcast queue ([episodes] already in its order) for the watch; at most [MAX_QUEUE] episodes. */
 internal fun remoteQueue(episodes: List<BookWithProgress>): List<WearRemoteBookDto> =
     episodes.take(MAX_QUEUE).map { it.toRemote() }
 
 private const val MAX_QUEUE = 50
 
 /**
- * Folgen eines Abos für die Uhr: alle angefangenen (zuletzt gehörte vorn), dann die neuesten [newest] der übrigen.
- * [episodes] kommen neueste zuerst.
+ * A subscription's episodes for the watch: all started ones (most recently played in front), then the newest [newest] of the rest.
+ * [episodes] come newest first.
  */
 internal fun remoteEpisodes(episodes: List<BookWithProgress>, newest: Int): List<WearRemoteBookDto> {
     val (started, rest) = episodes.partition { it.isStarted }

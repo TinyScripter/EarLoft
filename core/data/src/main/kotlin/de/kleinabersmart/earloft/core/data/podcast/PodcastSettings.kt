@@ -30,14 +30,14 @@ internal val Context.podcastSettingsDataStore: DataStore<Preferences> by prefere
 class PodcastSettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
-    /** Abstand der automatischen Aktualisierung in Stunden; 0 = nur von Hand. */
+    /** Interval of automatic refresh in hours; 0 = manual only. */
     val refreshHours: Flow<Int> = context.podcastSettingsDataStore.data.map { it[KEY_REFRESH_HOURS] ?: DEFAULT_REFRESH_HOURS }
 
     suspend fun setRefreshHours(hours: Int) {
         context.podcastSettingsDataStore.edit { it[KEY_REFRESH_HOURS] = hours.coerceAtLeast(0) }
     }
 
-    /** Auch über Mobilfunk laden (Standard: nein, nur WLAN). */
+    /** Also download over mobile data (default: no, Wi-Fi only). */
     val useMobileData: Flow<Boolean> = context.podcastSettingsDataStore.data.map { it[KEY_MOBILE] ?: false }
 
     suspend fun setUseMobileData(enabled: Boolean) {
@@ -45,8 +45,8 @@ class PodcastSettings @Inject constructor(
     }
 
     /**
-     * Nach wie vielen Tagen der Download einer zu Ende gehörten Folge gelöscht wird: [DELETE_HEARD_IMMEDIATELY] (0),
-     * eine Anzahl Tage oder [DELETE_HEARD_NEVER] (-1).
+     * After how many days the download of an episode played to the end is deleted: [DELETE_HEARD_IMMEDIATELY] (0),
+     * a number of days or [DELETE_HEARD_NEVER] (-1).
      */
     val deleteHeardAfterDays: Flow<Int> =
         context.podcastSettingsDataStore.data.map { it[KEY_DELETE_HEARD_DAYS] ?: DEFAULT_DELETE_HEARD_DAYS }
@@ -56,8 +56,8 @@ class PodcastSettings @Inject constructor(
     }
 
     /**
-     * Vorgabe für neue Abos: Neue Folgen automatisch herunterladen (Standard: aus). Gilt nur beim Abonnieren; die
-     * Einstellung bestehender Abos bleibt, wenn sie sich ändert.
+     * Default for new subscriptions: download new episodes automatically (default: off). Only applies when subscribing; the
+     * setting of existing subscriptions stays when it changes.
      */
     val autoDownloadNew: Flow<Boolean> = context.podcastSettingsDataStore.data.map { it[KEY_AUTO_NEW] ?: false }
 
@@ -65,14 +65,14 @@ class PodcastSettings @Inject constructor(
         context.podcastSettingsDataStore.edit { it[KEY_AUTO_NEW] = enabled }
     }
 
-    /** Wie viele der neuesten ungehörten Folgen die Download-Automatik je Podcast bereithält. */
+    /** How many of the newest unplayed episodes the download automation keeps ready per podcast. */
     val autoDownloadCount: Flow<Int> = context.podcastSettingsDataStore.data.map { it[KEY_AUTO_COUNT] ?: DEFAULT_AUTO_DOWNLOAD_COUNT }
 
     suspend fun setAutoDownloadCount(count: Int) {
         context.podcastSettingsDataStore.edit { it[KEY_AUTO_COUNT] = count.coerceAtLeast(1) }
     }
 
-    /** Ist eine Folge zu Ende, startet die nächste der Zeile „Weiterhören“ (Standard: an). */
+    /** When an episode ends, the next one in the "Continue listening" row starts (default: on). */
     val autoPlayNext: Flow<Boolean> = context.podcastSettingsDataStore.data.map { it[KEY_AUTO_PLAY_NEXT] ?: true }
 
     suspend fun setAutoPlayNext(enabled: Boolean) {
@@ -80,8 +80,8 @@ class PodcastSettings @Inject constructor(
     }
 
     /**
-     * Wischen auf Folgenzeilen (Konzept 12.5 „Mehrfachauswahl und Wischen“): nach rechts in die Warteschlange, nach links
-     * als gehört markieren (Standard: an).
+     * Swiping on episode rows (concept 12.5 "Multi-select and swiping"): right adds to the queue, left
+     * marks as played (default: on).
      */
     val swipeActions: Flow<Boolean> = context.podcastSettingsDataStore.data.map { it[KEY_SWIPE_ACTIONS] ?: true }
 
@@ -89,7 +89,7 @@ class PodcastSettings @Inject constructor(
         context.podcastSettingsDataStore.edit { it[KEY_SWIPE_ACTIONS] = enabled }
     }
 
-    /** Reihenfolge der Abos auf Start und im Reiter „Abos“ (Standard: nach Name). */
+    /** Order of subscriptions on Home and in the "Subscriptions" tab (default: by name). */
     val feedSort: Flow<FeedSort> = context.podcastSettingsDataStore.data.map { prefs ->
         FeedSort.entries.firstOrNull { it.name == prefs[KEY_FEED_SORT] } ?: FeedSort.NAME
     }
@@ -98,7 +98,7 @@ class PodcastSettings @Inject constructor(
         context.podcastSettingsDataStore.edit { it[KEY_FEED_SORT] = sort.name }
     }
 
-    /** In diesen Verzeichnissen sucht die Seite „Podcast hinzufügen“ (Standard: in keinem, Konzept 12.10). */
+    /** The "Add podcast" page searches in these directories (default: none, concept 12.10). */
     val directories: Flow<Set<PodcastDirectory>> = context.podcastSettingsDataStore.data.map { prefs ->
         prefs[KEY_DIRECTORIES].orEmpty().mapNotNullTo(HashSet()) { name -> PodcastDirectory.entries.firstOrNull { it.name == name } }
     }
@@ -111,8 +111,8 @@ class PodcastSettings @Inject constructor(
     }
 
     /**
-     * Land für die Suche bei Apple Podcasts (ISO 3166, z. B. `DE`). Beim ersten Start aus den Sprachen von App und System
-     * gesetzt ([rememberAppleCountry]); bis dahin dasselbe, nur ungespeichert.
+     * Country for the Apple Podcasts search (ISO 3166, e.g. `DE`). Set on first start from the app and system
+     * languages ([rememberAppleCountry]); until then the same, just not stored.
      */
     val appleCountry: Flow<String> = context.podcastSettingsDataStore.data.map { it[KEY_APPLE_COUNTRY] ?: deviceCountry() }
 
@@ -121,8 +121,8 @@ class PodcastSettings @Inject constructor(
     }
 
     /**
-     * Adresse der RSS-Bridge, über die der OPML-Export Sendungen aus ARD Sounds als Feed nennt (Konzept 12.10); leer = sie
-     * fehlen im Export. Voreingestellt ist [DEFAULT_RSS_BRIDGE].
+     * Address of the RSS bridge through which the OPML export lists shows from ARD Sounds as a feed (concept 12.10); empty = they
+     * are missing from the export. Preset to [DEFAULT_RSS_BRIDGE].
      */
     val rssBridge: Flow<String> = context.podcastSettingsDataStore.data.map { it[KEY_RSS_BRIDGE] ?: DEFAULT_RSS_BRIDGE }
 
@@ -130,12 +130,12 @@ class PodcastSettings @Inject constructor(
         context.podcastSettingsDataStore.edit { it[KEY_RSS_BRIDGE] = url.trim() }
     }
 
-    /** Beim ersten Start: Speichert das Land aus den Spracheinstellungen, solange noch keins gewählt ist. */
+    /** On first start: stores the country from the language settings, as long as none has been chosen. */
     suspend fun rememberAppleCountry() {
         context.podcastSettingsDataStore.edit { if (it[KEY_APPLE_COUNTRY] == null) it[KEY_APPLE_COUNTRY] = deviceCountry() }
     }
 
-    /** Land aus der Sprache der App (Android 13+, Einstellungen des Systems je App) und den Sprachen des Systems. */
+    /** Country from the app language (Android 13+, per-app system settings) and the system languages. */
     private fun deviceCountry(): String {
         val app = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.getSystemService(LocaleManager::class.java)?.applicationLocales?.toList().orEmpty()
@@ -146,18 +146,18 @@ class PodcastSettings @Inject constructor(
     }
 
     companion object {
-        /** Auswahl in den Einstellungen; das Land des Systems kommt dazu, wenn es fehlt. */
+        /** Selection in the settings; the system's country is added if missing. */
         val APPLE_COUNTRY_CHOICES = listOf(
             "DE", "AT", "CH", "LU", "LI", "BE", "NL", "DK", "PL", "CZ", "FR", "IT", "ES", "PT",
             "SE", "NO", "FI", "GB", "IE", "US", "CA", "AU", "NZ",
         )
 
         /**
-         * Land zu den Sprachen von App ([app], leer = wie das System) und System ([system], in Reihenfolge der Vorliebe):
-         * Nennt die Sprache der App eine Region, gilt sie. Sonst die erste Systemsprache derselben Sprache mit Region
-         * (App Deutsch, System `de-AT` → Österreich), sonst das übliche Land der App-Sprache (Deutsch → Deutschland).
-         * Ohne eigene App-Sprache die erste Systemsprache mit Region, sonst das übliche Land ihrer Sprache. Zuletzt die
-         * USA, Apples Standard.
+         * Country for the languages of the app ([app], empty = same as system) and system ([system], in order of preference):
+         * if the app language names a region, it applies. Otherwise the first system language of the same language with a region
+         * (app German, system `de-AT` → Austria), otherwise the usual country of the app language (German → Germany).
+         * Without a dedicated app language, the first system language with a region, otherwise the usual country of its language. Finally the
+         * USA, Apple's default.
          */
         fun countryFromLocales(app: List<Locale>, system: List<Locale>): String {
             app.firstOrNull()?.let { language ->
@@ -171,7 +171,7 @@ class PodcastSettings @Inject constructor(
 
         private const val DEFAULT_COUNTRY = "US"
 
-        /** Nur Länder (zwei Buchstaben), keine Gebiete wie `419` (Lateinamerika). */
+        /** Only countries (two letters), no regions like `419` (Latin America). */
         private fun Locale.region(): String? = country.takeIf { it.length == 2 }?.uppercase()
 
         private fun Locale.likelyRegion(): String? =
@@ -190,7 +190,7 @@ class PodcastSettings @Inject constructor(
         private val KEY_AUTO_COUNT = intPreferencesKey("auto_download_count")
         private val KEY_AUTO_NEW = booleanPreferencesKey("auto_download_new")
 
-        /** Auswahl in den Einstellungen. */
+        /** Selection in the settings. */
         val REFRESH_HOUR_CHOICES = listOf(0, 1, 3, 6, 12, 24)
         const val DEFAULT_REFRESH_HOURS = 6
 

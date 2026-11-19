@@ -49,14 +49,14 @@ class SpokenLibraryViewModel @Inject constructor(
     ardBooks: ArdBooks,
 ) : ViewModel() {
 
-    /** Das Buch, das gerade läuft (nicht: pausiert). */
+    /** The book currently playing (not: paused). */
     val playingBookId: StateFlow<Long?> = playback.state
         .map { if (it.isPlaying) it.spoken?.bookId else null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
-     * Läuft das Buch, pausiert es; ist es geladen und pausiert, geht es weiter; sonst startet oder setzt es fort
-     * (und steht danach ganz vorn in „Weiterhören“).
+     * If the book is playing, it pauses; if it is loaded and paused, it continues; otherwise it starts or resumes
+     * (and is then at the very front of "Continue listening").
      */
     fun playOrPause(bookId: Long) {
         if (playback.state.value.spoken?.bookId == bookId) playback.togglePlayPause() else launcher.play(bookId)
@@ -70,10 +70,10 @@ class SpokenLibraryViewModel @Inject constructor(
         .asLoadState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
-    /** Start-Regal „Serie fortsetzen“: je Serie der nächste Band mit seiner Nummer ([continueSeries]). */
+    /** Start shelf "Continue series": per series the next volume with its number ([continueSeries]). */
     val continueSeries: StateFlow<List<Pair<BookWithProgress, String?>>> = books.books()
         .map { all -> all.continueSeries().map { (book, series) -> book to series.nextVolume } }
-        // Neu bei jeder Fortschrittszeile (beim Abspielen alle 15 s), nicht auf dem Main-Thread (Review D12).
+        // Recomputed on every progress row (every 15 s during playback), not on the main thread (review D12).
         .flowOn(Dispatchers.Default)
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -88,20 +88,20 @@ class SpokenLibraryViewModel @Inject constructor(
     val bookFilter: StateFlow<BookFilter> = settings.bookFilter
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookFilter.ALL)
 
-    /** Alle Genres der Bücher nach Name (Filter des Reiters „Alle“); leer, wenn der Server keine führt. */
+    /** All genres of the books by name (filter of the "All" tab); empty if the server has none. */
     val genres: StateFlow<List<String>> = books.books().map { all -> all.genreGroups().map { it.name } }
         .distinctUntilChanged()
         .flowOn(Dispatchers.Default)
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** Gewähltes Genre; eines, das kein Buch mehr hat, gilt als keins. */
+    /** Selected genre; one that no longer has any book counts as none. */
     val bookGenre: StateFlow<String?> = combine(settings.bookGenre, genres) { genre, all -> genre?.let { g -> all.firstOrNull { sameGenre(it, g) } } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
-     * Die gezeigten Buch-Bibliotheken eingeschalteter Server als (Kennung, Name), für den Filter des Reiters „Alle“ (M3); den
-     * Filter gibt es erst ab zwei. Gleiche Namen auf mehreren Servern tragen den Servernamen dahinter.
+     * The shown book libraries of enabled servers as (ID, name), for the filter of the "All" tab (M3); the
+     * filter only exists from two upward. Identical names on several servers carry the server name after them.
      */
     val libraries: StateFlow<List<Pair<String, String>>> = servers.servers.map { list ->
         val shown = list.filter { it.enabled }.flatMap { server -> server.libraries.filter { it.shown }.map { server to it } }
@@ -111,11 +111,11 @@ class SpokenLibraryViewModel @Inject constructor(
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** Gewählte Bibliothek; eine, die es nicht mehr gibt (abgewählt, Server aus), gilt als keine. */
+    /** Selected library; one that no longer exists (deselected, server off) counts as none. */
     val bookLibrary: StateFlow<String?> = combine(settings.bookLibrary, libraries) { id, all -> id?.takeIf { all.size > 1 && all.any { it.first == id } } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Reiter „Alle“: nach Filter, Genre, Bibliothek und Reihenfolge; `null`, solange noch geladen wird. */
+    /** "All" tab: by filter, genre, library and order; `null` while still loading. */
     val shownBooks: StateFlow<List<BookWithProgress>?> = combine(
         books.books(),
         combine(settings.bookSort, settings.bookFilter, ::Pair),
@@ -158,11 +158,11 @@ class SpokenLibraryViewModel @Inject constructor(
         viewModelScope.launch { settings.setBookFilter(filter) }
     }
 
-    /** Hörbücher und Hörspiele aus ARD Sounds sind eingeschaltet (`books_improvements.md` M9): Start zeigt den Weg dorthin. */
+    /** Audiobooks and radio plays from ARD Sounds are enabled (`books_improvements.md` M9): start shows the way there. */
     val ardSounds: StateFlow<Boolean> = settings.ardSoundsBooks
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    /** Ein Audiobookshelf-Server oder ARD Sounds als Quelle (bzw. Bücher von dort); `null`, solange noch geladen wird. */
+    /** An Audiobookshelf server or ARD Sounds as a source (or books from there); `null` while still loading. */
     val hasServer: StateFlow<Boolean?> = combine(servers.servers, settings.ardSoundsBooks, ardBooks.library) { list, ard, ardLibrary ->
         list.isNotEmpty() || ard || ardLibrary.isNotEmpty()
     }
@@ -170,8 +170,8 @@ class SpokenLibraryViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
-     * Ein eingeschalteter Server ohne gültige Anmeldung bzw. ohne API-Key (abgelaufen, nach einer Wiederherstellung): Ist
-     * die Bibliothek leer, sagt sie das statt „noch keine Bücher“.
+     * An enabled server without a valid login or without an API key (expired, after a restore): if
+     * the library is empty, it says so instead of "no books yet".
      */
     val signInNeeded: StateFlow<SpokenServer?> = combine(servers.servers, servers.serversWithoutKey) { list, missing ->
         list.firstOrNull { it.enabled && it.serverId in missing }
@@ -181,6 +181,6 @@ class SpokenLibraryViewModel @Inject constructor(
 
     fun syncNow() = refresher.refreshAll()
 
-    /** Beschreibung des Autors von Audiobookshelf für die Autorenseite (`books_improvements.md` M8). */
+    /** Description of the author from Audiobookshelf for the author page (`books_improvements.md` M8). */
     fun authorDescription(name: String): Flow<String?> = books.authorDescription(name)
 }

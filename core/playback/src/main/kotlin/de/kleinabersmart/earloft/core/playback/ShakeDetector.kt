@@ -8,14 +8,14 @@ import android.hardware.SensorManager
 import kotlin.math.sqrt
 
 /**
- * Erkennt Schütteln aus Beschleunigungen (in g): mehrere kräftige Ausschläge kurz hintereinander. Umdrehen im Bett oder
- * Ablegen gibt höchstens einen; nach einem Treffer ist eine Weile Ruhe, damit ein Schütteln nicht zweimal zählt.
+ * Detects shaking from accelerations (in g): several strong spikes in quick succession. Turning over in bed or
+ * putting the phone down gives at most one; after a hit there's a quiet period so one shake doesn't count twice.
  */
 internal class ShakeCounter {
     private val peaks = ArrayDeque<Long>()
     private var lastShakeMs = Long.MIN_VALUE / 2
 
-    /** `true`, wenn mit dieser Messung ein Schütteln erkannt ist. */
+    /** `true` if a shake is detected with this measurement. */
     fun onSample(gForce: Float, timeMs: Long): Boolean {
         if (timeMs - lastShakeMs < COOLDOWN_MS) return false
         if (gForce < THRESHOLD_G) return false
@@ -39,7 +39,7 @@ internal class ShakeCounter {
     }
 }
 
-/** Beschleunigungssensor für das Schütteln beim Sleep-Timer; angemeldet nur zwischen [start] und [stop]. */
+/** Accelerometer for shaking with the sleep timer; registered only between [start] and [stop]. */
 internal class ShakeDetector(context: Context, private val onShake: () -> Unit) : SensorEventListener {
     private val sensors = context.getSystemService(SensorManager::class.java)
     private val accelerometer = sensors?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)

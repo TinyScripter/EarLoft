@@ -67,14 +67,14 @@ class EarLoftApplication : Application(), SingletonImageLoader.Factory {
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
-        // Vor dem Wiedergabe-Service und dem Cast-Knopf; lädt im Hintergrund, ohne Play-Dienste bleibt Cast aus.
+        // Before the playback service and the cast button; loads in the background, without Play services Cast stays off.
         Cast.getSingletonInstance(this).initialize()
-        // Nach einem Gerätewechsel zuerst die gesicherten Nutzerdaten zurückspielen, danach Änderungen nach user.db spiegeln.
+        // After a device change, first restore the backed-up user data, then mirror changes to user.db.
         userDataBackup.start()
-        // Vor allem, was streamt oder lädt: Zugangsdaten geschützter Feeds für Anfragen außerhalb des Feed-Abrufs.
+        // Before anything that streams or downloads: credentials of protected feeds for requests outside the feed fetch.
         feedCredentials.start()
-        // Nur Beobachter und Zeitpläne: Der Prozess startet auch für Hintergrund-Jobs und Nachrichten der Uhr. Abgeglichen
-        // wird beim Öffnen der App (MainActivity.onStart) bzw. von den Workern mit ihren Netz-Bedingungen.
+        // Only observers and schedules: the process also starts for background jobs and watch messages. Syncing
+        // happens when the app is opened (MainActivity.onStart) or by the workers with their network constraints.
         libraryRefresher.start()
         spokenRefresher.start()
         podcastRefresher.start()
@@ -101,7 +101,7 @@ class EarLoftApplication : Application(), SingletonImageLoader.Factory {
                 add(ArtistImageFetcher.Factory(artworkRepository))
                 add(BookCoverFetcher.Factory(bookCovers))
                 add(AuthorImageFetcher.Factory(authorImages))
-                // Vor dem Netz-Fetcher von Coil: Abo-Bilder, die schon auf dem Gerät liegen, auch offline.
+                // Before Coil's network fetcher: subscription images already on the device, offline too.
                 add(StoredPodcastImageFetcher.Factory(bookCovers))
             }
             .crossfade(true)

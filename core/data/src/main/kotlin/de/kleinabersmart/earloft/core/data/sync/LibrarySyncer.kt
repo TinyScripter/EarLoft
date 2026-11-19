@@ -25,8 +25,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Vollabgleich einer Quelle mit Mark-and-Sweep (Konzept 6.3): Jeder Lauf erhöht die Generation;
- * Song-Quellen, die danach noch eine ältere Generation tragen, gibt es nicht mehr.
+ * Full sync of a source with mark-and-sweep (concept 6.3): each run increments the generation;
+ * song sources that still carry an older generation afterwards no longer exist.
  */
 @Singleton
 class LibrarySyncer @Inject constructor(
@@ -44,16 +44,16 @@ class LibrarySyncer @Inject constructor(
     private val runningSyncs = MutableStateFlow(0)
     private val failedSyncs = MutableStateFlow<Map<String, SyncFailure>>(emptyMap())
 
-    /** Nur im Speicher: nach einem Neustart genügt `lastFullSyncAt` als Grenze. Zugriff nur unter [mutex]. */
+    /** Only in memory: after a restart `lastFullSyncAt` suffices as the boundary. Access only under [mutex]. */
     private val lastQuickSyncAt = HashMap<String, Long>()
 
-    /** Anzahl laufender Abgleiche; > 0 bedeutet „Bibliothek wird aktualisiert“. */
+    /** Number of running syncs; > 0 means "library is being updated". */
     val activeSyncs: StateFlow<Int> = runningSyncs.asStateFlow()
 
-    /** Fehler des jeweils letzten Abgleichs je `sourceId`; ein erfolgreicher Abgleich entfernt den Eintrag. */
+    /** Error of the respective last sync per `sourceId`; a successful sync removes the entry. */
     val failures: StateFlow<Map<String, SyncFailure>> = failedSyncs.asStateFlow()
 
-    /** Wie [sync], fängt aber Fehler ab und merkt sie sich in [failures]. @return `true` bei Erfolg. */
+    /** Like [sync], but catches errors and remembers them in [failures]. @return `true` on success. */
     suspend fun syncSafely(source: MusicDataSource): Boolean =
         try {
             sync(source)
@@ -68,10 +68,10 @@ class LibrarySyncer @Inject constructor(
         }
 
     /**
-     * Billiger Zwischenabgleich eines Servers (nur [RemoteQuickSync]-Quellen, die schon einmal voll abgeglichen
-     * wurden): neue Alben, Favoriten und Playlists. Löscht nie etwas und lässt die Generation unverändert.
-     * Läuft gerade ein Abgleich, entfällt er. Fehler werden nur geloggt – ein Zwischenabgleich ist optional.
-     * @return `true`, wenn er gelaufen ist.
+     * Cheap intermediate sync of a server (only [RemoteQuickSync] sources that have been fully synced
+     * at least once): new albums, favorites and playlists. Never deletes anything and leaves the generation unchanged.
+     * Skipped if a sync is currently running. Errors are only logged – an intermediate sync is optional.
+     * @return `true` if it ran.
      */
     suspend fun quickSync(source: MusicDataSource): Boolean {
         if (source !is RemoteQuickSync) return false
@@ -80,7 +80,7 @@ class LibrarySyncer @Inject constructor(
             val entity = sourceDao.get(source.sourceId)
             if (entity == null || entity.lastFullSyncAt == 0L) return false
             try {
-                // Mit Reserve für abweichende Uhren; Merge erkennt bereits Bekanntes.
+                // With a margin for clocks that differ; merge already recognizes what's known.
                 val since = maxOf(entity.lastFullSyncAt, lastQuickSyncAt[source.sourceId] ?: 0L) - CLOCK_SLACK_MS
                 val added = source.tracksAddedSince(since)
                 val starred = source.starred()
@@ -109,7 +109,7 @@ class LibrarySyncer @Inject constructor(
         runningSyncs.update { it + 1 }
         try {
             if (source.type.isServer) {
-                // Während des Wartens auf den Mutex entfernt: nicht als Server ohne Adresse samt Bibliothek zurückholen.
+                // Removed while waiting for the mutex: don't bring it back as a server without address along with its library.
                 if (sourceDao.get(source.sourceId) == null) return@withLock
             } else {
                 sourceDao.insertIfAbsent(SourceEntity(sourceId = source.sourceId, type = source.type, name = source.displayName))
@@ -126,7 +126,7 @@ class LibrarySyncer @Inject constructor(
                 }
             }
 
-            // Erst nach vollständigem Scan aufräumen – ein abgebrochener Scan darf nichts löschen.
+            // Only clean up after a complete scan – an aborted scan must not delete anything.
             val removed = database.withTransaction {
                 val removed = mergeDao.deleteStaleSongSources(source.sourceId, generation)
                 mergeDao.deleteStaleAlbumSources(source.sourceId, generation)
@@ -136,11 +136,11 @@ class LibrarySyncer @Inject constructor(
                 removed
             }
             if (removed > 0) changeListeners.forEach { it.onSongSourcesRemoved() }
-            // Die Sterne der Songs kamen mit den Songs; die der Alben und Künstler stehen nur in der Liste des Servers.
+            // The songs' stars came with the songs; those of albums and artists are only in the server's list.
             if (source is RemoteQuickSync) syncCollectionStars(source)
-            // Playlists erst jetzt: Ihre Einträge verweisen auf die gerade abgeglichenen Songs.
+            // Playlists only now: their entries refer to the songs just synced.
             if (source is RemoteLibraryActions) playlistSyncer.sync(source.sourceId, source)
-            // Der Abgleich kann Favoriten für neue Server-Quellen eingereiht haben.
+            // The sync may have enqueued favorites for new server sources.
             syncQueue.startIfPending()
             changeListeners.forEach { it.onSyncFinished() }
         } finally {
@@ -148,7 +148,7 @@ class LibrarySyncer @Inject constructor(
         }
     }
 
-    /** Optional wie der Zwischenabgleich: Scheitert es, holt das der nächste nach. */
+    /** Optional like the intermediate sync: if it fails, the next one catches up. */
     private suspend fun syncCollectionStars(source: RemoteQuickSync) {
         val starred = try {
             source.starred()
@@ -167,10 +167,10 @@ class LibrarySyncer @Inject constructor(
     }
 
     /**
-     * Entfernt alles, was [sourceId] geliefert hat (lokale Musik abgeschaltet). Songs mit weiteren Quellen
-     * bleiben. Wartet bewusst **nicht** auf [mutex]: Ein langer Server-Abgleich soll das Abschalten nicht
-     * verzögern. Der Aufrufer muss sicherstellen, dass kein Abgleich dieser Quelle mehr läuft oder startet
-     * (siehe [LibraryRefresher.start]); jede Batch-Transaktion eines anderen Abgleichs ist für sich atomar.
+     * Removes everything [sourceId] has delivered (local music turned off). Songs with other sources
+     * stay. Deliberately does **not** wait for [mutex]: a long server sync shouldn't delay turning it
+     * off. The caller must ensure that no sync of this source is running or starting anymore
+     * (see [LibraryRefresher.start]); each batch transaction of another sync is atomic on its own.
      */
     suspend fun removeSource(sourceId: String) {
         if (sourceDao.get(sourceId) == null) return

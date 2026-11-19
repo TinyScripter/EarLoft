@@ -29,32 +29,32 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Ablauf „In Audiobookshelf hochladen“ auf der Buchseite eines Buchs aus ARD Sounds (`books_improvements.md` M9). */
+/** "Upload to Audiobookshelf" flow on the book page of a book from ARD Sounds (`books_improvements.md` M9). */
 sealed interface UploadState {
     data object Idle : UploadState
 
-    /** Ziele werden gesucht. */
+    /** Looking for targets. */
     data object Loading : UploadState
 
-    /** Kein Server, bei dem das Konto hochladen darf. */
+    /** No server on which the account may upload. */
     data object NoTarget : UploadState
 
-    /** Frage: wohin? Bei einem Ziel nur die Bestätigung. [bytes]: Größe des Pakets, 0 = noch nicht geladen. */
-    /** [missingParts]: Teile, die ARD Sounds nicht mehr führt und die nie geladen wurden; sie fehlen auf dem Server. */
+    /** Question: where to? With a single target, only the confirmation. [bytes]: size of the package, 0 = not loaded yet. */
+    /** [missingParts]: parts that ARD Sounds no longer carries and that were never downloaded; they will be missing on the server. */
     data class Choosing(val targets: List<UploadTarget>, val bytes: Long, val missingParts: Int = 0) : UploadState
 
-    /** Das Buch wird erst geladen, [doneBytes] von [totalBytes] (`null` = unbekannt). */
+    /** The book is downloaded first, [doneBytes] of [totalBytes] (`null` = unknown). */
     data class Downloading(val doneBytes: Long, val totalBytes: Long?) : UploadState
 
     data class Uploading(val sent: Long, val total: Long) : UploadState
 
-    /** Ende mit einem Hinweis, der bestätigt werden muss. */
+    /** End with a message that must be confirmed. */
     data class Finished(val reason: UploadFinish) : UploadState
 }
 
 enum class UploadFinish { OFFLINE, WAITING_FOR_WIFI, DOWNLOAD_FAILED, EXISTS, NO_PERMISSION, SERVER_ERROR, FAILED, NOT_YET_ON_SERVER, KEPT_PLAYING }
 
-/** Ereignis für die Seite: Das Buch liegt jetzt auf dem Server, [bookId] ist das dortige. */
+/** Event for the page: the book is now on the server, [bookId] is the one there. */
 data class UploadedEvent(val bookId: Long)
 
 @HiltViewModel(assistedFactory = ArdUploadViewModel.Factory::class)
@@ -73,7 +73,7 @@ class ArdUploadViewModel @AssistedInject constructor(
 
     private val _server = MutableStateFlow(false)
 
-    /** Es gibt einen Audiobookshelf-Server: Der Knopf erscheint. */
+    /** There is an Audiobookshelf server: the button appears. */
     val hasServer: StateFlow<Boolean> = _server.asStateFlow()
 
     private val _uploaded = Channel<UploadedEvent>(Channel.CONFLATED)
@@ -85,7 +85,7 @@ class ArdUploadViewModel @AssistedInject constructor(
         viewModelScope.launch { _server.value = uploader.hasServer() }
     }
 
-    /** Sucht die Ziele und fragt nach. */
+    /** Looks for the targets and asks. */
     fun start() {
         if (job?.isActive == true) return
         _state.value = UploadState.Loading
@@ -95,7 +95,7 @@ class ArdUploadViewModel @AssistedInject constructor(
         }
     }
 
-    /** Lädt das Buch (falls nötig) und dann hoch. */
+    /** Downloads the book (if needed) and then uploads it. */
     fun confirm(target: UploadTarget) {
         job?.cancel()
         job = viewModelScope.launch {
@@ -112,7 +112,7 @@ class ArdUploadViewModel @AssistedInject constructor(
         }
     }
 
-    /** Bricht ab, auch einen laufenden Upload; ein bereits angestoßener Download läuft weiter. */
+    /** Cancels, including a running upload; a download that was already started keeps running. */
     fun dismiss() {
         job?.cancel()
         _state.value = UploadState.Idle
@@ -137,8 +137,8 @@ class ArdUploadViewModel @AssistedInject constructor(
     }
 
     /**
-     * Das Buch liegt auf dem Server und trägt den Stand. Das Buch aus ARD Sounds geht samt Download weg und die Seite wechselt zum
-     * neuen Buch – außer es läuft gerade im Player.
+     * The book is on the server and carries the progress. The book from ARD Sounds goes away along with its download and the
+     * page switches to the new book – unless it is currently playing in the player.
      */
     private suspend fun finish(newBookId: Long?) {
         if (newBookId == null) {
@@ -151,7 +151,7 @@ class ArdUploadViewModel @AssistedInject constructor(
         }
         _state.value = UploadState.Idle
         _uploaded.send(UploadedEvent(newBookId))
-        // Nach dem Wechsel der Seite und unabhängig von ihr: Dieses ViewModel stirbt mit ihr.
+        // After switching the page and independent of it: this ViewModel dies with it.
         appScope.launch {
             withContext(NonCancellable) {
                 downloads.remove(bookId)

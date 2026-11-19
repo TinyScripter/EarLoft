@@ -4,13 +4,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- Kurzes Vibrieren, wenn Schütteln den Sleep-Timer verlängert. -->
+    <!-- Short vibration when shaking extends the sleep timer. -->
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- „Weiterspielen“ ohne Netz mischt nur Geladenes und Lokales. -->
+    <!-- "Keep playing" without a network only mixes downloaded and local content. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application>
-        <!-- Exportiert, damit Systemsteuerung, Uhr und Android Auto sich verbinden können. -->
+        <!-- Exported so that system controls, the watch and Android Auto can connect. -->
         <service
             android:name=".PlaybackService"
             android:exported="true"
@@ -21,15 +21,15 @@
             </intent-filter>
         </service>
 
-        <!-- Cover für die Browse-Listen von Android Auto und die System-Oberfläche: nicht exportiert, Leserecht vergibt die
-             Session beim Verbinden an vertrauenswürdige Controller (siehe CoverProvider). -->
+        <!-- Covers for Android Auto's browse lists and the system UI: not exported; the session grants read access
+             to trusted controllers on connect (see CoverProvider). -->
         <provider
             android:name=".CoverProvider"
             android:authorities="${applicationId}.covers"
             android:exported="false"
             android:grantUriPermissions="true" />
 
-        <!-- Medientasten (Kopfhörer, Widget) und Fortsetzen der Wiedergabe ohne laufende App. -->
+        <!-- Media buttons (headphones, widget) and resuming playback without the app running. -->
         <receiver
             android:name="androidx.media3.session.MediaButtonReceiver"
             android:exported="true">

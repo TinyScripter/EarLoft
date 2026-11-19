@@ -29,30 +29,30 @@ import java.util.concurrent.atomic.AtomicLong
 private const val TAG = "WearFileTransfer"
 private const val BUFFER_BYTES = 64 * 1024
 
-/** Wie lange die Uhr auf die Kopfzeile des Handys wartet (Handy außer Reichweite, App nicht startbar). */
+/** How long the watch waits for the phone's header (phone out of range, app can't be started). */
 private const val HEADER_TIMEOUT_MS = 30_000L
 
-/** Wie lange während der Übertragung kein Byte ankommen darf (Bluetooth weg): Danach bricht die Uhr ab und versucht es später erneut. */
+/** How long no byte may arrive during the transfer (Bluetooth gone): after that the watch aborts and retries later. */
 private const val STALL_TIMEOUT_MS = 30_000L
 
 private const val WATCHDOG_INTERVAL_MS = 5_000L
 private const val NANOS_PER_MS = 1_000_000L
 
-/** Kopfzeile des Datei-Kanals: die Länge in Bytes, [NO_FILE] wenn das Handy keine Datei hat. */
+/** Header of the file channel: the length in bytes, [NO_FILE] if the phone has no file. */
 const val NO_FILE = -1L
 
-/** Ergebnis von [receiveFile]. */
+/** Result of [receiveFile]. */
 sealed interface FileReceive {
     data class Received(val bytes: Long) : FileReceive
 
-    /** Das Handy hat zu dieser Quelle keine Datei (weder lokal noch als Download). */
+    /** The phone has no file for this source (neither local nor as a download). */
     data object Missing : FileReceive
 }
 
 /**
- * Uhr: Öffnet `/earloft/file/<sourceUid>` zum Handy und schreibt die Datei in [output]. Das Handy sendet erst
- * die Länge (`Long`), dann genau so viele Bytes; kürzer ist ein Fehler. Gelesen wird in Blöcken, [onProgress]
- * meldet den Stand nach jedem. Übertragungsfehler (auch ein nicht erreichbares Handy) sind [IOException]s.
+ * Watch: opens `/earloft/file/<sourceUid>` to the phone and writes the file to [output]. The phone first sends
+ * the length (`Long`), then exactly that many bytes; shorter is an error. Reads in blocks, [onProgress]
+ * reports the progress after each. Transfer errors (including an unreachable phone) are [IOException]s.
  */
 suspend fun ChannelClient.receiveFile(
     nodeId: String,
@@ -62,11 +62,11 @@ suspend fun ChannelClient.receiveFile(
 ): FileReceive = receive(nodeId, sourceUid, from = 0, open = { output }, onProgress)
 
 /**
- * Uhr: wie [receiveFile], aber in die Teildatei [part] und fortsetzbar (Wear-Konzept 8.4). In [lengthFile] steht die
- * Gesamtlänge, die das Handy beim ersten Versuch genannt hat. Liegt eine passende Teildatei vor, fragt die Uhr nur den Rest
- * ab ([WearPaths.FILE_FROM_CHANNEL_PREFIX]); nennt das Handy dann eine andere Länge (Datei geändert), beginnt sie sofort
- * von vorn. Bei einem Abbruch bleiben beide Dateien liegen, damit der nächste Versuch weitermacht; nach vollständigem
- * Empfang verschwindet [lengthFile], [part] benennt der Aufrufer um. Hat das Handy keine Datei, verschwinden beide.
+ * Watch: like [receiveFile], but into the partial file [part] and resumable (Wear concept 8.4). [lengthFile] holds the
+ * total length the phone named on the first attempt. If a matching partial file exists, the watch only requests the rest
+ * ([WearPaths.FILE_FROM_CHANNEL_PREFIX]); if the phone then names a different length (file changed), it starts over
+ * immediately. On an abort both files are kept so the next attempt can continue; after complete
+ * reception [lengthFile] disappears, and the caller renames [part]. If the phone has no file, both disappear.
  */
 suspend fun ChannelClient.receiveFileResumable(
     nodeId: String,
@@ -85,12 +85,12 @@ suspend fun ChannelClient.receiveFileResumable(
     }
 }
 
-/** Wo eine vorhandene Teildatei weitermachen kann; `0`, wenn keine brauchbare da ist. */
+/** Where an existing partial file can continue; `0` if there is no usable one. */
 internal fun resumeOffset(part: File, lengthFile: File): Long {
     if (!part.isFile || !lengthFile.isFile) return 0
     val total = readLength(lengthFile) ?: return 0
     val done = part.length()
-    // Leer oder schon so lang wie die Datei: nichts, woran man anknüpfen könnte.
+    // Empty or already as long as the file: nothing to resume from.
     return if (done in 1 until total) done else 0
 }
 
@@ -134,12 +134,12 @@ private suspend fun ChannelClient.receiveInto(
     }
 }
 
-/** Das Handy nennt beim Fortsetzen eine andere Gesamtlänge als beim ersten Versuch. */
+/** When resuming, the phone names a different total length than on the first attempt. */
 private class LengthChanged : Exception()
 
 /**
- * Öffnet den Kanal ab Byte [from], liest die Kopfzeile (Gesamtlänge) und schreibt die restlichen Bytes in den Strom, den
- * [open] für diese Länge liefert (auf `Dispatchers.IO`). [onProgress] zählt in der ganzen Datei.
+ * Opens the channel from byte [from], reads the header (total length) and writes the remaining bytes into the stream that
+ * [open] returns for that length (on `Dispatchers.IO`). [onProgress] counts across the whole file.
  */
 private suspend fun ChannelClient.receive(
     nodeId: String,
@@ -157,8 +157,8 @@ private suspend fun ChannelClient.receive(
         val headerRead = AtomicBoolean(false)
         val timedOut = AtomicBoolean(false)
         val lastActivity = AtomicLong(System.nanoTime())
-        // Blockierende Lesezugriffe lassen sich nur durch Schließen des Kanals beenden: bei Abbruch von außen,
-        // wenn die Kopfzeile ausbleibt und wenn die Übertragung stockt (Bluetooth-Verbindung weg).
+        // Blocking reads can only be ended by closing the channel: on external cancellation,
+        // when the header doesn't arrive and when the transfer stalls (Bluetooth connection gone).
         val guard = launch(start = CoroutineStart.UNDISPATCHED) {
             try {
                 while (true) {
@@ -180,7 +180,7 @@ private suspend fun ChannelClient.receive(
             withContext(Dispatchers.IO) {
                 val input = DataInputStream(getInputStream(channel).await().buffered(BUFFER_BYTES))
                 val length = input.readLong()
-                // Die Frist für eine stockende Übertragung beginnt erst jetzt; die Wartezeit auf die Kopfzeile zählt nicht mit.
+                // The deadline for a stalled transfer only starts now; the wait for the header doesn't count.
                 lastActivity.set(System.nanoTime())
                 headerRead.set(true)
                 if (length == NO_FILE) return@withContext FileReceive.Missing
@@ -224,16 +224,16 @@ private suspend fun copyExactly(
 }
 
 /**
- * Handy: Schreibt die Datei in den von der Uhr geöffneten [channel] (ganze Länge, dann der Inhalt ab Byte [from], siehe
- * [WearPaths.FILE_FROM_CHANNEL_PREFIX]) und schließt ihn. Mit `source == null` geht nur [NO_FILE] raus. [source] wird immer
- * geschlossen.
+ * Phone: writes the file into the [channel] opened by the watch (full length, then the content from byte [from], see
+ * [WearPaths.FILE_FROM_CHANNEL_PREFIX]) and closes it. With `source == null` only [NO_FILE] goes out. [source] is always
+ * closed.
  */
 suspend fun ChannelClient.sendFile(channel: ChannelClient.Channel, length: Long, source: InputStream?, from: Long = 0) {
     try {
         withContext(Dispatchers.IO) {
             DataOutputStream(getOutputStream(channel).await().buffered(BUFFER_BYTES)).use { output ->
                 output.writeLong(if (source == null) NO_FILE else length)
-                // Liegt der Versatz hinter dem Ende, bricht die Uhr nach der Kopfzeile ab und beginnt von vorn.
+                // If the offset lies beyond the end, the watch aborts after the header and starts over.
                 if (source != null && from < length) {
                     val written = source.use {
                         skipFully(it, from)
@@ -259,7 +259,7 @@ suspend fun ChannelClient.sendFile(channel: ChannelClient.Channel, length: Long,
     }
 }
 
-/** `InputStream.skip` darf weniger überspringen, als verlangt; Inhalts-URIs tun das auch. */
+/** `InputStream.skip` may skip less than requested; content URIs do that too. */
 private fun skipFully(input: InputStream, count: Long) {
     var left = count
     while (left > 0) {

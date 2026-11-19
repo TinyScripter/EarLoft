@@ -3,21 +3,21 @@ package de.kleinabersmart.earloft.core.data.spoken
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.model.parseSeries
 
-/** Wie es in einer Serie weitergeht ([SeriesProgress.next]). */
+/** How a series continues ([SeriesProgress.next]). */
 enum class SeriesStep {
-    /** Ein Band ist angefangen: mit ihm weiter. */
+    /** A volume has been started: continue with it. */
     CONTINUE,
 
-    /** Bände sind beendet, keiner angefangen: der nächste nach dem zuletzt beendeten. */
+    /** Volumes are finished, none started: the next one after the most recently finished. */
     NEXT,
 
-    /** Noch nichts gehört: der erste Band. */
+    /** Nothing played yet: the first volume. */
     START,
 }
 
 /**
- * Stand einer Serie (`books_improvements.md` M2), rein lokal aus dem Fortschritt: die Bände in Reihenfolge ([seriesGroups]),
- * wie viele beendet sind und mit welchem Band es weitergeht ([next] samt Band, wie er dasteht; `null`, wenn alle beendet sind).
+ * State of a series (`books_improvements.md` M2), purely local from the progress: the volumes in order ([seriesGroups]),
+ * how many are finished and which volume comes next ([next] along with the volume as written; `null` if all are finished).
  */
 data class SeriesProgress(
     val name: String,
@@ -26,7 +26,7 @@ data class SeriesProgress(
     val next: BookWithProgress?,
     val nextVolume: String?,
     val step: SeriesStep?,
-    /** Zeitpunkt des zuletzt beendeten Bands (für „Serie fortsetzen“); 0 = keiner. */
+    /** Time of the most recently finished volume (for "Continue series"); 0 = none. */
     val lastFinishedAt: Long,
 ) {
     val total: Int get() = books.size
@@ -37,15 +37,15 @@ private val BookWithProgress.isStarted: Boolean
 
 private val BookWithProgress.isFinished: Boolean get() = progress?.finished == true
 
-/** Stelle dieses Buchs in der Serie [name] ([de.kleinabersmart.earloft.core.model.volumeSequence]); `null` ohne Nummer. */
+/** Position of this book in series [name] ([de.kleinabersmart.earloft.core.model.volumeSequence]); `null` without a number. */
 fun BookWithProgress.volumeIn(name: String): Double? = parseSeries(book.series).firstOrNull { it.name == name }?.sequence
 
-/** Band dieses Buchs in der Serie [name], wie er dasteht („2a“); `null` ohne Band. */
+/** Volume of this book in series [name] as written ("2a"); `null` without a volume. */
 fun BookWithProgress.volumeTextIn(name: String): String? = parseSeries(book.series).firstOrNull { it.name == name }?.volume
 
 /**
- * Die Nummern der beendeten Bände von [name]: Dasselbe Buch aus einer zweiten Quelle (Server und Ordner auf dem Gerät) trägt
- * dieselbe Nummer und gilt mit dem beendeten als erledigt, auch wenn es selbst noch nicht angefangen ist.
+ * The numbers of the finished volumes of [name]: the same book from a second source (server and folder on the device) carries
+ * the same number and counts as done along with the finished one, even if it hasn't been started itself.
  */
 private fun List<BookWithProgress>.finishedVolumes(name: String): Set<Double> =
     filter { it.isFinished }.mapNotNullTo(HashSet()) { it.volumeIn(name) }
@@ -54,9 +54,9 @@ private fun BookWithProgress.isDone(name: String, finishedVolumes: Set<Double>):
     isFinished || volumeIn(name)?.let { it in finishedVolumes } == true
 
 /**
- * Stand der Serie [name] aus ihren Bänden [books] (in Reihenfolge). Weiter geht es mit dem zuletzt gehörten angefangenen
- * Band; ist keiner angefangen, mit dem ersten nicht beendeten nach dem zuletzt beendeten (gibt es dahinter keinen, mit einer
- * Lücke davor); ist nichts gehört, mit dem ersten.
+ * State of series [name] from its volumes [books] (in order). It continues with the most recently played started
+ * volume; if none is started, with the first unfinished one after the most recently finished (if there's none after it, with a
+ * gap before it); if nothing has been played, with the first one.
  */
 fun seriesProgress(name: String, books: List<BookWithProgress>): SeriesProgress {
     val started = books.filter { it.isStarted }.maxByOrNull { it.progress?.updatedAt ?: 0 }
@@ -81,12 +81,12 @@ fun seriesProgress(name: String, books: List<BookWithProgress>): SeriesProgress 
     )
 }
 
-/** Stand aller Serien, in der Reihenfolge der Gruppen. */
+/** State of all series, in the order of the groups. */
 fun List<BookGroup>.seriesProgress(): List<SeriesProgress> = map { seriesProgress(it.name, it.books) }
 
 /**
- * Start-Regal „Serie fortsetzen“: je Serie mit mindestens einem beendeten und keinem angefangenen Band der nächste Band,
- * zuletzt beendete Serien zuerst. Ein Buch, das in mehreren Serien als nächstes dran ist, steht einmal.
+ * Home shelf "Continue series": per series with at least one finished and no started volume, the next volume,
+ * most recently finished series first. A book that is next in several series appears once.
  */
 fun List<BookWithProgress>.continueSeries(limit: Int = 12): List<Pair<BookWithProgress, SeriesProgress>> =
     seriesGroups().seriesProgress()
@@ -97,8 +97,8 @@ fun List<BookWithProgress>.continueSeries(limit: Int = 12): List<Pair<BookWithPr
         .map { it.next!! to it }
 
 /**
- * Der nächste Band nach dem beendeten Buch [current] (Karte im Player): in einer seiner Serien der erste nicht beendete mit
- * höherer Nummer, samt seinem Band. `null` ohne Serie, ohne Nummer oder wenn es keinen gibt.
+ * The next volume after the finished book [current] (card in the player): in one of its series the first unfinished one with
+ * a higher number, along with its volume. `null` without series, without number, or if there is none.
  */
 fun nextInSeries(current: BookWithProgress, all: List<BookWithProgress>): Pair<BookWithProgress, String?>? {
     val groups = all.seriesGroups().associateBy { it.name }

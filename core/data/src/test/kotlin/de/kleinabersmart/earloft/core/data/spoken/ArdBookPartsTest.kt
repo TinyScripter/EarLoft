@@ -19,7 +19,7 @@ class ArdBookPartsTest {
         val merged = mergeArdParts(known, listOf(offered("1-neu", "Teil 1", 1_001_000), offered("2", "Teil 2")), NOW)
 
         assertEquals(listOf("https://a.example/1-neu.mp3", "https://a.example/2.mp3"), merged.map { it.track.remoteFileId })
-        // Die Länge bleibt, sonst verschöben sich die Positionen dahinter.
+        // The length stays, otherwise the positions after it would shift.
         assertEquals(listOf(0L, 1_000_000L), merged.map { it.track.startMs })
         assertEquals(listOf(null, null), merged.map { it.track.unavailableSince })
     }
@@ -30,7 +30,7 @@ class ArdBookPartsTest {
             known(0, "1", "Teil 1", itemId = "a"),
             known(1, "2", "Teil 2", state = TrackDownload.DONE, itemId = "b"),
         )
-        // ARD Sounds hat beide neu geschnitten und benannt; Name und Länge passen nicht mehr.
+        // ARD Sounds re-cut and renamed both; name and length no longer match.
         val offered = listOf(
             ArdPart("a", "Der Anfang", "https://b.example/1.mp3", "audio/mpeg", 1_300_000, availableUntil = null),
             ArdPart("b", "Das Ende", "https://b.example/2.mp3", "audio/mpeg", 1_300_000, availableUntil = null),
@@ -39,7 +39,7 @@ class ArdBookPartsTest {
         val merged = mergeArdParts(known, offered, NOW)
 
         assertEquals(2, merged.size)
-        // Der ungeladene nimmt die neue Adresse, der geladene behält seine; Längen und Namen bleiben.
+        // The non-downloaded one takes the new address, the downloaded one keeps its own; lengths and names stay.
         assertEquals(listOf("https://b.example/1.mp3", "https://a.example/2.mp3"), merged.map { it.track.remoteFileId })
         assertEquals(listOf(1_000_000L, 1_000_000L), merged.map { it.track.durationMs })
         assertEquals(listOf("Teil 1", "Teil 2"), merged.map { it.title })
@@ -48,7 +48,7 @@ class ArdBookPartsTest {
 
     @Test
     fun `the title id comes before the address`() {
-        // Zwei Teile tauschen ihre Adressen (ARD Sounds hat sie vertauscht ausgeliefert und korrigiert).
+        // Two parts swap their addresses (ARD Sounds served them swapped and corrected it).
         val known = listOf(known(0, "1", "Teil 1", itemId = "a"), known(1, "2", "Teil 2", itemId = "b"))
         val offered = listOf(
             ArdPart("a", "Teil 1", "https://a.example/2.mp3", "audio/mpeg", 1_000_000, availableUntil = 7),
@@ -87,7 +87,7 @@ class ArdBookPartsTest {
             merged.map { it.track.remoteFileId },
         )
         assertEquals(listOf(null, 5L, NOW, null), merged.map { it.track.unavailableSince })
-        // Die Kennung des Titels kommt von ARD Sounds, auch beim geladenen Teil.
+        // The title's identifier comes from ARD Sounds, also for the downloaded part.
         assertEquals(listOf("1-neu", null, null, "4"), merged.map { it.track.remoteItemId })
         assertEquals(listOf(0, 1, 2, 3), merged.map { it.track.trackIndex })
         assertEquals(listOf("Teil 1", "Teil 2", "Teil 3", "Teil 4"), merged.map { it.title })
@@ -102,11 +102,11 @@ class ArdBookPartsTest {
         )
 
         assertEquals(200L, ardAvailableUntil(parts, whenAllLoaded = 100))
-        // Alles Abrufbare geladen: wie ARD Sounds es nennt.
+        // Everything available downloaded: as ARD Sounds names it.
         assertEquals(100L, ardAvailableUntil(parts.take(1), whenAllLoaded = 100))
-        // Ein unbefristeter Teil, der noch nicht geladen ist: kein Ablauf, auch wenn ein anderer weggefallen ist.
+        // An unlimited part that isn't downloaded yet: no expiry, even if another one has disappeared.
         assertNull(ardAvailableUntil(listOf(ArdBookPart(track(0, unavailableSince = 50), "Teil 1", 50), ArdBookPart(track(1), "Teil 2", null)), null))
-        // Nur noch weggefallene Teile ungeladen: Alles Abrufbare ist da.
+        // Only disappeared parts not downloaded: everything available is there.
         assertEquals(100L, ardAvailableUntil(listOf(ArdBookPart(track(0, unavailableSince = 50), "Teil 1", 50), ArdBookPart(track(1, state = TrackDownload.DONE), "Teil 2", 300)), 100))
     }
 
@@ -128,9 +128,9 @@ class ArdBookPartsTest {
         assertEquals(listOf(5L, null), parts.map { it.track.unavailableSince })
         assertEquals(listOf("Teil 1 (gekürzt)", "Teil 2"), parts.map { it.title })
         assertEquals(listOf(null, "urn:ard:publication:2"), parts.map { it.track.remoteItemId })
-        // Eine ältere Sicherung ohne Kennungen der Titel.
+        // An older backup without title identifiers.
         assertNull(decodeArdParts("https://a.example/1.mp3\t1000\t\t\tTeil 1").single().track.remoteItemId)
-        // Ohne Sicherung der Teile oder unlesbar: die Teile, wie ARD Sounds sie anbietet.
+        // Without a backup of the parts or unreadable: the parts as ARD Sounds offers them.
         assertTrue(decodeArdParts(null).isEmpty())
         assertTrue(decodeArdParts("https://a.example/1.mp3\tkurz").isEmpty())
     }
@@ -151,12 +151,12 @@ class ArdBookPartsTest {
     fun `positions on the server move up by the parts that are missing there`() {
         val missing = listOf(track(0, unavailableSince = 5), track(2, unavailableSince = 5))
 
-        // In Teil 2: um Teil 1 vor.
+        // In part 2: shifted forward by part 1.
         assertEquals(500_000L, positionWithout(1_500_000, missing))
-        // In einem fehlenden Teil: der Anfang des nächsten.
+        // In a missing part: the start of the next one.
         assertEquals(0L, positionWithout(300_000, missing))
         assertEquals(1_000_000L, positionWithout(2_400_000, missing))
-        // Hinter beiden: um beide vor.
+        // After both: shifted forward by both.
         assertEquals(1_200_000L, positionWithout(3_200_000, missing))
     }
 

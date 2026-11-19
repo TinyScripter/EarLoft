@@ -11,16 +11,16 @@ import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 /**
- * Plant periodische Arbeit nur, wenn sie fehlt oder ihre Bedingungen bzw. ihr Takt nicht mehr stimmen (Review N3).
+ * Schedules periodic work only if it's missing or its constraints or interval no longer match (review N3).
  *
- * `ExistingPeriodicWorkPolicy.UPDATE` ersetzt den JobScheduler-Auftrag auch bei gleichem Inhalt und erhöht jedes Mal die
- * Generation. Beim Prozessstart stornierte das genau den Auftrag, der den Prozess gerade gestartet hatte. `KEEP` allein
- * übernähme dagegen weder geänderte Einstellungen (Takt, Netz) noch neue Bedingungen nach einem App-Update. Deshalb wird
- * verglichen und nur bei einer Abweichung mit `UPDATE` ersetzt (der Takt läuft dabei weiter).
+ * `ExistingPeriodicWorkPolicy.UPDATE` replaces the JobScheduler job even with identical content and increments the
+ * generation every time. At process start that cancelled exactly the job that had just started the process. `KEEP` alone,
+ * on the other hand, would adopt neither changed settings (interval, network) nor new constraints after an app update. Hence
+ * it compares and replaces with `UPDATE` only on a mismatch (the interval keeps running).
  *
- * Nicht verglichen werden Backoff und Flex-Zeit: Ändern die sich im Code, den Arbeitsnamen ändern.
+ * Backoff and flex time are not compared: if they change in code, change the work name.
  *
- * @return `true`, wenn neu eingeplant wurde.
+ * @return `true` if it was rescheduled.
  */
 suspend fun WorkManager.ensurePeriodicWork(
     name: String,
@@ -41,7 +41,7 @@ suspend fun WorkManager.ensurePeriodicWork(
     return true
 }
 
-/** Steht unter dem Namen schon ein aktiver Auftrag mit genau diesen Bedingungen und diesem Takt? */
+/** Is there already an active job under the name with exactly these constraints and this interval? */
 internal fun isScheduled(infos: List<WorkInfo>, constraints: Constraints, intervalMillis: Long): Boolean =
     infos.any { info ->
         !info.state.isFinished &&

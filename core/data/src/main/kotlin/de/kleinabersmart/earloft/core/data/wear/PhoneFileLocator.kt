@@ -22,13 +22,13 @@ import java.io.InputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Eine Datei auf dem Handy, bereit zum Senden an die Uhr: [length] Bytes aus [input]. */
+/** A file on the phone, ready to be sent to the watch: [length] bytes from [input]. */
 class PhoneFile(val length: Long, val input: InputStream)
 
 /**
- * Findet zu einer Quelle die Datei, die das Handy der Uhr im Original schicken kann (Wear-Konzept 8.4):
- * die lokale Datei oder ein fertiger Download, nie ein Stream. Die Uhr nennt irgendeine `sourceUid` des
- * Songs; welche Quelle die Datei liefert, entscheidet das Handy.
+ * Finds for a source the file the phone can send to the watch in the original (Wear concept 8.4):
+ * the local file or a finished download, never a stream. The watch names any `sourceUid` of the
+ * song; the phone decides which source provides the file.
  */
 @Singleton
 class PhoneFileLocator @Inject constructor(
@@ -39,19 +39,19 @@ class PhoneFileLocator @Inject constructor(
     private val podcastDao: PodcastDao,
     private val covers: BookCovers,
 ) {
-    /** @return `null`, wenn die Quelle unbekannt ist oder das Handy keine Datei zum Song hat. */
+    /** @return `null` if the source is unknown or the phone has no file for the song. */
     suspend fun open(sourceUid: String): PhoneFile? {
         val songId = wearDao.getSongIdsOfSources(listOf(sourceUid)).firstOrNull()?.songId ?: return null
         val candidates = wearDao.getSources(listOf(songId))
-        // Lokal zuerst: Die Datei liegt auf dem Handy, ein Download wäre eine Kopie davon.
+        // Local first: the file is on the phone, a download would be a copy of it.
         candidates.filter { it.sourceType == SourceType.LOCAL }.forEach { openLocal(it)?.let { file -> return file } }
         candidates.forEach { openDownload(it)?.let { file -> return file } }
         return null
     }
 
     /**
-     * Die Datei einer Podcast-Folge (Wear-Konzept 16.1): der fertige Download bzw. bei Folgen vom Gerät die Datei selbst.
-     * @return `null`, wenn das Handy die Folge nicht kennt oder keine Datei hat.
+     * The file of a podcast episode (Wear concept 16.1): the finished download or, for episodes from the device, the file itself.
+     * @return `null` if the phone doesn't know the episode or has no file.
      */
     suspend fun openEpisode(feedId: String, guid: String): PhoneFile? {
         val book = bookDao.bookByRemote(feedId, guid)?.takeIf { it.kind == BookKind.EPISODE } ?: return null
@@ -62,8 +62,8 @@ class PhoneFileLocator @Inject constructor(
     }
 
     /**
-     * Eine Datei eines Hörbuchs (Wear-Konzept 16.2): der fertige Download bzw. bei Büchern vom Gerät die Datei selbst.
-     * @return `null`, wenn das Handy das Buch nicht kennt oder keine Datei hat.
+     * A file of an audiobook (Wear concept 16.2): the finished download or, for books from the device, the file itself.
+     * @return `null` if the phone doesn't know the book or has no file.
      */
     suspend fun openBookTrack(serverId: String, remoteId: String, trackIndex: Int): PhoneFile? {
         val book = bookDao.bookByRemote(serverId, remoteId)?.takeIf { it.kind == BookKind.BOOK } ?: return null
@@ -74,8 +74,8 @@ class PhoneFileLocator @Inject constructor(
     }
 
     /**
-     * Das Bild einer Folge oder eines Buchs (Wear-Konzept 16.1/16.2), wie es das Handy zeigt: bei Folgen ohne eigenes Bild das
-     * des Abos. @return `null`, wenn das Handy das Buch nicht kennt oder kein Bild hat.
+     * The image of an episode or book (Wear concept 16.1/16.2) as the phone shows it: for episodes without their own image that
+     * of the subscription. @return `null` if the phone doesn't know the book or has no image.
      */
     suspend fun openCover(serverId: String, remoteId: String): PhoneFile? {
         val book = bookDao.bookByRemote(serverId, remoteId) ?: return null

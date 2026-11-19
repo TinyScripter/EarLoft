@@ -184,8 +184,8 @@ private fun DownloadsContent(
                             item = item,
                             transfer = transfers[item.book.id],
                             onClick = { onBookClick(item.book.id) },
-                            // Ein wartender oder ladender Download wird ohne Rückfrage abgebrochen; ein ganz oder teilweise
-                            // geladener gelöscht, nach Rückfrage.
+                            // A waiting or running download is cancelled without confirmation; a fully or partially
+                            // downloaded one is deleted, after confirmation.
                             onRemove = {
                                 if (item.download.state == TrackDownload.DONE || item.download.partial) {
                                     bookToRemove = item.book.id
@@ -208,7 +208,7 @@ private fun DownloadsContent(
                         )
                     }
                 }
-                // Ohne Marke: drei Abschnitte mit eigener Reihenfolge.
+                // Without a mark: three sections with their own order.
                 LazyListFastScroller(listState)
             }
         }
@@ -285,8 +285,8 @@ private fun PendingRow(overview: DownloadOverview) {
         },
         supportingContent = {
             val progress = overview.currentProgress
-            // Zwischen zwei Liedern ist der Fortschritt kurz null. Der Balken bleibt, und der (höhere)
-            // Hinweis erscheint erst nach einer Pause, sonst springt die Liste bei jedem fertigen Lied.
+            // Between two songs the progress is briefly zero. The bar stays, and the (taller)
+            // hint only appears after a pause, otherwise the list jumps with every finished song.
             var waiting by remember { mutableStateOf(false) }
             LaunchedEffect(progress == null) {
                 waiting = false
@@ -298,7 +298,7 @@ private fun PendingRow(overview: DownloadOverview) {
             Column(Modifier.padding(top = 8.dp)) {
                 LinearProgressIndicator(progress = { progress ?: 0f }, modifier = Modifier.fillMaxWidth())
                 if (waiting) {
-                    // Kein Download läuft: wartet auf Netz (bzw. WLAN) oder Speicher.
+                    // No download running: waiting for network (or Wi-Fi) or storage.
                     Text(stringResource(R.string.downloads_waiting_hint), Modifier.padding(top = 8.dp))
                 }
             }
@@ -350,13 +350,13 @@ private fun DownloadedAlbumRow(album: DownloadedAlbum, onClick: () -> Unit, onRe
 }
 
 /**
- * Kategorie-Überschrift mit kleinem rotem Mülleimer rechts. Rand und Tippfläche entsprechen dem Mülleimer der
- * Zeilen (ListItem: 16 dp Rand, 48 dp Knopf), damit beide untereinander auf einer Linie liegen.
+ * Category header with a small red trash can on the right. Margin and touch target match the trash can of the
+ * rows (ListItem: 16 dp margin, 48 dp button) so both line up vertically.
  */
 @Composable
 private fun CategoryHeader(text: String, onRemoveAll: () -> Unit) {
     Row(
-        // Der Mülleimer steht bündig mit denen der Zeilen in der Gruppe darunter.
+        // The trash can is aligned with those of the rows in the group below.
         Modifier.fillMaxWidth().padding(start = GroupMargin + 16.dp, end = GroupMargin + 16.dp, top = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -377,7 +377,7 @@ private fun CategoryHeader(text: String, onRemoveAll: () -> Unit) {
     }
 }
 
-/** Podcast-Abo mit Bild und der Summe seiner geladenen Folgen (ein Eintrag je Abo); Tipp öffnet den Podcast. */
+/** Podcast subscription with image and the total of its downloaded episodes (one entry per subscription); tap opens the podcast. */
 @Composable
 private fun DownloadedFeedRow(item: FeedDownload, onClick: () -> Unit, onRemove: () -> Unit) {
     ListItem(
@@ -401,10 +401,10 @@ private fun DownloadedFeedRow(item: FeedDownload, onClick: () -> Unit, onRemove:
     )
 }
 
-/** Gruppen der Download-Übersicht, die sich als Ganzes löschen lassen. */
+/** Groups of the downloads overview that can be deleted as a whole. */
 enum class DownloadCategory { MUSIC, BOOKS, PODCASTS }
 
-/** Buch mit Cover und Stand: Größe, „32 MB von 500 MB geladen“, Wartet oder Fehler; Tipp öffnet die Buchseite. */
+/** Book with cover and status: size, "32 MB of 500 MB downloaded", waiting or error; tap opens the book page. */
 @Composable
 private fun DownloadedBookRow(item: DownloadedBook, transfer: BookTransfer?, onClick: () -> Unit, onRemove: () -> Unit) {
     val state = item.download.state

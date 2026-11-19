@@ -14,7 +14,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import kotlin.math.roundToLong
 
-/** Kein lesbarer RSS- oder Atom-Feed. */
+/** Not a readable RSS or Atom feed. */
 class PodcastFeedException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
 data class ParsedFeed(
@@ -23,50 +23,50 @@ data class ParsedFeed(
     val description: String,
     val imageUrl: String?,
     val episodes: List<ParsedEpisode>,
-    /** Webseite des Podcasts (`<link>`), zum Teilen (Konzept 13). */
+    /** Web page of the podcast (`<link>`), for sharing (concept 13). */
     val websiteUrl: String? = null,
-    /** Neue Adresse, die der Feed selbst ankündigt (`<itunes:new-feed-url>`), nur http(s). */
+    /** New URL the feed announces itself (`<itunes:new-feed-url>`), only http(s). */
     val newFeedUrl: String? = null,
-    /** Stabile Kennung des Podcasts (`<podcast:guid>`), unabhängig von der Adresse; klein geschrieben. */
+    /** Stable ID of the podcast (`<podcast:guid>`), independent of the URL; lower-cased. */
     val podcastGuid: String? = null,
-    /** Erste Seite zum Unterstützen (`<podcast:funding url="…">Text</podcast:funding>`), nur http(s); Text kann leer sein. */
+    /** First support page (`<podcast:funding url="…">Text</podcast:funding>`), only http(s); the text may be empty. */
     val fundingUrl: String? = null,
     val fundingLabel: String = "",
 )
 
 data class ParsedEpisode(
-    /** Stabile Kennung aus dem Feed (`guid` bzw. `id`); fehlt sie, gilt die Audio-URL. */
+    /** Stable ID from the feed (`guid` or `id`); if missing, the audio URL is used. */
     val guid: String,
     val title: String,
     val description: String,
     val audioUrl: String,
     val mimeType: String?,
-    /** 0, wenn der Feed keine Dauer nennt. */
+    /** 0 if the feed doesn't specify a duration. */
     val durationMs: Long,
-    /** Unix-ms; 0, wenn der Feed kein lesbares Datum hat. */
+    /** Unix ms; 0 if the feed has no readable date. */
     val publishedAt: Long,
     val imageUrl: String?,
-    /** Podcasting-2.0-Kapitelliste (JSON), falls vorhanden. */
+    /** Podcasting 2.0 chapter list (JSON), if present. */
     val chaptersUrl: String?,
-    /** Webseite der Folge (`<link>`, sonst die `guid`, wenn sie ein Permalink ist), zum Teilen (Konzept 13). */
+    /** Web page of the episode (`<link>`, otherwise the `guid` if it's a permalink), for sharing (concept 13). */
     val webUrl: String? = null,
-    /** Kapitel direkt im Feed (Podlove Simple Chapters), nach Beginn geordnet; leer, wenn der Feed keine nennt. */
+    /** Chapters directly in the feed (Podlove Simple Chapters), ordered by start; empty if the feed lists none. */
     val chapters: List<ParsedChapter> = emptyList(),
-    /** Staffel und Nummer (`itunes:season`/`episode`, sonst `podcast:season`/`episode`), nur ganze Zahlen ab 0. */
+    /** Season and number (`itunes:season`/`episode`, otherwise `podcast:season`/`episode`), only whole numbers from 0. */
     val season: Int? = null,
     val episodeNumber: Int? = null,
-    /** `itunes:episodeType`; `null`, wenn der Feed nichts oder Unbekanntes nennt (gilt wie „full“). */
+    /** `itunes:episodeType`; `null` if the feed specifies nothing or something unknown (treated like "full"). */
     val episodeType: EpisodeType? = null,
-    /** Mitwirkende der Folge (`podcast:person`); nennt die Folge keine, die des Podcasts. */
+    /** Contributors of the episode (`podcast:person`); if the episode names none, those of the podcast. */
     val persons: List<EpisodePerson> = emptyList(),
-    /** Das am besten lesbare Transkript (`podcast:transcript`, siehe [pickTranscript]) und sein MIME-Typ. */
+    /** The most readable transcript (`podcast:transcript`, see [pickTranscript]) and its MIME type. */
     val transcriptUrl: String? = null,
     val transcriptType: String? = null,
 )
 
 /**
- * Liest RSS 2.0 (mit iTunes- und Podcasting-2.0-Erweiterungen) und Atom (Konzept 12.1). Der Feed wird zuerst in einen
- * kleinen Baum gelesen; das ist für Podcast-Feeds (einige MB) unkritisch und hält die Auswertung lesbar.
+ * Reads RSS 2.0 (with iTunes and Podcasting 2.0 extensions) and Atom (concept 12.1). The feed is first read into a
+ * small tree; that's harmless for podcast feeds (a few MB) and keeps the evaluation readable.
  */
 object PodcastFeedParser {
     private const val NS_ITUNES = "http://www.itunes.com/dtds/podcast-1.0.dtd"
@@ -155,7 +155,7 @@ object PodcastFeedParser {
         ).withPodcasting20(feed)
     }
 
-    /** `podcast:guid` und `podcast:funding` des Kanals bzw. Atom-Feeds (Konzept 12.10). */
+    /** `podcast:guid` and `podcast:funding` of the channel or Atom feed (concept 12.10). */
     private fun ParsedFeed.withPodcasting20(channel: Node): ParsedFeed {
         val funding = channel.podcastChildren("funding").firstOrNull { webAddress(it.attr("url")) != null }
         return copy(
@@ -166,8 +166,8 @@ object PodcastFeedParser {
     }
 
     /**
-     * Staffel, Nummer, Art, Mitwirkende und Transkript einer Folge (Konzept 12.5 „Podcasting 2.0“). iTunes geht bei Staffel
-     * und Nummer vor, weil es fast alle Feeds führen; `podcast:episode` darf auch „12.5“ sein, das zählt nicht als Nummer.
+     * Season, number, type, contributors and transcript of an episode (concept 12.5 "Podcasting 2.0"). iTunes takes precedence
+     * for season and number because almost all feeds include it; `podcast:episode` may also be "12.5", which doesn't count as a number.
      */
     private fun ParsedEpisode.withPodcasting20(item: Node, feedPersons: List<EpisodePerson>): ParsedEpisode {
         val transcript = pickTranscript(
@@ -188,7 +188,7 @@ object PodcastFeedParser {
         )
     }
 
-    /** `<podcast:person role="guest" group="cast" img="…" href="…">Name</podcast:person>`; ohne Namen fällt er weg. */
+    /** `<podcast:person role="guest" group="cast" img="…" href="…">Name</podcast:person>`; without a name it's dropped. */
     private fun Node.persons(): List<EpisodePerson> =
         podcastChildren("person").mapNotNull { node ->
             val name = decodeHtmlEntities(node.text.toString().trim()).takeIf { it.isNotEmpty() } ?: return@mapNotNull null
@@ -201,13 +201,13 @@ object PodcastFeedParser {
             )
         }.distinct()
 
-    /** „3“ oder „3.0“; Brüche, negative Zahlen und alles andere: `null`. */
+    /** "3" or "3.0"; fractions, negative numbers and everything else: `null`. */
     private fun wholeNumber(raw: String?): Int? {
         val value = raw?.trim()?.toDoubleOrNull() ?: return null
         return value.takeIf { it >= 0 && it % 1.0 == 0.0 && it <= Int.MAX_VALUE }?.toInt()
     }
 
-    /** Atom: `link` mit `rel="alternate"` (oder ohne `rel`), bevorzugt als HTML. */
+    /** Atom: `link` with `rel="alternate"` (or without `rel`), preferably as HTML. */
     private fun Node.alternateLink(): String? {
         val links = children("link", NS_ATOM).filter { it.attr("rel").isNullOrBlank() || it.attr("rel") == "alternate" }
         val link = links.firstOrNull { it.attr("type")?.contains("html") == true } ?: links.firstOrNull()
@@ -217,8 +217,8 @@ object PodcastFeedParser {
     private fun webPage(raw: String?): String? = webAddress(raw)
 
     /**
-     * Podlove Simple Chapters (`<psc:chapters><psc:chapter start="00:01:02.500" title="…" href="…" image="…"/>`), wie sie
-     * viele mit Podlove Publisher erzeugte Feeds im Eintrag führen. Kapitel ohne lesbaren Beginn fallen weg.
+     * Podlove Simple Chapters (`<psc:chapters><psc:chapter start="00:01:02.500" title="…" href="…" image="…"/>`), as
+     * many feeds generated with Podlove Publisher include them in the item. Chapters without a readable start are dropped.
      */
     private fun Node.simpleChapters(): List<ParsedChapter> =
         child("chapters", NS_PSC)?.children("chapter", NS_PSC).orEmpty()
@@ -228,10 +228,10 @@ object PodcastFeedParser {
             }
             .sortedBy { it.startMs }
 
-    /** „1:02:03“, „12:34“, „754“ oder „754.5“ (Sekunden); alles andere zählt als unbekannt (0). */
+    /** "1:02:03", "12:34", "754" or "754.5" (seconds); everything else counts as unknown (0). */
     internal fun parseDuration(raw: String): Long = parseClock(raw) ?: 0
 
-    /** Wie [parseDuration], aber `null` statt 0 für alles, was keine Zeitangabe ist. */
+    /** Like [parseDuration], but `null` instead of 0 for anything that isn't a time value. */
     private fun parseClock(raw: String): Long? {
         val parts = raw.trim().split(':')
         if (raw.isBlank() || parts.size > 3) return null
@@ -258,7 +258,7 @@ object PodcastFeedParser {
             }
         }
 
-    // --- Baum ---
+    // --- Tree ---
 
     private class Node(val name: String, val namespace: String, val attributes: Map<String, String>) {
         val text = StringBuilder()
@@ -267,13 +267,13 @@ object PodcastFeedParser {
         fun children(name: String, namespace: String? = null): List<Node> =
             children.filter { it.name == name && (namespace == null || it.namespace == namespace) }
 
-        /** Ohne Namespace-Angabe gilt jeder Namespace, bevorzugt aber der des Feeds selbst. */
+        /** Without a namespace, any namespace matches, but the feed's own is preferred. */
         fun child(name: String, namespace: String? = null): Node? = children(name, namespace).firstOrNull()
 
         /**
-         * Elemente des Podcasting-2.0-Namespace. Feeds nennen ihn unterschiedlich (`https://podcastindex.org/namespace/1.0`,
-         * `http://podcastindex.org/namespace/1.0`, die GitHub-Dokumentation des Podcastindex), deshalb zählt jede Adresse,
-         * die „podcastindex“ enthält.
+         * Elements of the Podcasting 2.0 namespace. Feeds name it differently (`https://podcastindex.org/namespace/1.0`,
+         * `http://podcastindex.org/namespace/1.0`, the Podcastindex GitHub documentation), so every URL
+         * that contains "podcastindex" counts.
          */
         fun podcastChild(name: String): Node? = podcastChildren(name).firstOrNull()
 
@@ -283,8 +283,8 @@ object PodcastFeedParser {
         fun text(name: String, namespace: String? = null): String = child(name, namespace)?.text?.toString()?.trim().orEmpty()
 
         /**
-         * Klartext (Titel, Autor): wie [text], dazu einmal HTML-Entities aufgelöst. Viele Feeds kodieren doppelt
-         * (`&amp;amp;` oder `&amp;` in CDATA), dann bliebe nach dem XML-Parser „&amp;“ im Titel stehen.
+         * Plain text (title, author): like [text], plus HTML entities resolved once. Many feeds double-encode
+         * (`&amp;amp;` or `&amp;` in CDATA), then "&amp;" would remain in the title after the XML parser.
          */
         fun plain(name: String, namespace: String? = null): String = decodeHtmlEntities(text(name, namespace))
 
@@ -309,7 +309,7 @@ object PodcastFeedParser {
                 XmlPullParser.TEXT, XmlPullParser.CDSECT -> stack.lastOrNull()?.text?.append(parser.text)
                 XmlPullParser.END_TAG -> stack.removeLastOrNull()
                 XmlPullParser.END_DOCUMENT -> {
-                    // Die Parser sind nachsichtig; ein abgeschnittener Feed würde sonst wie ein leerer aussehen.
+                    // The parsers are lenient; a truncated feed would otherwise look like an empty one.
                     if (stack.isNotEmpty()) throw PodcastFeedException("Feed ist abgeschnitten")
                     return root
                 }

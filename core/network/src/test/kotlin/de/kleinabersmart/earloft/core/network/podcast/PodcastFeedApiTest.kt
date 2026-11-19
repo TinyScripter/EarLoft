@@ -38,7 +38,7 @@ class PodcastFeedApiTest {
         assertEquals(
             listOf(
                 ParsedChapter(0, "Eins", "https://example.com/1.jpg", "https://example.com/eins"),
-                // Relative Adressen taugen ohne Basis nicht; das stille Kapitel (toc: false) fehlt.
+                // Relative addresses are useless without a base; the silent chapter (toc: false) is missing.
                 ParsedChapter(30_000, "Relativ"),
                 ParsedChapter(61_500, "Zwei"),
             ),

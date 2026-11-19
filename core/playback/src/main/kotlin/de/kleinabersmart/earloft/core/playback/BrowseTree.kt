@@ -15,9 +15,9 @@ import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 /**
- * Der Browse-Tree für Android Auto, die Uhr und das System (Konzept 7.1): Musik, Podcasts und Bücher, soweit sie unter
- * Allgemein → Bereiche eingeschaltet sind. Ausgeschaltete Bereiche fehlen in den Tabs, in „Zuletzt“, in der Suche und bei
- * Sprachbefehlen; IDs aus ihnen (Android Auto merkt sich Listen) gelten als verborgen ([isHidden]).
+ * The browse tree for Android Auto, the watch and the system (concept 7.1): music, podcasts and books, as far as they are
+ * enabled under General → Areas. Disabled areas are missing from the tabs, from "Recent", from search and from
+ * voice commands; IDs from them (Android Auto remembers lists) count as hidden ([isHidden]).
  */
 internal class BrowseTree @Inject constructor(
     @param:ApplicationContext private val context: Context,
@@ -31,7 +31,7 @@ internal class BrowseTree @Inject constructor(
 ) {
     suspend fun areas(): List<SpokenMode> = spokenSettings.areas.first()
 
-    /** Gehört [mediaId] zu einem ausgeschalteten Bereich (bei `spoken:` nach der Art des Buchs)? Unbekanntes ist nicht verborgen. */
+    /** Does [mediaId] belong to a disabled area (for `spoken:` by the kind of book)? Unknown IDs are not hidden. */
     suspend fun isHidden(mediaId: String): Boolean {
         val areas = areas()
         MediaIds.spokenId(mediaId)?.let { return !isSpokenEnabled(it, areas) }
@@ -39,13 +39,13 @@ internal class BrowseTree @Inject constructor(
         return area !in areas
     }
 
-    /** Ist der Bereich des Buchs bzw. der Folge [bookId] eingeschaltet? `false`, wenn es sie nicht gibt. */
+    /** Is the area of the book or episode [bookId] enabled? `false` if it doesn't exist. */
     suspend fun isSpokenEnabled(bookId: Long, areas: List<SpokenMode>? = null): Boolean {
         val kind = bookRepository.bookNow(bookId)?.kind ?: return false
         return kind.area in (areas ?: areas())
     }
 
-    /** Inhalt des Ordners [parentId]; `null`, wenn es ihn nicht gibt. */
+    /** Content of the folder [parentId]; `null` if it doesn't exist. */
     suspend fun children(parentId: String): List<MediaItem>? {
         val areas = areas()
         val tabArea = areaOfTab(parentId)
@@ -57,7 +57,7 @@ internal class BrowseTree @Inject constructor(
         }
     }
 
-    /** „Zuletzt“: je eingeschaltetem Bereich das Neueste unter dessen Namen als Überschrift. */
+    /** "Recent": for each enabled area its newest items, under the area's name as heading. */
     private suspend fun home(areas: List<SpokenMode>): List<MediaItem> = areas.flatMap { area ->
         val title = context.getString(areaFolder(area).title)
         val items = when (area) {
@@ -68,7 +68,7 @@ internal class BrowseTree @Inject constructor(
         items.map { it.inGroup(title) }
     }
 
-    /** Suchtreffer aller eingeschalteten Bereiche, nach Art gruppiert. Songs tragen die Suche als Ordner (Antippen reiht alle ein). */
+    /** Search results of all enabled areas, grouped by kind. Songs carry the search as folder (tapping enqueues all). */
     suspend fun search(query: String): List<MediaItem> {
         val hits = librarySearch.search(query)
         return buildList {
@@ -83,11 +83,11 @@ internal class BrowseTree @Inject constructor(
         }
     }
 
-    /** Die Songs eines Musik-Ordners; `null`, wenn es keiner ist oder Musik ausgeschaltet ist. */
+    /** The songs of a music folder; `null` if it isn't one or music is disabled. */
     suspend fun songsOf(folderId: String): List<Song>? =
         if (SpokenMode.MUSIC in areas()) music.songsOf(folderId) else null
 
-    /** Der Eintrag eines Buchs bzw. einer Folge (`spoken:<id>`). */
+    /** The entry of a book or episode (`spoken:<id>`). */
     suspend fun spokenItem(bookId: Long): MediaItem? {
         val item = bookRepository.book(bookId).first() ?: return null
         return if (item.book.kind == BookKind.EPISODE) {
@@ -97,7 +97,7 @@ internal class BrowseTree @Inject constructor(
         }
     }
 
-    /** Was auf „Spiele [query]“ läuft: immer [VoiceTarget.Songs] (evtl. leer) oder [VoiceTarget.Spoken]. */
+    /** What plays on "Play [query]": always [VoiceTarget.Songs] (possibly empty) or [VoiceTarget.Spoken]. */
     suspend fun voice(query: String): VoiceTarget = when (val target = chooseVoiceTarget(query, librarySearch.search(query))) {
         is VoiceTarget.Spoken, is VoiceTarget.Songs -> target
         is VoiceTarget.Feed -> podcasts.startEpisodeOf(target.feedId)?.let { VoiceTarget.Spoken(it) } ?: VoiceTarget.Songs(emptyList())
@@ -107,8 +107,8 @@ internal class BrowseTree @Inject constructor(
     }
 
     /**
-     * „Spiele“ ohne Begriff, wenn nichts fortzusetzen ist: gemischte Favoriten; ist Musik aus, die erste Folge bzw. das erste
-     * Buch aus „Weiterhören“ der eingeschalteten Bereiche.
+     * "Play" without a term when there is nothing to resume: shuffled favorites; if music is off, the first episode or the first
+     * book from "Continue listening" of the enabled areas.
      */
     suspend fun voiceWithoutQuery(): VoiceTarget {
         val areas = areas()
@@ -146,10 +146,10 @@ internal class BrowseTree @Inject constructor(
     }
 }
 
-/** Der Bereich eines Buchs bzw. einer Folge. */
+/** The area of a book or episode. */
 internal val BookKind.area: SpokenMode get() = if (this == BookKind.EPISODE) SpokenMode.PODCASTS else SpokenMode.BOOKS
 
-/** Der Bereich eines Eintrags der Warteschlange; `null`, wenn er keinem zuzuordnen ist. */
+/** The area of a queue entry; `null` if it can't be assigned to one. */
 internal val MediaItem.area: SpokenMode?
     get() = when {
         isSpoken -> if (isEpisode) SpokenMode.PODCASTS else SpokenMode.BOOKS

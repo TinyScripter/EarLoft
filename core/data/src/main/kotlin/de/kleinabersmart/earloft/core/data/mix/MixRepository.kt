@@ -13,7 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.random.Random
 
-/** Wovon ein Mix ausgeht. */
+/** What a mix starts from. */
 sealed interface MixSeed {
     data class Song(val songId: Long) : MixSeed
     data class Album(val albumId: Long) : MixSeed
@@ -21,10 +21,10 @@ sealed interface MixSeed {
 }
 
 /**
- * Mix („Ähnliches spielen“, Konzept 8): rund [MIX_SIZE] Songs aus der eigenen Bibliothek, die zum Ausgangspunkt passen.
- * Grundlage ist die lokale Datenbank (Genre, Jahr, Künstler, Hörverlauf), offline und für lokale Musik. Ist ein Server
- * des Ausgangs-Songs erreichbar, fließen seine Vorschläge ein (Subsonic `getSimilarSongs`, Jellyfin/Emby Instant Mix);
- * er bekommt dafür höchstens [SERVER_TIMEOUT_MS]. Was der Server vorschlägt, aber nicht in der Bibliothek ist, entfällt.
+ * Mix ("Play similar", concept 8): around [MIX_SIZE] songs from the user's own library that match the starting point.
+ * It is based on the local database (genre, year, artist, listening history), offline and for local music. If a server
+ * of the starting song is reachable, its suggestions are included (Subsonic `getSimilarSongs`, Jellyfin/Emby Instant Mix);
+ * it gets at most [SERVER_TIMEOUT_MS] for this. Whatever the server suggests that is not in the library is dropped.
  */
 @Singleton
 class MixRepository @Inject constructor(
@@ -33,9 +33,9 @@ class MixRepository @Inject constructor(
     private val sources: MusicDataSources,
 ) {
     /**
-     * Leer, wenn es den Ausgangspunkt nicht (mehr) gibt. Bei Song, Album und Künstler beginnt der Mix mit einem ihrer Songs.
-     * [offlineOnly]: ohne Netz nur Songs mit lokaler Datei oder fertigem Download, ohne Vorschläge des Servers („Weiterspielen“,
-     * Review V9); der Ausgangs-Song selbst kann trotzdem vorn stehen.
+     * Empty if the starting point doesn't exist (anymore). For song, album and artist the mix starts with one of their songs.
+     * [offlineOnly]: without network only songs with a local file or finished download, without server suggestions ("Keep playing",
+     * review V9); the starting song itself can still be first.
      */
     suspend fun mix(seed: MixSeed, random: Random = Random.Default, offlineOnly: Boolean = false): List<Song> {
         val seedIds = when (seed) {
@@ -51,7 +51,7 @@ class MixRepository @Inject constructor(
         val similar = if (offlineOnly) emptyList() else similarSongIds(first.songId)
         val candidates = LinkedHashMap<Long, MixCandidateRow>()
         if (offlineOnly) {
-            // Was ohne Netz spielt, ist meist überschaubar: alles davon, die Auswahl trifft der Picker nach dem Profil.
+            // What plays without network is usually limited: all of it; the picker makes the selection by profile.
             libraryDao.getOfflineMixCandidates(CANDIDATE_LIMIT).associateByTo(candidates) { it.songId }
         } else {
             if (similar.isNotEmpty()) libraryDao.getMixRows(similar.take(SQLITE_MAX_VARIABLES)).associateByTo(candidates) { it.songId }
@@ -65,7 +65,7 @@ class MixRepository @Inject constructor(
                 limit = CANDIDATE_LIMIT,
             ).forEach { candidates.putIfAbsent(it.songId, it) }
         }
-        // Kleine oder kaum getaggte Bibliotheken: mit Zufall auffüllen, damit der Mix nicht nach drei Songs endet.
+        // Small or barely tagged libraries: fill up randomly so the mix doesn't end after three songs.
         if (!offlineOnly && candidates.size < MIX_SIZE * 2) {
             libraryDao.getRandomMixCandidates(MIX_SIZE * 3).forEach { candidates.putIfAbsent(it.songId, it) }
         }
@@ -85,7 +85,7 @@ class MixRepository @Inject constructor(
         return libraryRepository.songs(ids)
     }
 
-    /** Vorschläge des ersten Servers des Songs, der welche hat, als eigene Song-IDs; leer ohne Server oder nach Ablauf der Zeit. */
+    /** Suggestions of the song's first server that has any, as local song IDs; empty without a server or after the timeout. */
     private suspend fun similarSongIds(songId: Long): List<Long> = withTimeoutOrNull(SERVER_TIMEOUT_MS) {
         val serverSources = libraryDao.getPlayableSources(songId)
             .filter { it.sourceType.isServer }

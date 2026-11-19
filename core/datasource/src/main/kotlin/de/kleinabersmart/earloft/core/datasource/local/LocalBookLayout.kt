@@ -2,7 +2,7 @@ package de.kleinabersmart.earloft.core.datasource.local
 
 import java.math.BigInteger
 
-/** Eine Audiodatei im Ordner „Audiobooks“, so roh wie MediaStore sie liefert. */
+/** An audio file in the "Audiobooks" folder, as raw as MediaStore delivers it. */
 internal data class AudioFileRow(
     val id: Long,
     val path: String,
@@ -11,7 +11,7 @@ internal data class AudioFileRow(
     val albumArtist: String?,
     val album: String?,
     val durationMs: Long,
-    /** MediaStore kodiert Disc und Track als `disc * 1000 + track`; `0` = keine Angabe. */
+    /** MediaStore encodes disc and track as `disc * 1000 + track`; `0` = not specified. */
     val track: Int,
     val mimeType: String?,
     val sizeBytes: Long,
@@ -21,19 +21,19 @@ internal data class AudioFileRow(
     val fileName: String get() = path.substringAfterLast('/')
 }
 
-/** Die Dateien eines Buchs in Abspielreihenfolge. [key] ist stabil (Pfad ab „Audiobooks/“) und dient als Kennung. */
+/** The files of a book in playback order. [key] is stable (path from "Audiobooks/") and serves as the ID. */
 internal data class LocalBookFiles(val key: String, val folderName: String?, val files: List<AudioFileRow>)
 
 /**
- * Welche Dateien ein Buch bilden (Konzept 12.1): Ein Ordner in „Audiobooks“ ist ein Buch mit einer Datei je Kapitel
- * (MP3-Ordner); eine Datei direkt in „Audiobooks“ ist ein Buch für sich (m4b). Unterordner bilden eigene Bücher.
+ * Which files form a book (concept 12.1): a folder in "Audiobooks" is a book with one file per chapter
+ * (MP3 folder); a file directly in "Audiobooks" is a book of its own (m4b). Subfolders form separate books.
  */
 internal object LocalBookLayout {
     const val ROOT = "Audiobooks"
 
     private const val UNKNOWN = "<unknown>"
 
-    /** Pfad ab dem Ordner [rootName] (auch auf Speicherkarten); `null`, wenn die Datei nicht darin liegt. */
+    /** Path from the folder [rootName] (also on SD cards); `null` if the file isn't inside it. */
     fun relativePath(path: String, rootName: String = ROOT): String? {
         val segments = path.split('/')
         val root = segments.indexOfFirst { it.equals(rootName, ignoreCase = true) }
@@ -54,8 +54,8 @@ internal object LocalBookLayout {
     }
 
     /**
-     * Reihenfolge der Dateien eines Ordners: 1. Tracknummern, wenn alle da und verschieden sind; 2. Zählung im Titel
-     * („04/30“, „3 von 12“) – Dateinamen wie `12209255-audiothek.mp3` sagen nichts; 3. Dateiname, Zahlen als Zahlen.
+     * Order of a folder's files: 1. track numbers, if all are present and distinct; 2. count in the title
+     * ("04/30", "3 von 12") – file names like `12209255-audiothek.mp3` say nothing; 3. file name, numbers as numbers.
      */
     fun sortInReadingOrder(files: List<AudioFileRow>): List<AudioFileRow> {
         if (files.size < 2) return files
@@ -68,7 +68,7 @@ internal object LocalBookLayout {
 
     private val ORDINAL = Regex("""(?<!\d)(\d{1,3})\s*(?:/|von|of)\s*(\d{1,3})(?!\d)""")
 
-    /** „(04/30)“ → 4; ein Datum wie „25/12“ zählt nicht (der Zähler darf nicht über der Gesamtzahl liegen). */
+    /** "(04/30)" → 4; a date like "25/12" doesn't count (the counter must not exceed the total). */
     fun titleOrdinal(title: String?): Int? {
         if (title == null) return null
         return ORDINAL.findAll(title).firstNotNullOfOrNull { match ->
@@ -79,7 +79,7 @@ internal object LocalBookLayout {
 
     private val CHUNKS = Regex("""\d+|\D+""")
 
-    /** Vergleicht Namen so, dass „Kapitel 2“ vor „Kapitel 10“ steht. */
+    /** Compares names so that "Kapitel 2" comes before "Kapitel 10". */
     fun naturalCompare(a: String, b: String): Int {
         val left = CHUNKS.findAll(a).map { it.value }.toList()
         val right = CHUNKS.findAll(b).map { it.value }.toList()
@@ -92,24 +92,24 @@ internal object LocalBookLayout {
         return left.size.compareTo(right.size)
     }
 
-    /** Kapitelname aus dem Titel-Tag; Angaben nach „ | “ (Buch, Datum) fallen weg, ohne Tag gilt der Dateiname. */
+    /** Chapter name from the title tag; details after " | " (book, date) are dropped, without a tag the file name applies. */
     fun chapterTitle(rawTitle: String?, fileName: String): String {
         val title = rawTitle?.substringBefore(" | ")?.trim().orEmpty()
         return title.ifEmpty { fileName.substringBeforeLast('.').replace('_', ' ').trim() }
     }
 
-    /** Der häufigste nicht leere Wert (bei Gleichstand der erste). */
+    /** The most frequent non-empty value (on a tie the first one). */
     fun commonValue(values: List<String?>): String? =
         values.mapNotNull { it?.trim()?.takeIf { v -> v.isNotEmpty() && v != UNKNOWN } }
             .groupingBy { it }.eachCount().entries
             .maxByOrNull { it.value }?.key
 
     /**
-     * Buchtitel: bei einer Datei ihr Titel, bei mehreren das gemeinsame Album, sonst [folderTitle] (der Ordnername ohne Band,
-     * Jahr und Sprecher, siehe [FolderMetadata]).
+     * Book title: for one file its title, for several the common album, otherwise [folderTitle] (the folder name without volume,
+     * year and narrator, see [FolderMetadata]).
      */
     fun bookTitle(book: LocalBookFiles, folderTitle: String? = book.folderName): String {
-        // Ohne Tags nennt MediaStore den Dateinamen als Titel und den Ordner als Album: Das ist keine Angabe zum Buch.
+        // Without tags, MediaStore reports the file name as title and the folder as album: that says nothing about the book.
         val parent = book.files.first().path.substringBeforeLast('/').substringAfterLast('/')
         val album = commonValue(book.files.map { it.album })?.takeIf { it != parent }
         val single = book.files.singleOrNull()
@@ -123,8 +123,8 @@ internal object LocalBookLayout {
     }
 
     /**
-     * 1: ID3-Kapitel einzelner MP3, Untertitel und Jahr aus den Tags (Etappe 4). 2: Ordnernamen, Begleitdateien, Serie und
-     * Beschreibung aus den Tags (`books_improvements.md` M7). 3: Bände mit Buchstaben im Ordnernamen („2a – Titel“).
+     * 1: ID3 chapters of single MP3s, subtitle and year from the tags (stage 4). 2: folder names, companion files, series and
+     * description from the tags (`books_improvements.md` M7). 3: volumes with letters in the folder name ("2a – Titel").
      */
     private const val READ_VERSION = 3
 
@@ -132,8 +132,8 @@ internal object LocalBookLayout {
         commonValue(book.files.map { it.albumArtist }) ?: commonValue(book.files.map { it.artist }).orEmpty()
 
     /**
-     * Ändert sich, sobald eine Datei hinzukommt, wegfällt oder sich ändert – und mit [READ_VERSION], wenn das Einlesen
-     * mehr liefert als vorher (dann wird jedes Buch einmal neu gelesen).
+     * Changes as soon as a file is added, removed or changed – and with [READ_VERSION] when reading
+     * yields more than before (then every book is reread once).
      */
     fun fingerprint(book: LocalBookFiles): Long {
         var hash = 1125899906842597L + READ_VERSION

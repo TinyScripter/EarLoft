@@ -32,7 +32,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearRemoteEpisodesRequest
 import de.kleinabersmart.earloft.wear.R
 import kotlinx.coroutines.launch
 
-/** Die geladenen Alben der Uhr; mit [artistId] nur die dieses Künstlers, dann steht [title] (sein Name) oben. */
+/** The watch's downloaded albums; with [artistId] only those of this artist, then [title] (their name) is shown at the top. */
 @Composable
 fun LocalAlbumsScreen(
     onClick: (Long) -> Unit,
@@ -59,8 +59,8 @@ fun LocalPlaylistsScreen(onClick: (Long) -> Unit, viewModel: LocalPlaylistsViewM
 }
 
 /**
- * Die Alben des Handys; mit [artistId] nur die dieses Künstlers, dann steht [title] (sein Name) oben; mit [favorites] nur die
- * favorisierten.
+ * The phone's albums; with [artistId] only those of this artist, then [title] (their name) is shown at the top; with [favorites] only the
+ * favorited ones.
  */
 @Composable
 fun RemoteAlbumsScreen(
@@ -74,7 +74,7 @@ fun RemoteAlbumsScreen(
     EntryListContent(title ?: stringResource(if (favorites) R.string.list_favorite_albums else R.string.list_albums), state, onClick)
 }
 
-/** Die Künstler des Handys; mit [favorites] nur die favorisierten. */
+/** The phone's artists; with [favorites] only the favorited ones. */
 @Composable
 fun RemoteArtistsScreen(
     onClick: (artistId: Long, name: String) -> Unit,
@@ -92,7 +92,7 @@ fun RemotePlaylistsScreen(onClick: (Long) -> Unit, viewModel: RemotePlaylistsVie
     EntryListContent(stringResource(R.string.list_playlists), state, onClick)
 }
 
-/** Podcasts ([BookKind.EPISODE]) bzw. Bücher auf der Uhr; ein Tipp spielt hier, [onPlayed] öffnet danach die Wiedergabe-Ansicht. */
+/** Podcasts ([BookKind.EPISODE]) or books on the watch; a tap plays here, [onPlayed] then opens the now playing view. */
 @Composable
 fun LocalSpokenScreen(
     kind: BookKind,
@@ -107,7 +107,7 @@ fun LocalSpokenScreen(
     }
 }
 
-/** Die Warteschlange und die Abos des Handys; ein Tipp öffnet die Folgen ([onClick] mit Abo und Titel). */
+/** The phone's queue and subscriptions; a tap opens the episodes ([onClick] with subscription and title). */
 @Composable
 fun RemotePodcastsScreen(onClick: (feedId: String, title: String) -> Unit, viewModel: RemotePodcastsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -121,7 +121,7 @@ fun RemotePodcastsScreen(onClick: (feedId: String, title: String) -> Unit, viewM
     }
 }
 
-/** Die Folgen eines Abos am Handy; [title] ist der Name des Abos, ein Tipp öffnet die Seite der Folge. */
+/** The episodes of a subscription on the phone; [title] is the subscription's name, a tap opens the episode's page. */
 @Composable
 fun RemoteEpisodesScreen(
     feedId: String,
@@ -133,7 +133,7 @@ fun RemoteEpisodesScreen(
     EntryListContent(title, state) { key -> viewModel.episodeOf(key)?.let(onClick) }
 }
 
-/** Die Hörbücher des Handys; ein Tipp öffnet die Seite des Buchs. */
+/** The phone's audiobooks; a tap opens the book's page. */
 @Composable
 fun RemoteBooksScreen(onClick: (WearRemoteBookDto) -> Unit, viewModel: RemoteBooksViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -193,7 +193,7 @@ private fun EntryListContent(title: String, state: EntryListState, onClick: (Lon
     }
 }
 
-/** Zweite Zeile eines Eintrags; `null`, wenn es nichts zu sagen gibt (z. B. Abo ohne Autor). */
+/** Second line of an entry; `null` if there is nothing to say (e.g. subscription without author). */
 @Composable
 private fun ListEntry.secondaryText(): String? {
     val loaded = loadedCount

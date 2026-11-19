@@ -47,7 +47,7 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
 
     val state: StateFlow<PlayerState> = playback.state
 
-    /** Sprünge der Position, damit die Anzeige auch pausiert nachzieht. */
+    /** Position jumps, so the display catches up even when paused. */
     val positionJumps: Flow<Unit> = playback.positionJumps
 
     private val bookId = state.map { it.spoken?.bookId }.distinctUntilChanged()
@@ -57,8 +57,8 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
-     * Ist das laufende Buch zu Ende gehört, der nächste Band seiner Serie mit Nummer (Karte im Player, books_improvements M2);
-     * er startet nie von selbst.
+     * If the current book has been finished, the next numbered volume of its series (card in the player, books_improvements M2);
+     * it never starts by itself.
      */
     val nextInSeries: StateFlow<Pair<BookWithProgress, String?>?> = book
         .map { current -> current?.takeIf { it.book.kind == BookKind.BOOK && it.progress?.finished == true }?.book?.id }
@@ -74,22 +74,22 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
 
     fun playBook(bookId: Long) = launcher.play(bookId)
 
-    /** Podcast-Folgen haben nur den einen Regler über die ganze Länge. */
+    /** Podcast episodes only have the one slider over the whole length. */
     val isEpisode: StateFlow<Boolean> = book
         .map { it?.book?.kind == BookKind.EPISODE }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    /** Zeitachse des laufenden Buchs; `null`, bis Dateien und Kapitel geladen sind. */
+    /** Timeline of the current book; `null` until files and chapters are loaded. */
     val timeline: StateFlow<BookTimeline?> = bookId
         .mapLatest { id -> id?.let { books.timeline(it) } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Tempo und Effekte des laufenden Buchs bzw. der Folge mit ihren Ebenen (eigene, Abo, Bereich). */
+    /** Speed and effects of the current book or episode with their levels (own, subscription, area). */
     val effectLayers: StateFlow<EffectLayers?> = bookId
         .flatMapLatest { id -> if (id == null) flowOf(null) else effects.layers(id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Die laufende Folge hat ein Transkript (`podcast:transcript`, Konzept 12.5 „Transkripte“). */
+    /** The current episode has a transcript (`podcast:transcript`, concept 12.5 "Transcripts"). */
     val hasTranscript: StateFlow<Boolean> = book
         .map { it?.book?.takeIf { book -> book.kind == BookKind.EPISODE }?.transcriptUrl != null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -98,8 +98,8 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     private val transcriptAttempt = MutableStateFlow(0)
 
     /**
-     * Transkript der laufenden Folge; `null`, solange es lädt oder noch nicht gezeigt wurde. Geladen wird erst, wenn es
-     * eingeblendet ist ([loadTranscript]), danach für jede neue Folge gleich mit.
+     * Transcript of the current episode; `null` while it is loading or hasn't been shown yet. It is loaded only once it is
+     * displayed ([loadTranscript]), afterwards right away for every new episode.
      */
     val transcript: StateFlow<TranscriptResult?> = combine(
         book.map { it?.book?.takeIf { book -> book.kind == BookKind.EPISODE }?.let { book -> book.id to book.transcriptUrl } }.distinctUntilChanged(),
@@ -126,7 +126,7 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
         transcriptAttempt.value++
     }
 
-    /** Grundfarbe des Covers für das Farbschema; `null`, solange sie fehlt. */
+    /** Base color of the cover for the color scheme; `null` as long as it is missing. */
     val seedColor: StateFlow<Int?> = bookId
         .mapLatest { id -> id?.let { bookCovers.seedColor(it) } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -134,17 +134,17 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     val sleepTimerRemainingMs: StateFlow<Long?> = playback.sleepTimerRemainingMs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Der Sleep-Timer läuft bis zum Ende des Kapitels bzw. der Folge. */
+    /** The sleep timer runs until the end of the chapter or episode. */
     val sleepTimerToEnd: StateFlow<Boolean> = playback.sleepTimerToEnd
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /**
-     * Länge des ganzen Buchs. Eine Folge, deren Feed keine Dauer nannte, hat sie erst, wenn der Player sie kennt; bis
-     * dahin gilt dessen Angabe.
+     * Length of the whole book. An episode whose feed gave no duration only has one once the player knows it; until
+     * then the player's value applies.
      */
     fun durationMs(): Long = timeline.value?.durationMs?.takeIf { it > 0 } ?: state.value.durationMs
 
-    /** Aktuelle Position im ganzen Buch. */
+    /** Current position in the whole book. */
     fun bookPositionMs(): Long {
         val timeline = timeline.value ?: return 0
         val entry = state.value.spoken ?: return 0
@@ -166,7 +166,7 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
         timeline.nextChapter(chapterPositionMs())?.let { jumpToChapter(it.startMs) }
     }
 
-    /** Der letzte Kapitelsprung: von [fromMs] nach [toMs] (Buchposition), zur Zeit [atMs] (`elapsedRealtime`). */
+    /** The last chapter jump: from [fromMs] to [toMs] (book position), at time [atMs] (`elapsedRealtime`). */
     private class ChapterJump(val fromMs: Long, val toMs: Long, val atMs: Long)
 
     private var lastJump: ChapterJump? = null
@@ -177,10 +177,10 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     }
 
     /**
-     * Position für die Kapitelknöpfe. Nach einem Sprung meldet der Player eine Weile noch die alte Stelle (beim Casten
-     * mehrere Sekunden, bis der Empfänger nachgeladen hat); ein zweiter Tipp ginge sonst wieder vom alten Kapitel aus
-     * („Kapitel zurück“ bliebe am Kapitelanfang hängen). Liegt die gemeldete Position näher an der alten als am Ziel,
-     * gilt deshalb das Ziel – längstens [JUMP_HOLD_MS].
+     * Position for the chapter buttons. After a jump the player keeps reporting the old position for a while (when casting
+     * several seconds, until the receiver has reloaded); a second tap would otherwise start from the old chapter again
+     * ("Previous chapter" would get stuck at the chapter start). If the reported position is closer to the old one than to the target,
+     * the target therefore applies – for at most [JUMP_HOLD_MS].
      */
     private fun chapterPositionMs(): Long {
         val reported = bookPositionMs()
@@ -190,21 +190,21 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
         return if (stale) jump.toMs else reported
     }
 
-    /** Uhr für [lastJump]; im Test ersetzbar. */
+    /** Clock for [lastJump]; replaceable in tests. */
     internal var clock: () -> Long = SystemClock::elapsedRealtime
 
-    /** Es gibt eine weitere Folge in der Warteschlange der Podcasts. */
+    /** There is another episode in the podcast queue. */
     val hasNextEpisode: StateFlow<Boolean> = combine(continueListening.episodes, bookId) { queue, current ->
         queue.any { it.book.id != current }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    /** Die Folge von vorn; steht sie, geht es auch gleich los. */
+    /** The episode from the start; if it is stopped, it starts right away too. */
     fun restartEpisode() {
         seekToBook(0)
         if (!state.value.isPlaying) playback.togglePlayPause()
     }
 
-    /** Springt zur nächsten Folge der Warteschlange; sie rückt dabei an deren Anfang (`BookLauncher` → `started`). */
+    /** Jumps to the next episode of the queue; it moves to the front of it (`BookLauncher` → `started`). */
     fun skipToNextEpisode() {
         val current = state.value.spoken?.bookId ?: return
         viewModelScope.launch { continueListening.next(current)?.let(launcher::play) }
@@ -213,12 +213,12 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     fun togglePlayPause() = playback.togglePlayPause()
     fun skipBack() = playback.skipBack()
     fun skipForward() = playback.skipForward()
-    /** Tempo und Effekte gelten für das Buch bzw. die Folge; der Player folgt ihnen über die Datenbank. */
+    /** Speed and effects apply to the book or episode; the player follows them via the database. */
     fun setSpeed(speed: Float) = withBook { effects.setSpeed(it, speed) }
     fun setSkipSilence(enabled: Boolean) = withBook { effects.setSkipSilence(it, enabled) }
     fun setVolumeBoost(db: Int) = withBook { effects.setVolumeBoost(it, db) }
 
-    /** „Als Standard“ bzw. „Für diesen Podcast“. */
+    /** "As default" or "For this podcast". */
     fun rememberEffectsAsDefault() = withBook { effects.rememberAsDefault(it) }
 
     private fun withBook(action: suspend (Long) -> Unit) {

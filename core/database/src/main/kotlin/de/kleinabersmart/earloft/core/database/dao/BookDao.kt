@@ -24,15 +24,15 @@ import de.kleinabersmart.earloft.core.model.TrackDownload
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Bücher (und Folgen) der ausgeschalteten Audiobookshelf-Server sind ausgeblendet, ebenso Bücher abgewählter Bibliotheken
- * (sie bleiben gespeichert, bis die Bibliothek wieder gewählt ist); Podcast-Feeds stehen nicht in `spoken_servers`.
+ * Books (and episodes) of disabled Audiobookshelf servers are hidden, as are books of deselected libraries
+ * (they stay stored until the library is selected again); podcast feeds are not in `spoken_servers`.
  */
 private const val BOOK_VISIBLE = "serverId NOT IN (SELECT serverId FROM spoken_servers WHERE enabled = 0) AND (libraryId IS NULL OR " +
     "NOT EXISTS (SELECT 1 FROM spoken_servers s WHERE s.serverId = books.serverId AND " +
     "instr(',' || s.hiddenLibraries || ',', ',' || books.libraryId || ',') > 0))"
 
-// Folgen von Probeabos aus der Podcast-Vorschau (Konzept 12.10) haben eine Seite, stehen aber in keiner Liste und Suche;
-// Folgen archivierter Abos ebenso wenig.
+// Episodes of trial subscriptions from the podcast preview (concept 12.10) have a page but appear in no list or search;
+// neither do episodes of archived subscriptions.
 private const val BOOK_LISTED =
     "$BOOK_VISIBLE AND serverId NOT IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0 OR archived = 1)"
 
@@ -43,7 +43,7 @@ private const val TRACK_TOTALS =
 @Dao
 abstract class BookDao {
 
-    // --- Server ---
+    // --- Servers ---
 
     @Query("SELECT * FROM spoken_servers ORDER BY name")
     abstract fun observeServers(): Flow<List<SpokenServerEntity>>
@@ -75,7 +75,7 @@ abstract class BookDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insertLibraries(libraries: List<SpokenLibraryEntity>)
 
-    /** Die Buch-Bibliotheken des Servers, wie er sie gerade nennt. */
+    /** The server's book libraries, as it currently names them. */
     @Transaction
     open suspend fun replaceLibraries(serverId: String, libraries: List<SpokenLibraryEntity>) {
         deleteLibraries(serverId)
@@ -88,14 +88,14 @@ abstract class BookDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insertAuthors(authors: List<SpokenAuthorEntity>)
 
-    /** Die Autoren der abgeglichenen Bibliotheken des Servers. */
+    /** The authors of the server's synced libraries. */
     @Transaction
     open suspend fun replaceAuthors(serverId: String, authors: List<SpokenAuthorEntity>) {
         deleteAuthors(serverId)
         insertAuthors(authors)
     }
 
-    /** Autoren dieses Namens auf den eingeschalteten Servern (ein Name kann auf mehreren stehen). */
+    /** Authors of this name on the enabled servers (a name can appear on several). */
     @Query(
         "SELECT * FROM spoken_authors WHERE normName = :normName AND " +
             "serverId NOT IN (SELECT serverId FROM spoken_servers WHERE enabled = 0) ORDER BY serverId",
@@ -116,9 +116,9 @@ abstract class BookDao {
         deleteServerRow(serverId)
     }
 
-    // --- Bücher ---
+    // --- Books ---
 
-    /** Nur Bücher: Folgen stehen in derselben Tabelle, mit ihren Shownotes wären das schnell Dutzende MB je Beobachter. */
+    /** Books only: episodes are in the same table, and with their show notes that would quickly be dozens of MB per observer. */
     @Query("SELECT * FROM books WHERE kind = 'BOOK' AND $BOOK_LISTED ORDER BY normTitle")
     abstract fun observeBooks(): Flow<List<BookEntity>>
 
@@ -137,15 +137,15 @@ abstract class BookDao {
     @Query("SELECT * FROM books WHERE serverId = :serverId")
     abstract suspend fun booksOf(serverId: String): List<BookEntity>
 
-    /** Die Kennungen der Bücher einer Quelle (Katalog von ARD Sounds: Welche Bücher sind schon in der Bibliothek?). */
+    /** The IDs of a source's books (ARD Sounds catalog: which books are already in the library?). */
     @Query("SELECT bookId, serverId, remoteId FROM books WHERE serverId = :serverId")
     abstract fun observeBookRefsOf(serverId: String): Flow<List<BookRef>>
 
-    /** Die Bücher einer Quelle mit dem Zeitpunkt, seit dem sie in der Bibliothek sind (Backup). */
+    /** The books of a source with the time since which they have been in the library (backup). */
     @Query("SELECT remoteId, addedAt FROM books WHERE serverId = :serverId")
     abstract suspend fun keyedBooksOf(serverId: String): List<KeyedBook>
 
-    /** Die Dateien aller Bücher von [serverId] mit dem Namen ihres Kapitels, je Buch in ihrer Reihenfolge. */
+    /** The files of all books of [serverId] with the name of their chapter, per book in their order. */
     @Query(
         "SELECT b.remoteId AS remoteId, t.trackIndex AS trackIndex, t.remoteFileId AS remoteFileId, t.durationMs AS durationMs, " +
             "t.mimeType AS mimeType, t.unavailableSince AS unavailableSince, c.title AS title, t.remoteItemId AS remoteItemId " +
@@ -155,48 +155,48 @@ abstract class BookDao {
     )
     abstract suspend fun keyedPartsOf(serverId: String): List<KeyedBookPart>
 
-    /** Ein Buch samt Dateien, Kapiteln, Fortschritt und Lesezeichen (Kaskade); die Statistik bleibt. */
+    /** A book together with files, chapters, progress and bookmarks (cascade); the statistics stay. */
     @Query("DELETE FROM books WHERE bookId = :bookId")
     abstract suspend fun deleteBook(bookId: Long)
 
-    /** Alle Bücher und Folgen, auch ausgeblendete: Ihre Bilder bleiben auf dem Gerät, solange es sie gibt. */
+    /** All books and episodes, including hidden ones: their images stay on the device as long as they exist. */
     @Query("SELECT bookId, serverId, kind, coverUrl FROM books")
     abstract suspend fun coverRows(): List<BookCoverRow>
 
-    /** Bücher bzw. Folgen [kind] in den Listen, neueste zuerst (deren Bilder lädt die App zuerst für offline). */
+    /** Books or episodes [kind] in the lists, newest first (the app loads their images first for offline use). */
     @Query("SELECT bookId, serverId, kind, coverUrl FROM books WHERE kind = :kind AND $BOOK_LISTED ORDER BY addedAt DESC")
     abstract suspend fun listedCoverRows(kind: BookKind): List<BookCoverRow>
 
-    /** Autoreneinträge der Bücher in den Listen, je Buch der ganze Eintrag; die Namen trennt `bookAuthors`. */
+    /** Author entries of the books in the lists, the whole entry per book; `bookAuthors` splits the names. */
     @Query("SELECT DISTINCT TRIM(author) FROM books WHERE kind = 'BOOK' AND TRIM(author) != '' AND $BOOK_LISTED")
     abstract suspend fun listedAuthors(): List<String>
 
-    /** Ändert sich, sobald Bücher, Folgen oder Abos hinzukommen, wegfallen oder ein anderes Bild bekommen. */
+    /** Changes as soon as books, episodes or subscriptions are added, removed or get a different image. */
     @Query(
         "SELECT (SELECT COUNT(*) || ':' || IFNULL(MAX(bookId), 0) || ':' || IFNULL(SUM(LENGTH(coverUrl)), 0) FROM books) || '/' || " +
             "(SELECT COUNT(*) || ':' || IFNULL(SUM(LENGTH(imageUrl)), 0) FROM podcast_feeds)",
     )
     abstract fun observeImageStamp(): Flow<String>
 
-    /** Titel, Autor und – bei Hörbüchern wählen viele danach – Sprecher. */
+    /** Title, author and – many choose audiobooks by this – narrator. */
     @Query(
         "SELECT * FROM books WHERE kind = :kind AND (normTitle LIKE :pattern ESCAPE '\\' OR author LIKE :pattern ESCAPE '\\' " +
             "OR narrator LIKE :pattern ESCAPE '\\') AND $BOOK_LISTED ORDER BY normTitle LIMIT :limit",
     )
     abstract suspend fun search(kind: BookKind, pattern: String, limit: Int): List<BookEntity>
 
-    /** Bücher, in deren Serienangabe [pattern] vorkommt; welche Serie genau passt, entscheidet der Aufrufer. */
+    /** Books whose series field contains [pattern]; the caller decides which series exactly matches. */
     @Query("SELECT * FROM books WHERE kind = 'BOOK' AND series LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE ORDER BY normTitle")
     abstract suspend fun searchSeriesRows(pattern: String): List<BookEntity>
 
     /**
-     * Bücher, in deren Autoreneintrag [pattern] vorkommt, mit dem ganzen Eintrag; welcher der Namen passt, entscheidet
-     * der Aufrufer (ein Buch kann mehrere Autoren haben).
+     * Books whose author entry contains [pattern], with the whole entry; the caller decides which of the names
+     * matches (a book can have several authors).
      */
     @Query("SELECT bookId, author AS names FROM books WHERE kind = 'BOOK' AND author LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE")
     abstract suspend fun searchAuthorRows(pattern: String): List<BookPeopleRow>
 
-    /** Sprecher wie [searchAuthorRows]. */
+    /** Narrators like [searchAuthorRows]. */
     @Query("SELECT bookId, narrator AS names FROM books WHERE kind = 'BOOK' AND narrator LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE")
     abstract suspend fun searchNarratorRows(pattern: String): List<BookPeopleRow>
 
@@ -207,8 +207,8 @@ abstract class BookDao {
     abstract suspend fun updateBook(book: BookEntity)
 
     /**
-     * Legt das Buch an oder aktualisiert es, die lokale ID bleibt stabil. Unverändert bleibt es ungeschrieben (Abgleiche).
-     * Der Stern ([BookEntity.starredAt]) gehört dem Nutzer und bleibt.
+     * Inserts or updates the book; the local ID stays stable. If unchanged, it is not written (syncs).
+     * The star ([BookEntity.starredAt]) belongs to the user and stays.
      */
     @Transaction
     open suspend fun upsertBook(book: BookEntity): Long {
@@ -226,17 +226,17 @@ abstract class BookDao {
         }
     }
 
-    /** Das Buch ist unverändert und zählt für diesen Abgleich als gesehen. */
+    /** The book is unchanged and counts as seen for this sync. */
     @Query("UPDATE books SET seenInGeneration = :generation WHERE serverId = :serverId AND remoteId = :remoteId")
     abstract suspend fun markSeen(serverId: String, remoteId: String, generation: Long)
 
-    /** Bücher, die der letzte Vollabgleich nicht mehr gesehen hat, sind auf dem Server gelöscht (Mark-and-Sweep). */
+    /** Books the last full sync no longer saw have been deleted on the server (mark-and-sweep). */
     @Query("DELETE FROM books WHERE serverId = :serverId AND seenInGeneration < :generation")
     abstract suspend fun deleteUnseen(serverId: String, generation: Long)
 
     /**
-     * Wie [deleteUnseen], aber die Bücher der Bibliotheken [keptLibraries] bleiben: Abgewählte werden nicht abgeglichen und
-     * behalten ihre Bücher samt Downloads, Fortschritt und Lesezeichen (ausgeblendet wie bei einem ausgeschalteten Server).
+     * Like [deleteUnseen], but the books of the libraries [keptLibraries] stay: deselected ones are not synced and
+     * keep their books including downloads, progress and bookmarks (hidden as with a disabled server).
      */
     @Query(
         "DELETE FROM books WHERE serverId = :serverId AND seenInGeneration < :generation AND " +
@@ -244,7 +244,7 @@ abstract class BookDao {
     )
     abstract suspend fun deleteUnseenOutside(serverId: String, generation: Long, keptLibraries: List<String>)
 
-    /** Uhr: Hörbücher, die nicht mehr im Manifest des Handys stehen (Wear-Konzept 16.2), über alle Server. */
+    /** Watch: audiobooks that are no longer in the phone's manifest (Wear concept 16.2), across all servers. */
     @Query("DELETE FROM books WHERE kind = 'BOOK' AND seenInGeneration < :generation")
     abstract suspend fun deleteUnseenBooks(generation: Long)
 
@@ -252,12 +252,12 @@ abstract class BookDao {
     protected abstract suspend fun nextGeneration(nowMs: Long): Long
 
     /**
-     * Generation für einen Abgleich ohne eigenen Zähler (Bücher und Podcasts auf dem Gerät, Spiegel der Uhr): die Uhrzeit, aber
-     * immer größer als jede gespeicherte. Geht die Uhr nach (Zeitabgleich), bliebe sonst bei [deleteUnseen] stehen, was weg ist.
+     * Generation for a sync without its own counter (books and podcasts on the device, watch mirror): the clock time, but
+     * always greater than any stored one. If the clock is behind (time sync), [deleteUnseen] would otherwise keep what is gone.
      */
     suspend fun nextGeneration(): Long = nextGeneration(System.currentTimeMillis())
 
-    // --- Dateien und Kapitel ---
+    // --- Files and chapters ---
 
     @Query("SELECT * FROM book_tracks WHERE bookId = :bookId ORDER BY trackIndex")
     abstract suspend fun tracks(bookId: Long): List<BookTrackEntity>
@@ -274,7 +274,7 @@ abstract class BookDao {
     @Query("SELECT * FROM episode_persons WHERE bookId = :bookId ORDER BY personIndex")
     abstract fun observePersons(bookId: Long): Flow<List<EpisodePersonEntity>>
 
-    /** Mitwirkende aller Folgen eines Abos, für den Abgleich (eine Abfrage statt einer je Folge). */
+    /** Contributors of all episodes of a subscription, for the sync (one query instead of one per episode). */
     @Query(
         "SELECT p.* FROM episode_persons p JOIN books b ON b.bookId = p.bookId " +
             "WHERE b.serverId = :serverId ORDER BY p.bookId, p.personIndex",
@@ -296,7 +296,7 @@ abstract class BookDao {
     @Query("DELETE FROM book_tracks WHERE bookId = :bookId")
     abstract suspend fun deleteTracks(bookId: Long)
 
-    /** Markiert eine Datei als nicht mehr abrufbar ([since]) bzw. wieder abrufbar (`null`); ihr Download-Stand bleibt. */
+    /** Marks a file as no longer available ([since]) or available again (`null`); its download state stays. */
     @Query("UPDATE book_tracks SET unavailableSince = :since WHERE bookId = :bookId AND trackIndex = :trackIndex")
     abstract suspend fun setTrackUnavailable(bookId: Long, trackIndex: Int, since: Long?)
 
@@ -315,7 +315,7 @@ abstract class BookDao {
     @Query("UPDATE book_tracks SET durationMs = :durationMs WHERE bookId = :bookId AND trackIndex = 0")
     abstract suspend fun setFirstTrackDuration(bookId: Long, durationMs: Long)
 
-    /** Das letzte Kapitel reicht bis zum Ende des Buchs. */
+    /** The last chapter extends to the end of the book. */
     @Query(
         "UPDATE book_chapters SET endMs = :durationMs WHERE bookId = :bookId AND chapterIndex = " +
             "(SELECT MAX(chapterIndex) FROM book_chapters WHERE bookId = :bookId) AND startMs < :durationMs",
@@ -338,7 +338,7 @@ abstract class BookDao {
     @Query("UPDATE books SET chapterSource = :source WHERE bookId = :bookId")
     abstract suspend fun setChapterSource(bookId: Long, source: ChapterSource?)
 
-    /** Ersetzt die Kapitel einer Folge und merkt sich ihre Quelle; leere [chapters] heißen: Die Quelle hat keine. */
+    /** Replaces an episode's chapters and remembers their source; empty [chapters] means the source has none. */
     @Transaction
     open suspend fun replaceChapters(bookId: Long, chapters: List<BookChapterEntity>, source: ChapterSource) {
         deleteChapters(bookId)
@@ -347,8 +347,8 @@ abstract class BookDao {
     }
 
     /**
-     * Ersetzt Dateien und Kapitel. Der Download-Stand einer Datei bleibt, wenn sie gleich geblieben ist (gleiche
-     * Kennung und Länge) – sonst verlöre jede Metadaten-Änderung auf dem Server den Download des Buchs.
+     * Replaces files and chapters. A file's download state stays if it has remained the same (same
+     * ID and duration) – otherwise every metadata change on the server would lose the book's download.
      */
     @Transaction
     open suspend fun replaceDetails(bookId: Long, tracks: List<BookTrackEntity>, chapters: List<BookChapterEntity>) {
@@ -369,7 +369,7 @@ abstract class BookDao {
         markDetailsLoaded(bookId)
     }
 
-    // --- Fortschritt ---
+    // --- Progress ---
 
     @Query("SELECT * FROM book_progress")
     abstract fun observeAllProgress(): Flow<List<BookProgressEntity>>
@@ -384,11 +384,11 @@ abstract class BookDao {
     abstract suspend fun upsertProgress(progress: BookProgressEntity)
 
     /**
-     * Setzt nur Position, Stand und Merker eines vorhandenen Eintrags; Tempo und Effekte bleiben, wie sie gerade stehen
-     * (ein Lesen-und-Zurückschreiben mit [upsertProgress] überschriebe eine Änderung dazwischen, [setEffects]).
-     * `finishedAt` merkt sich, wann das Buch beendet wurde: Es bleibt, solange der Stand beendet bleibt (auch wenn `updatedAt`
-     * etwa durch [hidden] oder einen Abgleich weiterrückt), und fällt mit dem Wiederaufnehmen.
-     * @return 0, wenn es noch keinen Eintrag gibt.
+     * Sets only position, state and flags of an existing entry; speed and effects stay as they currently are
+     * (a read-and-write-back with [upsertProgress] would overwrite a change in between, [setEffects]).
+     * `finishedAt` remembers when the book was finished: it stays as long as the state remains finished (even if `updatedAt`
+     * advances e.g. through [hidden] or a sync), and is cleared on resuming.
+     * @return 0 if there is no entry yet.
      */
     @Query(
         """
@@ -408,36 +408,36 @@ abstract class BookDao {
         hidden: Boolean,
     ): Int
 
-    /** Mehrere Stände in einem Zug (eine Änderungsmeldung statt einer je Zeile). */
+    /** Several states in one go (one change notification instead of one per row). */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertAllProgress(progress: List<BookProgressEntity>)
 
     @Query("SELECT * FROM book_progress WHERE dirty = 1")
     abstract suspend fun dirtyProgress(): List<BookProgressEntity>
 
-    /** Nur wenn sich der Eintrag seit dem Senden nicht geändert hat; sonst bleibt er für die nächste Runde markiert. */
+    /** Only if the entry hasn't changed since it was sent; otherwise it stays marked for the next round. */
     @Query("UPDATE book_progress SET dirty = 0 WHERE bookId = :bookId AND updatedAt = :updatedAt")
     abstract suspend fun markClean(bookId: Long, updatedAt: Long)
 
-    /** Eigenes Tempo und eigene Effekte; `null` = die des Abos bzw. Bereichs. */
+    /** Own speed and own effects; `null` = those of the subscription or section. */
     @Query("UPDATE book_progress SET speed = :speed, skipSilence = :skipSilence, volumeBoostDb = :volumeBoostDb WHERE bookId = :bookId")
     abstract suspend fun setEffects(bookId: Long, speed: Float?, skipSilence: Boolean?, volumeBoostDb: Int?)
 
     @Query("SELECT * FROM book_progress WHERE bookId IN (:bookIds)")
     abstract suspend fun progressOf(bookIds: List<Long>): List<BookProgressEntity>
 
-    /** Aller Fortschritt samt dem geräteübergreifenden Schlüssel seines Buchs (Backup, Review K9). */
+    /** All progress together with the cross-device key of its book (backup, review K9). */
     @Query("SELECT b.serverId AS serverId, b.remoteId AS remoteId, p.* FROM book_progress p JOIN books b ON b.bookId = p.bookId")
     abstract suspend fun keyedProgress(): List<KeyedProgress>
 
-    // --- Lesezeichen (Konzept 12.6) ---
+    // --- Bookmarks (concept 12.6) ---
 
     @Query("SELECT * FROM bookmarks WHERE bookId = :bookId AND deleted = 0 ORDER BY positionMs, createdAt")
     abstract fun observeBookmarks(bookId: Long): Flow<List<BookmarkEntity>>
 
     /**
-     * Alle Lesezeichen in Büchern bzw. Folgen ([kind]) mit ihrem Buch, neueste zuerst (gesammelte Liste); ohne die ausgeblendeter
-     * Server und Bibliotheken.
+     * All bookmarks in books or episodes ([kind]) with their book, newest first (collected list); without those of hidden
+     * servers and libraries.
      */
     @Query(
         "SELECT books.title AS bookTitle, books.author AS bookAuthor, books.kind AS kind, m.* FROM bookmarks m " +
@@ -449,7 +449,7 @@ abstract class BookDao {
     @Query("SELECT * FROM bookmarks WHERE bookmarkId = :bookmarkId")
     abstract suspend fun bookmark(bookmarkId: Long): BookmarkEntity?
 
-    /** Auch gelöschte, die der Server noch kennt (Abgleich). */
+    /** Also deleted ones the server still knows (sync). */
     @Query("SELECT * FROM bookmarks WHERE bookId IN (:bookIds)")
     abstract suspend fun bookmarksOf(bookIds: List<Long>): List<BookmarkEntity>
 
@@ -465,19 +465,19 @@ abstract class BookDao {
     @Query("DELETE FROM bookmarks WHERE bookmarkId = :bookmarkId")
     abstract suspend fun deleteBookmark(bookmarkId: Long)
 
-    /** Löschen beim Server gemeldet; zwischendurch zurückgeholt, bleibt es. */
+    /** Deletion reported to the server; if restored in the meantime, it stays. */
     @Query("DELETE FROM bookmarks WHERE bookmarkId = :bookmarkId AND deleted = 1 AND updatedAt = :updatedAt")
     abstract suspend fun deleteDeletedBookmark(bookmarkId: Long, updatedAt: Long)
 
-    /** Gemeldet; eine inzwischen neuere Änderung bleibt `dirty`. */
+    /** Reported; a change that is newer by now stays `dirty`. */
     @Query("UPDATE bookmarks SET dirty = 0, remoteTime = :remoteTime WHERE bookmarkId = :bookmarkId AND updatedAt = :updatedAt")
     abstract suspend fun markBookmarkClean(bookmarkId: Long, remoteTime: Double?, updatedAt: Long)
 
-    /** Alle Lesezeichen samt dem geräteübergreifenden Schlüssel ihres Buchs (Backup). */
+    /** All bookmarks together with the cross-device key of their book (backup). */
     @Query("SELECT b.serverId AS serverId, b.remoteId AS remoteId, m.* FROM bookmarks m JOIN books b ON b.bookId = m.bookId")
     abstract suspend fun keyedBookmarks(): List<KeyedBookmark>
 
-    // --- Schlüssel der Bücher: (serverId, remoteId) bleibt auf einem neuen Gerät gleich, die bookId nicht ---
+    // --- Book keys: (serverId, remoteId) stays the same on a new device, the bookId does not ---
 
     @Query("SELECT bookId, serverId, remoteId FROM books")
     abstract fun observeBookRefs(): Flow<List<BookRef>>
@@ -488,11 +488,11 @@ abstract class BookDao {
     @Query("SELECT bookId, serverId, remoteId FROM books WHERE serverId = :serverId AND remoteId IN (:remoteIds)")
     abstract suspend fun bookRefs(serverId: String, remoteIds: List<String>): List<BookRef>
 
-    // --- Downloads der Bücher (je Datei; Folgen laufen über den PodcastDao) ---
+    // --- Book downloads (per file; episodes go through PodcastDao) ---
 
     /**
-     * Download-Stand aller Bücher mit Dateien, zusammengezählt über deren Tracks. Teile, die ARD Sounds nicht mehr führt, zählen nur
-     * geladen bzw. im Laden mit: Ohne sie gilt ein Buch als ganz geladen, wenn alles Abrufbare da ist.
+     * Download state of all books with files, summed over their tracks. Parts that ARD Sounds no longer carries count only
+     * when downloaded or downloading: without them, a book counts as fully downloaded when everything available is there.
      */
     @Query(
         "SELECT t.bookId AS bookId, COUNT(*) AS total, " +
@@ -508,8 +508,8 @@ abstract class BookDao {
     abstract fun observeBookDownloads(): Flow<List<BookDownloadRow>>
 
     /**
-     * Von Hand: auch fehlgeschlagene und entfernte Dateien laden wieder; fertige bleiben, nicht mehr abrufbare fehlen. Was die
-     * Automatik schon eingereiht hat, gilt ab jetzt als von Hand (`autoDownload = 0`) und darf damit über Mobilfunk laden.
+     * Manual: failed and removed files download again too; finished ones stay, no-longer-available ones are missing. What the
+     * automation has already queued counts as manual from now on (`autoDownload = 0`) and may thus download over cellular.
      */
     @Query(
         "UPDATE book_tracks SET downloadState = CASE WHEN downloadState = 'RUNNING' THEN 'RUNNING' ELSE 'QUEUED' END, autoDownload = 0 " +
@@ -519,9 +519,9 @@ abstract class BookDao {
     abstract suspend fun queueBookDownload(bookId: Long): Int
 
     /**
-     * Automatik (Weiterhören, nächster Band): nur nie geladene Dateien, und nicht, wenn der Nutzer den Download des Buchs
-     * entfernt hat oder eine Datei gescheitert ist – das holt nur „Download“ von Hand zurück. `autoDownload = 1`: Diese
-     * Dateien laden nur im WLAN, auch wenn Mobilfunk für Bücher erlaubt ist (siehe [nextQueuedManualBookTrack]).
+     * Automation (continue listening, next volume): only never-downloaded files, and not if the user removed the book's
+     * download or a file failed – only a manual "Download" brings that back. `autoDownload = 1`: these
+     * files only download over Wi-Fi, even if cellular is allowed for books (see [nextQueuedManualBookTrack]).
      */
     @Query(
         "UPDATE book_tracks SET downloadState = 'QUEUED', autoDownload = 1 WHERE bookId = :bookId AND downloadState = 'NONE' AND unavailableSince IS NULL " +
@@ -530,7 +530,7 @@ abstract class BookDao {
     )
     abstract suspend fun queueBookDownloadAutomatic(bookId: Long): Int
 
-    /** Dateien beendeter Bücher (eine Zeile je Datei) mit dem Zeitpunkt, zu dem das Buch beendet wurde. */
+    /** Files of finished books (one row per file) with the time the book was finished. */
     @Query(
         "SELECT t.bookId AS bookId, COALESCE(p.finishedAt, p.updatedAt) AS finishedAt, t.filePath AS filePath FROM book_tracks t " +
             "JOIN books b ON b.bookId = t.bookId JOIN book_progress p ON p.bookId = t.bookId " +
@@ -538,14 +538,14 @@ abstract class BookDao {
     )
     abstract fun observeFinishedBookDownloads(): Flow<List<FinishedDownloadRow>>
 
-    /** Die nächste wartende Datei, die von Hand eingereihten zuerst. */
+    /** The next waiting file, manually queued ones first. */
     @Query(
         "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
             "WHERE b.kind = 'BOOK' AND t.downloadState = 'QUEUED' ORDER BY t.autoDownload, t.bookId, t.trackIndex LIMIT 1",
     )
     abstract suspend fun nextQueuedBookTrack(): BookTrackEntity?
 
-    /** Wie [nextQueuedBookTrack], nur von Hand eingereihte: Die Automatik lädt nicht über Mobilfunk. */
+    /** Like [nextQueuedBookTrack], only manually queued ones: the automation doesn't download over cellular. */
     @Query(
         "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
             "WHERE b.kind = 'BOOK' AND t.downloadState = 'QUEUED' AND t.autoDownload = 0 ORDER BY t.bookId, t.trackIndex LIMIT 1",
@@ -558,7 +558,7 @@ abstract class BookDao {
     )
     abstract suspend fun countPendingBookDownloads(): Int
 
-    /** Wartende und laufende Dateien, die der Nutzer selbst eingereiht hat. */
+    /** Waiting and running files that the user queued themselves. */
     @Query(
         "SELECT COUNT(*) FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
             "WHERE b.kind = 'BOOK' AND t.downloadState IN ('QUEUED', 'RUNNING') AND t.autoDownload = 0",
@@ -578,8 +578,8 @@ abstract class BookDao {
     abstract suspend fun requeueBookTrack(bookId: Long, trackIndex: Int)
 
     /**
-     * Alle noch wartenden Dateien des Buchs scheitern mit: abgelehnte Anmeldung (ändert sich durch Warten nicht), auf der
-     * Uhr eine Datei, die auch auf dem Handy fehlt.
+     * All still-waiting files of the book fail with: rejected login (doesn't change by waiting), on the
+     * watch a file that is also missing on the phone.
      */
     @Query(
         "UPDATE book_tracks SET downloadState = 'FAILED', filePath = NULL, fileSize = 0 " +
@@ -587,53 +587,53 @@ abstract class BookDao {
     )
     abstract suspend fun markBookDownloadFailed(bookId: Long)
 
-    /** Nur diese Datei scheitert; die übrigen laden weiter, das Buch ist danach teilweise geladen. */
+    /** Only this file fails; the others keep downloading, and the book is then partially downloaded. */
     @Query(
         "UPDATE book_tracks SET downloadState = 'FAILED', filePath = NULL, fileSize = 0 " +
             "WHERE bookId = :bookId AND trackIndex = :trackIndex AND downloadState IN ('QUEUED', 'RUNNING')",
     )
     abstract suspend fun markBookTrackFailed(bookId: Long, trackIndex: Int)
 
-    /** Uhr, „Erneut versuchen“: gescheiterte Dateien von Büchern und Folgen wieder zum Laden freigeben. @return Anzahl. */
+    /** Watch, "Retry": releases failed files of books and episodes for downloading again. @return count. */
     @Query("UPDATE book_tracks SET downloadState = 'NONE' WHERE downloadState = 'FAILED'")
     abstract suspend fun resetFailedDownloads(): Int
 
-    /** `0`, wenn der Eintrag inzwischen entfernt oder zurückgesetzt wurde. */
+    /** `0` if the entry has been removed or reset in the meantime. */
     @Query(
         "UPDATE book_tracks SET downloadState = 'DONE', filePath = :path, fileSize = :size " +
             "WHERE bookId = :bookId AND trackIndex = :trackIndex AND downloadState = 'RUNNING'",
     )
     abstract suspend fun markBookTrackDone(bookId: Long, trackIndex: Int, path: String, size: Long): Int
 
-    /** Dateipfade der übrigen Spuren des Buchs: Ein neuer Download darf keinen davon überschreiben. */
+    /** File paths of the book's other tracks: a new download must not overwrite any of them. */
     @Query("SELECT filePath FROM book_tracks WHERE bookId = :bookId AND trackIndex != :trackIndex AND filePath IS NOT NULL")
     abstract suspend fun otherTrackFiles(bookId: Long, trackIndex: Int): List<String>
 
     @Query("UPDATE book_tracks SET downloadState = 'REMOVED', filePath = NULL, fileSize = 0 WHERE bookId = :bookId AND downloadState != 'NONE'")
     abstract suspend fun markBookDownloadRemoved(bookId: Long)
 
-    /** Wartende und laufende Dateien aller Bücher (Speicherplanung der Uhr). */
+    /** Waiting and running files of all books (watch storage planning). */
     @Query(
         "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
             "WHERE b.kind = 'BOOK' AND t.downloadState IN ('QUEUED', 'RUNNING')",
     )
     abstract suspend fun pendingBookTracks(): List<BookTrackEntity>
 
-    /** Dateien aller Bücher, für das Aufräumen verwaister Dateien. */
+    /** Files of all books, for cleaning up orphaned files. */
     @Query(
         "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
             "WHERE b.kind = 'BOOK' AND t.filePath IS NOT NULL",
     )
     abstract suspend fun downloadedBookTracks(): List<BookTrackEntity>
 
-    /** Summen über die Dateien aller Bücher und Folgen (Speicheranzeige der Uhr). */
+    /** Totals over the files of all books and episodes (watch storage display). */
     @Query(TRACK_TOTALS)
     abstract fun observeTrackTotals(): Flow<TrackTotalsRow>
 
     @Query(TRACK_TOTALS)
     abstract suspend fun trackTotals(): TrackTotalsRow
 
-    /** Alle Bücher und Folgen mit ihren Dateien (Speicher-Ansicht der Uhr: dort liegen nur die gewählten). */
+    /** All books and episodes with their files (watch storage view: only the selected ones are there). */
     @Query(
         "SELECT b.bookId AS bookId, b.kind AS kind, b.serverId AS serverId, b.remoteId AS remoteId, b.title AS title, " +
             "b.author AS author, COUNT(t.trackIndex) AS total, COALESCE(SUM(t.downloadState = 'DONE'), 0) AS done, " +
@@ -644,7 +644,7 @@ abstract class BookDao {
     abstract fun observeStoredBooks(): Flow<List<StoredBookRow>>
 }
 
-/** Ein Buch bzw. eine Folge mit dem Stand seiner Dateien; [doneBytes] sind die fertig geladenen. */
+/** A book or episode with the state of its files; [doneBytes] are the fully downloaded ones. */
 data class StoredBookRow(
     val bookId: Long,
     val kind: BookKind,
@@ -657,10 +657,10 @@ data class StoredBookRow(
     val doneBytes: Long,
 )
 
-/** [doneBytes]: fertig geladen; [pendingCount]: wartende und laufende Dateien. */
+/** [doneBytes]: fully downloaded; [pendingCount]: waiting and running files. */
 data class TrackTotalsRow(val doneBytes: Long, val pendingCount: Int)
 
-/** Summen über die Dateien eines Buchs; `bytes` sind die bisher fertig geladenen. */
+/** Totals over a book's files; `bytes` are those fully downloaded so far. */
 data class BookDownloadRow(
     val bookId: Long,
     val total: Int,
@@ -672,13 +672,13 @@ data class BookDownloadRow(
     val bytes: Long,
 )
 
-/** Ein Buch mit dem Schlüssel, der auf einem neuen Gerät gleich bleibt (Review K9). */
+/** A book with the key that stays the same on a new device (review K9). */
 data class BookRef(val bookId: Long, val serverId: String, val remoteId: String)
 
-/** Ein Buch einer Quelle mit seinem Schlüssel und dem Zeitpunkt, seit dem es in der Bibliothek ist. */
+/** A book of a source with its key and the time since which it has been in the library. */
 data class KeyedBook(val remoteId: String, val addedAt: Long)
 
-/** Eine Datei eines Buchs mit dem Schlüssel des Buchs und dem Namen ihres Kapitels (für die Sicherung der Bücher aus ARD Sounds). */
+/** A file of a book with the book's key and the name of its chapter (for backing up books from ARD Sounds). */
 data class KeyedBookPart(
     val remoteId: String,
     val trackIndex: Int,
@@ -690,14 +690,14 @@ data class KeyedBookPart(
     val remoteItemId: String? = null,
 )
 
-/** Fortschritt mit dem Schlüssel seines Buchs. */
+/** Progress with the key of its book. */
 data class KeyedProgress(
     val serverId: String,
     val remoteId: String,
     @Embedded val progress: BookProgressEntity,
 )
 
-/** Lesezeichen mit Titel und Autor (bei Folgen dem Podcast) seines Buchs bzw. seiner Folge. */
+/** Bookmark with title and author (for episodes, the podcast) of its book or episode. */
 data class BookmarkWithBook(
     val bookTitle: String,
     val bookAuthor: String,
@@ -705,7 +705,7 @@ data class BookmarkWithBook(
     @Embedded val bookmark: BookmarkEntity,
 )
 
-/** Lesezeichen mit dem Schlüssel seines Buchs. */
+/** Bookmark with the key of its book. */
 data class KeyedBookmark(
     val serverId: String,
     val remoteId: String,

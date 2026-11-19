@@ -6,32 +6,32 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 
 /**
- * Zustand eines Bildschirms (Konzept 10): lädt, gelöscht, fertig oder nicht lesbar. „Leer“ ist ein [Ready] mit leerer Liste;
- * so blitzt beim Öffnen kein Leer-Hinweis auf, bevor die Datenbank geantwortet hat.
+ * State of a screen (concept 10): loading, deleted, ready or unreadable. "Empty" is a [Ready] with an empty list;
+ * that way no empty hint flashes up on opening before the database has answered.
  */
 sealed interface LoadState<out T> {
     data object Loading : LoadState<Nothing>
 
-    /** Der Inhalt einer Detailseite wurde gelöscht. */
+    /** The content of a detail page was deleted. */
     data object Missing : LoadState<Nothing>
     data class Ready<T>(val value: T) : LoadState<T>
 
-    /** Die Quelle (meist die Datenbank) hat eine Ausnahme geworfen; sie steht im Log, nicht im Zustand. */
+    /** The source (usually the database) threw an exception; it is in the log, not in the state. */
     data object Failed : LoadState<Nothing>
 }
 
-/** Der Inhalt, solange er geladen ist. */
+/** The content, as long as it is loaded. */
 val <T> LoadState<T>.valueOrNull: T? get() = (this as? LoadState.Ready)?.value
 
 fun <T : Any> T?.toLoadState(): LoadState<T> = if (this == null) LoadState.Missing else LoadState.Ready(this)
 
-/** Jeder Wert wird [LoadState.Ready]; eine Ausnahme der Quelle wird [LoadState.Failed], statt die App zu beenden. */
+/** Every value becomes [LoadState.Ready]; an exception from the source becomes [LoadState.Failed] instead of terminating the app. */
 fun <T> Flow<T>.asLoadState(): Flow<LoadState<T>> = map<T, LoadState<T>> { LoadState.Ready(it) }.failedOnError()
 
-/** Wie [asLoadState]; `null` heißt gelöscht ([LoadState.Missing]). */
+/** Like [asLoadState]; `null` means deleted ([LoadState.Missing]). */
 fun <T : Any> Flow<T?>.asLoadStateOrMissing(): Flow<LoadState<T>> = map { it.toLoadState() }.failedOnError()
 
-/** Für zusammengesetzte Zustände: Eine Ausnahme der Quelle ergibt [failed], statt die App zu beenden. */
+/** For combined states: an exception from the source yields [failed] instead of terminating the app. */
 fun <T> Flow<T>.orOnError(failed: T): Flow<T> = catch { e ->
     Log.e(TAG, "Inhalt konnte nicht geladen werden", e)
     emit(failed)

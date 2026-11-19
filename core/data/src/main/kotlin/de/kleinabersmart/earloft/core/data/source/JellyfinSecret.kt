@@ -1,8 +1,8 @@
 package de.kleinabersmart.earloft.core.data.source
 
 /**
- * Was von einem Jellyfin-Server im [de.kleinabersmart.earloft.core.data.security.SecretStore] liegt
- * (unter [DataSourceRegistry.passwordKey]): Benutzer-ID und Token der Anmeldung – nie das Passwort (Konzept 14).
+ * What is stored for a Jellyfin server in the [de.kleinabersmart.earloft.core.data.security.SecretStore]
+ * (under [DataSourceRegistry.passwordKey]): user ID and token of the login – never the password (concept 14).
  */
 data class JellyfinSecret(val userId: String, val token: String) {
     override fun toString() = "JellyfinSecret($userId)"

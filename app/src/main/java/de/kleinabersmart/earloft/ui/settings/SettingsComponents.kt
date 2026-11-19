@@ -67,7 +67,7 @@ import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.ui.theme.ThemeMode
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Rahmen einer Unterseite der Einstellungen: Titelleiste mit Zurück, darunter die scrollbare Liste. */
+/** Frame of a settings subpage: title bar with Back, below it the scrollable list. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsPage(
@@ -86,7 +86,7 @@ internal fun SettingsPage(
     }
 }
 
-/** Ganze Zeile schaltet (größere Tippfläche, ein Element für Screenreader). */
+/** The whole row toggles (larger touch target, one element for screen readers). */
 @Composable
 internal fun SwitchRow(
     title: String,
@@ -116,7 +116,7 @@ internal fun SwitchRow(
 
 private const val DISABLED_ALPHA = 0.38f
 
-/** Zeile, die eine Auswahl-Dialog o. Ä. öffnet; [value] ist der aktuelle Wert. */
+/** Row that opens a selection dialog or similar; [value] is the current value. */
 @Composable
 internal fun ClickRow(title: String, value: String, icon: Int, onClick: () -> Unit) {
     ListItem(
@@ -128,8 +128,8 @@ internal fun ClickRow(title: String, value: String, icon: Int, onClick: () -> Un
 }
 
 /**
- * Auswahl eines Werts mit Radio-Zeilen; ein Tipp wählt und schließt. [description] steht einmal über den Zeilen, [footer]
- * darunter (z. B. ein Schieberegler für einen eigenen Wert).
+ * Selection of a value with radio rows; a tap selects and closes. [description] appears once above the rows, [footer]
+ * below them (e.g. a slider for a custom value).
  */
 @Composable
 internal fun <T> ChoiceDialog(
@@ -168,7 +168,7 @@ internal fun <T> ChoiceDialog(
     )
 }
 
-/** Der Wert wird erst beim Loslassen gespeichert. */
+/** The value is only saved on release. */
 @Composable
 internal fun PreAmpRow(preAmpDb: Float, enabled: Boolean, onPreAmpChange: (Float) -> Unit) {
     var value by remember(preAmpDb) { mutableFloatStateOf(preAmpDb) }
@@ -201,7 +201,7 @@ internal fun ServerRow(
     onRemove: () -> Unit,
 ) {
     val server = item.server
-    // Auf schmalen Handys stehen die Knöpfe unter dem Text, sonst bleibt für Name und Adresse kaum Breite.
+    // On narrow phones the buttons sit below the text, otherwise there's hardly any width left for name and address.
     val narrow = LocalConfiguration.current.screenWidthDp < 400
     val actions: @Composable () -> Unit = {
         Row {
@@ -235,7 +235,7 @@ internal fun ServerRow(
                     !server.enabled -> stringResource(R.string.server_disabled)
                     item.passwordLost -> stringResource(R.string.server_password_lost)
                     item.error != null -> stringResource(R.string.server_sync_failed, syncFailureText(item.error, server.type))
-                    // 1: Nach einer Migration ist der Vollabgleich fällig (`EarLoftDatabase.SeveralGenres`), kein Zeitpunkt.
+                    // 1: after a migration the full sync is due (`EarLoftDatabase.SeveralGenres`), not a point in time.
                     server.lastFullSyncAt <= 1L -> stringResource(R.string.server_never_synced)
                     else -> {
                         val ageMs = System.currentTimeMillis() - server.lastFullSyncAt
@@ -267,7 +267,7 @@ private const val MINUTE_MS = 60_000L
 private const val HOUR_MS = 60 * MINUTE_MS
 private const val DAY_MS = 24 * HOUR_MS
 
-/** „vor 5 Minuten“ – eigene Texte statt `DateUtils`, das der System-Sprache folgt. */
+/** "5 minutes ago" – our own texts instead of `DateUtils`, which follows the system language. */
 @Composable
 private fun relativeAge(ageMs: Long): String = when {
     ageMs < HOUR_MS -> (ageMs / MINUTE_MS).toInt().let { pluralStringResource(R.plurals.age_minutes, it, it) }
@@ -275,7 +275,7 @@ private fun relativeAge(ageMs: Long): String = when {
     else -> (ageMs / DAY_MS).toInt().let { pluralStringResource(R.plurals.age_days, it, it) }
 }
 
-/** „Kein Server dieser Art“ – im Server-Formular und in der Serverliste. */
+/** "No server of this type" – in the server form and in the server list. */
 @StringRes
 internal fun notServerText(type: SourceType): Int = when (type) {
     SourceType.JELLYFIN -> R.string.add_server_not_jellyfin
@@ -283,7 +283,7 @@ internal fun notServerText(type: SourceType): Int = when (type) {
     else -> R.string.add_server_not_subsonic
 }
 
-/** Dieselben Texte wie beim Verbindungstest im Server-Formular. */
+/** The same texts as for the connection test in the server form. */
 @Composable
 private fun syncFailureText(failure: SyncFailure, type: SourceType): String = when (failure) {
     SyncFailure.WrongCredentials -> stringResource(R.string.add_server_wrong_credentials)
@@ -340,7 +340,7 @@ internal val ReplayGainMode.label: Int
         ReplayGainMode.AUTO -> R.string.replay_gain_auto
     }
 
-/** „30 s“, „5 min“, „1 h“ – für Pausen- und Rückspulzeiten. */
+/** "30 s", "5 min", "1 h" – for pause and rewind durations. */
 @Composable
 internal fun resumeSecondsLabel(seconds: Int): String = when {
     seconds == 0 -> stringResource(R.string.settings_resume_rewind_off)
@@ -349,7 +349,7 @@ internal fun resumeSecondsLabel(seconds: Int): String = when {
     else -> stringResource(R.string.settings_resume_seconds, seconds)
 }
 
-/** Die zwei Zeilen „Zurückspulen nach Pause von …“ und „Zurückspulen um …“ samt Auswahldialogen. */
+/** The two rows "Rewind after pausing for …" and "Rewind by …" including their selection dialogs. */
 @Composable
 internal fun ResumeRows(rule: ResumeRule, icon: Int, keyPrefix: String, onChange: (ResumeRule) -> Unit) {
     var choosingAfter by rememberSaveable(keyPrefix) { mutableStateOf(false) }
@@ -394,7 +394,7 @@ internal fun ResumeRows(rule: ResumeRule, icon: Int, keyPrefix: String, onChange
     }
 }
 
-/** Die zwei Zeilen „Zurückspulen per Knopf“ und „Vorspulen per Knopf“ samt Auswahldialogen. */
+/** The two rows "Rewind via button" and "Fast forward via button" including their selection dialogs. */
 @Composable
 internal fun SeekRows(steps: SeekSteps, keyPrefix: String, onChange: (SeekSteps) -> Unit) {
     var choosingBack by rememberSaveable(keyPrefix) { mutableStateOf(false) }
@@ -439,12 +439,12 @@ internal fun SeekRows(steps: SeekSteps, keyPrefix: String, onChange: (SeekSteps)
     }
 }
 
-/** „1,25×“ – wie im Player, ohne überflüssige Nullen. */
+/** "1.25×" – as in the player, without superfluous zeros. */
 @Composable
 internal fun speedLabel(speed: Float): String =
     stringResource(R.string.spoken_speed_value, "%.2f".format(speed).trimEnd('0').trimEnd(',', '.'))
 
-/** Die Vorgaben eines Bereichs für Tempo, Stille kürzen und Lautstärke anheben (Konzept 12.4). */
+/** An area's defaults for speed, trim silence and volume boost (concept 12.4). */
 @Composable
 internal fun EffectRows(effects: SpokenEffects, keyPrefix: String, onChange: (SpokenEffects) -> Unit) {
     var choosingSpeed by rememberSaveable(keyPrefix) { mutableStateOf(false) }
@@ -496,21 +496,21 @@ internal fun EffectRows(effects: SpokenEffects, keyPrefix: String, onChange: (Sp
     }
 }
 
-/** Name eines Bereichs wie in der Übersicht der Einstellungen. */
+/** Name of an area as in the settings overview. */
 internal fun areaTitle(area: SpokenMode): Int = when (area) {
     SpokenMode.MUSIC -> R.string.settings_music
     SpokenMode.PODCASTS -> R.string.settings_podcasts
     SpokenMode.BOOKS -> R.string.settings_audiobooks
 }
 
-/** Woher die Inhalte eines Bereichs kommen (Allgemein → Bereiche). */
+/** Where an area's content comes from (General → Areas). */
 internal fun areaSummary(area: SpokenMode): Int = when (area) {
     SpokenMode.MUSIC -> R.string.settings_area_music_summary
     SpokenMode.PODCASTS -> R.string.settings_area_podcasts_summary
     SpokenMode.BOOKS -> R.string.settings_area_books_summary
 }
 
-/** Symbol eines Bereichs wie in der Übersicht der Einstellungen. */
+/** Icon of an area as in the settings overview. */
 internal fun areaIcon(area: SpokenMode): Int = when (area) {
     SpokenMode.MUSIC -> DesignR.drawable.ic_music_note
     SpokenMode.PODCASTS -> DesignR.drawable.ic_playlist_play

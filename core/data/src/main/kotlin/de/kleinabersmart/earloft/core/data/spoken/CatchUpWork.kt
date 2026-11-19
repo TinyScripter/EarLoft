@@ -4,15 +4,15 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.ListenableWorker
 
 /**
- * Gemeinsame Regeln der Nachhol-Worker ([BookProgressWorker], [AbsSessionWorker]): Sie melden, was offline nicht an
- * Audiobookshelf ging, und wiederholen mit wachsendem Abstand (30 s bis 5 h).
+ * Common rules of the catch-up workers ([BookProgressWorker], [AbsSessionWorker]): they report what didn't reach
+ * Audiobookshelf while offline, and retry with increasing intervals (30 s to 5 h).
  */
 internal object CatchUpWork {
 
     /**
-     * Läufe, nach denen aufgegeben wird (zusammen gut 8 h). Was dann noch aussteht, bleibt `dirty` und geht mit dem
-     * nächsten Abgleich bzw. Abspielen hinaus; sonst wiederholte ein Server, den es nicht mehr gibt oder dessen Anmeldung
-     * abgelaufen ist, für immer (Review D1).
+     * Runs after which it gives up (a good 8 h in total). Whatever is still pending then stays `dirty` and goes out with the
+     * next sync or playback; otherwise a server that no longer exists or whose sign-in has expired would
+     * retry forever (review D1).
      */
     const val MAX_ATTEMPTS = 10
 
@@ -20,9 +20,9 @@ internal object CatchUpWork {
         if (done || runAttemptCount + 1 >= MAX_ATTEMPTS) ListenableWorker.Result.success() else ListenableWorker.Result.retry()
 
     /**
-     * Ein laufender oder wartender Auftrag bleibt: Scheitert ein Senden im Worker selbst, plant er sich darüber neu ein;
-     * mit `REPLACE` bräche das den eigenen Lauf ab und reihte sofort einen neuen ein, ohne Backoff (Review D1). [replace]
-     * nur für Nutzeraktionen, die gleich hinausgehen sollen.
+     * A running or waiting job stays: if sending fails within the worker itself, it reschedules itself that way;
+     * with `REPLACE` that would cancel its own run and enqueue a new one immediately, without backoff (review D1). [replace]
+     * only for user actions that should go out right away.
      */
     fun policy(replace: Boolean): ExistingWorkPolicy = if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
 }

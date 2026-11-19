@@ -9,7 +9,7 @@ import de.kleinabersmart.earloft.core.model.DownloadState
 import de.kleinabersmart.earloft.core.model.LyricsKind
 import de.kleinabersmart.earloft.core.model.SyncActionType
 
-/** Einzige Wahrheit für den Download-Status (kein paralleler Media3-Download-Index). */
+/** Single source of truth for the download status (no parallel Media3 download index). */
 @Entity(
     tableName = "downloads",
     foreignKeys = [
@@ -29,7 +29,7 @@ data class DownloadEntity(
     val filePath: String? = null,
     val bytesDone: Long = 0,
     val bytesTotal: Long? = null,
-    /** Wer den Download ausgelöst hat, z. B. "album:12", "playlist:3", "manual". */
+    /** Who triggered the download, e.g. "album:12", "playlist:3", "manual". */
     val pinnedBy: String? = null,
 )
 
@@ -37,12 +37,12 @@ data class DownloadEntity(
 data class PlaylistEntity(
     @PrimaryKey(autoGenerate = true) val playlistId: Long = 0,
     val name: String,
-    /** `null` = nur lokal; sonst mit genau einem Server synchronisiert. */
+    /** `null` = local only; otherwise synced with exactly one server. */
     val boundSourceId: String? = null,
     val remotePlaylistId: String? = null,
     val updatedAt: Long,
     val remoteUpdatedAt: Long? = null,
-    /** Kennung lokaler Playlists in der Sicherung (`user.db`, Review K9); die `playlistId` vergibt ein neues Gerät neu. */
+    /** ID of local playlists in the backup (`user.db`, review K9); a new device assigns a new `playlistId`. */
     @ColumnInfo(defaultValue = "NULL") val backupKey: String? = null,
 )
 
@@ -65,7 +65,7 @@ data class PlaylistEntity(
     indices = [Index("playlistId", "position"), Index("songId")],
 )
 data class PlaylistEntryEntity(
-    /** Eigene ID erlaubt Duplikate in einer Playlist und Umsortieren ohne PK-Konflikte. */
+    /** A separate ID allows duplicates in a playlist and reordering without PK conflicts. */
     @PrimaryKey(autoGenerate = true) val entryId: Long = 0,
     val playlistId: Long,
     val songId: Long,
@@ -87,12 +87,12 @@ data class LyricsEntity(
     @PrimaryKey val songId: Long,
     val kind: LyricsKind,
     val content: String,
-    /** Woher die Lyrics stammen, z. B. "embedded" oder eine sourceId. */
+    /** Where the lyrics come from, e.g. "embedded" or a sourceId. */
     val origin: String,
     val fetchedAt: Long,
 )
 
-/** Persistierte Warteschlange; Index/Position/Shuffle/Repeat liegen im DataStore. */
+/** Persisted queue; index/position/shuffle/repeat live in the DataStore. */
 @Entity(
     tableName = "queue_items",
     foreignKeys = [
@@ -145,7 +145,7 @@ data class SyncActionEntity(
     @PrimaryKey(autoGenerate = true) val actionId: Long = 0,
     val sourceId: String,
     val actionType: SyncActionType,
-    /** Song-Source-UID bzw. lokale playlistId – eine Remote-ID existiert evtl. noch nicht. */
+    /** Song source UID or local playlistId – a remote ID may not exist yet. */
     val targetKey: String,
     val payloadJson: String? = null,
     val createdAt: Long,

@@ -5,7 +5,7 @@ import de.kleinabersmart.earloft.core.datasource.R
 import de.kleinabersmart.earloft.core.datasource.RawArtist
 import de.kleinabersmart.earloft.core.datasource.RawTrack
 
-/** Eine Zeile aus `MediaStore.Audio.Media`, so roh wie möglich. */
+/** A row from `MediaStore.Audio.Media`, as raw as possible. */
 internal data class MediaStoreRow(
     val id: Long,
     val title: String?,
@@ -15,7 +15,7 @@ internal data class MediaStoreRow(
     val albumArtist: String?,
     val isCompilation: Boolean,
     val durationMs: Long,
-    /** MediaStore kodiert Disc und Track als `disc * 1000 + track`. */
+    /** MediaStore encodes disc and track as `disc * 1000 + track`. */
     val track: Int,
     val year: Int,
     val genre: String?,
@@ -33,7 +33,7 @@ internal data class FallbackNames(
     val variousArtists: String,
 ) {
     companion object {
-        /** So benennen Server Sampler; lokal heißt der Album-Künstler [variousArtists]. */
+        /** This is how servers name compilations; locally the album artist is called [variousArtists]. */
         private val VARIOUS_ARTISTS_NAMES = setOf("various artists", "various", "va")
 
         fun isVariousArtists(name: String?): Boolean = name?.trim()?.lowercase() in VARIOUS_ARTISTS_NAMES
@@ -48,23 +48,23 @@ internal data class FallbackNames(
 }
 
 /**
- * Wandelt MediaStore-Zeilen in [RawTrack]s um.
+ * Converts MediaStore rows into [RawTrack]s.
  *
- * Fehlt der Album-Künstler-Tag, wird er aus den Track-Künstlern abgeleitet: Haben alle Tracks
- * eines MediaStore-Albums denselben Künstler, ist er der Album-Künstler, sonst
- * „Verschiedene Künstler“. So zerfallen Sampler ohne Album-Künstler-Tag nicht in Einzelalben.
+ * If the album artist tag is missing, it is derived from the track artists: if all tracks
+ * of a MediaStore album have the same artist, that is the album artist, otherwise
+ * "Various artists". This way compilations without an album artist tag don't fall apart into single albums.
  */
 internal object MediaStoreTrackMapper {
 
     private const val UNKNOWN = "<unknown>"
 
     /**
-     * `lastModified` hat nur Sekundenauflösung; die letzten Stellen kennzeichnen den Stand des Tag-Lesens.
-     * Wer mehr aus den Tags übernimmt, erhöht die Zahl – dann werden alle Dateien einmal neu gelesen.
+     * `lastModified` only has second resolution; the last digits mark the version of the tag reading.
+     * Whoever adopts more from the tags increments the number – then all files are reread once.
      */
     const val TAGS_VERSION = 1L
 
-    /** Ergänzt [track] um das, was nur die Datei selbst weiß. */
+    /** Adds to [track] what only the file itself knows. */
     fun applyTags(track: RawTrack, tags: EmbeddedTags): RawTrack = track.copy(
         mbidTrack = tags.recordingMbid,
         mbidAlbum = tags.releaseMbid,

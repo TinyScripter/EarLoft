@@ -3,17 +3,17 @@ package de.kleinabersmart.earloft.core.data.podcast
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 
 /**
- * Die nächste ungehörte Folge eines Abos: die erste nicht zu Ende gehörte in seiner Abspielreihenfolge ([newestFirst] wie
- * beim Abo eingestellt). Die Folgen ([this]) sind wie aus [PodcastRepository.episodes] die neuesten zuerst. `null`, wenn
- * alle gehört sind – anders als [nextEpisode] ohne aktuelle Folge fängt es dann nicht von vorn an.
+ * The next unplayed episode of a subscription: the first one not played to the end in its playback order ([newestFirst] as
+ * configured for the subscription). The episodes ([this]) are newest first, as from [PodcastRepository.episodes]. `null` if
+ * all are played – unlike [nextEpisode] without a current episode, it doesn't start over then.
  */
 fun List<BookWithProgress>.firstUnheard(newestFirst: Boolean): BookWithProgress? =
     (if (newestFirst) this else asReversed()).firstOrNull { it.progress?.finished != true }
 
 /**
- * Die Folge, die in der Abspielreihenfolge [playOrder] auf [currentId] folgt und noch nicht zu Ende gehört ist.
- * Ohne [currentId] (z. B. „Alle abspielen“) ist es die erste ungehörte Folge, und sind alle gehört, die erste überhaupt.
- * `null`, wenn nach [currentId] nichts Ungehörtes mehr kommt.
+ * The episode that follows [currentId] in the playback order [playOrder] and has not been played to the end.
+ * Without [currentId] (e.g. "Play all") it is the first unplayed episode, and if all are played, the very first one.
+ * `null` if nothing unplayed comes after [currentId].
  */
 internal fun nextEpisode(playOrder: List<Long>, finished: Set<Long>, currentId: Long? = null): Long? {
     if (currentId == null) return playOrder.firstOrNull { it !in finished } ?: playOrder.firstOrNull()

@@ -27,17 +27,17 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Eine abonnierte Sendung oder Reihe aus ARD Sounds: Ihre neuen Bücher kommen von selbst in die Bibliothek. */
+/** A subscribed show or series from ARD Sounds: its new books come into the library on their own. */
 data class ArdSubscription(val showId: String, val title: String)
 
-/** Ergebnis eines Abgleichs der Bücher aus ARD Sounds: `ok`, wenn nichts fehlgeschlagen ist, und die neu in die Bibliothek gekommenen. */
+/** Result of a sync of the books from ARD Sounds: `ok` if nothing failed, and those newly added to the library. */
 data class ArdRefresh(val ok: Boolean, val newBooks: List<NewBook>)
 
 /**
- * Hörbücher und Hörspiele aus ARD Sounds (`books_improvements.md` M9). Ein Buch kommt in die Bibliothek, sobald es abgespielt,
- * geladen oder hinzugefügt wird ([add]) oder zu einer abonnierten Sendung gehört ([subscribe]); es liegt wie die übrigen in `books` (`serverId = `[ARD_BOOK_SERVER_ID], `remoteId` = die
- * Kennung von [ArdSoundsBooks]), je Teil eine Datei mit ihrer Adresse und ein Kapitel. Der Abgleich ([refresh]) nimmt neue Teile
- * auf, lässt bei angefangenen Büchern jeden Teil an seinem Platz, auch wenn ARD Sounds ihn nicht mehr führt, und entfernt nie ein Buch.
+ * Audiobooks and radio plays from ARD Sounds (`books_improvements.md` M9). A book comes into the library as soon as it is played,
+ * downloaded or added ([add]) or belongs to a subscribed show ([subscribe]); like the others it lives in `books` (`serverId = `[ARD_BOOK_SERVER_ID], `remoteId` = the
+ * ID from [ArdSoundsBooks]), one file per part with its URL and one chapter. The sync ([refresh]) picks up new parts,
+ * keeps every part of started books in its place, even if ARD Sounds no longer lists it, and never removes a book.
  */
 @Singleton
 class ArdBooks @Inject constructor(
@@ -49,17 +49,17 @@ class ArdBooks @Inject constructor(
 ) {
     private val mutex = Mutex()
 
-    /** Ein Abgleich nach dem anderen: Laufen der Worker und ein schneller Abgleich zugleich, zählte [takeNew] ein Buch zweimal als neu. */
+    /** One sync after the other: if the worker and a quick sync ran at the same time, [takeNew] would count a book as new twice. */
     private val refreshMutex = Mutex()
 
-    /** Schalter Einstellungen → Bücher → Quellen. */
+    /** Switch Settings → Books → Sources. */
     val enabled: Flow<Boolean> get() = settings.ardSoundsBooks
 
-    /** Die Bücher aus ARD Sounds in der Bibliothek: Kennung bei ARD Sounds → `bookId`. */
+    /** The books from ARD Sounds in the library: ID at ARD Sounds → `bookId`. */
     val library: Flow<Map<String, Long>> =
         dao.observeBookRefsOf(ARD_BOOK_SERVER_ID).map { refs -> refs.associate { it.remoteId to it.bookId } }.distinctUntilChanged()
 
-    /** Die abonnierten Sendungen. */
+    /** The subscribed shows. */
     val subscriptions: Flow<List<ArdSubscription>> get() = settings.ardSubscriptions
 
     suspend fun shows(category: ArdCategory): List<ArdShow> = api.shows(category)
@@ -68,29 +68,29 @@ class ArdBooks @Inject constructor(
 
     suspend fun search(term: String): List<ArdBookSummary> = api.search(term)
 
-    /** Das Buch für die Vorschau, ohne es zu speichern; `null`, wenn ARD Sounds es nicht (mehr) führt. */
+    /** The book for the preview, without storing it; `null` if ARD Sounds doesn't list it (anymore). */
     suspend fun preview(key: String): ArdBook? = api.book(key)
 
     /**
-     * Nimmt das Buch [key] in die Bibliothek auf (oder aktualisiert es) und gibt seine `bookId` zurück. [known] spart den Abruf, wenn
-     * die Vorschau es schon geladen hat; [addedAt] und [saved] (die Teile auf dem alten Gerät, [decodeArdParts]) stammen aus einer
-     * Sicherung. `null`, wenn ARD Sounds es nicht (mehr) führt. @throws IOException ohne Verbindung.
+     * Adds the book [key] to the library (or updates it) and returns its `bookId`. [known] saves the fetch if
+     * the preview already loaded it; [addedAt] and [saved] (the parts on the old device, [decodeArdParts]) come from a
+     * backup. `null` if ARD Sounds doesn't list it (anymore). @throws IOException without a connection.
      */
     internal suspend fun add(key: String, known: ArdBook? = null, addedAt: Long? = null, saved: List<ArdBookPart>): Long? = mutex.withLock {
         dao.bookByRemote(ARD_BOOK_SERVER_ID, key)?.let { return@withLock it.bookId }
         val book = known ?: api.book(key) ?: return@withLock null
-        // ARD Sounds hat die Teile anders zugeordnet: Das Buch heißt jetzt anders und ist womöglich schon da.
+        // ARD Sounds has assigned the parts differently: the book now has a different name and may already be there.
         dao.bookByRemote(ARD_BOOK_SERVER_ID, book.key)?.let { return@withLock it.bookId }
         store(book, existing = null, addedAt = addedAt, saved = saved)
     }
 
     /**
-     * Holt das gesicherte Buch [key] zurück ([add] mit den Angaben aus der Sicherung). Ordnet ARD Sounds seine Titel inzwischen anders
-     * zu ([fetch]), kommt es trotzdem unter [key] in die Bibliothek: Darauf beziehen sich Fortschritt und Lesezeichen der Sicherung,
-     * und den neuen Schlüssel bekommt es beim nächsten [refresh] wie jedes andere Buch. Steht es unter dem neuen schon in der
-     * Bibliothek, bleibt es dabei, und es wird nur einmal je [GONE_RECHECK_MS] wieder gefragt. Kennt ARD Sounds es bestätigt nicht
-     * mehr ([confirmMissing]), ebenso und nicht bei jedem Start; ohne Verbindung (@throws IOException) gilt das nicht als „nicht mehr
-     * da“. `null`, wenn es nicht geholt wurde.
+     * Brings back the backed-up book [key] ([add] with the details from the backup). If ARD Sounds now assigns its titles
+     * differently ([fetch]), it still comes into the library under [key]: the backup's progress and bookmarks refer to that,
+     * and it gets the new key on the next [refresh] like any other book. If it is already in the library under the new one,
+     * it stays that way, and it is only queried again once per [GONE_RECHECK_MS]. If ARD Sounds confirmedly no longer knows it
+     * ([confirmMissing]), likewise and not on every start; without a connection (@throws IOException) that doesn't count as "no longer
+     * there". `null` if it was not fetched.
      */
     internal suspend fun restore(key: String, addedAt: Long?, saved: List<ArdBookPart>): Long? {
         val now = System.currentTimeMillis()
@@ -112,12 +112,12 @@ class ArdBooks @Inject constructor(
         return bookId
     }
 
-    /** Wie das andere [add], ohne Sicherung. */
+    /** Like the other [add], without a backup. */
     suspend fun add(key: String, known: ArdBook? = null): Long? = add(key, known, addedAt = null, saved = emptyList())
 
     /**
-     * Abonniert die Sendung [showId]: Was von jetzt an dort erscheint, kommt in die Bibliothek (beim [refresh]); die Bücher, die es
-     * schon gibt, nicht. @throws IOException ohne Verbindung.
+     * Subscribes to the show [showId]: whatever appears there from now on comes into the library (on [refresh]); the books that already
+     * exist don't. @throws IOException without a connection.
      */
     suspend fun subscribe(showId: String, title: String) {
         settings.subscribeArd(showId, title, api.showBooks(showId).map { it.key })
@@ -125,16 +125,16 @@ class ArdBooks @Inject constructor(
 
     suspend fun unsubscribe(showId: String) = settings.unsubscribeArd(showId)
 
-    /** Entfernt das Buch aus der Bibliothek, samt Fortschritt und Lesezeichen; die Hörzeit bleibt in der Statistik. */
+    /** Removes the book from the library, along with progress and bookmarks; the listening time stays in the statistics. */
     suspend fun remove(bookId: Long) = mutex.withLock {
         val book = dao.book(bookId) ?: return@withLock
         if (book.serverId == ARD_BOOK_SERVER_ID) dao.deleteBook(bookId)
     }
 
     /**
-     * Gleicht die Bücher aus ARD Sounds in der Bibliothek ab und holt die neuen der abonnierten Sendungen (nur mit eingeschaltetem
-     * Schalter). `ok` ist `false`, wenn etwas nicht abrufbar war; das Übrige wird trotzdem abgeglichen. Ein abgelaufenes Buch,
-     * nach dem ARD Sounds kürzlich gefragt wurde, bleibt ungefragt ([GONE_RECHECK_MS]).
+     * Syncs the books from ARD Sounds in the library and fetches the new ones of the subscribed shows (only with the switch
+     * enabled). `ok` is `false` if something couldn't be fetched; the rest is synced anyway. An expired book
+     * that ARD Sounds was asked about recently is not queried ([GONE_RECHECK_MS]).
      */
     suspend fun refresh(): ArdRefresh = refreshMutex.withLock {
         if (!settings.ardSoundsBooks.first()) return@withLock ArdRefresh(ok = true, newBooks = emptyList())
@@ -145,21 +145,21 @@ class ArdBooks @Inject constructor(
             val now = System.currentTimeMillis()
             if (existing.isExpired(now) && checked[existing.remoteId]?.let { now - it < GONE_RECHECK_MS } == true) continue
             try {
-                // Ordnet ARD Sounds die Titel anders zu, heißt das Buch jetzt anders; es behält dabei alles.
+                // If ARD Sounds assigns the titles differently, the book now has a different name; it keeps everything.
                 val book = fetch(existing.remoteId) { dao.tracks(existing.bookId).mapNotNull { it.remoteItemId } }
                 val moved = mutex.withLock {
-                    // Inzwischen entfernt: nicht wieder anlegen.
+                    // Removed in the meantime: don't create it again.
                     val current = dao.book(existing.bookId) ?: return@withLock null
-                    // Ein Buch, das noch nicht abgelaufen sein sollte, gilt erst nach einer zweiten leeren Antwort als weg.
+                    // A book that shouldn't have expired yet only counts as gone after a second empty response.
                     val gone = book == null && (current.isExpired(now) || confirmMissing(current.remoteId, missing, now))
-                    // Wieder da oder jetzt weg: Der Vermerk der ersten leeren Antwort hat ausgedient.
+                    // Back again or now gone: the note of the first empty response has served its purpose.
                     if ((book != null || gone) && current.remoteId in missing) settings.setArdMissing(current.remoteId, null)
                     val moved = when {
                         book == null -> {
                             if (gone) markGone(current)
                             null
                         }
-                        // Unter dem neuen Schlüssel steht es schon in der Bibliothek: dieses bleibt, wie es ist.
+                        // It is already in the library under the new key: this one stays as it is.
                         book.key != current.remoteId && dao.bookByRemote(ARD_BOOK_SERVER_ID, book.key) != null -> {
                             Log.i(TAG, "${current.title} gibt es bei ARD Sounds jetzt als ${book.key}, das schon in der Bibliothek ist")
                             null
@@ -169,13 +169,13 @@ class ArdBooks @Inject constructor(
                             (current.remoteId to book.key).takeIf { book.key != current.remoteId }
                         }
                     }
-                    // Abgelaufen, auch nach dem Abgleich: Eine Woche lang nicht wieder fragen.
+                    // Expired, even after the sync: don't ask again for a week.
                     val expired = dao.book(existing.bookId)?.isExpired(System.currentTimeMillis()) == true
                     if (expired) settings.setArdGoneCheck(existing.remoteId, now) else if (existing.remoteId in checked) settings.setArdGoneCheck(existing.remoteId, null)
                     moved
                 }
-                // Außerhalb des Locks: Das Mitziehen nimmt den der Sicherung, und die ruft ihrerseits [restore] auf.
-                // Statistik, Warteschlange und Sicherung kennen das Buch nur unter seinem Schlüssel.
+                // Outside the lock: carrying over takes the backup's lock, and the backup in turn calls [restore].
+                // Statistics, queue and backup only know the book by its key.
                 moved?.let { keyMoves.moved(ARD_BOOK_SERVER_ID, mapOf(it)) }
             } catch (e: CancellationException) {
                 throw e
@@ -201,16 +201,16 @@ class ArdBooks @Inject constructor(
     private fun BookEntity.isExpired(now: Long) = availableUntil?.let { it <= now } == true
 
     /**
-     * Das Buch [key] bei ARD Sounds, auch wenn es inzwischen anders heißt ([ArdSoundsBooks.movedKey]; [itemIds] sind die Kennungen
-     * seiner Titel, gefragt nur, wenn [key] nichts findet). `null`, wenn ARD Sounds es nicht (mehr) führt.
+     * The book [key] at ARD Sounds, even if it is now named differently ([ArdSoundsBooks.movedKey]; [itemIds] are the IDs
+     * of its titles, only queried if [key] finds nothing). `null` if ARD Sounds doesn't list it (anymore).
      */
     private suspend fun fetch(key: String, itemIds: suspend () -> List<String>): ArdBook? =
         api.book(key) ?: api.movedKey(key, itemIds())?.let { api.book(it) }
 
     /**
-     * Ob ARD Sounds das Buch [key] wirklich nicht mehr führt. Eine einzelne leere Antwort kann ein Aussetzer sein, und als weg gilt
-     * ein Buch danach eine Woche lang ([GONE_RECHECK_MS]): Sie wird nur vermerkt ([missing]); erst eine zweite, frühestens
-     * [CONFIRM_GONE_MS] später, bestätigt es. Den Vermerk räumt der Aufrufer weg, wenn das Buch wieder da oder bestätigt weg ist.
+     * Whether ARD Sounds really no longer lists the book [key]. A single empty response can be a glitch, and a book counts
+     * as gone for a week afterwards ([GONE_RECHECK_MS]): it is only noted ([missing]); only a second one, at the earliest
+     * [CONFIRM_GONE_MS] later, confirms it. The caller clears the note when the book is back or confirmed gone.
      */
     private suspend fun confirmMissing(key: String, missing: Map<String, Long>, now: Long): Boolean {
         val since = missing[key]
@@ -219,9 +219,9 @@ class ArdBooks @Inject constructor(
     }
 
     /**
-     * Nimmt die Bücher einer abonnierten Sendung auf, die der Abgleich noch nicht kannte (höchstens [MAX_NEW_PER_CHECK], den Rest beim
-     * nächsten Mal). Wer ein Buch aus der Bibliothek nimmt, bekommt es nicht wieder: Es gilt als bekannt. Ein Buch ohne Teile bei ARD
-     * Sounds (angekündigt) bleibt unbekannt, bis es welche hat. @throws IOException, wenn etwas nicht abrufbar war.
+     * Adds the books of a subscribed show that the sync didn't know yet (at most [MAX_NEW_PER_CHECK], the rest
+     * next time). Anyone who removes a book from the library doesn't get it back: it counts as known. A book without parts at ARD
+     * Sounds (announced) stays unknown until it has some. @throws IOException if something couldn't be fetched.
      */
     private suspend fun takeNew(subscription: ArdSubscription): List<NewBook> {
         val seen = settings.ardSeen(subscription.showId)
@@ -246,8 +246,8 @@ class ArdBooks @Inject constructor(
     }
 
     /**
-     * Ein Buch ohne veröffentlichte Teile (auch nicht unter einem neuen Schlüssel): Es bleibt mit allen Teilen, die nicht geladenen gelten ab jetzt als nicht mehr abrufbar
-     * und das Buch als abgelaufen.
+     * A book without published parts (not even under a new key): it stays with all its parts, the ones not downloaded now count as no longer available
+     * and the book as expired.
      */
     private suspend fun markGone(existing: BookEntity) {
         val now = System.currentTimeMillis()
@@ -258,10 +258,10 @@ class ArdBooks @Inject constructor(
     }
 
     /**
-     * Speichert das Buch. Ein angefangenes Buch (Fortschritt, Lesezeichen oder Downloads) behält seine Teile an ihrem Platz und
-     * bekommt neue hinten dazu ([mergeArdParts]): Teile laufen bei ARD Sounds einzeln ab, und sonst verschöben sich Position,
-     * Lesezeichen, Kapitel und die Zuordnung der geladenen Dateien. Ebenso eins aus einer Sicherung mit den Teilen des alten Geräts
-     * ([saved]). Ein noch nicht angefangenes nimmt die Teile, wie sie sind.
+     * Stores the book. A started book (progress, bookmarks or downloads) keeps its parts in their place and
+     * gets new ones appended at the end ([mergeArdParts]): parts expire individually at ARD Sounds, and otherwise position,
+     * bookmarks, chapters and the mapping of downloaded files would shift. Likewise one from a backup with the old device's parts
+     * ([saved]). A book not started yet takes the parts as they are.
      */
     private suspend fun store(book: ArdBook, existing: BookEntity?, addedAt: Long? = null, saved: List<ArdBookPart> = emptyList()): Long {
         val known = existing?.let { knownParts(it.bookId) }.orEmpty()
@@ -282,7 +282,7 @@ class ArdBooks @Inject constructor(
             description = book.description,
             durationMs = parts.sumOf { it.track.durationMs },
             addedAt = existing?.addedAt ?: addedAt ?: System.currentTimeMillis(),
-            // Die Dateien kommen mit dem Buch; der Abgleich der Server soll sie nicht nachladen wollen.
+            // The files come with the book; the servers' sync shouldn't try to fetch them.
             detailsLoaded = true,
             coverUrl = book.imageUrl,
             webUrl = book.webUrl,
@@ -296,7 +296,7 @@ class ArdBooks @Inject constructor(
         return bookId
     }
 
-    /** Die Teile des Buchs in der Bibliothek, mit den Kapitelnamen (bei nur einem Teil gibt es kein Kapitel). */
+    /** The parts of the book in the library, with the chapter names (with only one part there is no chapter). */
     private suspend fun knownParts(bookId: Long): List<ArdBookPart> {
         val titles = dao.chapters(bookId).associate { it.chapterIndex to it.title }
         return dao.tracks(bookId).sortedBy { it.trackIndex }.map { ArdBookPart(it, titles[it.trackIndex].orEmpty(), it.unavailableSince) }
@@ -309,7 +309,7 @@ class ArdBooks @Inject constructor(
         return dao.bookmarksOf(listOf(bookId)).any { !it.deleted }
     }
 
-    /** Schreibt Dateien und Kapitel (je Teil eines, ab zwei Teilen), wenn sich etwas geändert hat. */
+    /** Writes files and chapters (one per part, from two parts on) if something changed. */
     private suspend fun saveParts(bookId: Long, parts: List<ArdBookPart>) {
         val tracks = parts.map { it.track.copy(bookId = bookId) }
         val chapters = if (parts.size < 2) {
@@ -319,7 +319,7 @@ class ArdBooks @Inject constructor(
                 BookChapterEntity(bookId, index, part.title, part.track.startMs, part.track.startMs + part.track.durationMs)
             }
         }
-        // Der Download-Stand zählt nicht: Den behält [BookDao.replaceDetails] für gleich gebliebene Dateien ohnehin.
+        // The download state doesn't count: [BookDao.replaceDetails] keeps it for unchanged files anyway.
         fun layout(list: List<BookTrackEntity>) =
             list.sortedBy { it.trackIndex }.map {
                 listOf(it.trackIndex, it.remoteFileId, it.startMs, it.durationMs, it.mimeType, it.unavailableSince, it.remoteItemId)
@@ -333,16 +333,16 @@ class ArdBooks @Inject constructor(
         const val TAG = "ArdBooks"
         const val MAX_NEW_PER_CHECK = 20
 
-        /** So lange wird ein abgelaufenes Buch nicht wieder bei ARD Sounds abgefragt (es kommt selten wieder). */
+        /** How long an expired book is not queried again at ARD Sounds (it rarely comes back). */
         const val GONE_RECHECK_MS = 7 * 24 * 60 * 60 * 1000L
 
-        /** Frühestens so lange nach der ersten leeren Antwort bestätigt eine zweite, dass ARD Sounds ein Buch nicht mehr führt. */
+        /** At the earliest this long after the first empty response, a second one confirms that ARD Sounds no longer lists a book. */
         const val CONFIRM_GONE_MS = 6 * 60 * 60 * 1000L
 
-        /** Downloads, die ein Buch als angefangen gelten lassen. */
+        /** Downloads that make a book count as started. */
         val STARTED_DOWNLOADS = setOf(TrackDownload.DONE, TrackDownload.QUEUED, TrackDownload.RUNNING)
 
-        /** Die Rubrik als Genre, wie ARD Sounds sie nennt. */
+        /** The category as genre, as ARD Sounds names it. */
         fun genreOf(category: ArdCategory): String = when (category) {
             ArdCategory.AUDIOBOOK -> "Hörbuch"
             ArdCategory.RADIO_PLAY -> "Hörspiel"

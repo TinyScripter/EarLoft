@@ -85,7 +85,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import coil3.compose.AsyncImage
 
-/** Buchseite: Beschreibung, Fortschritt, Abspielen und Kapitelliste (Konzept 12.5). */
+/** Book page: description, progress, play and chapter list (concept 12.5). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookScreen(
@@ -150,8 +150,8 @@ fun BookScreen(
                     Icon(painterResource(DesignR.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
                 }
             },
-            // Folgen und Bücher einzeln auf die Uhr (Wear-Konzept 16.1/16.2); ⋮ mit gespielt/ungespielt, Warteschlange usw.
-            // Folgen zuerst mit dem Stern („Gemerkt“).
+            // Episodes and books individually to the watch (Wear concept 16.1/16.2); ⋮ with played/unplayed, queue etc.
+            // Episodes first with the star ("Starred").
             actions = {
                 item?.let { EpisodeStarButton(it) }
                 if (book != null) {
@@ -162,7 +162,7 @@ fun BookScreen(
             },
         )
         if (book == null) {
-            // Aus der Bibliothek entfernt (ARD Sounds): die Seite schließen.
+            // Removed from the library (ARD Sounds): close the page.
             LaunchedEffect(Unit) { if (viewModel.wasLoaded) onBack() }
             return@Column
         }
@@ -176,7 +176,7 @@ fun BookScreen(
                 onPlay = viewModel::play,
                 onDownload = viewModel::startDownload,
                 onCancelDownload = viewModel::removeDownload,
-                // Eine Folge ist klein und wird wie in der Folgenliste ohne Rückfrage gelöscht.
+                // An episode is small and, as in the episode list, is deleted without confirmation.
                 onDeleteDownload = { if (book.kind == BookKind.EPISODE) viewModel.removeDownload() else confirmDelete = true },
                 onOpenGroup = onOpenGroup,
                 onUpload = upload::start.takeIf { book.isArdSounds && canUpload },
@@ -193,7 +193,7 @@ fun BookScreen(
         }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             if (maxWidth >= TwoColumnMinWidth) {
-                // Breites Fenster: Cover und Abspielen links, Beschreibung und Kapitel rechts daneben.
+                // Wide window: cover and play on the left, description and chapters on the right next to it.
                 val headerWidth = maxWidth * 0.4f
                 Row(Modifier.fillMaxSize()) {
                     Column(
@@ -221,13 +221,13 @@ fun BookScreen(
     ArdUploadDialogs(uploadState, title = book?.title.orEmpty(), onConfirm = upload::confirm, onDismiss = upload::dismiss)
 }
 
-/** Cover, Titel, Autor, Dauer, Fortschritt und Abspielen. */
+/** Cover, title, author, duration, progress and play. */
 @Composable
 private fun BookHeader(
     book: Book,
     progress: BookProgress?,
     download: TrackDownload,
-    /** Teilweise geladen: fertige und alle Dateien. */
+    /** Partially downloaded: finished and all files. */
     partial: Pair<Int, Int>?,
     transfer: BookTransfer?,
     episodeFraction: Float?,
@@ -236,7 +236,7 @@ private fun BookHeader(
     onCancelDownload: () -> Unit,
     onDeleteDownload: () -> Unit,
     onOpenGroup: (BookGroupKind, String) -> Unit,
-    /** Bücher aus ARD Sounds: „In Audiobookshelf hochladen“ (`null` = nicht anbieten). */
+    /** Books from ARD Sounds: "Upload to Audiobookshelf" (`null` = don't offer). */
     onUpload: (() -> Unit)? = null,
     trialNotice: (@Composable () -> Unit)? = null,
 ) {
@@ -245,7 +245,7 @@ private fun BookHeader(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        // Niedrig (kleines Handy, quer): kleineres Cover, damit „Fortsetzen“ ohne Scrollen sichtbar bleibt.
+        // Low (small phone, landscape): smaller cover, so "Resume" stays visible without scrolling.
         val screenHeight = LocalConfiguration.current.screenHeightDp
         val coverMax = if (screenHeight < 700) (screenHeight * 0.2f).coerceIn(96f, 280f).dp else 280.dp
         BookArt(book.id, Modifier.widthIn(max = coverMax).fillMaxWidth())
@@ -254,15 +254,15 @@ private fun BookHeader(
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(top = 12.dp),
         )
-        // Viele Untertitel nennen nur Serie und Band („Carl Mørck 10“), die darunter ohnehin stehen, oder stecken schon im Titel.
+        // Many subtitles only name the series and volume ("Carl Mørck 10"), which appear below anyway, or are already in the title.
         book.subtitle?.takeUnless { isSeriesOnly(it, book.series) || book.title.contains(it, ignoreCase = true) }?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         }
-        // Bei Büchern führen Autoren, Serie und Sprecher einzeln zu deren Seite (Bibliothek → Autoren bzw. Serien);
-        // Folgen nennen den Podcast.
+        // For books, authors, series and narrators each lead to their page (Library → Authors or Series);
+        // episodes name the podcast.
         val isBook = book.kind == BookKind.BOOK
         if (isBook) {
-            // Autoren zuerst, Übersetzer u. Ä. danach und ohne eigene Seite.
+            // Authors first, translators etc. afterwards and without their own page.
             val authors = bookAuthors(book.author)
             PeopleLine(
                 names = authors + parsePeople(book.author).filterNot { it in authors },
@@ -296,7 +296,7 @@ private fun BookHeader(
                 onClick = { onOpenGroup(BookGroupKind.NARRATOR, it) },
             )
         }
-        // Genres von Audiobookshelf, jedes führt zu den Büchern dieses Genres.
+        // Genres from Audiobookshelf, each leads to the books of that genre.
         if (isBook && book.genres.isNotEmpty()) {
             PeopleLine(
                 names = book.genres,
@@ -306,13 +306,13 @@ private fun BookHeader(
                 onClick = { onOpenGroup(BookGroupKind.GENRE, it) },
             )
         }
-        // Folgen: Erscheinen mit Uhrzeit (Nachrichten kommen mehrmals am Tag unter gleichem Titel). Podcast-Feeds nennen
-        // nicht immer eine Dauer.
-        // Bücher: Jahr, Verlag, Sprache und Dauer; bei angefangenen die Restzeit (Inhaltszeit, ohne Tempo).
+        // Episodes: publication with time of day (news come several times a day under the same title). Podcast feeds don't
+        // always give a duration.
+        // Books: year, publisher, language and duration; for started ones the remaining time (content time, without speed).
         val remaining = progress?.takeIf { isBook && !it.finished && it.positionMs > 0 && book.durationMs > 0 }
             ?.let { stringResource(R.string.book_remaining, formatDuration((book.durationMs - it.positionMs).coerceAtLeast(0))) }
         val facts = listOfNotNull(
-            // Folgen: Art, Staffel und Nummer aus dem Feed („Staffel 2 · Folge 12“).
+            // Episodes: type, season and number from the feed ("Season 2 · Episode 12").
             if (isBook) null else episodeLabel(book, withSeason = true),
             book.addedAt.takeIf { book.kind == BookKind.EPISODE && it > 0 }?.let { formatEpisodeDay(it, withTime = true) },
             book.publishedYear.takeIf { isBook },
@@ -322,7 +322,7 @@ private fun BookHeader(
             remaining,
         )
         if (facts.isNotEmpty()) Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-        // Bücher aus ARD Sounds sind oft nur befristet abrufbar (`books_improvements.md` M9).
+        // Books from ARD Sounds are often only available for a limited time (`books_improvements.md` M9).
         if (book.isArdSounds) book.availableUntil?.let { AvailabilityText(it, downloaded = download == TrackDownload.DONE) }
         if (progress != null && progress.positionMs > 0) {
             LinearProgressIndicator(
@@ -340,9 +340,9 @@ private fun BookHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        // Folge eines nicht abonnierten Podcasts (Konzept 12.10): direkt über dem Abspielen, Tipp führt zum Podcast.
+        // Episode of a podcast that isn't subscribed (concept 12.10): directly above play, a tap leads to the podcast.
         trialNotice?.invoke()
-        // Abspielen nimmt zwei Drittel der Zeile, Download ein Drittel (Bücher und Folgen); Bücher vom Gerät haben keinen Download.
+        // Play takes two thirds of the row, download one third (books and episodes); books from the device have no download.
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilledTonalButton(onClick = onPlay, modifier = Modifier.weight(if (book.isLocal) 1f else 2f)) {
                 Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null)
@@ -380,7 +380,7 @@ private fun BookHeader(
     }
 }
 
-/** Herunterladen; beim Laden Abbrechen, danach Löschen (mit Rückfrage), nach einem Fehler erneut versuchen. */
+/** Download; while downloading cancel, afterwards delete (with confirmation), after an error retry. */
 @Composable
 private fun DownloadButton(
     state: TrackDownload,
@@ -395,14 +395,14 @@ private fun DownloadButton(
         TrackDownload.FAILED -> Triple(DesignR.drawable.ic_error, R.string.book_download_retry, onDownload)
         TrackDownload.NONE, TrackDownload.REMOVED -> Triple(DesignR.drawable.ic_download, R.string.book_download, onDownload)
     }
-    // Schmaler Knopf: kleinere Ränder, damit „Download“ und „Abbrechen“ auch bei großer Schrift Platz haben.
+    // Narrow button: smaller paddings, so "Download" and "Cancel" fit even with large font.
     FilledTonalButton(onClick = onClick, modifier = modifier, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
         Icon(painterResource(icon), contentDescription = null)
         Text(stringResource(label), modifier = Modifier.padding(start = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
-/** „32 MB von 500 MB geladen“; ohne bekannte Gesamtgröße nur der übertragene Teil, vor dem Start „Wartet“. */
+/** "32 MB of 500 MB downloaded"; without a known total size only the transferred part, before the start "Waiting". */
 @Composable
 internal fun transferText(transfer: BookTransfer?): String = when {
     transfer == null -> stringResource(R.string.book_download_waiting)
@@ -410,7 +410,7 @@ internal fun transferText(transfer: BookTransfer?): String = when {
     else -> stringResource(R.string.book_download_progress, formatBytes(transfer.doneBytes), formatBytes(transfer.totalBytes!!))
 }
 
-/** „45 % geladen“; vor dem Start und ohne bekannte Dateigröße „Wartet…“. */
+/** "45 % downloaded"; before the start and without a known file size "Waiting…". */
 @Composable
 private fun episodeTransferText(fraction: Float?): String =
     if (fraction == null || fraction == EpisodeDownloadProgress.UNKNOWN) {
@@ -420,8 +420,8 @@ private fun episodeTransferText(fraction: Float?): String =
     }
 
 /**
- * Beschreibung, Mitwirkende (Folgen) und Kapitelliste; ein Tipp auf ein Kapitel spielt ab dessen Anfang, bei Folgen ebenso
- * ein Tipp auf eine Zeitmarke in den Shownotes.
+ * Description, contributors (episodes) and chapter list; a tap on a chapter plays from its start, for episodes likewise
+ * a tap on a timestamp in the show notes.
  */
 private fun LazyListScope.bookDetailItems(book: Book, chapters: List<BookChapter>, persons: List<EpisodePerson>, onChapter: (Long) -> Unit) {
     if (book.description.isNotBlank()) {
@@ -461,8 +461,8 @@ private fun LazyListScope.bookDetailItems(book: Book, chapters: List<BookChapter
 }
 
 /**
- * Autoren bzw. Sprecher als Zeile „A, B, C“, die bei Bedarf umbricht; ein Name, für den [opens] gilt, führt per Tipp zu
- * seiner Seite ([onClick]).
+ * Authors or narrators as a line "A, B, C" that wraps if needed; a name for which [opens] holds leads on tap to
+ * its page ([onClick]).
  */
 @Composable
 private fun PeopleLine(
@@ -484,14 +484,14 @@ private fun PeopleLine(
     }
 }
 
-/** „Die Tribute von Panem · Band 2“; ohne Band nur der Name. */
+/** "The Hunger Games · Book 2"; without a volume just the name. */
 @Composable
 private fun seriesLabel(series: SeriesRef): String {
     val volume = series.volume ?: return series.name
     return stringResource(R.string.book_series_volume, series.name, volumeNumber(volume))
 }
 
-/** Ob der Untertitel nur eine der Serien samt Band nennt („Carl Mørck 10“, „Carl Mørck, Band 10“). */
+/** Whether the subtitle only names one of the series including volume ("Carl Mørck 10", "Carl Mørck, Band 10"). */
 internal fun isSeriesOnly(subtitle: String, series: String): Boolean {
     fun plain(text: String) = text.lowercase().filter { it.isLetterOrDigit() }.replace("band", "").replace("book", "")
     val wanted = plain(subtitle)
@@ -499,8 +499,8 @@ internal fun isSeriesOnly(subtitle: String, series: String): Boolean {
 }
 
 /**
- * Ein Band zum Anzeigen: eine bloße Zahl ohne „.0“ und führende Nullen, „2.5“ bzw. „2,5“ je nach Sprache; alles andere
- * („2a“, „1-3“) bleibt, wie es ist.
+ * A volume for display: a bare number without ".0" and leading zeros, "2.5" or "2,5" depending on the language; everything else
+ * ("2a", "1-3") stays as it is.
  */
 internal fun volumeNumber(volume: String): String {
     val number = volume.trim().takeIf { it.matches(PLAIN_NUMBER) }?.replace(',', '.')?.toDouble() ?: return volume
@@ -510,8 +510,8 @@ internal fun volumeNumber(volume: String): String {
 private val PLAIN_NUMBER = Regex("""\d+(?:[.,]\d+)?""")
 
 /**
- * Die Sprache eines Buchs in der Sprache der App: Audiobookshelf führt sie meist englisch („German“) oder als Code („de“);
- * Unbekanntes bleibt, wie es ist.
+ * A book's language in the app's language: Audiobookshelf mostly stores it in English ("German") or as a code ("de");
+ * anything unknown stays as it is.
  */
 internal fun languageName(language: String): String {
     val trimmed = language.trim()
@@ -521,7 +521,7 @@ internal fun languageName(language: String): String {
     return locale.getDisplayLanguage(Locale.getDefault()).replaceFirstChar { it.titlecase(Locale.getDefault()) }
 }
 
-/** Ein Kapitel in einer nicht mehr abrufbaren Datei ([BookChapter.unavailable]) erscheint ausgegraut. */
+/** A chapter in a file that is no longer available ([BookChapter.unavailable]) appears grayed out. */
 @Composable
 internal fun unavailableChapterColors(chapter: BookChapter, containerColor: Color = Color.Transparent): ListItemColors {
     if (!chapter.unavailable) return ListItemDefaults.colors(containerColor = containerColor)
@@ -540,7 +540,7 @@ private const val DISABLED_ALPHA = 0.38f
 internal fun chapterTitle(chapter: BookChapter): String =
     chapter.title.ifBlank { stringResource(R.string.spoken_chapter_n, chapter.index + 1) }
 
-/** Kapitelbild vor dem Titel in Kapitellisten; ohne Bild bleibt der Platz leer, damit die Titel bündig stehen. */
+/** Chapter image before the title in chapter lists; without an image the space stays empty so the titles stay aligned. */
 @Composable
 internal fun ChapterImage(url: String?) {
     Box(Modifier.size(40.dp).clip(RoundedCornerShape(4.dp))) {
@@ -548,7 +548,7 @@ internal fun ChapterImage(url: String?) {
     }
 }
 
-/** Rechts in Kapitellisten: [time], davor die Webseite des Kapitels, falls es eine hat. */
+/** On the right in chapter lists: [time], preceded by the chapter's web page if it has one. */
 @Composable
 internal fun ChapterTrailing(url: String?, time: @Composable () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -557,7 +557,7 @@ internal fun ChapterTrailing(url: String?, time: @Composable () -> Unit) {
     }
 }
 
-/** Öffnet die Webseite eines Kapitels im Browser. */
+/** Opens a chapter's web page in the browser. */
 @Composable
 internal fun ChapterLinkButton(url: String) {
     val openLink = rememberOpenLink()
@@ -566,7 +566,7 @@ internal fun ChapterLinkButton(url: String) {
     }
 }
 
-/** Öffnet eine Webseite; ohne Browser passiert nichts. */
+/** Opens a web page; without a browser nothing happens. */
 @Composable
 internal fun rememberOpenLink(): (String) -> Unit {
     val uriHandler = LocalUriHandler.current

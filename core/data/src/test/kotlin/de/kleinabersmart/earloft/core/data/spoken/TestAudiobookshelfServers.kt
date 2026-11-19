@@ -8,7 +8,7 @@ import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServerRegistry
 import okhttp3.OkHttpClient
 
-/** [AudiobookshelfServers] für Tests; Anmeldung und Erneuerung gehen über [client]. */
+/** [AudiobookshelfServers] for tests; sign-in and renewal go through [client]. */
 fun testAudiobookshelfServers(
     dao: BookDao,
     secrets: SecretStore,

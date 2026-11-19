@@ -22,14 +22,14 @@ import coil3.compose.AsyncImage
 import de.kleinabersmart.earloft.core.designsystem.R
 import de.kleinabersmart.earloft.core.model.AppUris
 
-/** Stärke der feinen Kontur um Cover und Bilder. */
+/** Width of the thin outline around covers and images. */
 val CoverOutlineWidth = 1.dp
 
-/** Farbe der feinen Kontur um Cover und Bilder: Helle Bilder heben sich so vom Untergrund ab, dunkle bleiben unverändert. */
+/** Color of the thin outline around covers and images: light images stand out from the background, dark ones stay unchanged. */
 @Composable
 fun coverOutlineColor(): Color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
 
-/** Quadratisches Album-Cover; ohne Cover bleibt das Noten-Symbol sichtbar. */
+/** Square album cover; without a cover the music note icon stays visible. */
 @Composable
 fun AlbumArt(
     albumId: Long?,

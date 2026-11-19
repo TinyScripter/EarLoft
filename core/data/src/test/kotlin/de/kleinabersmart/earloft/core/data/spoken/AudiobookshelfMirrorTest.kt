@@ -22,7 +22,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** Audiobookshelf-Server zwischen Handy und Uhr (Wear-Konzept 16.2): Stempel des Schlüssels und Spiegeln. */
+/** Audiobookshelf servers between phone and watch (Wear concept 16.2): key stamp and mirroring. */
 @RunWith(RobolectricTestRunner::class)
 class AudiobookshelfMirrorTest {
 
@@ -79,7 +79,7 @@ class AudiobookshelfMirrorTest {
         assertNull(registry["abs"])
         assertEquals(listOf("abs"), servers.withoutKey())
 
-        // Ohne Stempel (Handy ohne Schlüssel, ältere App) bleibt der neue Schlüssel.
+        // Without a stamp (phone without key, older app) the new key stays.
         servers.storeKey("abs", "key2")
         assertEquals(emptySet<String>(), servers.mirror(listOf(server(null))))
         assertEquals("key2", secrets.values["abs:abs:token"])

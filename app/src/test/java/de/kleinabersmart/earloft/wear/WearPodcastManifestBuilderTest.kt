@@ -33,7 +33,7 @@ class WearPodcastManifestBuilderTest {
         assertEquals(listOf("b", "a"), manifest.episodes.map { it.guid })
         assertEquals("https://example.org/feed", manifest.feeds.single().url)
         assertEquals(1.25f, manifest.episodes.first().progress!!.speed)
-        // Folgen vom Gerät gibt es nur über den Datei-Kanal.
+        // Episodes from the device are only available via the file channel.
         assertNull(manifest.episodes.last().audioUrl)
     }
 

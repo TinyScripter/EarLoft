@@ -23,7 +23,7 @@ class CastReceiverStatusTest {
 
     @Test
     fun `the running sessions come from the receiver status`() {
-        // Gekürzt, wie vom Gerät („Badezimmer Mini“, fremde App im Default Media Receiver).
+        // Shortened, as reported by the device ("Badezimmer Mini", another app in the Default Media Receiver).
         val status = """{"requestId":1,"status":{"applications":[{"appId":"CC1AD845","displayName":"Default Media Receiver",
             |"sessionId":"a1baa014-22be-4da3-9ff1-069ed9e225eb","statusText":"Streamen: Anderer Titel",
             |"transportId":"a1baa014-22be-4da3-9ff1-069ed9e225eb"}],"volume":{"level":0.0}},"type":"RECEIVER_STATUS"}""".trimMargin()

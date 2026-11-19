@@ -31,7 +31,7 @@ class PodcastTranscriptsTest {
     private lateinit var transcripts: PodcastTranscripts
     private var episode = 0L
 
-    /** Was der „Server“ gerade ausliefert; `null` = nicht erreichbar. */
+    /** What the "server" is currently serving; `null` = unreachable. */
     private var served: String? = null
     private var requests = 0
 
@@ -74,7 +74,7 @@ class PodcastTranscriptsTest {
         assertTrue(ready is TranscriptResult.Ready)
         assertEquals(2, requests)
 
-        // Jetzt liegt es im Cache und ist auch ohne Verbindung da.
+        // Now it's in the cache and available even without a connection.
         served = null
         assertEquals(ready, transcripts.load(episode))
         assertEquals(2, requests)
@@ -87,7 +87,7 @@ class PodcastTranscriptsTest {
         served = null
         assertEquals(TranscriptResult.Unavailable, transcripts.load(episode))
 
-        // Ein unlesbarer Stand im Cache (aus einer älteren Version) fällt weg und wird neu geladen.
+        // An unreadable state in the cache (from an older version) is dropped and reloaded.
         val cache = File(context.cacheDir, "transcripts")
         served = GOOD
         transcripts.prefetch(episode)

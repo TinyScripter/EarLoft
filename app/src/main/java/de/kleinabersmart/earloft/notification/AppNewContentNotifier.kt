@@ -27,9 +27,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Meldet neue Musik, Folgen und Bücher als leise Benachrichtigung, je Bereich eine eigene (mit eigenem Kanal). Ein Tipp
- * öffnet Start im Bereich bzw. bei genau einem Album, Podcast oder Buch dessen Seite ([NewContentTarget]); dann steht
- * auch das Cover in der Benachrichtigung.
+ * Announces new music, episodes and books as a silent notification, one per area (each with its own channel). A tap
+ * opens Home in that area or, for exactly one album, podcast or book, its page ([NewContentTarget]); then the cover
+ * is shown in the notification too.
  */
 @Singleton
 class AppNewContentNotifier @Inject constructor(
@@ -39,8 +39,8 @@ class AppNewContentNotifier @Inject constructor(
 ) : NewContentNotifier {
 
     /**
-     * Was in der Benachrichtigung steht; [cover] nur bei genau einem Album, Podcast oder Buch, [actions] nur bei genau
-     * einer neuen Folge.
+     * What the notification says; [cover] only for exactly one album, podcast or book, [actions] only for exactly
+     * one new episode.
      */
     private class Message(
         val title: String,
@@ -51,7 +51,7 @@ class AppNewContentNotifier @Inject constructor(
         val actions: List<NotificationCompat.Action> = emptyList(),
     )
 
-    // areNotificationsEnabled() deckt auch die fehlende POST_NOTIFICATIONS-Berechtigung ab.
+    // areNotificationsEnabled() also covers the missing POST_NOTIFICATIONS permission.
     @SuppressLint("MissingPermission")
     override suspend fun show(content: NewContent) {
         if (content.isEmpty) return
@@ -68,8 +68,8 @@ class AppNewContentNotifier @Inject constructor(
             .setAction(NewContentTarget.ACTION_OPEN)
             .putNewContentTarget(message.target)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        // Eigener requestCode je Bereich: Sonst teilten sich die Benachrichtigungen (und die der Wiedergabe, Code 0) ein
-        // PendingIntent, und FLAG_UPDATE_CURRENT überschriebe das Ziel der anderen.
+        // Separate requestCode per area: otherwise the notifications (and the playback one, code 0) would share one
+        // PendingIntent, and FLAG_UPDATE_CURRENT would overwrite the others' target.
         val pending = PendingIntent.getActivity(
             context,
             REQUEST_CODE_BASE + mode.ordinal,
@@ -114,7 +114,7 @@ class AppNewContentNotifier @Inject constructor(
     }
 
     private fun podcasts(content: NewContent.Podcasts): Message {
-        // Umgezogene Abos (Konzept 12.10 „Feed-Umzug“) stehen als eigene Zeile unter den neuen Folgen.
+        // Moved subscriptions (concept 12.10 "feed move") appear as a separate line below the new episodes.
         val movedLine = content.moved.takeIf { it.isNotEmpty() }
             ?.let { context.getString(R.string.new_content_feeds_moved, it.joinToString(", ")) }
         if (content.episodes.isEmpty()) {
@@ -128,8 +128,8 @@ class AppNewContentNotifier @Inject constructor(
         }
         val episodes = content.episodes.sumOf { it.count }
         val episodesText = context.resources.getQuantityString(R.plurals.new_content_episodes, episodes, episodes)
-        // Ein einzelner Podcast nennt sich beim Namen und führt auf seine Seite; das Bild ist das der (neuesten) Folge.
-        // Bei genau einer neuen Folge gibt es sie gleich zum Abspielen, als Nächstes und (ohne Automatik) zum Laden.
+        // A single podcast is named and leads to its page; the image is that of the (newest) episode.
+        // For exactly one new episode it can be played, queued as next and (without auto-download) downloaded right away.
         content.episodes.singleOrNull()?.let { feed ->
             return Message(
                 title = feed.feedTitle,
@@ -150,8 +150,8 @@ class AppNewContentNotifier @Inject constructor(
     }
 
     /**
-     * „Abspielen“ öffnet die App (dort kann die Rückfrage zu mobilen Daten kommen) und den Player; „Als Nächstes“ und
-     * „Laden“ laufen im Hintergrund ([NewEpisodeActionReceiver]).
+     * "Play" opens the app (where the mobile data prompt may come up) and the player; "Play next" and
+     * "Download" run in the background ([NewEpisodeActionReceiver]).
      */
     private fun episodeActions(bookId: Long, download: Boolean): List<NotificationCompat.Action> {
         val play = Intent().setComponent(ComponentName(context, PLAY_ALIAS))
@@ -199,7 +199,7 @@ class AppNewContentNotifier @Inject constructor(
                 cover = { bookCovers.cover(book.bookId) },
             )
         }
-        // Mehrere neue Bücher einer abonnierten Sendung: Sie nennt sich beim Namen und führt auf ihre Seite.
+        // Several new books of a subscribed show: it is named and leads to its page.
         content.books.mapNotNull { it.ardShow }.distinct().singleOrNull()?.takeIf { content.books.all { book -> book.ardShow == it } }?.let { show ->
             return Message(
                 title = show.title,
@@ -217,13 +217,13 @@ class AppNewContentNotifier @Inject constructor(
         )
     }
 
-    /** Die ersten [MAX_NAMES] Namen für die aufgeklappte Benachrichtigung, darunter „…“, wenn es mehr sind. */
+    /** The first [MAX_NAMES] names for the expanded notification, followed by "…" if there are more. */
     private fun names(all: List<String>): List<String> =
         all.take(MAX_NAMES) + if (all.size > MAX_NAMES) listOf("…") else emptyList()
 
     /**
-     * Cover für das große Symbol: quadratisch aus der Mitte wie die Cover in der App (Folgenbilder sind oft breiter) und
-     * verkleinert (große Bilder sprengen sonst die Übergabe an das System).
+     * Cover for the large icon: square crop from the center like the covers in the app (episode images are often wider) and
+     * scaled down (otherwise large images would blow up the handover to the system).
      */
     private suspend fun loadCover(load: suspend () -> Bitmap?): Bitmap? = try {
         withTimeoutOrNull(COVER_TIMEOUT_MS) { load() }?.let { bitmap ->
@@ -235,13 +235,13 @@ class AppNewContentNotifier @Inject constructor(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        // Ohne Cover ist die Benachrichtigung immer noch richtig.
+        // Without a cover the notification is still correct.
         Log.w(TAG, "Cover für die Benachrichtigung nicht ladbar", e)
         null
     }
 
     private fun createChannels(manager: NotificationManagerCompat) {
-        // Bis 2026-11 gab es einen gemeinsamen Kanal für Folgen und Bücher.
+        // Until 2026-11 there was a shared channel for episodes and books.
         manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
         manager.createNotificationChannelsCompat(
             SpokenMode.entries.map { mode ->
@@ -265,10 +265,10 @@ class AppNewContentNotifier @Inject constructor(
     }
 
     companion object {
-        /** „Abspielen“ aus der Benachrichtigung über eine neue Folge; die `bookId` steht in [NewEpisodeActionReceiver.EXTRA_BOOK_ID]. */
+        /** "Play" from the new-episode notification; the `bookId` is in [NewEpisodeActionReceiver.EXTRA_BOOK_ID]. */
         const val ACTION_PLAY_EPISODE = "de.kleinabersmart.earloft.NEW_EPISODE_PLAY"
 
-        /** Nicht exportierter Alias der [MainActivity] (Manifest): Nur über ihn startet „Abspielen“ eine Folge (Review D30). */
+        /** Non-exported alias of [MainActivity] (manifest): "Play" starts an episode only through it (review D30). */
         val PLAY_ALIAS: String = MainActivity::class.java.name.substringBeforeLast('.') + ".NotificationPlay"
 
         fun notificationId(mode: SpokenMode): Int = NOTIFICATION_ID_BASE + mode.ordinal

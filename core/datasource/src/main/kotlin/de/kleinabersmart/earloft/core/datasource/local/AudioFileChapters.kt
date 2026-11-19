@@ -13,14 +13,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Kapitel, die in einer Audiodatei auf dem Gerät stecken (Konzept 12.5 „Kapitelquellen“): ID3 `CHAP`, sonst MP4 (`chpl` bzw.
- * Textspur). Für geladene Folgen, deren Feed keine Kapitel nennt; dieselben Leser wie für Dateien aus „Podcasts“.
+ * Chapters embedded in an audio file on the device (concept 12.5 "chapter sources"): ID3 `CHAP`, otherwise MP4 (`chpl` or
+ * text track). For downloaded episodes whose feed names no chapters; the same readers as for files from "Podcasts".
  */
 @Singleton
 class AudioFileChapters @Inject constructor(@param:ApplicationContext context: Context) {
     private val tagReader = LocalTagReader(context)
 
-    /** Leer, wenn die Datei keine Kapitel hat oder nicht lesbar ist. [durationMs] begrenzt das letzte MP4-Kapitel. */
+    /** Empty if the file has no chapters or isn't readable. [durationMs] bounds the last MP4 chapter. */
     suspend fun read(file: File, mimeType: String?, durationMs: Long): List<LocalBookChapter> = withContext(Dispatchers.IO) {
         if (!file.isFile) return@withContext emptyList()
         tagReader.readSpoken(Uri.fromFile(file))?.chapters?.takeIf { it.isNotEmpty() }

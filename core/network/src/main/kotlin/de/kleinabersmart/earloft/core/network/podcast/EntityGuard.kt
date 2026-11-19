@@ -5,12 +5,12 @@ import java.io.InputStream
 import java.nio.charset.Charset
 
 /**
- * Lehnt XML mit eigenen Entity-Deklarationen ab, bevor der Parser es sieht. RSS und OPML brauchen keine; ein feindlicher Feed
- * könnte damit Text vervielfachen („Billion Laughs“) und bei jedem Abgleich den Speicher sprengen. Ein bloßes `<!DOCTYPE …>`
- * (alte RSS-0.91-Feeds) bleibt erlaubt, eins mit internem Teil (`[…]`, dort stehen Deklarationen) nicht. Deklarationen stehen
- * nur im Prolog, deshalb genügt der Anfang der Datei – in ihrer Kodierung gelesen (UTF-16 hat Nullbytes zwischen den Zeichen).
- * Reicht der Prolog (Kommentare, Verarbeitungsanweisungen) über den Anfang hinaus, ist das kein Feed (Review D24).
- * @return der Strom zum Weiterlesen, `null` bei eigenen Entities.
+ * Rejects XML with custom entity declarations before the parser sees it. RSS and OPML don't need any; a hostile feed
+ * could use them to multiply text ("Billion Laughs") and blow up memory on every sync. A bare `<!DOCTYPE …>`
+ * (old RSS 0.91 feeds) stays allowed, one with an internal subset (`[…]`, where declarations live) doesn't. Declarations
+ * only occur in the prolog, so the start of the file is enough – read in its encoding (UTF-16 has null bytes between the characters).
+ * If the prolog (comments, processing instructions) extends beyond the start, it's not a feed (review D24).
+ * @return the stream to continue reading, `null` for custom entities.
  */
 internal fun InputStream.rejectingEntityDeclarations(): InputStream? {
     val buffered = if (this is BufferedInputStream) this else BufferedInputStream(this, PROLOG_BYTES)
@@ -28,8 +28,8 @@ internal fun InputStream.rejectingEntityDeclarations(): InputStream? {
 }
 
 /**
- * Ob der Prolog in [text] (dem Anfang der Datei) Entities deklarieren kann: ein `<!ENTITY` oder ein `<!DOCTYPE` mit internem Teil.
- * Ohne [whole] (die Datei ist länger) gilt auch ein Prolog als verdächtig, der über [text] hinausreicht.
+ * Whether the prolog in [text] (the start of the file) can declare entities: an `<!ENTITY` or a `<!DOCTYPE` with an internal subset.
+ * Without [whole] (the file is longer), a prolog that extends beyond [text] also counts as suspicious.
  */
 internal fun declaresEntities(text: String, whole: Boolean): Boolean {
     if (text.contains("<!ENTITY", ignoreCase = true)) return true
@@ -46,7 +46,7 @@ internal fun declaresEntities(text: String, whole: Boolean): Boolean {
                 if (subset >= 0 && (close < 0 || subset < close)) return true
                 if (close < 0) -1 else close + 1
             }
-            // Das Wurzelelement: Der Prolog ist zu Ende.
+            // The root element: the prolog has ended.
             else -> return false
         }
         if (end < 0) return !whole
@@ -54,7 +54,7 @@ internal fun declaresEntities(text: String, whole: Boolean): Boolean {
     }
 }
 
-/** Die Kodierung des Anfangs [head]: UTF-16/UTF-32 an Byte-Order-Mark oder Nullbytes, sonst ISO-8859-1 (für die ASCII-Zeichen des Prologs wie UTF-8). */
+/** The encoding of the start [head]: UTF-16/UTF-32 by byte order mark or null bytes, otherwise ISO-8859-1 (for the prolog's ASCII characters same as UTF-8). */
 private fun charsetOf(head: ByteArray, length: Int): Charset {
     fun at(i: Int) = if (i < length) head[i].toInt() and 0xFF else -1
     val (b0, b1, b2, b3) = listOf(at(0), at(1), at(2), at(3))

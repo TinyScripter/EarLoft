@@ -37,7 +37,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.util.concurrent.ConcurrentHashMap
 
-/** Mehrere Buch-Bibliotheken je Server (`books_improvements.md` M3) und Genres (S9) im Abgleich, gegen einen nachgebauten Server. */
+/** Several book libraries per server (`books_improvements.md` M3) and genres (S9) in the sync, against a mocked server. */
 @RunWith(RobolectricTestRunner::class)
 class BookLibrariesSyncTest {
 
@@ -48,7 +48,7 @@ class BookLibrariesSyncTest {
     private lateinit var syncer: BookSyncer
     private lateinit var books: BookRepository
 
-    /** Einträge je Bibliothek (Kennung, Titel, Genres); änderbar zwischen zwei Abgleichen. */
+    /** Entries per library (id, title, genres); changeable between two syncs. */
     private val items = ConcurrentHashMap(
         mapOf(
             "lib-a" to listOf(Triple("li_1", "Krimi", listOf("Polizei, Thriller")), Triple("li_2", "Roman", emptyList())),
@@ -64,7 +64,7 @@ class BookLibrariesSyncTest {
         try {
             WorkManager.initialize(context, Configuration.Builder().build())
         } catch (e: IllegalStateException) {
-            // schon initialisiert
+            // already initialized
         }
         db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         dao = db.bookDao()
@@ -131,7 +131,7 @@ class BookLibrariesSyncTest {
             async(Dispatchers.Default) { servers.setLibraryShown(id, library, shown = false) }
         }.awaitAll()
 
-        // Beide gleichzeitig abzuwählen darf nicht gelingen: Eine bleibt, und zwar die, die zuletzt übrig war.
+        // Deselecting both at the same time must not succeed: one stays, namely the one that was left last.
         assertEquals(listOf(false, true), results.sorted())
         assertEquals(1, servers.servers.first().single().libraries.count { it.shown })
     }
@@ -145,9 +145,9 @@ class BookLibrariesSyncTest {
         assertEquals(listOf("Krimi", "Roman"), titles())
         sync(id)
         assertEquals(listOf("Krimi", "Roman"), titles())
-        // Ausgeblendet, nicht gelöscht: Downloads, Fortschritt und Lesezeichen bleiben.
+        // Hidden, not deleted: downloads, progress and bookmarks stay.
         assertEquals(3, dao.booksOf(id).size)
-        // Der nächste Abgleich fragt die abgewählte Bibliothek gar nicht ab.
+        // The next sync doesn't query the deselected library at all.
         assertFalse(servers.setLibraryShown(id, "lib-a", shown = false))
         assertEquals(listOf(false), servers.servers.first().single().libraries.filter { it.libraryId == "lib-b" }.map { it.shown })
     }
@@ -230,7 +230,7 @@ class BookLibrariesSyncTest {
     @Volatile
     private var authorsFail = false
 
-    /** Nach jeder Antwort mit Einträgen (Bibliothek, `limit`, `page`): z. B. ein Buch am Server löschen. */
+    /** After each response with entries (library, `limit`, `page`): e.g. delete a book on the server. */
     @Volatile
     private var afterItems: (library: String, limit: Int, page: Int) -> Unit = { _, _, _ -> }
 
@@ -244,7 +244,7 @@ class BookLibrariesSyncTest {
         assertTrue(sync(id).ok)
         val before = dao.booksOf(id).single { it.remoteId == "many_101" }
 
-        // Während des Abgleichs fällt ein Buch der ersten Seite weg: Ohne Prüfung fehlte "many_101" auf Seite 2 und würde gelöscht.
+        // During the sync a book of the first page disappears: without the check "many_101" would be missing on page 2 and get deleted.
         var removed = false
         afterItems = { library, limit, page ->
             if (library == "lib-a" && limit > 1 && page == 0 && !removed) {
@@ -255,7 +255,7 @@ class BookLibrariesSyncTest {
         assertTrue(sync(id).ok)
 
         assertEquals(before.bookId, dao.booksOf(id).single { it.remoteId == "many_101" }.bookId)
-        // Der abgebrochene Durchgang hat "many_5" noch gesehen: Es fällt erst mit dem nächsten Abgleich weg.
+        // The aborted pass still saw "many_5": it's only dropped with the next sync.
         assertEquals(150, dao.booksOf(id).size)
         assertTrue(sync(id).ok)
         val left = dao.booksOf(id).map { it.remoteId }.toSet()
@@ -270,7 +270,7 @@ class BookLibrariesSyncTest {
         val id = connect()
         assertTrue(sync(id).ok)
 
-        // Jede erste Seite verliert ein Buch: auch der zweite Durchgang verschiebt sich.
+        // Every first page loses a book: the second pass shifts too.
         afterItems = { library, limit, page ->
             if (library == "lib-a" && limit > 1 && page == 0) items["lib-a"] = items.getValue("lib-a").drop(1)
         }
@@ -279,7 +279,7 @@ class BookLibrariesSyncTest {
         assertEquals(150, dao.booksOf(id).size)
     }
 
-    /** `/ping`, `/api/me`, `/api/libraries`, die Einträge und Autoren je Bibliothek und je Eintrag die Details (ohne Dateien). */
+    /** `/ping`, `/api/me`, `/api/libraries`, the entries and authors per library and the details per entry (without files). */
     private inner class FakeServer : Dispatcher() {
         override fun dispatch(request: RecordedRequest): MockResponse {
             val url = request.url
@@ -295,7 +295,7 @@ class BookLibrariesSyncTest {
                 path.startsWith("/api/libraries/") && path.endsWith("/items") -> {
                     val library = path.removePrefix("/api/libraries/").removeSuffix("/items")
                     val entries = items[library].orEmpty()
-                    // Wie der Server: Anfang = page * limit, limit 0 = alles.
+                    // Like the server: start = page * limit, limit 0 = everything.
                     val limit = url.queryParameter("limit")?.toInt() ?: 0
                     val page = url.queryParameter("page")?.toInt() ?: 0
                     val shown = if (limit > 0) entries.drop(page * limit).take(limit) else entries

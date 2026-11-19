@@ -10,28 +10,28 @@ import de.kleinabersmart.earloft.core.database.entity.PlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.WearSelectionEntity
 import de.kleinabersmart.earloft.core.model.FavoriteKind
 
-/** Spalten eines Songs samt seinem Schlüssel aus den Metadaten (siehe [KeyedSong]). */
+/** Columns of a song together with its key from the metadata (see [KeyedSong]). */
 private const val KEYED_SONG =
     "s.songId AS songId, a.normAlbumArtist AS albumArtist, a.normTitle AS album, " +
         "s.discNumber AS disc, s.trackNumber AS track, s.normTitle AS title"
 
 /**
- * Lesen und Anwenden der Musik-Nutzerdaten über Schlüssel, die auf einem neuen Gerät noch passen (Backup, Review K9):
- * Songs über ihre Metadaten, Alben über Album-Künstler und Titel, lokale Playlists über `backupKey`.
+ * Reading and applying the music user data via keys that still match on a new device (backup, review K9):
+ * songs via their metadata, albums via album artist and title, local playlists via `backupKey`.
  */
 @Dao
 abstract class BackupDao {
 
     // --- Songs ---
 
-    /** Alle Songs eines Albums (gleiche Normalisierung wie beim Zusammenführen); welcher passt, entscheidet der Aufrufer. */
+    /** All songs of an album (same normalization as when merging); the caller decides which one matches. */
     @Query("SELECT $KEYED_SONG FROM songs s JOIN albums a ON a.albumId = s.albumId WHERE a.normAlbumArtist = :albumArtist AND a.normTitle = :album")
     abstract suspend fun songsOfAlbum(albumArtist: String, album: String): List<KeyedSong>
 
     @Query("SELECT songId, isFavorite, favoriteChangedAt FROM songs WHERE songId IN (:songIds)")
     abstract suspend fun favoriteStates(songIds: List<Long>): List<FavoriteState>
 
-    /** Favoriten von Songs ohne Server-Quelle; die anderen hält der Server und bringt der Abgleich zurück. */
+    /** Favorites of songs without a server source; the server holds the others and the sync brings them back. */
     @Query(
         "SELECT $KEYED_SONG, s.favoriteChangedAt AS changedAt FROM songs s JOIN albums a ON a.albumId = s.albumId " +
             "WHERE s.isFavorite = 1 AND NOT EXISTS (SELECT 1 FROM song_sources ss JOIN sources src ON src.sourceId = ss.sourceId " +
@@ -39,9 +39,9 @@ abstract class BackupDao {
     )
     abstract suspend fun localFavorites(): List<KeyedFavorite>
 
-    // --- Favoriten von Alben und Künstlern ---
+    // --- Favorites of albums and artists ---
 
-    /** Wie [localFavorites] für Alben und Künstler ohne Server-Quelle; Schlüssel siehe `UserCollectionFavoriteEntity`. */
+    /** Like [localFavorites] for albums and artists without a server source; for the key see `UserCollectionFavoriteEntity`. */
     @Query(
         "SELECT 'ALBUM' AS kind, a.normAlbumArtist AS artist, a.normTitle AS title, a.favoriteChangedAt AS changedAt " +
             "FROM albums a WHERE a.isFavorite = 1 AND NOT EXISTS (SELECT 1 FROM album_sources als " +
@@ -59,7 +59,7 @@ abstract class BackupDao {
     @Query("SELECT artistId AS id, isFavorite, favoriteChangedAt FROM artists WHERE normName = :name ORDER BY artistId LIMIT 1")
     abstract suspend fun artistFavoriteState(name: String): CollectionFavoriteState?
 
-    // --- Hörverlauf ---
+    // --- Listening history ---
 
     @Query(
         "SELECT $KEYED_SONG, pe.playedAt AS playedAt, pe.listenedMs AS listenedMs FROM play_events pe " +
@@ -73,7 +73,7 @@ abstract class BackupDao {
     @Insert
     abstract suspend fun insertPlayEvents(events: List<PlayEventEntity>)
 
-    // --- Lokale Playlists ---
+    // --- Local playlists ---
 
     @Query("SELECT * FROM playlists WHERE boundSourceId IS NULL")
     abstract suspend fun localPlaylists(): List<PlaylistEntity>
@@ -84,7 +84,7 @@ abstract class BackupDao {
     @Query("UPDATE playlists SET backupKey = :backupKey WHERE playlistId = :playlistId AND backupKey IS NULL")
     abstract suspend fun setBackupKey(playlistId: Long, backupKey: String)
 
-    /** Einträge aller lokalen Playlists in ihrer Reihenfolge. */
+    /** Entries of all local playlists in their order. */
     @Query(
         "SELECT pe.playlistId AS playlistId, $KEYED_SONG FROM playlist_entries pe " +
             "JOIN songs s ON s.songId = pe.songId JOIN albums a ON a.albumId = s.albumId " +
@@ -93,7 +93,7 @@ abstract class BackupDao {
     )
     abstract suspend fun localPlaylistEntries(): List<KeyedPlaylistEntry>
 
-    // --- Auswahl für die Uhr ---
+    // --- Selection for the watch ---
 
     @Query("SELECT * FROM wear_selections")
     abstract suspend fun wearSelections(): List<WearSelectionEntity>
@@ -115,8 +115,8 @@ abstract class BackupDao {
 }
 
 /**
- * Ein Song mit seinem geräteübergreifenden Schlüssel: Album-Künstler, Album, CD, Titelnummer und Titel, normalisiert wie
- * beim Zusammenführen. Er passt wieder, sobald dieselbe Musik (Dateien oder Server) auf dem neuen Gerät ist.
+ * A song with its cross-device key: album artist, album, disc, track number and title, normalized as
+ * when merging. It matches again as soon as the same music (files or server) is on the new device.
  */
 data class KeyedSong(
     val songId: Long,
@@ -133,7 +133,7 @@ data class KeyedFavorite(@Embedded val song: KeyedSong, val changedAt: Long)
 
 data class KeyedCollectionFavorite(val kind: FavoriteKind, val artist: String, val title: String, val changedAt: Long)
 
-/** [id] ist die `albumId` bzw. `artistId`. */
+/** [id] is the `albumId` or `artistId`. */
 data class CollectionFavoriteState(val id: Long, val isFavorite: Boolean, val favoriteChangedAt: Long)
 
 data class KeyedPlayEvent(@Embedded val song: KeyedSong, val playedAt: Long, val listenedMs: Long)

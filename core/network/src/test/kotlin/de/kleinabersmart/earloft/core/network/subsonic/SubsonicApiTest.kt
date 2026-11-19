@@ -69,14 +69,14 @@ class SubsonicApiTest {
         MockWebServer().use { other ->
             other.start()
             other.enqueue(json("ping"))
-            // Gleicher Rechner, anderer Name und Port: für OkHttp ein fremder Host.
+            // Same machine, different name and port: a foreign host to OkHttp.
             val target = other.url("/navidrome/rest/ping").newBuilder().host("127.0.0.1").build()
             mockServer.enqueue(MockResponse.Builder().code(302).addHeader("Location", target.toString()).build())
 
             try {
                 api.ping(server)
             } catch (_: Exception) {
-                // Ohne Zugangsdaten muss der Ping nicht gelingen; hier zählt nur, was beim fremden Host ankommt.
+                // Without credentials the ping need not succeed; all that matters here is what reaches the foreign host.
             }
 
             assertEquals("kal", mockServer.takeRequest().url.queryParameter("u"))
@@ -139,7 +139,7 @@ class SubsonicApiTest {
         assertArrayEquals(image, api.coverArt(server, "al-1", 256))
 
         assertEquals(1, mockServer.requestCount)
-        // Weder Cache-Schlüssel noch gespeicherte Anfrage enthalten Zugangsdaten.
+        // Neither the cache key nor the stored request contains credentials.
         val cachedUrls = client.cache!!.urls().asSequence().toList()
         assertEquals(1, cachedUrls.size)
         assertTrue(cachedUrls.none { "t=" in it || "u=" in it })

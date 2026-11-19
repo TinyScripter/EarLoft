@@ -34,9 +34,9 @@ import de.kleinabersmart.earloft.core.model.EpisodeType
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Art und Nummer einer Folge aus dem Feed (Konzept 12.5 „Podcasting 2.0“): „Folge 12“, „Bonus · Folge 3“, „Trailer“, mit
- * [withSeason] auch „Staffel 2 · Folge 12“. In Listen ([withSeason] aus) kurz „#12“, damit Datum und Dauer in die Zeile
- * passen. `null`, wenn der Feed nichts davon nennt.
+ * Type and number of an episode from the feed (concept 12.5 "Podcasting 2.0"): "Episode 12", "Bonus · Episode 3", "Trailer", with
+ * [withSeason] also "Season 2 · Episode 12". In lists ([withSeason] off) short "#12", so date and duration fit into the
+ * row. `null` if the feed names none of these.
  */
 @Composable
 internal fun episodeLabel(book: Book, withSeason: Boolean): String? {
@@ -53,8 +53,8 @@ internal fun episodeLabel(book: Book, withSeason: Boolean): String? {
 }
 
 /**
- * Teilt die Folgenliste eines Abos in Staffeln, wo die Staffel wechselt (die Liste bleibt nach Datum geordnet). `null`, wenn
- * die Folgen höchstens eine Staffel nennen: Dann braucht es keine Kopfzeilen.
+ * Splits a subscription's episode list into seasons where the season changes (the list stays ordered by date). `null` if
+ * the episodes name at most one season: then no headers are needed.
  */
 internal fun <T> seasonRuns(items: List<T>, season: (T) -> Int?): List<Pair<Int?, List<T>>>? {
     if (items.mapNotNullTo(HashSet(), season).size < 2) return null
@@ -67,12 +67,12 @@ internal fun <T> seasonRuns(items: List<T>, season: (T) -> Int?): List<Pair<Int?
     return runs
 }
 
-/** Kopfzeile einer Staffel; Folgen ohne Staffel stehen unter „Weitere Folgen“. */
+/** Header of a season; episodes without a season are listed under "More episodes". */
 @Composable
 internal fun seasonTitle(season: Int?): String =
     if (season != null) stringResource(R.string.podcast_season, season) else stringResource(R.string.podcast_season_other)
 
-/** Knopf „Unterstützen“ auf der Abo-Seite (`podcast:funding`); öffnet die Seite im Browser. */
+/** "Support" button on the subscription page (`podcast:funding`); opens the page in the browser. */
 @Composable
 internal fun FundingButton(url: String, label: String, size: Dp) {
     val openLink = rememberOpenLink()
@@ -83,8 +83,8 @@ internal fun FundingButton(url: String, label: String, size: Dp) {
 }
 
 /**
- * Mitwirkende einer Folge (`podcast:person`) als Zeile kleiner Karten: Bild (sonst Symbol), Name und Rolle. Hat eine Person
- * eine Webseite, öffnet ein Tipp sie.
+ * Contributors of an episode (`podcast:person`) as a row of small cards: image (otherwise icon), name and role. If a person
+ * has a web page, a tap opens it.
  */
 @Composable
 internal fun EpisodePersons(persons: List<EpisodePerson>, modifier: Modifier = Modifier) {
@@ -138,8 +138,8 @@ private fun PersonImage(url: String?) {
 }
 
 /**
- * Rolle aus der Podcasting-2.0-Taxonomie in der Sprache der App; ohne Angabe gilt „host“. Seltene Rollen bleiben, wie der
- * Feed sie nennt (mit großem Anfangsbuchstaben).
+ * Role from the Podcasting 2.0 taxonomy in the app's language; without a value "host" applies. Rare roles stay as the
+ * feed names them (with a capital first letter).
  */
 @Composable
 private fun personRole(role: String?): String = when (role ?: "host") {

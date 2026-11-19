@@ -9,7 +9,7 @@ import org.gradle.kotlin.dsl.dependencies
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
-/** Reine Kotlin-Module ohne Android-Abhängigkeit (schnelle JVM-Tests). */
+/** Pure Kotlin modules without an Android dependency (fast JVM tests). */
 class JvmLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {

@@ -6,17 +6,17 @@ import org.xmlpull.v1.XmlPullParserFactory
 import java.io.IOException
 import java.io.InputStream
 
-/** Kein lesbares OPML. */
+/** Not a readable OPML. */
 class OpmlException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
-/** Ein Abo in einer OPML-Datei. */
+/** A subscription in an OPML file. */
 data class OpmlFeed(val title: String, val url: String, val htmlUrl: String? = null)
 
-/** Liest und schreibt OPML 2.0, wie es Podcast-Apps zum Austausch von Abos nutzen. */
+/** Reads and writes OPML 2.0, as podcast apps use it to exchange subscriptions. */
 object Opml {
     /**
-     * Alle `outline`-Einträge mit `xmlUrl`, auch in Gruppen verschachtelte, in Dateireihenfolge. Einträge ohne gültige
-     * Feed-Adresse entfallen; der Titel fällt auf `text`, dann auf den Host zurück. Dubletten bleiben erhalten.
+     * All `outline` entries with `xmlUrl`, including those nested in groups, in file order. Entries without a valid
+     * feed URL are dropped; the title falls back to `text`, then to the host. Duplicates are kept.
      */
     fun parse(input: InputStream): List<OpmlFeed> {
         val feeds = mutableListOf<OpmlFeed>()

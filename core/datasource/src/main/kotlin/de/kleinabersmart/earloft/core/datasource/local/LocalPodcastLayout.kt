@@ -4,20 +4,20 @@ import java.time.DateTimeException
 import java.time.LocalDate
 import java.time.ZoneOffset
 
-/** Die Dateien eines Podcasts aus dem Ordner „Podcasts“. */
+/** The files of a podcast from the "Podcasts" folder. */
 internal data class LocalPodcastFiles(val name: String, val files: List<AudioFileRow>)
 
 /**
- * Welche Dateien zu welchem Podcast gehören (Konzept 12.1): Ein Unterordner von „Podcasts“ ist ein Podcast; Dateien direkt
- * in „Podcasts“ (wie ein Browser oder eine Podcast-App sie ablegt) gelten nach ihrem Album-Tag, sonst nach dem
- * Interpreten, sonst als ein gemeinsamer Podcast, den der Aufrufer benennt.
+ * Which files belong to which podcast (concept 12.1): a subfolder of "Podcasts" is a podcast; files directly
+ * in "Podcasts" (as a browser or a podcast app saves them) are grouped by their album tag, otherwise by the
+ * artist, otherwise as one shared podcast that the caller names.
  */
 internal object LocalPodcastLayout {
     const val ROOT = "Podcasts"
 
     private const val UNKNOWN = "<unknown>"
 
-    /** @param untitled Name des Sammel-Podcasts für Dateien ohne brauchbaren Album- oder Interpreten-Tag. */
+    /** @param untitled Name of the catch-all podcast for files without a usable album or artist tag. */
     fun group(rows: List<AudioFileRow>, untitled: String): List<LocalPodcastFiles> {
         val byName = linkedMapOf<String, MutableList<AudioFileRow>>()
         for (row in rows) {
@@ -29,22 +29,22 @@ internal object LocalPodcastLayout {
         return byName.map { (name, files) -> LocalPodcastFiles(name, files) }.sortedBy { it.name.lowercase() }
     }
 
-    /** MediaStore setzt den Ordnernamen als Album, wenn die Datei keinen Album-Tag hat („Podcasts“); der zählt nicht. */
+    /** MediaStore sets the folder name as album if the file has no album tag ("Podcasts"); that doesn't count. */
     private fun tagName(row: AudioFileRow): String? {
         fun usable(value: String?) = value?.trim()?.takeIf { it.isNotEmpty() && it != UNKNOWN && !it.equals(ROOT, ignoreCase = true) }
         return usable(row.album) ?: usable(row.albumArtist) ?: usable(row.artist)
     }
 
-    /** Schlüssel einer Folge: Pfad ab „Podcasts/“. */
+    /** Key of an episode: path from "Podcasts/". */
     fun key(row: AudioFileRow): String = LocalBookLayout.relativePath(row.path, ROOT) ?: row.path
 
-    /** Ändert sich, sobald sich die Datei ändert. */
+    /** Changes as soon as the file changes. */
     fun fingerprint(row: AudioFileRow): Long =
         "${row.id}|${row.sizeBytes}|${row.dateModifiedSec}".hashCode().toLong() xor (row.sizeBytes shl 32)
 
     /**
-     * Datum aus einem Tag: „2026“, „2026-10-29“, „20261029“ oder mit Uhrzeit („2026-10-29T08:00:00“) wird zu Mitternacht
-     * UTC (bei nur einem Jahr der 1. Januar); alles andere ist `null`.
+     * Date from a tag: "2026", "2026-10-29", "20261029" or with time ("2026-10-29T08:00:00") becomes midnight
+     * UTC (January 1 for a year only); anything else is `null`.
      */
     fun parseTagDate(raw: String?): Long? {
         val match = DATE.find(raw?.trim().orEmpty()) ?: return null

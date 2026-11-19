@@ -34,7 +34,7 @@ class HomeViewModel @Inject constructor(
     librarySyncer: LibrarySyncer,
 ) : ViewModel() {
 
-    // Verschachtelt statt über das Array-combine: Eine vertauschte Reihenfolge fällt so schon beim Kompilieren auf.
+    // Nested instead of the array combine: that way a swapped order is caught at compile time.
     val state: StateFlow<HomeUiState> = combine(
         combine(
             libraryRepository.recentlyAddedAlbums(),

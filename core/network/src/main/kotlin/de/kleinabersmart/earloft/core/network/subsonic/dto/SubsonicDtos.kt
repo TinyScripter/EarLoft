@@ -4,8 +4,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /*
- * Nur die Felder, die die App nutzt. Alles ist optional, weil sich Server (und Navidrome-Versionen)
- * darin unterscheiden, was sie mitschicken.
+ * Only the fields the app uses. Everything is optional because servers (and Navidrome versions)
+ * differ in what they send along.
  */
 
 @Serializable
@@ -96,26 +96,26 @@ data class SongDto(
     val title: String? = null,
     val album: String? = null,
     val artist: String? = null,
-    /** Klassisches Subsonic: der (erste) Künstler; OpenSubsonic nennt alle in [artists]. */
+    /** Classic Subsonic: the (first) artist; OpenSubsonic lists all in [artists]. */
     val artistId: String? = null,
     val albumId: String? = null,
     val track: Int? = null,
     val discNumber: Int? = null,
     val year: Int? = null,
-    /** Klassisches Subsonic: ein Genre; OpenSubsonic nennt alle in [genres]. */
+    /** Classic Subsonic: one genre; OpenSubsonic lists all in [genres]. */
     val genre: String? = null,
     val genres: List<ItemGenreDto> = emptyList(),
     val coverArt: String? = null,
     val size: Long? = null,
     val contentType: String? = null,
     val suffix: String? = null,
-    /** Sekunden. */
+    /** Seconds. */
     val duration: Int? = null,
     /** kbit/s. */
     val bitRate: Int? = null,
     /** ISO-8601. */
     val created: String? = null,
-    /** ISO-8601, gesetzt wenn favorisiert. */
+    /** ISO-8601, set when favorited. */
     val starred: String? = null,
     val isDir: Boolean = false,
     val type: String? = null,
@@ -127,7 +127,7 @@ data class SongDto(
     val displayAlbumArtist: String? = null,
 )
 
-/** Ein Genre eines Songs (OpenSubsonic `ItemGenre`). */
+/** A genre of a song (OpenSubsonic `ItemGenre`). */
 @Serializable
 data class ItemGenreDto(val name: String = "")
 
@@ -138,7 +138,7 @@ data class AlbumDto(
     val artist: String? = null,
     val artistId: String? = null,
     val coverArt: String? = null,
-    /** ISO-8601, gesetzt wenn favorisiert. */
+    /** ISO-8601, set when favorited. */
     val starred: String? = null,
     val songCount: Int? = null,
     val year: Int? = null,
@@ -163,7 +163,7 @@ data class PlaylistDto(
     /** ISO-8601. */
     val changed: String? = null,
     val owner: String? = null,
-    /** OpenSubsonic: z. B. Navidromes Smart-Playlists lassen sich nicht ändern. */
+    /** OpenSubsonic: e.g. Navidrome's smart playlists can't be changed. */
     val readonly: Boolean = false,
     val entry: List<SongDto> = emptyList(),
 )
@@ -176,7 +176,7 @@ data class LyricsListDto(
 @Serializable
 data class StructuredLyricsDto(
     val lang: String? = null,
-    /** Entscheidet synchronisiert/statisch – nicht das Vorhandensein von `start`. */
+    /** Decides synced/static – not the presence of `start`. */
     val synced: Boolean = false,
     val offset: Long = 0,
     val line: List<LyricLineDto> = emptyList(),
@@ -188,7 +188,7 @@ data class LyricLineDto(
     val value: String = "",
 )
 
-/** Klassisches `getLyrics`. */
+/** Classic `getLyrics`. */
 @Serializable
 data class LyricsDto(
     val artist: String? = null,

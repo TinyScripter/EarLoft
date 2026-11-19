@@ -38,8 +38,8 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                     all { it.jvmArgs(BuildConfig.ROBOLECTRIC_JVM_ARGS) }
                 }
 
-                // keystore.properties im Projektroot (nicht eingecheckt): storeFile, storePassword, keyAlias, keyPassword.
-                // Fehlt die Datei, bleibt release unsigniert, damit der Build trotzdem läuft.
+                // keystore.properties in the project root (not checked in): storeFile, storePassword, keyAlias, keyPassword.
+                // If the file is missing, release stays unsigned so the build still runs.
                 val keystoreFile = rootProject.file("keystore.properties")
                 if (keystoreFile.exists()) {
                     val props = Properties().apply { keystoreFile.inputStream().use(::load) }

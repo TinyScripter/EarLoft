@@ -17,8 +17,8 @@ import kotlinx.serialization.SerializationException
 import javax.inject.Inject
 
 /**
- * Nimmt Änderungen und Nachrichten vom Handy entgegen (Wear-Konzept 4). Die Play-Dienste starten den
- * Dienst bei Bedarf, auch wenn die App nicht läuft.
+ * Receives changes and messages from the phone (Wear concept 4). Play services start the
+ * service when needed, even if the app is not running.
  */
 @AndroidEntryPoint
 class WatchListenerService : WearableListenerService() {
@@ -29,7 +29,7 @@ class WatchListenerService : WearableListenerService() {
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     override fun onDataChanged(events: DataEventBuffer) {
-        // Die Ereignisse nur hier lesen; der Puffer wird danach freigegeben.
+        // Read the events only here; the buffer is released afterwards.
         val paths = events.mapNotNull { it.dataItem.uri.path }
         if (paths.any { it == WearPaths.SERVERS || it == WearPaths.MANIFEST || it == WearPaths.SETTINGS || it == WearPaths.PODCASTS }) {
             PhoneSyncWorker.enqueue(this)
@@ -51,7 +51,7 @@ class WatchListenerService : WearableListenerService() {
             return
         }
         applicationScope.launch {
-            // Das Passwort bzw. der API-Schlüssel (Audiobookshelf, 16.2) liegt danach nur im Keystore der Uhr (KeystoreSecretStore).
+            // The password or API key (Audiobookshelf, 16.2) is then only stored in the watch's keystore (KeystoreSecretStore).
             if (!serverMirror.storePassword(credentials.sourceId, credentials.password, credentials.deviceId) &&
                 !audiobookshelf.storeKey(credentials.sourceId, credentials.password)
             ) {

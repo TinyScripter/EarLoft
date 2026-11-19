@@ -17,10 +17,10 @@ import java.nio.ByteBuffer
 import java.security.MessageDigest
 
 /**
- * Eine Quelle der Uhr, deren „Bibliothek“ der Teil des Manifests ist, der zu ihr gehört
- * (Wear-Konzept 7.1). So schreibt der vorhandene `LibrarySyncer` das Manifest in die Datenbank:
- * Mark-and-Sweep löscht, was aus allen Auswahlen fällt; der `MergeResolver` führt die Server-Quellen
- * eines Songs wieder zu einem Song zusammen.
+ * A watch source whose "library" is the part of the manifest that belongs to it
+ * (Wear concept 7.1). This way the existing `LibrarySyncer` writes the manifest to the database:
+ * mark-and-sweep deletes whatever drops out of all selections; the `MergeResolver` merges the server sources
+ * of a song back into one song.
  */
 class WearManifestSource(
     override val sourceId: String,
@@ -31,22 +31,22 @@ class WearManifestSource(
 
     override fun fullScan(): Flow<SourceBatch> = flowOf(SourceBatch(tracks))
 
-    /** Abgespielt wird über die Quellen der `DataSourceRegistry` bzw. Downloads, nie über diese Quelle. */
+    /** Playback goes through the sources of the `DataSourceRegistry` or downloads, never through this source. */
     override suspend fun resolvePlayback(remoteId: String): PlaybackLocation =
         throw UnsupportedOperationException("Manifest-Quelle $sourceId spielt nichts ab")
 
     override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? = null
 
     companion object {
-        /** Pseudo-Quelle für Songs, die nur das Handy hat (Typ [SourceType.PHONE]). */
+        /** Pseudo source for songs only the phone has (type [SourceType.PHONE]). */
         const val PHONE_SOURCE_ID = "phone"
     }
 }
 
 /**
- * Die Tracks des Manifests je Quelle: je bekanntem Server ein Track pro Server-Quelle des Songs, Songs
- * ohne (bekannte) Server-Quelle einmal unter [WearManifestSource.PHONE_SOURCE_ID] mit der `sourceUid`
- * des Handys als `remoteId` (z. B. `phone:local:123`).
+ * The manifest's tracks per source: for each known server one track per server source of the song; songs
+ * without a (known) server source once under [WearManifestSource.PHONE_SOURCE_ID] with the phone's `sourceUid`
+ * as `remoteId` (e.g. `phone:local:123`).
  */
 fun manifestTracks(manifest: WearManifest, servers: Set<String>, keepPhone: Set<String> = emptySet()): Map<String, List<RawTrack>> {
     val result = HashMap<String, MutableList<RawTrack>>()
@@ -54,9 +54,9 @@ fun manifestTracks(manifest: WearManifest, servers: Set<String>, keepPhone: Set<
         val version = song.version()
         val known = song.serverSources.filter { it.sourceId in servers }
         val phoneId = phoneRemoteId(song)
-        // Schon übers Handy geladen ([keepPhone]): bleibt auch unter `phone`, wenn die Uhr den Server inzwischen kennt
-        // (Update, neuer Server am Handy). Sonst nähme der Abgleich die Quelle samt Download und Datei mit, und der
-        // Song käme erst wieder vom Server – per WLAN, meist erst am Ladegerät.
+        // Already downloaded via the phone ([keepPhone]): stays under `phone` even if the watch knows the server by now
+        // (update, new server on the phone). Otherwise the sync would take the source along with download and file, and the
+        // song would only come from the server again – over Wi-Fi, usually only on the charger.
         if (known.isEmpty() || phoneId in keepPhone) {
             result.getOrPut(WearManifestSource.PHONE_SOURCE_ID) { mutableListOf() } += song.toRawTrack(phoneId, null, version)
         }
@@ -65,7 +65,7 @@ fun manifestTracks(manifest: WearManifest, servers: Set<String>, keepPhone: Set<
     return result
 }
 
-/** Die `sourceUid`s, unter denen [song] auf der Uhr liegt (siehe [manifestTracks]). */
+/** The `sourceUid`s under which [song] is stored on the watch (see [manifestTracks]). */
 fun watchSourceUids(song: WearSongDto, servers: Set<String>): List<String> =
     song.serverSources.filter { it.sourceId in servers }.map { it.uid }
         .ifEmpty { listOf("${WearManifestSource.PHONE_SOURCE_ID}:${phoneRemoteId(song)}") }
@@ -96,10 +96,10 @@ private fun WearSongDto.toRawTrack(remoteId: String, server: WearServerSourceDto
     mimeType = server?.mimeType ?: phoneFile?.mimeType,
     bitRate = server?.bitRate,
     sizeBytes = server?.sizeBytes ?: phoneFile?.sizeBytes,
-    // Wie der Hash einer Server-Quelle: Ändert sich am Song nichts, überspringt der Abgleich ihn.
+    // Like the hash of a server source: if nothing changes on the song, the sync skips it.
     lastModified = version,
 )
 
-/** Stabiler Fingerabdruck des Songs (64 Bit des SHA-256 über das JSON). */
+/** Stable fingerprint of the song (64 bits of the SHA-256 over the JSON). */
 private fun WearSongDto.version(): Long =
     ByteBuffer.wrap(MessageDigest.getInstance("SHA-256").digest(WearCodec.encode(this))).long

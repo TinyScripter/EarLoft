@@ -12,7 +12,7 @@ import kotlinx.coroutines.SupervisorJob
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
-/** Scope für Arbeit, die unabhängig von einzelnen Bildschirmen weiterlaufen soll. */
+/** Scope for work that should keep running independently of individual screens. */
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class ApplicationScope
@@ -28,7 +28,7 @@ internal object DataModule {
 }
 
 /**
- * Für langlebige Scopes (App, Service): Eine unbehandelte Ausnahme in einer Hintergrund-Coroutine wird geloggt, statt
- * den Prozess samt laufender Wiedergabe zu beenden (z. B. ein Fremdschlüssel, weil der Inhalt gerade gelöscht wurde).
+ * For long-lived scopes (app, service): an unhandled exception in a background coroutine is logged instead of
+ * killing the process along with ongoing playback (e.g. a foreign key, because the content was just deleted).
  */
 val LoggingExceptionHandler = CoroutineExceptionHandler { _, e -> Log.e("ApplicationScope", "Unbehandelte Ausnahme", e) }

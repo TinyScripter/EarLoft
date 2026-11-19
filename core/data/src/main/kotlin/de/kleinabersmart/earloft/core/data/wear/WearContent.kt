@@ -5,9 +5,9 @@ import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
 
 /**
- * Was auf die Uhr soll, aufgelöst am Handy (Wear-Konzept 4.1/5): die Auswahlen mit ihren Songs in
- * Reihenfolge und jeder Song einmal mit allem, was die Uhr zum Laden braucht. Die App bildet daraus
- * das Manifest für den Data Layer.
+ * What should go to the watch, resolved on the phone (Wear concept 4.1/5): the selections with their songs in
+ * order and each song once with everything the watch needs for downloading. The app builds
+ * the manifest for the Data Layer from it.
  */
 data class WearContent(
     val selections: List<WearSelectionContent> = emptyList(),
@@ -18,15 +18,15 @@ data class WearSelectionContent(
     val key: String,
     val kind: WearSelectionKind,
     val refId: Long?,
-    /** Album- bzw. Playlist-Name; leer bei Favoriten (den Namen setzt die Oberfläche). */
+    /** Album or playlist name; empty for favorites (the UI sets the name). */
     val title: String,
-    /** Reihenfolge der Auswahl; Duplikate bei Playlists erlaubt. */
+    /** Order of the selection; duplicates allowed for playlists. */
     val songIds: List<Long>,
 )
 
 data class WearSongContent(
     val songId: Long,
-    /** Bevorzugte `sourceUid` am Handy (lokal vor Server, dann wie beim Abspielen). */
+    /** Preferred `sourceUid` on the phone (local before server, then as during playback). */
     val key: String,
     val title: String,
     val artists: List<String>,
@@ -42,9 +42,9 @@ data class WearSongContent(
     val mbid: String?,
     val albumMbid: String?,
     val replayGain: ReplayGain?,
-    /** Server-Quellen in der Reihenfolge, in der das Handy sie bevorzugt. */
+    /** Server sources in the order the phone prefers them. */
     val serverSources: List<WearServerSource>,
-    /** `null` = das Handy hat keine Datei (weder lokal noch heruntergeladen). */
+    /** `null` = the phone has no file (neither local nor downloaded). */
     val phoneFile: WearPhoneFile?,
 )
 
@@ -58,17 +58,17 @@ data class WearServerSource(
     val coverRemoteId: String?,
 )
 
-/** Eine Datei auf dem Handy (lokal oder fertiger Download), die es der Uhr schicken kann. */
+/** A file on the phone (local or finished download) that it can send to the watch. */
 data class WearPhoneFile(
     val uid: String,
     val sizeBytes: Long?,
     val mimeType: String?,
 )
 
-/** Ein Server, wie die Uhr ihn spiegelt – ohne Passwort (Wear-Konzept 6). */
+/** A server as the watch mirrors it – without password (Wear concept 6). */
 data class MirroredServer(
     val sourceId: String,
-    /** Immer ein Server-Typ ([SourceType.isServer]). */
+    /** Always a server type ([SourceType.isServer]). */
     val type: SourceType,
     val name: String,
     val baseUrl: String,
@@ -76,8 +76,8 @@ data class MirroredServer(
     val priority: Int,
     val formPost: Boolean,
     /**
-     * Ändert sich mit den Zugangsdaten am Handy (neues Passwort, neu angemeldet), verrät aber nichts über sie; `null`, wenn
-     * das Handy keine hat. Die Uhr fragt dann neu an, statt erst an einer Ablehnung des Servers zu merken, dass ihre veraltet sind.
+     * Changes with the credentials on the phone (new password, signed in again), but reveals nothing about them; `null` if
+     * the phone has none. The watch then requests anew instead of only noticing from a server rejection that its own are outdated.
      */
     val credentialsStamp: String? = null,
 )

@@ -16,19 +16,19 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Was das Menü eines Abos gerade anbietet. */
+/** What a subscription's menu currently offers. */
 data class FeedMenuState(
-    /** Die nächste ungehörte Folge in der Abspielreihenfolge des Abos; `null`, wenn alle gehört sind. */
+    /** The next unplayed episode in the subscription's playback order; `null` if all are played. */
     val next: BookWithProgress?,
-    /** [next] steht schon in „Weiterhören“. */
+    /** [next] is already in "Continue listening". */
     val nextQueued: Boolean,
-    /** Noch nicht zu Ende gehörte Folgen (für „Alle als gehört markieren“). */
+    /** Episodes not yet fully played (for "Mark all as played"). */
     val unheard: Int,
-    /** Es gibt geladene Folgen, die zu Ende gehört sind. */
+    /** There are downloaded episodes that have been fully played. */
     val hasHeardDownloads: Boolean,
 )
 
-/** Zum [FeedMenu]; wie beim Album-Menü wird erst beim Öffnen abgefragt, nicht je Kachel. */
+/** For the [FeedMenu]; as with the album menu, the query happens only on opening, not per tile. */
 @HiltViewModel
 class FeedMenuViewModel @Inject constructor(
     private val podcasts: PodcastRepository,
@@ -54,7 +54,7 @@ class FeedMenuViewModel @Inject constructor(
         )
     }
 
-    /** Wie [PodcastViewModel.playOrPause], nur ohne Pause: Ist die Folge schon geladen, geht es dort weiter. */
+    /** Like [PodcastViewModel.playOrPause], just without pause: if the episode is already loaded, it continues there. */
     fun play(bookId: Long) {
         val state = playback.state.value
         when {
@@ -63,7 +63,7 @@ class FeedMenuViewModel @Inject constructor(
         }
     }
 
-    /** Hängt die Folge ans Ende von „Weiterhören“. */
+    /** Appends the episode to the end of "Continue listening". */
     fun queue(bookId: Long) {
         viewModelScope.launch { continueListening.append(bookId) }
     }

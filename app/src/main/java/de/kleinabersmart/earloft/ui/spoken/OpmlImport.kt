@@ -22,15 +22,15 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import javax.inject.Inject
 
-/** OPML-Import für die Einstellungen und die Seite „Podcast hinzufügen“. */
+/** OPML import for the settings and the "Add podcast" page. */
 class OpmlImporter @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val podcasts: PodcastRepository,
     private val refresher: PodcastRefresher,
 ) {
     /**
-     * Liest die Abos aus [uri] und übernimmt sie ([replace]: alle anderen Abos entfallen); danach werden die neuen Feeds
-     * abgeglichen. `null`, wenn die Datei nicht lesbar oder kein OPML ist.
+     * Reads the subscriptions from [uri] and adopts them ([replace]: all other subscriptions are dropped); afterwards the new feeds
+     * are synced. `null` if the file isn't readable or isn't OPML.
      */
     suspend fun import(uri: Uri, replace: Boolean): OpmlImportResult? = try {
         val feeds = withContext(Dispatchers.IO) {
@@ -49,7 +49,7 @@ class OpmlImporter @Inject constructor(
     }
 }
 
-/** Meldung nach einem OPML-Import; [result] `null` = fehlgeschlagen. */
+/** Message after an OPML import; [result] `null` = failed. */
 fun opmlImportMessage(resources: Resources, result: OpmlImportResult?): String =
     if (result == null) {
         resources.getString(R.string.settings_opml_import_failed)
@@ -57,7 +57,7 @@ fun opmlImportMessage(resources: Resources, result: OpmlImportResult?): String =
         resources.getQuantityString(R.plurals.settings_opml_imported, result.added, result.added, result.skipped, result.removed)
     }
 
-/** Fragt vor dem Import, ob die Abos hinzugefügt oder ersetzt werden. */
+/** Asks before the import whether the subscriptions are added or replaced. */
 @Composable
 fun OpmlImportDialog(onImport: (replace: Boolean) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(

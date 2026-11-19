@@ -19,23 +19,23 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.roundToInt
 
 /**
- * Wendet ReplayGain an (Konzept 7.3).
+ * Applies ReplayGain (concept 7.3).
  *
- * **Titelgrenze (Spike S1):** Der Audio-Puffer läuft der hörbaren Wiedergabe voraus, deshalb wird
- * der Gain nicht in `onMediaItemTransition` gesetzt. Stattdessen flusht `DefaultAudioSink` (Media3
- * 1.11) die Prozessoren genau dann mit der `periodUid` des neuen Titels, wenn dessen erste
- * Samples ankommen – auch bei Gapless. Darüber wird das [MediaItem] und damit der Song gefunden.
+ * **Title boundary (spike S1):** the audio buffer runs ahead of audible playback, so
+ * the gain is not set in `onMediaItemTransition`. Instead `DefaultAudioSink` (Media3
+ * 1.11) flushes the processors with the new title's `periodUid` exactly when its first
+ * samples arrive – also with gapless. That's how the [MediaItem] and thus the song is found.
  *
- * **Werte:** zuerst die der gewählten Quelle aus der Datenbank ([onSourceResolved], kommt vom
- * Lade-Thread), sonst die Tags der gespielten Datei ([ReplayGainAudioSink]); lokale Dateien haben
- * bis zum Tag-Lesen (Spike S2) nur Letztere.
+ * **Values:** first those of the chosen source from the database ([onSourceResolved], comes from the
+ * loader thread), otherwise the tags of the played file ([ReplayGainAudioSink]); local files only have
+ * the latter until tag reading (spike S2).
  */
 @OptIn(UnstableApi::class)
 internal class ReplayGainProcessor : BaseAudioProcessor() {
 
     private val databaseValues = ConcurrentHashMap<Long, ReplayGain>()
 
-    /** periodUid → Tags; nur auf dem Playback-Thread benutzt. */
+    /** periodUid → tags; only used on the playback thread. */
     private val tagValues = object : LinkedHashMap<Any, ReplayGain>() {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Any, ReplayGain>?) = size > MAX_REMEMBERED_TAGS
     }
@@ -66,11 +66,11 @@ internal class ReplayGainProcessor : BaseAudioProcessor() {
     override fun onConfigure(inputAudioFormat: AudioFormat): AudioFormat =
         when (inputAudioFormat.encoding) {
             C.ENCODING_PCM_16BIT, C.ENCODING_PCM_FLOAT -> inputAudioFormat
-            else -> AudioFormat.NOT_SET // inaktiv: Wiedergabe läuft ungeregelt weiter, statt abzubrechen
+            else -> AudioFormat.NOT_SET // inactive: playback continues unadjusted instead of failing
         }
 
     override fun onFlush(streamMetadata: StreamMetadata) {
-        // Ohne periodUid (z. B. Flush ohne Titelbezug) bleibt der bisherige Titel gültig.
+        // Without a periodUid (e.g. flush unrelated to a title) the previous title stays valid.
         val periodUid = streamMetadata.periodUid ?: return
         current = describe(streamMetadata.timeline, periodUid)
         updateFactor()
@@ -132,7 +132,7 @@ internal class ReplayGainProcessor : BaseAudioProcessor() {
     }
 }
 
-/** Gibt die Tags jedes neuen Titels an den [ReplayGainProcessor] weiter, bevor dessen Samples ankommen. */
+/** Passes the tags of every new title to the [ReplayGainProcessor] before its samples arrive. */
 @OptIn(UnstableApi::class)
 internal class ReplayGainAudioSink(
     sink: AudioSink,
@@ -145,13 +145,13 @@ internal class ReplayGainAudioSink(
     }
 }
 
-/** Album und Position eines Titels in der Warteschlange. */
+/** Album and position of a title in the queue. */
 internal data class QueuePosition(val albumId: Long?, val discNumber: Int, val trackNumber: Int)
 
 private val MediaItem.queuePosition: QueuePosition
     get() = QueuePosition(mediaMetadata.albumIdExtra, mediaMetadata.discNumber ?: 1, mediaMetadata.trackNumber ?: 0)
 
-/** Ein Nachbar aus demselben Album steht in Album-Reihenfolge davor bzw. dahinter. */
+/** A neighbor from the same album is before or after it in album order. */
 internal fun playsAlbumInOrder(previous: QueuePosition?, current: QueuePosition, next: QueuePosition?): Boolean {
     if (current.albumId == null) return false
     val order = compareBy<QueuePosition>({ it.discNumber }, { it.trackNumber })

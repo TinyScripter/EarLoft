@@ -8,13 +8,13 @@ import androidx.room.PrimaryKey
 import de.kleinabersmart.earloft.core.model.BookKind
 
 /**
- * Gehörte Zeit je Folge bzw. Buch (Grundlage der Statistik). Die Zeilen sind absichtlich von `books` entkoppelt: Fällt eine
- * Folge aus dem Feed oder wird ein Abo beendet, bleibt die gehörte Zeit erhalten. Es gibt eine Summe samt letztem Hördatum
- * je Eintrag, keine einzelnen Hörsitzungen.
+ * Listening time per episode or book (basis of the statistics). The rows are deliberately decoupled from `books`: if an
+ * episode drops out of the feed or a subscription ends, the listening time is kept. There is one total with the last listen
+ * date per entry, no individual listening sessions.
  *
- * Gruppe = Podcast (Feed-Adresse) bzw. Server, Eintrag = Folge (guid) bzw. Buch. `source` trennt Fremdimporte
- * ([SOURCE_IMPORTED]) von dem, was die App selbst zählt ([SOURCE_APP]); `(source, groupKey, itemKey)` ist eindeutig, ein
- * erneuter Import ersetzt also seine eigenen Zeilen.
+ * Group = podcast (feed address) or server, entry = episode (guid) or book. `source` separates external imports
+ * ([SOURCE_IMPORTED]) from what the app counts itself ([SOURCE_APP]); `(source, groupKey, itemKey)` is unique, so a
+ * repeated import replaces its own rows.
  */
 @Entity(
     tableName = "listening_stats",
@@ -31,9 +31,9 @@ data class ListeningStatEntity(
     val groupTitle: String,
     val itemKey: String,
     val itemTitle: String,
-    /** Insgesamt gehörte Zeit in ms, gemessen am Inhalt (eine Stunde Inhalt zählt eine Stunde, egal bei welcher Geschwindigkeit). */
+    /** Total listening time in ms, measured by content (an hour of content counts as an hour, regardless of speed). */
     val listenedMs: Long,
-    /** Unix-ms des letzten Hörens; 0, wenn unbekannt. */
+    /** Unix ms of the last listen; 0 if unknown. */
     val lastListenedAt: Long,
 ) {
     companion object {
@@ -43,26 +43,26 @@ data class ListeningStatEntity(
 }
 
 /**
- * Gehörte Zeit je Tag und Gruppe, nur von der App selbst gezählt (importierte Werte kennen keinen Tag). Grundlage für
- * Verläufe; [day] ist der lokale Kalendertag als `LocalDate.toEpochDay()`.
+ * Listening time per day and group, only counted by the app itself (imported values have no day). Basis for
+ * trends; [day] is the local calendar day as `LocalDate.toEpochDay()`.
  */
 @Entity(tableName = "listening_days", primaryKeys = ["day", "kind", "groupKey"])
 data class ListeningDayEntity(
     val day: Long,
     val kind: BookKind,
     val groupKey: String,
-    /** Gehörte Zeit in ms, gemessen am Inhalt (eine Stunde Inhalt zählt eine Stunde, egal bei welcher Geschwindigkeit). */
+    /** Listening time in ms, measured by content (an hour of content counts as an hour, regardless of speed). */
     val listenedMs: Long,
     /**
-     * Durch „Stille kürzen“ gesparte Zeit in ms (Schema v26): die übersprungene Stille geteilt durch das Tempo, also
-     * Wanduhr-Zeit. Die Stille selbst zählt als Inhalt in [listenedMs].
+     * Time saved by "Trim silence" in ms (schema v26): the skipped silence divided by the speed, i.e.
+     * wall-clock time. The silence itself counts as content in [listenedMs].
      */
     @ColumnInfo(defaultValue = "0") val savedMs: Long = 0,
 )
 
 /**
- * Letzter Abruf einer Server-Statistik (Audiobookshelf), unverändert als JSON, damit die Seite offline den letzten Stand
- * zeigt. [kind] benennt die Art des Abrufs (heute nur `listening`).
+ * Last fetch of a server statistic (Audiobookshelf), unchanged as JSON so the page shows the last state
+ * offline. [kind] names the type of fetch (currently only `listening`).
  */
 @Entity(tableName = "server_stats_cache", primaryKeys = ["serverId", "kind"])
 data class ServerStatsCacheEntity(
@@ -73,8 +73,8 @@ data class ServerStatsCacheEntity(
 )
 
 /**
- * Eine Hörsitzung eines Buchs, die dem Server gemeldet wird (Audiobookshelf zählt seine Statistik aus Sitzungen).
- * Die Werte sind je Sitzung aufsummiert; [dirty]: seit der letzten erfolgreichen Meldung geändert.
+ * A listening session of a book that is reported to the server (Audiobookshelf computes its statistics from sessions).
+ * The values are summed per session; [dirty]: changed since the last successful report.
  */
 @Entity(
     tableName = "abs_sessions",
@@ -88,9 +88,9 @@ data class AbsSessionEntity(
     val bookId: Long,
     val startedAt: Long,
     val updatedAt: Long,
-    /** Gehörte Inhaltszeit der Sitzung in ms. */
+    /** Listened content time of the session in ms. */
     val timeListeningMs: Long,
-    /** Buchposition beim Start und zuletzt, in ms. */
+    /** Book position at start and most recently, in ms. */
     val startPositionMs: Long,
     val currentPositionMs: Long,
     val durationMs: Long,

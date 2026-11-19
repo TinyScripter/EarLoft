@@ -15,20 +15,20 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Was ein Cast-Empfänger zum Abspielen eines Songs braucht. [streamUrl] und [coverUrl] enthalten
- * Zugangsdaten – nicht speichern, nicht loggen. [sourceId]: der Musikserver, von dem der Empfänger lädt
- * ([PhoneCastServer.SOURCE_ID] für Dateien vom Handy, `null` bei Büchern und Folgen).
+ * What a cast receiver needs to play a song. [streamUrl] and [coverUrl] contain
+ * credentials – don't store, don't log. [sourceId]: the music server the receiver loads from
+ * ([PhoneCastServer.SOURCE_ID] for files from the phone, `null` for books and episodes).
  */
 class CastMedia(val streamUrl: String, val mimeType: String, val coverUrl: String?, val sourceId: String? = null) {
     override fun toString() = "CastMedia(mimeType=$mimeType, sourceId=$sourceId)"
 }
 
 /**
- * Löst Songs für einen Cast-Empfänger auf. Der Empfänger lädt selbst und kennt kein `earloft://`; zuerst kommen deshalb
- * Server-Quellen in Frage – auch für heruntergeladene Songs, denn der Server bleibt erreichbar, wenn das Handy schläft oder
- * das WLAN verlässt. Reihenfolge der Server wie bei der Wiedergabe ([SourcePreference]). Hat ein Song keinen erreichbaren
- * Server, liefert ihn das Handy selbst aus ([PhoneCastServer], Chromecast Etappe 2): die Datei auf dem Gerät, sonst der
- * Download. Was der Empfänger nicht abspielen kann, fällt weg (umwandeln kann nur ein Server).
+ * Resolves songs for a cast receiver. The receiver loads by itself and doesn't know `earloft://`; therefore server
+ * sources come first – even for downloaded songs, because the server stays reachable when the phone sleeps or
+ * leaves the Wi-Fi. Server order as for playback ([SourcePreference]). If a song has no reachable
+ * server, the phone serves it itself ([PhoneCastServer], Chromecast stage 2): the file on the device, otherwise the
+ * download. Whatever the receiver can't play is dropped (only a server can transcode).
  */
 @Singleton
 class CastMediaResolver @Inject constructor(
@@ -38,8 +38,8 @@ class CastMediaResolver @Inject constructor(
     private val phone: PhoneCastServer,
 ) {
     /**
-     * Songs ohne nutzbare Quelle fehlen im Ergebnis. [excludedSources]: Server, die der Empfänger in dieser Sitzung
-     * nicht erreicht hat (auch [PhoneCastServer.SOURCE_ID]); Songs weichen auf den nächsten aus.
+     * Songs without a usable source are missing from the result. [excludedSources]: servers the receiver couldn't reach
+     * in this session (including [PhoneCastServer.SOURCE_ID]); songs fall back to the next one.
      */
     suspend fun resolve(songIds: Collection<Long>, excludedSources: Set<String> = emptySet()): Map<Long, CastMedia> {
         val result = HashMap<Long, CastMedia>()
@@ -80,7 +80,7 @@ class CastMediaResolver @Inject constructor(
         return CastMedia(url, mimeType, albumId?.let(phone::albumCoverUrl), PhoneCastServer.SOURCE_ID)
     }
 
-    /** Die Datei auf dem Gerät (lokale Quelle), sonst der fertige Download – jeweils nur in einem Format für den Empfänger. */
+    /** The file on the device (local source), otherwise the finished download – each only in a format for the receiver. */
     private suspend fun phoneFile(songId: Long, rows: List<PlayableSourceRow>): Pair<Uri, String>? {
         for (row in rows.filter { it.sourceType == SourceType.LOCAL }.sortedWith(SourcePreference)) {
             val mimeType = CastFormats.playableMimeType(row.mimeType) ?: continue
@@ -97,7 +97,7 @@ class CastMediaResolver @Inject constructor(
         val server = rows.filter { it.sourceType.isServer }.sortedWith(SourcePreference)
         if (server.isEmpty()) return null
         val file = downloadDao.getDoneFilePaths(songId).map(::File).firstOrNull { it.isFile } ?: return null
-        // Ein umgewandelter Download hat das Format seiner Endung, sonst das der Server-Datei.
+        // A transcoded download has the format of its extension, otherwise that of the server file.
         val mimeType = CastFormats.mimeTypeOfFileName(file.name)
             ?: server.firstNotNullOfOrNull { CastFormats.playableMimeType(it.mimeType) }
             ?: return null
@@ -111,7 +111,7 @@ class CastMediaResolver @Inject constructor(
     }
 }
 
-/** Formate, die Cast-Empfänger selbst abspielen (Google Cast „Supported Media“); alles andere wandelt der Server um. */
+/** Formats that cast receivers play themselves (Google Cast "Supported Media"); the server transcodes everything else. */
 object CastFormats {
     val TRANSCODE_TARGET = "mp3" to 320
     const val TRANSCODED_MIME_TYPE = "audio/mpeg"
@@ -124,11 +124,11 @@ object CastFormats {
         "audio/wav", "audio/x-wav", "audio/wave",
     )
 
-    /** Der MIME-Typ für den Empfänger, `null` = muss umgewandelt werden (auch bei unbekanntem Typ). */
+    /** The MIME type for the receiver, `null` = must be transcoded (also for an unknown type). */
     fun playableMimeType(mimeType: String?): String? =
         mimeType?.lowercase()?.substringBefore(';')?.trim()?.takeIf { it in PLAYABLE }
 
-    /** Der MIME-Typ eines Downloads nach seiner Endung (siehe `DownloadStorage.extensionFor`); `null` bei unbekannter. */
+    /** The MIME type of a download by its extension (see `DownloadStorage.extensionFor`); `null` if unknown. */
     fun mimeTypeOfFileName(fileName: String): String? = when (fileName.substringAfterLast('.', "").lowercase()) {
         "mp3" -> "audio/mpeg"
         "m4a", "m4b", "mp4", "aac" -> "audio/mp4"

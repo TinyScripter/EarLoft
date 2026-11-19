@@ -18,7 +18,7 @@ import de.kleinabersmart.earloft.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
-/** In-Memory-Bibliothek mit Quellen, Alben, Songs und Song-Quellen für Download-Tests. */
+/** In-memory library with sources, albums, songs and song sources for download tests. */
 internal class TestLibrary {
     val db: EarLoftDatabase = Room.inMemoryDatabaseBuilder(
         ApplicationProvider.getApplicationContext(),
@@ -68,7 +68,7 @@ internal class TestLibrary {
     fun close() = db.close()
 }
 
-/** Server, dessen Streams unter [baseUrl]`/stream/<remoteId>` liegen. */
+/** Server whose streams are located at [baseUrl]`/stream/<remoteId>`. */
 internal open class FakeServer(
     override val sourceId: String,
     protected val baseUrl: String,
@@ -84,7 +84,7 @@ internal open class FakeServer(
     override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? = null
 }
 
-/** [FakeServer], der auf Wunsch umwandelt: `/stream/<remoteId>?codec=…&maxKbps=…`. */
+/** [FakeServer] that transcodes on request: `/stream/<remoteId>?codec=…&maxKbps=…`. */
 internal class TranscodingServer(sourceId: String, baseUrl: String) : FakeServer(sourceId, baseUrl), RemoteTranscoding {
     override fun transcodedPlayback(remoteId: String, codec: String, maxKbps: Int) = PlaybackLocation.Remote(
         Uri.parse("$baseUrl/stream/$remoteId?codec=$codec&maxKbps=$maxKbps"),

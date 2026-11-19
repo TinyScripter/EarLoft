@@ -46,14 +46,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * [PlaybackConnection] über einen [MediaController] zum [PlaybackService]. Nur über [PlaybackConnection] verwenden; öffentlich
- * nur wegen [PlaybackConnectionBindings].
+ * [PlaybackConnection] via a [MediaController] to the [PlaybackService]. Only use via [PlaybackConnection]; public
+ * only because of [PlaybackConnectionBindings].
  *
- * Verbunden wird erst, wenn jemand [state] beobachtet oder den Player steuert – nicht schon beim Erzeugen. Sonst
- * startete jeder Prozessstart (Hintergrund-Job, Nachricht der Uhr) den Service samt Player und Wiederherstellen.
- * Beobachtet niemand mehr und läuft kein Befehl, wird der Controller nach [RELEASE_DELAY_MS] freigegeben: Ein gebundener
- * Service würde sonst nie beendet, auch wenn nichts mehr spielt und die App längst im Hintergrund ist. [state] behält
- * bis zur nächsten Verbindung den letzten Stand.
+ * It only connects once someone observes [state] or controls the player – not already on creation. Otherwise
+ * every process start (background job, message from the watch) would start the service along with player and restore.
+ * If nobody observes any more and no command is running, the controller is released after [RELEASE_DELAY_MS]: a bound
+ * service would otherwise never end, even if nothing plays any more and the app has long been in the background. [state] keeps
+ * the last state until the next connection.
  */
 @Singleton
 class MediaPlaybackConnection @Inject constructor(
@@ -66,22 +66,22 @@ class MediaPlaybackConnection @Inject constructor(
 ) : PlaybackConnection {
     private val scope = MainScope()
 
-    /** Sprungweiten für Bücher bzw. Folgen; nur auf dem Main-Thread. */
+    /** Skip distances for books and episodes; main thread only. */
     private var bookSteps = SeekSteps.DEFAULT
     private var podcastSteps = SeekSteps.DEFAULT
 
-    /** Ob das laufende Item eine Folge ist; damit lassen sich die Sprungweiten ohne Controller neu setzen. */
+    /** Whether the current item is an episode; lets the skip distances be set again without a controller. */
     private var currentIsEpisode = false
 
-    /** Die laufende bzw. aufgebaute Verbindung; `null`, solange keine besteht. Nur auf dem Main-Thread. */
+    /** The current or pending connection; `null` while there is none. Main thread only. */
     private var connection: CompletableDeferred<MediaController>? = null
 
-    /** Befehle, die gerade auf den Controller warten oder ihn benutzen; solange > 0, wird nicht freigegeben. */
+    /** Commands currently waiting for or using the controller; while > 0, it is not released. */
     private var commandsInFlight = 0
     private var releaseJob: Job? = null
     private val _state = MutableStateFlow(PlayerState())
 
-    /** Der erste Stand vom Player ist da; vorher heißt ein leerer [_state] nur „noch nicht verbunden“. */
+    /** The first state from the player has arrived; before that an empty [_state] just means "not connected yet". */
     private val stateKnown = MutableStateFlow(false)
 
     override val state: StateFlow<PlayerState> = _state.asStateFlow()
@@ -114,7 +114,7 @@ class MediaPlaybackConnection @Inject constructor(
     private fun connectedController(): MediaController? =
         connection?.takeIf { it.isCompleted && !it.isCancelled }?.getCompleted()
 
-    /** Baut den [MediaController] auf, falls keine Verbindung besteht oder entsteht; nur auf dem Main-Thread. */
+    /** Builds the [MediaController] if no connection exists or is being established; main thread only. */
     private fun connect(): CompletableDeferred<MediaController> {
         releaseJob?.cancel()
         releaseJob = null
@@ -126,7 +126,7 @@ class MediaPlaybackConnection @Inject constructor(
             val mediaController = try {
                 MediaController.Builder(context, token)
                     .setListener(object : MediaController.Listener {
-                        // Session weg (Service beendet): neu verbinden, solange jemand beobachtet, sonst beim nächsten Zugriff.
+                        // Session gone (service ended): reconnect as long as someone is observing, otherwise on next access.
                         override fun onDisconnected(controller: MediaController) {
                             if (connection !== pending) return
                             connection = null
@@ -144,7 +144,7 @@ class MediaPlaybackConnection @Inject constructor(
                 return@launch
             }
             if (connection !== pending) {
-                // Inzwischen freigegeben.
+                // Released in the meantime.
                 mediaController.release()
                 pending.cancel()
                 return@launch
@@ -169,7 +169,7 @@ class MediaPlaybackConnection @Inject constructor(
         return pending
     }
 
-    /** Gibt den Controller nach [RELEASE_DELAY_MS] frei, wenn bis dahin niemand beobachtet und kein Befehl läuft. */
+    /** Releases the controller after [RELEASE_DELAY_MS] if by then nobody is observing and no command is running. */
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun scheduleRelease() {
         if (_state.subscriptionCount.value > 0 || commandsInFlight > 0 || connection == null) return
@@ -181,11 +181,11 @@ class MediaPlaybackConnection @Inject constructor(
             connection = null
             releaseJob = null
             if (released.isCompleted && !released.isCancelled) released.getCompleted().release()
-            // Entsteht die Verbindung noch, gibt der Aufbau sie selbst frei (connection !== pending).
+            // If the connection is still being established, the setup releases it itself (connection !== pending).
         }
     }
 
-    /** Führt [block] mit verbundenem Controller aus; danach darf freigegeben werden, wenn niemand mehr beobachtet. */
+    /** Runs [block] with a connected controller; afterwards it may be released if nobody is observing any more. */
     private suspend fun <T> useController(block: suspend MediaController.() -> T): T? {
         commandsInFlight++
         try {
@@ -194,7 +194,7 @@ class MediaPlaybackConnection @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                return null // schon geloggt
+                return null // already logged
             }
             return controller.block()
         } finally {
@@ -220,10 +220,10 @@ class MediaPlaybackConnection @Inject constructor(
     }
 
     override suspend fun playBook(bookId: Long, startPositionMs: Long?): PreparedBook? {
-        // Eine Podcast-Folge steht sofort ganz vorn in „Weiterhören“, auch wenn sie sich nicht laden lässt.
+        // A podcast episode goes to the very front of "Continue listening" immediately, even if it can't be loaded.
         continueListening.started(bookId)
         val prepared = bookPlaybackSource.prepare(bookId) ?: return null
-        // Der MediaController darf nur vom Main-Thread angesprochen werden.
+        // The MediaController may only be accessed from the main thread.
         withContext(Dispatchers.Main.immediate) {
             useController { playBook(prepared, startPositionMs) }
         }
@@ -233,7 +233,7 @@ class MediaPlaybackConnection @Inject constructor(
     override fun resumeMusic(index: Int?) {
         scope.launch {
             val restored = queuePersistence.restore() ?: return@launch
-            // Ein anderer Titel als der gespeicherte beginnt von vorn.
+            // A title other than the saved one starts from the beginning.
             val start = index?.takeIf { it in restored.items.indices && it != restored.startIndex }
             useController {
                 shuffleModeEnabled = restored.shuffle
@@ -247,7 +247,7 @@ class MediaPlaybackConnection @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override val savedMusicQueue: Flow<SavedMusicQueue?> = combine(_state, stateKnown) { state, known ->
-        // Ohne Song: ein Buch bzw. eine Folge ist geladen, oder gar nichts (z. B. nach dem Ende eines Buchs beim Casten).
+        // Without a song: a book or episode is loaded, or nothing at all (e.g. after a book ended while casting).
         state.current == null && (state.spoken != null || known)
     }
         .distinctUntilChanged()
@@ -277,8 +277,8 @@ class MediaPlaybackConnection @Inject constructor(
     }
 
     /**
-     * Ein Buch bzw. eine Folge ersetzt die Warteschlange des Players. Songs dahinter spielten nach dem Gesprochenen, statt
-     * dass die nächste Folge kommt, und überschrieben die gespeicherte Musik-Warteschlange; sie gehen deshalb dorthin.
+     * A book or episode replaces the player's queue. Songs after it would play after the spoken content instead of
+     * the next episode, and would overwrite the saved music queue; that's why they go there.
      */
     private fun queueForMusic(songs: List<Song>, next: Boolean) {
         if (songs.isEmpty()) return
@@ -289,8 +289,8 @@ class MediaPlaybackConnection @Inject constructor(
     }
 
     override fun replaceUpcoming(songs: List<Song>) = withController {
-        // Der Mix hat seine eigene Reihenfolge (z. B. nie zweimal derselbe Künstler hintereinander). Bei Zufall meinte „hinter dem
-        // laufenden Titel“ die gemischte Reihenfolge, und Media3 mischte den Mix noch einmal: Wie bei `play` endet der Zufall hier.
+        // The mix has its own order (e.g. never the same artist twice in a row). With shuffle, "after the
+        // current title" would mean the shuffled order, and Media3 would shuffle the mix again: as with `play`, shuffle ends here.
         shuffleModeEnabled = false
         if (mediaItemCount == 0) {
             setMediaItems(songs.map { it.toMediaItem() })
@@ -309,7 +309,7 @@ class MediaPlaybackConnection @Inject constructor(
             pause()
         } else {
             if (playbackState == Player.STATE_IDLE) prepare()
-            // Ende der Warteschlange: Ohne Zurücksetzen würde play() nichts tun.
+            // End of the queue: without resetting, play() would do nothing.
             if (playbackState == Player.STATE_ENDED) seekToDefaultPosition()
             play()
         }
@@ -345,7 +345,7 @@ class MediaPlaybackConnection @Inject constructor(
     override fun changeRemoteVolume(up: Boolean) = withController {
         if (deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE) return@withController
         if (!isCommandAvailable(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) return@withController
-        // Ohne C.VOLUME_FLAG_SHOW_UI: Die App zeigt die Lautstärke selbst an.
+        // Without C.VOLUME_FLAG_SHOW_UI: the app shows the volume itself.
         if (up) increaseDeviceVolume(0) else decreaseDeviceVolume(0)
     }
 
@@ -412,14 +412,14 @@ class MediaPlaybackConnection @Inject constructor(
         const val TAG = "PlaybackConnection"
 
         /**
-         * So lange bleibt der Controller nach dem letzten Beobachter bzw. Befehl verbunden. Deckt kurze Lücken ab
-         * (Drehen, kurzer Wechsel in eine andere App; die ViewModels halten ihrerseits 5 s), ohne den Service lange zu binden.
+         * The controller stays connected this long after the last observer or command. Covers short gaps
+         * (rotation, a short switch to another app; the ViewModels in turn hold for 5 s) without binding the service for long.
          */
         const val RELEASE_DELAY_MS = 10_000L
     }
 }
 
-/** Öffentlich, damit ViewModel-Tests die Bindung per `@TestInstallIn` durch einen Fake ersetzen können. */
+/** Public so that ViewModel tests can replace the binding with a fake via `@TestInstallIn`. */
 @Module
 @InstallIn(SingletonComponent::class)
 interface PlaybackConnectionBindings {

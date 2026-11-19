@@ -2,33 +2,33 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Wiedergabe-Benachrichtigung (API 33+). -->
+    <!-- Playback notification (API 33+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Server im Heimnetz (z. B. http://192.168.x.x): ab Android 17 nur mit dieser Berechtigung erreichbar. -->
+    <!-- Servers on the home network (e.g. http://192.168.x.x): from Android 17 on reachable only with this permission. -->
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
 
-    <!-- Widget: Die Startbildschirm-App finden, damit sie das Cover laden darf (Paket-Sichtbarkeit ab API 30). -->
+    <!-- Widget: find the launcher app so it may load the cover (package visibility from API 30). -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.HOME" />
         </intent>
-        <!-- Anmeldung bei Audiobookshelf per OpenID: Browser mit Custom Tabs bzw. Auth Tab finden (Konzept 12.11). -->
+        <!-- Audiobookshelf sign-in via OpenID: find browsers with Custom Tabs or Auth Tab (concept 12.11). -->
         <intent>
             <action android:name="android.support.customtabs.action.CustomTabsService" />
         </intent>
-        <!-- Now Playing → Equalizer: nur anbieten, wenn das System oder eine App einen hat. -->
+        <!-- Now playing → Equalizer: only offer it if the system or an app provides one. -->
         <intent>
             <action android:name="android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL" />
         </intent>
     </queries>
 
-    <!-- MissingMediaBrowserServiceIntentFilter: Der PlaybackService samt Filter steht im Manifest von core:playback, das
-         Lint hier nicht mitliest.
-         largeHeap: ExoPlayer hält bei MP4/M4B die Sample-Tabelle der ganzen Datei im Java-Heap (rund 32 Byte je
-         AAC-Frame, ein 17-h-Buch etwa 85 MB, beim Einlesen kurz das Doppelte). Mit der normalen Grenze (192 MB am
-         Emulator) scheiterten lange Hörbücher mit OutOfMemoryError. -->
+    <!-- MissingMediaBrowserServiceIntentFilter: The PlaybackService and its filter are in the manifest of core:playback,
+         which lint doesn't read here.
+         largeHeap: For MP4/M4B, ExoPlayer keeps the sample table of the whole file on the Java heap (about 32 bytes per
+         AAC frame, roughly 85 MB for a 17-hour book, briefly double that while parsing). With the normal limit (192 MB on the
+         emulator) long audiobooks failed with OutOfMemoryError. -->
     <application
         android:name=".EarLoftApplication"
         tools:ignore="MissingMediaBrowserServiceIntentFilter"
@@ -54,7 +54,7 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Sprachsuche („Spiele … mit EarLoft“); Android Auto geht über die Session. -->
+            <!-- Voice search ("Play … with EarLoft"); Android Auto goes through the session. -->
             <intent-filter>
                 <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
 
@@ -63,8 +63,8 @@
         </activity>
 
         <!--
-            „Abspielen“ aus der Benachrichtigung über eine neue Folge: nur über diesen nicht exportierten Weg, sonst könnte jede App
-            die Wiedergabe einer beliebigen Folge starten (Review D30).
+            "Play" from the new-episode notification: only via this non-exported route, otherwise any app could
+            start playback of an arbitrary episode (review D30).
         -->
         <activity-alias
             android:name=".NotificationPlay"
@@ -72,8 +72,8 @@
             android:targetActivity=".MainActivity" />
 
         <!--
-            Geteilte Podcast-Adressen (Konzept 13) öffnen die Vorschau; EarLoft nimmt sich aus dem eigenen Teilen-Menü aus.
-            Über diese Weiterleitung, sonst öffnete das Teilen eine zweite MainActivity in einer eigenen Aufgabe.
+            Shared podcast addresses (concept 13) open the preview; EarLoft excludes itself from its own share menu.
+            Goes through this trampoline, otherwise sharing would open a second MainActivity in its own task.
         -->
         <activity
             android:name=".ShareReceiverActivity"
@@ -103,8 +103,8 @@
         </activity>
 
         <!--
-            Rückleitung der Anmeldung per OpenID für Browser ohne Auth Tab (Konzept 12.11). Bewusst nicht
-            `audiobookshelf://`: Das gehört der offiziellen App, mit Auth Tab braucht es keinen Filter.
+            Redirect back from the OpenID sign-in for browsers without Auth Tab (concept 12.11). Deliberately not
+            `audiobookshelf://`: that belongs to the official app, and with Auth Tab no filter is needed.
         -->
         <activity
             android:name=".OpenIdRedirectActivity"
@@ -125,26 +125,26 @@
             </intent-filter>
         </activity>
 
-        <!-- Android Auto: Medien-App; Browse-Tree und Wiedergabe kommen vom PlaybackService. -->
+        <!-- Android Auto: media app; browse tree and playback come from the PlaybackService. -->
         <meta-data
             android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc" />
 
-        <!-- Chromecast mit dem Default Media Receiver; initialisiert in EarLoftApplication. -->
+        <!-- Chromecast with the Default Media Receiver; initialized in EarLoftApplication. -->
         <meta-data
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
             android:value="androidx.media3.cast.DefaultCastOptionsProvider" />
 
-        <!-- Ausgabeauswahl des Systems (Wiedergabe-Benachrichtigung, Sperrbildschirm): Ohne diesen Receiver zeigt sie nur
-             Handy und Bluetooth, keine Cast-Geräte, und kann nicht zwischen Handy und Empfänger wechseln. -->
+        <!-- System output switcher (playback notification, lock screen): without this receiver it only shows
+             phone and Bluetooth, no cast devices, and can't switch between phone and receiver. -->
         <receiver android:name="androidx.mediarouter.media.MediaTransferReceiver" />
 
-        <!-- Aktionen der Benachrichtigung über eine neue Folge („Als Nächstes“, „Laden“). -->
+        <!-- Actions of the new-episode notification ("Play next", "Download"). -->
         <receiver
             android:name=".notification.NewEpisodeActionReceiver"
             android:exported="false" />
 
-        <!-- Einstellungen eines Widgets beim Anlegen und über „Widget anpassen“ (Notiz 8.14). -->
+        <!-- Widget configuration when it is added and via "Customize widget" (note 8.14). -->
         <activity
             android:name=".widget.WidgetConfigActivity"
             android:excludeFromRecents="true"
@@ -169,7 +169,7 @@
                 android:resource="@xml/now_playing_widget_info" />
         </receiver>
 
-        <!-- Geladene Folgen als Datei teilen; Zugriff nur per Einmal-Berechtigung des Teilen-Intents. -->
+        <!-- Share downloaded episodes as files; access only via the share intent's one-time grant. -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.shared"
@@ -180,7 +180,7 @@
                 android:resource="@xml/share_file_paths" />
         </provider>
 
-        <!-- Nachrichten der Uhr (Wear-Konzept 4); die Play-Dienste starten den Dienst bei Bedarf. -->
+        <!-- Messages from the watch (Wear concept 4); Play services start the service on demand. -->
         <service
             android:name=".wear.PhoneWearListenerService"
             android:exported="true">
@@ -192,7 +192,7 @@
                     android:pathPrefix="/earloft/"
                     android:scheme="wear" />
             </intent-filter>
-            <!-- Pakete der Uhr (/earloft/plays/<uuid>, /earloft/episodes/<uuid>), auch wenn die App nicht läuft. -->
+            <!-- Packets from the watch (/earloft/plays/<uuid>, /earloft/episodes/<uuid>), even when the app isn't running. -->
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
                 <data
@@ -207,7 +207,7 @@
                     android:pathPrefix="/earloft/episodes/"
                     android:scheme="wear" />
             </intent-filter>
-            <!-- Die Uhr wartet aufs Handy (Review V1); zugestellt, sobald beide wieder verbunden sind. -->
+            <!-- The watch waits for the phone (review V1); delivered as soon as both are connected again. -->
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
                 <data
@@ -217,8 +217,8 @@
             </intent-filter>
         </service>
 
-        <!-- Übertragung zur Uhr als Vordergrund-Worker (WatchFileTransfers). core:download deklariert dasselbe, Lint
-             liest aber nur dieses Manifest; replace verhindert ein zusammengefügtes "dataSync|dataSync". -->
+        <!-- Transfer to the watch as a foreground worker (WatchFileTransfers). core:download declares the same, but lint
+             only reads this manifest; replace prevents a merged "dataSync|dataSync". -->
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"

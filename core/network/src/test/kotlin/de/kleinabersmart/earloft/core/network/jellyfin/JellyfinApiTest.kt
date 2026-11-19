@@ -51,7 +51,7 @@ class JellyfinApiTest {
         assertTrue(header.startsWith("MediaBrowser Client=\"EarLoft\""))
         assertTrue("DeviceId=\"earloft-jf\"" in header)
         assertFalse("Token=" in header)
-        // Anführungszeichen im Gerätenamen sind kodiert, die Kopfzeile bleibt gültig.
+        // Quotes in the device name are encoded, the header stays valid.
         assertTrue("Device=\"Pixel+10+%22Pro%22\"" in header)
         assertEquals("abc", result.accessToken)
         assertEquals("u1", result.user.id)
@@ -66,7 +66,7 @@ class JellyfinApiTest {
         api.me(server)
         assertTrue("Token=\"tok\"" in mockServer.takeRequest().headers["Authorization"]!!)
 
-        // Media3 und Downloads laden ohne Tag: erst nach dem Anmelden in der Registry authentifiziert.
+        // Media3 and downloads load without a tag: authenticated via the registry only after signing in.
         client.newCall(Request.Builder().url(api.streamUrl(server, "s1")).build()).execute().close()
         assertNull(mockServer.takeRequest().headers["Authorization"])
         registry.replaceAll(listOf(server))
@@ -84,7 +84,7 @@ class JellyfinApiTest {
         assertEquals("/jellyfin/Items/al1/Images/Primary", tagged.encodedPath)
         assertEquals("t2", tagged.queryParameter("tag"))
 
-        // Vor dem nächsten Abgleich gespeicherte IDs ohne Tag gehen weiter.
+        // IDs stored before the next sync without a tag keep working.
         val plain = api.imageUrl(server, "al1", 300)
         assertEquals("/jellyfin/Items/al1/Images/Primary", plain.encodedPath)
         assertNull(plain.queryParameter("tag"))
@@ -95,7 +95,7 @@ class JellyfinApiTest {
         MockWebServer().use { other ->
             other.start()
             other.enqueue(json("""{"Id":"u1","Name":"test"}"""))
-            // Gleicher Rechner, anderer Name und Port: für OkHttp ein fremder Host.
+            // Same machine, different name and port: a foreign host to OkHttp.
             val target = other.url("/login").newBuilder().host("127.0.0.1").build()
             mockServer.enqueue(MockResponse.Builder().code(302).addHeader("Location", target.toString()).build())
 
@@ -150,7 +150,7 @@ class JellyfinApiTest {
 
     @Test
     fun `emby answers without product name, jellyfin is no emby`() = runTest {
-        // So antwortet Emby 4.10: ohne ProductName.
+        // This is how Emby 4.10 answers: without ProductName.
         mockServer.enqueue(json("""{"ServerName":"emby","Version":"4.10.2.0","Id":"e4"}"""))
         assertEquals("4.10.2.0", api.publicInfo(server.baseUrl, JellyfinFlavor.EMBY).version)
 
@@ -179,7 +179,7 @@ class JellyfinApiTest {
         assertEquals("/emby/Users/u1/FavoriteItems/s1", favorite.url.encodedPath)
         val played = mockServer.takeRequest().url
         assertEquals("/emby/Users/u1/PlayedItems/s1", played.encodedPath)
-        // Emby lehnt ISO-8601 ab (am Server 4.10 gemessen).
+        // Emby rejects ISO-8601 (measured on server 4.10).
         assertEquals("20261108080000", played.queryParameter("datePlayed"))
     }
 
@@ -224,7 +224,7 @@ class JellyfinApiTest {
         assertEquals("/emby/Users/u1/Items/p1", mockServer.takeRequest().url.encodedPath)
         val rename = mockServer.takeRequest()
         assertEquals("/emby/Items/p1", rename.url.encodedPath)
-        // Der ganze Eintrag geht zurück, sonst antwortet Emby mit 400.
+        // The whole entry goes back, otherwise Emby answers with 400.
         assertEquals("""{"Id":"p1","Name":"Sommer 2","Type":"Playlist","Etag":"e"}""", rename.body?.utf8())
         assertEquals("/emby/Playlists/p1/Items", mockServer.takeRequest().url.encodedPath)
         val remove = mockServer.takeRequest()
@@ -286,7 +286,7 @@ class JellyfinApiTest {
         assertEquals("""{"ItemId":"s1","PositionTicks":0,"PlaySessionId":"$session","PlayMethod":"DirectPlay"}""", start.body?.utf8())
         val stop = mockServer.takeRequest()
         assertEquals("/jellyfin/Sessions/Playing/Stopped", stop.url.encodedPath)
-        // Start und Ende gehören zur selben Sitzung (Emby verlangt sie).
+        // Start and stop belong to the same session (Emby requires them).
         assertEquals(
             """{"ItemId":"s1","PositionTicks":1180000000,"PlaySessionId":"$session","PlayMethod":"DirectPlay"}""",
             stop.body?.utf8(),
@@ -299,7 +299,7 @@ class JellyfinApiTest {
         mockServer.enqueue(MockResponse.Builder().code(204).build())
         mockServer.enqueue(MockResponse.Builder().code(500).build())
 
-        // Keine Ausnahme: Der Server zählt schon beim Start, nachgereicht zählte er doppelt.
+        // No exception: the server already counts at start; reported afterwards, it counted twice.
         api.reportPlayback(server, "s1", durationMs = 118_000)
 
         assertEquals(2, mockServer.requestCount)

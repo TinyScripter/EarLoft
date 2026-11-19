@@ -19,7 +19,7 @@ class RefreshEventViewModel @Inject constructor(events: RefreshEvents) : ViewMod
     val events: SharedFlow<RefreshEvent> = events.events
 }
 
-/** Meldet Start und Ende des Abgleichs von Podcasts und Büchern (mit Zahl der Neuen), solange die App sichtbar ist. */
+/** Reports start and end of the podcast and book sync (with the number of new items) while the app is visible. */
 @Composable
 fun RefreshEventEffect(viewModel: RefreshEventViewModel = hiltViewModel()) {
     val snackbars = LocalSnackbars.current

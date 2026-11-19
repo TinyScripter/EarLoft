@@ -25,7 +25,7 @@ import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Zugang zu den Verzeichnissen, die einen Schlüssel brauchen oder erst freigeschaltet werden (Konzept 12.10). */
+/** Access to the directories that need a key or must be enabled first (concept 12.10). */
 internal data class DirectoryAccess(
     val podcastIndexKey: String,
     val podcastIndexSecret: String,
@@ -39,24 +39,24 @@ internal data class DirectoryAccess(
     }
 
     companion object {
-        /** Aus `local.properties` (`podcastindex.key`, `podcastindex.secret`, `fyyd.enabled`), siehe `core/network/build.gradle.kts`. */
+        /** From `local.properties` (`podcastindex.key`, `podcastindex.secret`, `fyyd.enabled`), see `core/network/build.gradle.kts`. */
         fun fromBuild() = DirectoryAccess(BuildConfig.PODCAST_INDEX_KEY, BuildConfig.PODCAST_INDEX_SECRET, BuildConfig.FYYD_ENABLED)
     }
 }
 
-/** Basisadressen der Verzeichnisse; in Tests ein MockWebServer. */
+/** Base URLs of the directories; a MockWebServer in tests. */
 internal data class DirectoryEndpoints(
     val apple: HttpUrl = "https://itunes.apple.com/search".toHttpUrl(),
     val podcastIndex: HttpUrl = "https://api.podcastindex.org/api/1.0/search/byterm".toHttpUrl(),
     val fyyd: HttpUrl = "https://api.fyyd.de/0.2/search/podcast".toHttpUrl(),
-    /** Öffentlicher Chart-Feed von Apple: `<Wurzel>/<land>/rss/toppodcasts/limit=n[/genre=id]/json`. */
+    /** Apple's public chart feed: `<root>/<country>/rss/toppodcasts/limit=n[/genre=id]/json`. */
     val appleCharts: HttpUrl = "https://itunes.apple.com/".toHttpUrl(),
-    /** Feed-Adressen zu den Kennungen der Charts (die nennen keine). */
+    /** Feed URLs for the chart IDs (the charts don't include any). */
     val appleLookup: HttpUrl = "https://itunes.apple.com/lookup".toHttpUrl(),
     val podcastIndexTrending: HttpUrl = "https://api.podcastindex.org/api/1.0/podcasts/trending".toHttpUrl(),
 )
 
-/** Suche in öffentlichen Podcast-Verzeichnissen. Jede Suche ist eine einzelne Anfrage, ohne Blättern. */
+/** Search in public podcast directories. Every search is a single request, without paging. */
 @Singleton
 class PodcastDirectoryApi internal constructor(
     private val client: OkHttpClient,
@@ -69,13 +69,13 @@ class PodcastDirectoryApi internal constructor(
     constructor(client: OkHttpClient, ardSounds: ArdSoundsApi) :
         this(client, DirectoryEndpoints(), DirectoryAccess.fromBuild(), ardSounds, System::currentTimeMillis)
 
-    /** Die Verzeichnisse, die dieser Build nutzen darf, in Anzeigereihenfolge. */
+    /** The directories this build may use, in display order. */
     val available: List<PodcastDirectory> = PodcastDirectory.entries.filter(access::allows)
 
     /**
-     * Beliebte Podcasts aus [directory] (nur [PodcastDirectory.discoverable]), in dessen Reihenfolge: bei Apple die Charts für
-     * [country] (ISO 3166), bei Podcast Index die Trends in [language] (ISO 639, etwa `de`); [category] schränkt ein, `null`
-     * = alle. Treffer ohne gültige Feed-Adresse fallen weg. Wirft [IOException] bei Netz-, HTTP- oder Formatfehlern.
+     * Popular podcasts from [directory] (only [PodcastDirectory.discoverable]), in its order: for Apple the charts for
+     * [country] (ISO 3166), for Podcast Index the trends in [language] (ISO 639, e.g. `de`); [category] narrows down, `null`
+     * = all. Hits without a valid feed URL are dropped. Throws [IOException] on network, HTTP or format errors.
      */
     suspend fun popular(directory: PodcastDirectory, category: PodcastCategory?, country: String, language: String): List<DirectoryPodcast> =
         withContext(Dispatchers.IO) {
@@ -89,14 +89,14 @@ class PodcastDirectoryApi internal constructor(
             } catch (e: SerializationException) {
                 throw IOException("Unlesbare Antwort von $directory", e)
             } catch (e: IllegalArgumentException) {
-                // Unerwartete Form des Chart-Feeds (kein Objekt, wo eins sein sollte).
+                // Unexpected shape of the chart feed (no object where there should be one).
                 throw IOException("Unlesbare Antwort von $directory", e)
             }
         }
 
     /**
-     * Apples Charts nennen nur Kennung, Titel und kleine Bilder; die Feed-Adresse liefert eine zweite Anfrage für alle
-     * Kennungen zusammen (`lookup`). Die Reihenfolge bleibt die der Charts.
+     * Apple's charts only list ID, title and small images; the feed URL is provided by a second request for all
+     * IDs together (`lookup`). The order stays that of the charts.
      */
     private suspend fun appleCharts(category: PodcastCategory?, country: String): List<DirectoryPodcast> {
         val url = endpoints.appleCharts.newBuilder()
@@ -123,7 +123,7 @@ class PodcastDirectoryApi internal constructor(
         val lang = language.lowercase()
         val url = endpoints.podcastIndexTrending.newBuilder()
             .addQueryParameter("max", CHART_LIMIT.toString())
-            // Feeds führen die Sprache mal mit, mal ohne Region („de“, „de-DE“).
+            // Feeds list the language sometimes with, sometimes without region ("de", "de-DE").
             .addQueryParameter("lang", "$lang,$lang-${country.lowercase()}")
             .apply { if (category != null) addQueryParameter("cat", category.podcastIndex) }
             .build()
@@ -134,8 +134,8 @@ class PodcastDirectoryApi internal constructor(
     }
 
     /**
-     * Podcasts zu [term] aus [directory]; [country] (ISO 3166, z. B. `DE`) gilt nur für Apple. Treffer ohne gültige
-     * Feed-Adresse fallen weg. Wirft [IOException] bei Netz-, HTTP- oder Formatfehlern.
+     * Podcasts for [term] from [directory]; [country] (ISO 3166, e.g. `DE`) only applies to Apple. Hits without a valid
+     * feed URL are dropped. Throws [IOException] on network, HTTP or format errors.
      */
     suspend fun search(directory: PodcastDirectory, term: String, country: String): List<DirectoryPodcast> =
         withContext(Dispatchers.IO) {
@@ -188,7 +188,7 @@ class PodcastDirectoryApi internal constructor(
         }
     }
 
-    /** Jede Anfrage an Podcast Index trägt Schlüssel, Zeit und die SHA-1-Signatur aus Schlüssel, Secret und Zeit. */
+    /** Every request to Podcast Index carries key, time and the SHA-1 signature of key, secret and time. */
     private fun signedForPodcastIndex(request: Request.Builder): Request.Builder {
         val date = (clock() / 1000).toString()
         return request
@@ -230,8 +230,8 @@ class PodcastDirectoryApi internal constructor(
 private data class AppleResponse(val results: List<AppleResult> = emptyList())
 
 /**
- * Kennungen der Podcasts im Chart-Feed von Apple, in Rangfolge (`feed.entry[].id.attributes.im:id`). Mit nur einem
- * Eintrag ist `entry` ein Objekt statt einer Liste, ohne Einträge fehlt es.
+ * IDs of the podcasts in Apple's chart feed, in rank order (`feed.entry[].id.attributes.im:id`). With only one
+ * entry `entry` is an object instead of a list, without entries it's missing.
  */
 internal fun appleChartIds(chart: JsonElement): List<Long> {
     val entry = chart.jsonObject["feed"]?.jsonObject?.get("entry") ?: return emptyList()

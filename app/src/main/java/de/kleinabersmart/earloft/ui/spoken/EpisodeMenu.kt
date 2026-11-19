@@ -41,8 +41,8 @@ import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 val BookWithProgress.isEpisode: Boolean get() = book.kind == BookKind.EPISODE
 
 /**
- * ⋮ in der Kopfzeile der Buch- bzw. Folgenseite und des Players: dasselbe Menü wie beim Langklick, ohne Teilen und Uhr
- * (die stehen dort schon als Knöpfe daneben).
+ * ⋮ in the header of the book or episode page and of the player: the same menu as on long press, without share and watch
+ * (they are already there as buttons next to it).
  */
 @Composable
 fun EpisodeMenuButton(item: BookWithProgress) {
@@ -56,8 +56,8 @@ fun EpisodeMenuButton(item: BookWithProgress) {
 }
 
 /**
- * Stern einer Folge (Konzept 12.5, „Gemerkt“) im Kopf der Folgenseite und des Players; für Bücher und Folgen von
- * Probeabos nichts.
+ * Star of an episode (concept 12.5, "Starred") in the header of the episode page and the player; nothing for books and episodes of
+ * trial subscriptions.
  */
 @Composable
 fun EpisodeStarButton(item: BookWithProgress, viewModel: EpisodeMenuViewModel = hiltViewModel()) {
@@ -73,7 +73,7 @@ fun EpisodeStarButton(item: BookWithProgress, viewModel: EpisodeMenuViewModel = 
     }
 }
 
-/** Kleiner Stern in einer Folgenzeile: Die Folge ist gemerkt. */
+/** Small star in an episode row: the episode is starred. */
 @Composable
 fun StarredMark(modifier: Modifier = Modifier) {
     Icon(
@@ -85,8 +85,8 @@ fun StarredMark(modifier: Modifier = Modifier) {
 }
 
 /**
- * Kontextmenü einer Podcast-Folge oder eines Buchs (Langklick); die erste Zeile nennt den Titel zur Orientierung. Mit
- * [onSelect] beginnt „Auswählen“ die Mehrfachauswahl der Liste mit dieser Folge (Konzept 12.5).
+ * Context menu of a podcast episode or a book (long press); the first row names the title for orientation. With
+ * [onSelect], "Select" starts the list's multi-selection with this episode (concept 12.5).
  */
 @Composable
 fun EpisodeMenu(
@@ -130,12 +130,12 @@ fun EpisodeMenu(
             text = { Text(stringResource(if (inQueue) R.string.episode_queue_remove else R.string.episode_queue_add)) },
             onClick = {
                 viewModel.setQueued(id, !inQueue)
-                // Hinten angehängt; bei langer Warteschlange sieht man das sonst nicht.
+                // Appended at the end; with a long queue you wouldn't see it otherwise.
                 if (!inQueue) snackbars.show(resources.getString(R.string.queue_added_at_end, item.book.title))
                 onDismiss()
             },
         )
-        // Direkt hinter die laufende Folge; nicht für diese selbst und nicht, wenn sie dort schon steht.
+        // Directly after the current episode; not for that one itself and not if it is already there.
         if (item.isEpisode && id != queueHead && id != queueSecond) DropdownMenuItem(
             text = { Text(stringResource(R.string.episode_play_next)) },
             onClick = {
@@ -150,7 +150,7 @@ fun EpisodeMenu(
                 onDismiss()
             },
         )
-        // Bücher in „Weiterhören“: herausnehmen, ohne den Stand zu verlieren (Folgen: „Aus Warteschlange entfernen“).
+        // Books in "Continue listening": remove without losing the progress (episodes: "Remove from queue").
         val progress = item.progress
         if (!item.isEpisode && progress != null && !progress.finished && !progress.hidden) DropdownMenuItem(
             text = { Text(stringResource(R.string.book_hide_from_continue)) },
@@ -166,7 +166,7 @@ fun EpisodeMenu(
                 onDismiss()
             },
         )
-        // Nur, wenn in der Warteschlange noch eine andere Folge steht.
+        // Only if another episode is still in the queue.
         if (item.isEpisode && !played && (queued - id).isNotEmpty()) DropdownMenuItem(
             text = { Text(stringResource(R.string.episode_mark_played_play_next)) },
             onClick = {
@@ -181,15 +181,15 @@ fun EpisodeMenu(
                 onDismiss()
             },
         )
-        // Wie die übrigen Einträge ohne Symbol.
-        // Podcasts vom Gerät haben keine öffentliche Adresse; Bücher vom Gerät finden sich über die Suche bei Open Library.
+        // Like the other entries, without an icon.
+        // Podcasts from the device have no public address; books from the device can be found via the Open Library search.
         if (withShareAndWatch) {
             if (!item.isEpisode || !item.book.isLocal) ShareMenuItem(ShareTarget.Book(id), onDismiss, withIcon = false)
             WatchMenuItem(WatchTarget.Spoken(id), onDismiss, withIcon = false)
         }
-        // Die fertig geladene Audiodatei statt des Links; Folgen vom Gerät liegen schon beim Nutzer.
+        // The fully downloaded audio file instead of the link; episodes from the device are already with the user.
         if (item.isEpisode && !item.book.isLocal && id in downloadedEpisodes) ShareMediaMenuItem(id, item.book.title, onDismiss)
-        // Dateien vom Gerät sind schon da.
+        // Files from the device are already there.
         if (!item.book.isLocal) {
             if (id in downloaded) {
                 DropdownMenuItem(
@@ -209,7 +209,7 @@ fun EpisodeMenu(
                 )
             }
         }
-        // Bücher aus ARD Sounds kamen von Hand in die Bibliothek und gehen auch so wieder (nicht, solange sie im Player sind).
+        // Books from ARD Sounds were added to the library by hand and leave it the same way (not while they are in the player).
         if (item.book.isArdSounds && loadedBookId != id) DropdownMenuItem(
             text = { Text(stringResource(R.string.ard_books_remove)) },
             onClick = {

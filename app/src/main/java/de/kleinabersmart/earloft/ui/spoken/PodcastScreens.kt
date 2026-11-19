@@ -137,8 +137,8 @@ import kotlinx.coroutines.launch
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Start im Modus „Podcasts“: Weiterhören (angefangene Folgen, die zuletzt gehörte links, neue am Ende), zuletzt
- * hinzugefügte Folgen und die Abos.
+ * Start in "Podcasts" mode: Continue listening (started episodes, the most recently played on the left, new ones at the end), recently
+ * added episodes and the subscriptions.
  */
 @Composable
 fun PodcastHomeScreen(
@@ -197,7 +197,7 @@ fun PodcastHomeScreen(
                 }
             }
         }
-        // Ohne Abos: an erster Stelle „Podcast hinzufügen“, darunter der Weg zum Ausblenden des Bereichs.
+        // Without subscriptions: "Add podcast" first, below it the way to hide the area.
         if (feeds.valueOrNull?.isEmpty() == true) {
             item(key = "empty") {
                 EmptyAreaHint(SpokenMode.PODCASTS, stringResource(R.string.podcast_none), stringResource(R.string.podcast_add), onAddPodcast)
@@ -241,8 +241,8 @@ fun PodcastHomeScreen(
 }
 
 /**
- * Bild und Titel eines Abos, unten links auf dem Bild die Zahl der geladenen Folgen ([FeedDownloadBadge]), oben rechts die
- * der neuen ([newEpisodes]); Langklick öffnet das [FeedMenu], dessen letzter Eintrag die Einstellungen ([onSettings]).
+ * Image and title of a subscription, at the bottom left of the image the number of downloaded episodes ([FeedDownloadBadge]), at the top right
+ * that of the new ones ([newEpisodes]); long press opens the [FeedMenu], whose last entry is the settings ([onSettings]).
  */
 @Composable
 fun FeedCard(
@@ -269,7 +269,7 @@ fun FeedCard(
             FeedDownloadBadge(feed.id, Modifier.align(Alignment.BottomStart).padding(6.dp))
             NewEpisodesBadge(newEpisodes, Modifier.align(Alignment.TopEnd).padding(6.dp))
         }
-        // Immer zwei Zeilen hoch, damit Kacheln einer Reihe gleich hoch sind.
+        // Always two lines tall, so tiles in a row have equal height.
         Text(
             feed.title,
             style = MaterialTheme.typography.bodyMedium,
@@ -289,8 +289,8 @@ private enum class PodcastTab(@StringRes val label: Int) {
 }
 
 /**
- * Bibliothek im Modus „Podcasts“: Reiter Neu (die neuesten Folgen aller Abos), Abos (Raster mit schwebendem „+“), Gemerkt
- * und Statistik (darin der Weg zum Verlauf, [onOpenHistory]); im Kopf der Weg zu den gesammelten Lesezeichen ([onOpenBookmarks]).
+ * Library in "Podcasts" mode: tabs New (the newest episodes of all subscriptions), Subscriptions (grid with floating "+"), Starred
+ * and Statistics (with the way to the history in it, [onOpenHistory]); in the header the way to the collected bookmarks ([onOpenBookmarks]).
  */
 @Composable
 fun PodcastLibraryScreen(
@@ -312,9 +312,9 @@ fun PodcastLibraryScreen(
     val starred by starredViewModel.starred.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { PodcastTab.entries.size }
     val scope = rememberCoroutineScope()
-    // Mehrfachauswahl in den Reitern „Neu“ und „Gemerkt“; sie endet, wenn man den Reiter verlässt.
+    // Multi-selection in the "New" and "Starred" tabs; it ends when the tab is left.
     val selection = rememberEpisodeSelection()
-    // Nur bei einem Wechsel, nicht beim ersten Aufbau: Nach dem Drehen bleibt die Auswahl.
+    // Only on a change, not on the first composition: after rotating, the selection stays.
     var selectionPage by rememberSaveable { mutableIntStateOf(pagerState.currentPage) }
     LaunchedEffect(pagerState.currentPage) {
         if (pagerState.currentPage != selectionPage) selection.clear()
@@ -324,14 +324,14 @@ fun PodcastLibraryScreen(
         EmptyAreaHint(SpokenMode.PODCASTS, stringResource(R.string.podcast_none), stringResource(R.string.podcast_add), onAddPodcast)
     }
 
-    // Wie in der Musik-Bibliothek steht die Sortierung des Reiters „Abos“ im Kopf der App links von der Lupe, davor die Lesezeichen.
+    // As in the music library, the sorting of the "Subscriptions" tab is in the app header left of the magnifier, preceded by the bookmarks.
     HeaderAction {
         BookmarksHeaderButton(BookKind.EPISODE, onOpenBookmarks)
         if (PodcastTab.entries[pagerState.targetPage] == PodcastTab.FEEDS) FeedSortButton(feedSort, viewModel::setFeedSort)
     }
 
     Column(modifier.fillMaxSize()) {
-        // Während der Auswahl steht ihre Leiste an der Stelle der Reiter, und der Pager bleibt stehen.
+        // During the selection its bar takes the place of the tabs, and the pager stays still.
         if (selection.active) {
             val starredTab = PodcastTab.entries[pagerState.currentPage] == PodcastTab.STARRED
             val shown = (if (starredTab) starred else latest).valueOrNull.orEmpty()
@@ -339,7 +339,7 @@ fun PodcastLibraryScreen(
             EpisodeSelectionBar(selection, shown, loaded = loaded, windowInsets = WindowInsets(0))
         } else PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
             PodcastTab.entries.forEachIndexed { index, tab ->
-                // Vier Reiter: wie in der Musik-Bibliothek kleinere Schrift statt Umbruch („Subscriptions“).
+                // Four tabs: as in the music library, smaller font instead of wrapping ("Subscriptions").
                 Tab(
                     selected = pagerState.currentPage == index,
                     onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
@@ -353,7 +353,7 @@ fun PodcastLibraryScreen(
             key = { it },
         ) { page ->
             when (PodcastTab.entries[page]) {
-                // Ohne Abos zeigen Neu und Abos dasselbe wie der Start: Hinzufügen und Ausblenden.
+                // Without subscriptions, New and Subscriptions show the same as the start: add and hide.
                 PodcastTab.NEW -> if (feeds.valueOrNull?.isEmpty() == true) empty() else NewEpisodes(onEpisodeClick, selection, newViewModel)
                 PodcastTab.FEEDS -> FeedGrid(
                     feeds,
@@ -372,8 +372,8 @@ fun PodcastLibraryScreen(
 }
 
 /**
- * Alle Abos als Bilder, drei nebeneinander; das „+“ schwebt unten rechts und bleibt beim Scrollen stehen. Der Schnellscroller
- * zeigt nach Name ([byName]) den Anfangsbuchstaben, sonst nur den Griff.
+ * All subscriptions as images, three side by side; the "+" floats at the bottom right and stays in place while scrolling. The fast scroller
+ * shows the initial letter when sorted by name ([byName]), otherwise only the handle.
  */
 @Composable
 private fun FeedGrid(
@@ -392,7 +392,7 @@ private fun FeedGrid(
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 state = gridState,
-                // Unten Platz lassen, damit der Knopf das letzte Abo nicht verdeckt.
+                // Leave space at the bottom so the button doesn't cover the last subscription.
                 contentPadding = PaddingValues(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 88.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -409,7 +409,7 @@ private fun FeedGrid(
                     )
                 }
             }
-            // Endet über dem „+“, damit der Griff nicht darunter verschwindet.
+            // Ends above the "+", so the handle doesn't disappear beneath it.
             LazyGridFastScroller(
                 gridState,
                 Modifier.padding(bottom = 88.dp),
@@ -422,10 +422,10 @@ private fun FeedGrid(
     }
 }
 
-/** Eingegeben oder gespeichert als `http://`; ohne Schema ergänzt die App `https://`. */
+/** Entered or stored as `http://`; without a scheme the app adds `https://`. */
 internal fun isUnencrypted(url: String): Boolean = url.trim().startsWith("http://", ignoreCase = true)
 
-/** Detailseite eines Podcasts: Kopf mit Bild, Titel und Knöpfen, darunter die Folgen. Info und Einstellungen liegen auf eigenen Seiten. */
+/** Detail page of a podcast: header with image, title and buttons, the episodes below. Info and settings are on their own pages. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PodcastScreen(
@@ -460,14 +460,14 @@ fun PodcastScreen(
     val areaEffects by viewModel.areaEffects.collectAsStateWithLifecycle()
     val selection = rememberEpisodeSelection()
 
-    // Breit (Tablet, von Start aus ohne Liste daneben): nicht über die ganze Breite, sonst stehen Knöpfe weit vom Titel.
+    // Wide (tablet, from start without a list next to it): not across the full width, otherwise buttons sit far from the title.
     Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         if (selection.active) {
             EpisodeSelectionBar(selection, shownEpisodes.valueOrNull.orEmpty(), loaded = shownEpisodes is LoadState.Ready)
         } else TopAppBar(
             title = {},
             navigationIcon = { BackButton(onBack) },
-            // Der Aktualisieren-Knopf steht ganz rechts wie in den anderen Bildschirmen, die Suche links davon.
+            // The refresh button is at the far right as in the other screens, the search to its left.
             actions = {
                 if (current != null) {
                     SortButton(
@@ -491,13 +491,13 @@ fun PodcastScreen(
             return@Column
         }
         val list = shownEpisodes.valueOrNull.orEmpty()
-        // Kopf, Hinweise und Filter-Chips bleiben stehen, nur die Folgen darunter scrollen (Nutzer, 2026-11-18). Ist dafür
-        // zu wenig Höhe da (kleines Handy, quer), scrollt alles zusammen wie zuvor.
+        // Header, hints and filter chips stay in place, only the episodes below scroll (user, 2026-11-18). If there is
+        // too little height for that (small phone, landscape), everything scrolls together as before.
         val headerContent: @Composable () -> Unit = {
             Column {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                     PodcastArt(current.imageUrl, Modifier.size(HEADER_ART_SIZE))
-                    // Titel und Autor mittig zur Bildhöhe, die Knöpfe bündig mit der Unterkante des Bildes.
+                    // Title and author centered relative to the image height, the buttons flush with the image's bottom edge.
                     Box(Modifier.weight(1f).height(HEADER_ART_SIZE).padding(start = 16.dp)) {
                         Column(Modifier.align(Alignment.Center).fillMaxWidth()) {
                             Text(current.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -515,13 +515,13 @@ fun PodcastScreen(
                             IconButton(onClick = onInfo, modifier = Modifier.size(40.dp)) {
                                 Icon(painterResource(DesignR.drawable.ic_info), contentDescription = stringResource(R.string.podcast_info))
                             }
-                            // Ein Probeabo hat keine Einstellungen; es gilt nur, solange seine Folgen in der Warteschlange stehen.
+                            // A trial subscription has no settings; it applies only as long as its episodes are in the queue.
                             if (current.subscribed) {
                                 IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
                                     Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_settings))
                                 }
                             }
-                            // Nennt der Feed eine Seite zum Unterstützen (`podcast:funding`), steht sie hier.
+                            // If the feed names a page for support (`podcast:funding`), it is shown here.
                             current.fundingUrl?.let { FundingButton(it, current.fundingLabel, 40.dp) }
                         }
                     }
@@ -534,13 +534,13 @@ fun PodcastScreen(
                         FilledTonalButton(onClick = viewModel::subscribe) { Text(stringResource(R.string.podcast_add_confirm)) }
                     }
                 }
-                // Scheitert der Abgleich seit mehreren Versuchen (Konzept 12.10), steht es hier mit dem Weg zu einer anderen Quelle.
+                // If syncing has failed for several attempts (concept 12.10), it is shown here with the way to another source.
                 if (current.hasProblem) {
                     TrialNotice(
                         text = feedProblemText(current),
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
                         error = true,
-                        // Abgelehnte Anmeldung: eher Zugangsdaten als eine andere Quelle.
+                        // Rejected login: more likely credentials than another source.
                         action = when {
                             !current.subscribed -> null
                             current.refreshError == FeedError.DENIED && ardSoundsShowId(current.url) == null -> {
@@ -556,7 +556,7 @@ fun PodcastScreen(
                 when {
                     episodes == LoadState.Failed -> LoadFailedHint()
                     episodes is LoadState.Ready && episodes.valueOrNull.isNullOrEmpty() -> EmptyHint(stringResource(R.string.podcast_no_episodes))
-                    // Die Chips bleiben stehen, auch wenn der Filter nichts übrig lässt, damit man ihn lösen kann.
+                    // The chips stay even if the filter leaves nothing, so it can be cleared.
                     episodes is LoadState.Ready -> EpisodeFilterChips(
                         current.episodeFilter,
                         viewModel::setEpisodeFilter,
@@ -581,7 +581,7 @@ fun PodcastScreen(
                         if (shownEpisodes is LoadState.Ready && list.isEmpty() && episodes.valueOrNull.orEmpty().isNotEmpty()) {
                             item(key = "filter-empty") { EmptyHint(stringResource(R.string.library_filter_empty)) }
                         }
-                        // Mehrere Folgen am selben Tag: Uhrzeit beim Datum.
+                        // Several episodes on the same day: time of day next to the date.
                         val sameDay = episodesSharingDay(list.map { it.book })
                         val row: @Composable (BookWithProgress) -> Unit = { item ->
                             val id = item.book.id
@@ -603,7 +603,7 @@ fun PodcastScreen(
                                 swipe = swipe,
                             )
                         }
-                        // Nennt der Feed mehrere Staffeln (`itunes:season`), bekommt jede ihre Kopfzeile und Gruppe.
+                        // If the feed names several seasons (`itunes:season`), each gets its header and group.
                         val seasons = seasonRuns(list) { it.book.season }
                         if (seasons == null) {
                             groupedItems(list, key = { it.book.id }) { row(it) }
@@ -614,7 +614,7 @@ fun PodcastScreen(
                             }
                         }
                     }
-                    // Ohne Marke: Kopf, Staffeln und Filter machen aus dem Index keine Folge.
+                    // Without a marker: header, seasons and filter don't turn the index into an episode.
                     LazyListFastScroller(listState)
                 }
             }
@@ -648,12 +648,12 @@ fun PodcastScreen(
 
 private val HEADER_ART_SIZE = 144.dp
 
-/** Ab dieser Höhe unter der Kopfleiste bleibt der Kopf der Abo-Seite stehen; darunter scrollt er mit (kleines Handy, quer). */
+/** From this height below the top bar the subscription page header stays in place; below it, it scrolls along (small phone, landscape). */
 private val PINNED_HEADER_MIN_HEIGHT = 560.dp
 
 /**
- * Steht ein anderes Abo vorn (andere Sortierung, neue Folge, gehört), zeigt die Liste wieder ihren Anfang: Eine Lazy-Liste
- * hielte sonst das bisher erste Abo fest, und die neuen ersten lägen außerhalb (wie [rememberFrontRow]).
+ * If another subscription is in front (different sorting, new episode, played), the list shows its start again: a lazy list
+ * would otherwise hold on to the previous first subscription, and the new first ones would lie outside (like [rememberFrontRow]).
  */
 @Composable
 internal fun ShowStartOnNewFirst(firstId: String?, scrollToStart: suspend () -> Unit) {
@@ -666,7 +666,7 @@ internal fun ShowStartOnNewFirst(firstId: String?, scrollToStart: suspend () -> 
     }
 }
 
-/** Sortierung der Abos (Start und Reiter „Abos“ teilen sie). */
+/** Sorting of the subscriptions (start and "Subscriptions" tab share it). */
 @Composable
 private fun FeedSortButton(sort: FeedSort, onSelect: (FeedSort) -> Unit) {
     SortButton(sort, FeedSort.entries, { stringResource(it.label) }, onSelect)
@@ -681,8 +681,8 @@ private val FeedSort.label: Int
     }
 
 /**
- * Filter der Folgenliste eines Abos: genau einer ist gewählt. Lässt sich seitlich wischen, wenn die Breite nicht reicht.
- * „Gemerkt“ steht nur da, wenn das Abo gemerkte Folgen hat ([withStarred]) oder er gewählt ist (wie „Favoriten“ der Musik).
+ * Filter of a subscription's episode list: exactly one is selected. Can be swiped sideways if the width isn't enough.
+ * "Starred" is only shown if the subscription has starred episodes ([withStarred]) or it is selected (like the music "Favorites").
  */
 @Composable
 private fun EpisodeFilterChips(selected: EpisodeFilter, onSelect: (EpisodeFilter) -> Unit, withStarred: Boolean) {
@@ -706,7 +706,7 @@ private val EpisodeFilter.label: Int
         EpisodeFilter.STARRED -> R.string.episode_filter_starred
     }
 
-/** Zahl der neuen Folgen ([FeedStats.newEpisodes]) oben rechts auf dem Bild eines Abos; ab 100 „99+“. */
+/** Number of new episodes ([FeedStats.newEpisodes]) at the top right of a subscription's image; from 100 "99+". */
 @Composable
 private fun NewEpisodesBadge(count: Int, modifier: Modifier = Modifier) {
     if (count <= 0) return
@@ -719,7 +719,7 @@ private fun NewEpisodesBadge(count: Int, modifier: Modifier = Modifier) {
 
 private const val MAX_BADGE_COUNT = 99
 
-/** Inhalt der Podcast-Seiten, solange der Podcast nicht geladen ist oder nicht mehr existiert. */
+/** Content of the podcast pages while the podcast isn't loaded or no longer exists. */
 @Composable
 private fun FeedNotReady(state: LoadState<PodcastFeed>) {
     when (state) {
@@ -730,7 +730,7 @@ private fun FeedNotReady(state: LoadState<PodcastFeed>) {
     }
 }
 
-/** Suche in den Folgen eines Podcasts: Überschrift und Inhaltsangabe, mit Hinweis „In … suchen“ unter dem Feld. */
+/** Search within a podcast's episodes: title and summary, with the hint "Search in …" below the field. */
 @Composable
 fun PodcastSearchScreen(
     feedId: String,
@@ -754,12 +754,12 @@ fun PodcastSearchScreen(
     val selection = rememberEpisodeSelection()
 
     val trimmed = query.trim()
-    // Beim Tippen bleiben die letzten Treffer stehen, bis die neuen da sind; „Nichts gefunden“ erst für den aktuellen Text.
+    // While typing, the last results stay until the new ones are there; "Nothing found" only for the current text.
     val hits = result?.hits.orEmpty()
     val settled = result?.query == trimmed
 
     Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
-        // Während der Auswahl ersetzt die Leiste das Suchfeld; die Treffer bleiben, der Suchtext auch.
+        // During the selection the bar replaces the search field; the results stay, and so does the search text.
         if (selection.active) EpisodeSelectionBar(selection, hits, loaded = result != null) else Row(Modifier.statusBarsPadding().padding(end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             BackButton(onBack)
             OutlinedTextField(
@@ -819,7 +819,7 @@ fun PodcastSearchScreen(
     }
 }
 
-/** Info-Seite: die komplette Beschreibung und die Feed-Adresse (Tipp kopiert sie in die Zwischenablage). */
+/** Info page: the full description and the feed address (a tap copies it to the clipboard). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PodcastInfoScreen(
@@ -856,7 +856,7 @@ fun PodcastInfoScreen(
                 modifier = Modifier.padding(top = 8.dp),
             )
             if (!current.isLocal) {
-                // Sendungen aus ARD Sounds haben keinen Feed: Gezeigt wird der Link ihrer Seite, der sich auch wieder abonnieren lässt.
+                // Shows from ARD Sounds have no feed: their page link is shown, which can also be subscribed to again.
                 val ardShow = ardSoundsShowId(current.url)
                 val shownUrl = ardShow?.let(::ardSoundsPageUrl) ?: current.url
                 Text(
@@ -873,7 +873,7 @@ fun PodcastInfoScreen(
                         snackbars.show(copiedText)
                     },
                 )
-                // Auch für per OPML oder Datenbank übernommene Abos, die nie durch den Abo-Dialog gingen.
+                // Also for subscriptions imported via OPML or database that never went through the subscription dialog.
                 if (isUnencrypted(current.url)) {
                     Text(
                         stringResource(R.string.podcast_feed_unencrypted),
@@ -886,7 +886,7 @@ fun PodcastInfoScreen(
     }
 }
 
-/** Zeile wie [SwitchRow], aber mit Tipp statt Schalter. */
+/** Row like [SwitchRow], but with a tap instead of a switch. */
 @Composable
 private fun ActionRow(
     title: String,
@@ -904,7 +904,7 @@ private fun ActionRow(
     )
 }
 
-/** Einstellungen eines Podcasts: Downloads, „Weiterhören“, Wiedergabe und das Abo (Benachrichtigung, Quelle, beenden). */
+/** Settings of a podcast: downloads, "Continue listening", playback and the subscription (notification, source, unsubscribe). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PodcastSettingsScreen(
@@ -931,7 +931,7 @@ fun PodcastSettingsScreen(
 
     Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
-            // Darunter der Name des Podcasts: Die Seite kommt auch aus dem Langklick-Menü, ohne seine Seite davor.
+            // Below it the podcast's name: the page is also reached from the long-press menu, without its page before it.
             title = {
                 Column {
                     Text(stringResource(R.string.podcast_settings), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -953,8 +953,8 @@ fun PodcastSettingsScreen(
             return@Column
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
-            // Podcasts vom Gerät haben weder Feed noch Downloads und lassen sich nur durch Entfernen der Dateien beenden;
-            // ein Abschnitt ohne sichtbare Zeile entfällt.
+            // Podcasts from the device have neither feed nor downloads and can only be ended by removing the files;
+            // a section without a visible row is omitted.
             group("podcast-downloads", R.string.nav_downloads) {
                 if (!current.isLocal) row("auto-download") {
                     SwitchRow(
@@ -1016,7 +1016,7 @@ fun PodcastSettingsScreen(
                         onCheckedChange = viewModel::setNotifyNew,
                     )
                 }
-                // Geschützte Feeds (Konzept 12.10); ARD Sounds kennt keine Anmeldung.
+                // Protected feeds (concept 12.10); ARD Sounds has no login.
                 if (!current.isLocal && ardSoundsShowId(current.url) == null) row("credentials") {
                     ActionRow(
                         title = stringResource(R.string.podcast_credentials),
@@ -1080,7 +1080,7 @@ fun PodcastSettingsScreen(
 
     if (confirmUnsubscribe && current != null) {
         val archivedText = stringResource(R.string.podcast_archived_done, current.title)
-        // Archivieren links, Abo beenden ganz rechts mit „Abbrechen“ dazwischen: Das Löschen soll man nicht versehentlich treffen.
+        // Archive on the left, unsubscribe at the far right with "Cancel" in between: deleting shouldn't be hit by accident.
         AlertDialog(
             onDismissRequest = { confirmUnsubscribe = false },
             title = { Text(stringResource(R.string.podcast_unsubscribe_title)) },
@@ -1108,8 +1108,8 @@ fun PodcastSettingsScreen(
 }
 
 /**
- * Herunterladen; beim Laden ein Kreis, der sich füllt (leer = wartet, Tipp bricht ab), danach Haken (Tipp löscht).
- * Ist die Größe unbekannt, dreht sich der Kreis. Haken und Fehler in den Farben der Markierung ([OfflineMarkIcon]).
+ * Download; while downloading a circle that fills up (empty = waiting, a tap cancels), afterwards a check mark (a tap deletes).
+ * If the size is unknown, the circle spins. Check mark and error in the marker colors ([OfflineMarkIcon]).
  */
 @Composable
 internal fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: () -> Unit, onRemove: () -> Unit) {
@@ -1144,7 +1144,7 @@ internal fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: 
     }
 }
 
-/** Quadratisches Podcast-Bild aus dem Feed; bis es geladen ist (oder ohne Bild) bleibt das Symbol sichtbar. */
+/** Square podcast image from the feed; until it is loaded (or without an image) the icon stays visible. */
 @Composable
 fun PodcastArt(
     imageUrl: String?,

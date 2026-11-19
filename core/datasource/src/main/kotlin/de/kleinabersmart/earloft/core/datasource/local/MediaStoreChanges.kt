@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import javax.inject.Inject
 
-/** Meldet Änderungen an der Musik auf dem Gerät (neue, geänderte oder gelöschte Dateien). */
+/** Reports changes to the music on the device (new, changed or deleted files). */
 class MediaStoreChanges @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {

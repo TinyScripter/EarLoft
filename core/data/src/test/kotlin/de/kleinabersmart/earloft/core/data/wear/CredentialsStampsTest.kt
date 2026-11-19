@@ -43,7 +43,7 @@ class CredentialsStampsTest {
     fun `the watch drops credentials only when a known stamp changes`() = runTest {
         watchSecrets.values[DataSourceRegistry.passwordKey("jf")] = "user:token1"
 
-        // Erste Übernahme: kein gemerkter Stempel, die Zugangsdaten bleiben.
+        // First takeover: no remembered stamp, the credentials stay.
         assertEquals(emptySet<String>(), watch.renewChanged(listOf(server("a"))))
         assertEquals("user:token1", watchSecrets.values[DataSourceRegistry.passwordKey("jf")])
         assertEquals(emptySet<String>(), watch.renewChanged(listOf(server("a"))))
@@ -52,7 +52,7 @@ class CredentialsStampsTest {
         assertEquals(setOf("jf"), watch.renewChanged(listOf(server("b"))))
         assertNull(watchSecrets.values[DataSourceRegistry.passwordKey("jf")])
         assertNull(watchSecrets.values[DataSourceRegistry.deviceIdKey("jf")])
-        // Ohne Stempel (Handy hat keine Zugangsdaten) bleibt alles, wie es ist.
+        // Without a stamp (phone has no credentials) everything stays as it is.
         assertEquals(emptySet<String>(), watch.renewChanged(listOf(server(null))))
     }
 

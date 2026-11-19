@@ -8,7 +8,7 @@ class HeardCleanupTest {
     private val day = 24 * 60 * 60 * 1000L
     private val now = 100 * day
 
-    /** Geladen vor 10 Tagen, zu Ende gehört vor [daysAgo] Tagen. */
+    /** Downloaded 10 days ago, played to the end [daysAgo] days ago. */
     private fun heard(id: Long, daysAgo: Long) = HeardDownload(id, finishedAt = now - daysAgo * day, downloadedAt = now - 10 * day)
 
     @Test

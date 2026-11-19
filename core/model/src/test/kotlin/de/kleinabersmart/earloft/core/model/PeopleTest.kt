@@ -56,7 +56,7 @@ class PeopleTest {
         assertEquals("", bookAuthorLine(" "))
         val book = Book(1, "s", BookKind.BOOK, "T", "Günther Frauenlob - Übersetzer, Jo Nesbø", durationMs = 0, remoteId = "r")
         assertEquals("Jo Nesbø", book.authorLine)
-        // Folgen tragen den Autor des Feeds; der bleibt, wie er ist.
+        // Episodes carry the feed's author; it stays as it is.
         assertEquals("Sprecher: Anna, Ben", book.copy(kind = BookKind.EPISODE, author = "Sprecher: Anna, Ben").authorLine)
     }
 }

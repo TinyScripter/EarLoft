@@ -8,26 +8,26 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Bekommt ein Buch einen neuen Schlüssel (`remoteId`, etwa bei ARD Sounds über [ArdSoundsBooks.movedKey][de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdSoundsBooks.movedKey]),
- * zieht alles mit, was es außerhalb von `books` unter dem alten führt: Warteschlange und „zuletzt gespielt“ ([BookKeyRenamer]),
- * die Statistik (Gruppe = Server, Eintrag = `remoteId`) und den gesicherten Fortschritt in `user.db`.
+ * When a book gets a new key (`remoteId`, e.g. on ARD Sounds via [ArdSoundsBooks.movedKey][de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdSoundsBooks.movedKey]),
+ * moves along everything that refers to it under the old one outside of `books`: queue and "recently played" ([BookKeyRenamer]),
+ * the statistics (group = server, entry = `remoteId`) and the backed-up progress in `user.db`.
  */
 fun interface BookKeyMoves {
-    /** [renames]: alte → neue `remoteId` von Büchern des Servers [serverId]; ihre `bookId` bleibt. */
+    /** [renames]: old → new `remoteId` of books of server [serverId]; their `bookId` stays. */
     suspend fun moved(serverId: String, renames: Map<String, String>)
 }
 
 @Singleton
 internal class BookKeyFollower @Inject constructor(
     private val statsDao: StatsDao,
-    /** `Lazy`: [UserDataBackup] braucht selbst [ArdBooks]. */
+    /** `Lazy`: [UserDataBackup] itself needs [ArdBooks]. */
     private val userDataBackup: Lazy<UserDataBackup>,
     private val renamers: Lazy<Set<@JvmSuppressWildcards BookKeyRenamer>>,
 ) : BookKeyMoves {
     override suspend fun moved(serverId: String, renames: Map<String, String>) {
         if (renames.isEmpty()) return
         val groups = listOf(serverId)
-        // Die Tage zählen je Server, nicht je Buch: Sie bleiben, wie sie sind.
+        // The days count per server, not per book: they stay as they are.
         statsDao.replaceGroups(groups, rekeyStats(statsDao.statsOfGroups(groups), serverId, serverId, renames), statsDao.daysOfGroups(groups))
         val keys = renames.entries.associate { (old, new) -> BookKeys.encode(serverId, old) to BookKeys.encode(serverId, new) }
         renamers.get().forEach { it.renameBookKeys(keys) }

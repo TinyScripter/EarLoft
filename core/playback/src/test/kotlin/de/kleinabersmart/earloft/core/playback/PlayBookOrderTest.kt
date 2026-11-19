@@ -39,7 +39,7 @@ class PlayBookOrderTest {
     @Test
     fun `shuffle and repeat go off only once the book is loaded, so they are not saved for the music`() {
         val player = RecordingPlayer()
-        // Wie der PersistenceListener: Was lag im Player, als Zufall bzw. Wiederholen sich änderten?
+        // Like the PersistenceListener: what was in the player when shuffle or repeat changed?
         val heldWhenModesChanged = mutableListOf<Boolean>()
         player.addListener(object : Player.Listener {
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
@@ -58,7 +58,7 @@ class PlayBookOrderTest {
         assertEquals(listOf(true, true), heldWhenModesChanged)
     }
 
-    /** Spielt Musik mit Zufall und „Alle wiederholen“ und schreibt die Befehle mit. */
+    /** Plays music with shuffle and "repeat all" and records the commands. */
     private class RecordingPlayer : SimpleBasePlayer(Looper.getMainLooper()) {
         val calls = mutableListOf<String>()
         private var items = listOf(MediaItem.Builder().setMediaId(MediaIds.song(1)).build())

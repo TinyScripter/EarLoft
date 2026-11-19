@@ -5,14 +5,14 @@ data class Playlist(
     val name: String,
     val songCount: Int,
     val durationMs: Long,
-    /** Server, mit dem die Playlist abgeglichen wird; `null` = nur auf diesem Gerät. */
+    /** Server the playlist is synced with; `null` = only on this device. */
     val serverName: String?,
 )
 
 data class PlaylistEntry(
     val entryId: Long,
     val song: Song,
-    /** Der Song liegt nicht auf dem Server der Playlist und fehlt dort (Konzept 5.4). */
+    /** The song is not on the playlist's server and is missing there (concept 5.4). */
     val missingOnServer: Boolean,
 )
 

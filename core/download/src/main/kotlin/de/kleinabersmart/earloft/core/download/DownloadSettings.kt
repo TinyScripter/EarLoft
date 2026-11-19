@@ -27,14 +27,14 @@ private val Context.downloadSettingsDataStore: DataStore<Preferences> by prefere
 class DownloadSettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
-    /** Standard: nur über ungetaktete Netze (WLAN) laden. */
+    /** Default: only download over unmetered networks (Wi-Fi). */
     val wifiOnly: Flow<Boolean> = context.downloadSettingsDataStore.data.map { it[KEY_WIFI_ONLY] ?: true }
 
     suspend fun setWifiOnly(wifiOnly: Boolean) {
         context.downloadSettingsDataStore.edit { it[KEY_WIFI_ONLY] = wifiOnly }
     }
 
-    /** Favoriten automatisch herunterladen (Standard: aus – es kann viel Speicher kosten). */
+    /** Download favorites automatically (default: off – it can take a lot of storage). */
     val autoDownloadFavorites: Flow<Boolean> =
         context.downloadSettingsDataStore.data.map { it[KEY_AUTO_FAVORITES] ?: false }
 
@@ -43,8 +43,8 @@ class DownloadSettings @Inject constructor(
     }
 
     /**
-     * Mit [autoDownloadFavorites] auch alles von favorisierten Künstlern laden (Standard: aus – ein Künstler kann sehr groß
-     * sein). Favorisierte Alben lädt die Automatik immer ganz.
+     * With [autoDownloadFavorites] also download everything from favorited artists (default: off – an artist can be very
+     * large). The automation always downloads favorited albums completely.
      */
     val autoDownloadFavoriteArtists: Flow<Boolean> =
         context.downloadSettingsDataStore.data.map { it[KEY_AUTO_FAVORITE_ARTISTS] ?: false }
@@ -53,7 +53,7 @@ class DownloadSettings @Inject constructor(
         context.downloadSettingsDataStore.edit { it[KEY_AUTO_FAVORITE_ARTISTS] = enabled }
     }
 
-    /** Server (`sourceId`), von denen alles automatisch heruntergeladen wird (Standard: keiner). */
+    /** Servers (`sourceId`) from which everything is downloaded automatically (default: none). */
     val autoDownloadServers: Flow<Set<String>> =
         context.downloadSettingsDataStore.data.map { it[KEY_AUTO_SERVERS].orEmpty() }
 
@@ -64,7 +64,7 @@ class DownloadSettings @Inject constructor(
         }
     }
 
-    /** So viele zuletzt hinzugefügte Alben automatisch herunterladen (Standard: 0 = aus). */
+    /** Automatically download this many most recently added albums (default: 0 = off). */
     val autoDownloadNewestAlbums: Flow<Int> =
         context.downloadSettingsDataStore.data.map { it[KEY_AUTO_NEWEST_ALBUMS] ?: 0 }
 
@@ -72,7 +72,7 @@ class DownloadSettings @Inject constructor(
         context.downloadSettingsDataStore.edit { it[KEY_AUTO_NEWEST_ALBUMS] = count }
     }
 
-    /** So viele meistgehörte Alben automatisch herunterladen (Standard: 0 = aus). */
+    /** Automatically download this many most played albums (default: 0 = off). */
     val autoDownloadMostPlayedAlbums: Flow<Int> =
         context.downloadSettingsDataStore.data.map { it[KEY_AUTO_MOST_PLAYED_ALBUMS] ?: 0 }
 
@@ -81,10 +81,10 @@ class DownloadSettings @Inject constructor(
     }
 
     companion object {
-        /** Feste Wahlmöglichkeiten für [autoDownloadNewestAlbums] und [autoDownloadMostPlayedAlbums]; 0 = aus. */
+        /** Fixed choices for [autoDownloadNewestAlbums] and [autoDownloadMostPlayedAlbums]; 0 = off. */
         val AUTO_ALBUM_CHOICES = listOf(0, 10, 25, 50)
 
-        /** Eigene Anzahl per Schieberegler: in diesen Schritten bis [AUTO_ALBUM_MAX]. */
+        /** Custom count via slider: in these steps up to [AUTO_ALBUM_MAX]. */
         const val AUTO_ALBUM_STEP = 5
         const val AUTO_ALBUM_MAX = 100
 
@@ -101,13 +101,13 @@ class DownloadSettings @Inject constructor(
 @Module
 @InstallIn(SingletonComponent::class)
 internal object DownloadSettingsBackupModule {
-    /** Gehört in die Komplett-Sicherung (`FullBackup`). */
+    /** Part of the full backup (`FullBackup`). */
     @Provides
     @IntoSet
     fun provideBackedUpSettings(@ApplicationContext context: Context) = BackedUpSettings(
         "download_settings",
         context.downloadSettingsDataStore,
-        // Die Server-Kennungen der Sicherung gelten hier unter Umständen anders.
+        // The backup's server IDs may mean something different here.
         merged = mapOf(DownloadSettings.AUTO_SERVERS_KEY to SettingsMerge.UNION_IDS),
     )
 }

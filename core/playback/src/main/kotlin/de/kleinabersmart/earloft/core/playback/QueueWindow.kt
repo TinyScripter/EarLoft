@@ -3,8 +3,8 @@ package de.kleinabersmart.earloft.core.playback
 import kotlin.random.Random
 
 /**
- * Ausschnitt einer Warteschlange; [startIndex] bezieht sich auf [items]. [before] und [after] sind der Rest der
- * Liste vor bzw. hinter dem Ausschnitt (bei Zufallswiedergabe liegt alles Nichtgewählte in [after]).
+ * A window of a queue; [startIndex] refers to [items]. [before] and [after] are the rest of the
+ * list before and after the window (with shuffle everything not chosen is in [after]).
  */
 data class QueueWindow<T>(
     val items: List<T>,
@@ -14,14 +14,14 @@ data class QueueWindow<T>(
 )
 
 /**
- * Höchstens [maxSize] Einträge aus [items], immer mit dem Starttitel. Der Reihe nach: der Starttitel und
- * die folgenden. Bei Zufallswiedergabe: der Starttitel und eine zufällige Auswahl aus dem Rest (in der
- * ursprünglichen Reihenfolge), damit „alles zufällig“ nicht nur einen Abschnitt der Liste mischt.
+ * At most [maxSize] entries from [items], always including the start title. In order: the start title and
+ * the following ones. With shuffle: the start title and a random selection from the rest (in the
+ * original order), so that "shuffle all" doesn't just shuffle one section of the list.
  */
 /**
- * Welche Titel aus dem Player können, um Platz zu machen: höchstens [count] schon gespielte, die am längsten zurückliegen.
- * [previous] liefert den Titel vor einem Index in Wiedergabereihenfolge (bei Zufall die gemischte), `-1` am Anfang
- * (`Timeline.getPreviousWindowIndex`). Ergebnis aufsteigend sortiert.
+ * Which titles may leave the player to make room: at most [count] already played ones, the oldest first.
+ * [previous] returns the title before an index in playback order (with shuffle the shuffled one), `-1` at the start
+ * (`Timeline.getPreviousWindowIndex`). Result sorted ascending.
  */
 fun oldestPlayed(current: Int, count: Int, previous: (Int) -> Int): List<Int> {
     if (current < 0 || count <= 0) return emptyList()

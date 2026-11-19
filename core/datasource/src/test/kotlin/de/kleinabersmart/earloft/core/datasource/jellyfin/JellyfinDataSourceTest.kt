@@ -32,10 +32,10 @@ class JellyfinDataSourceTest {
     private lateinit var mockServer: MockWebServer
     private lateinit var source: JellyfinDataSource
 
-    /** Antworten je Pfad; Songs-Seiten über [songPage]. */
+    /** Responses per path; song pages via [songPage]. */
     private var songPage: (startIndex: Int) -> String = { "" }
 
-    /** Etag der Playlists p1 (eigene) und p2 (fremde öffentliche) in der Liste. */
+    /** Etag of the playlists p1 (own) and p2 (foreign public) in the list. */
     private var playlistEtag = "e1"
     private val requests = mutableListOf<String>()
 
@@ -78,7 +78,7 @@ class JellyfinDataSourceTest {
 
     @Test
     fun `full scan follows pages a proxy cut short until the announced total`() = runTest {
-        // Der Server (bzw. ein Proxy) liefert je Seite nur zwei statt der angefragten 500 Songs.
+        // The server (or a proxy) returns only two songs per page instead of the requested 500.
         songPage = { start -> page(ids = (start until minOf(start + 2, 5)).map { "s$it" }, total = 5) }
 
         val ids = source.fullScan().toList().flatMap { batch -> batch.tracks.map { it.remoteId } }
@@ -88,7 +88,7 @@ class JellyfinDataSourceTest {
 
     @Test
     fun `a song removed before the offset during the scan does not make the next one go missing`() = runTest {
-        // Nach der ersten Seite fällt s0 am Server weg; alles rückt um eins nach vorn.
+        // After the first page, s0 disappears on the server; everything moves forward by one.
         var removed = false
         songPage = { start ->
             val all = if (removed) listOf("s1", "s2", "s3", "s4") else listOf("s0", "s1", "s2", "s3", "s4")
@@ -97,7 +97,7 @@ class JellyfinDataSourceTest {
 
         val ids = source.fullScan().toList().flatMap { batch -> batch.tracks.map { it.remoteId } }.toSet()
 
-        // Ohne Prüfung begänne die zweite Seite bei s3, und s2 fehlte (der Abgleich löschte ihn).
+        // Without the check the second page would start at s3, and s2 would be missing (the sync would delete it).
         assertEquals(setOf("s0", "s1", "s2", "s3", "s4"), ids)
     }
 
@@ -120,7 +120,7 @@ class JellyfinDataSourceTest {
         source.replacePlaylist(current, "Sommer 2", listOf("a", "b"))
         assertTrue(testScheduler.currentTime >= JellyfinDataSource.CREATION_SETTLE_MS - 1_000)
 
-        // Nur die erste Änderung nach dem Anlegen wartet.
+        // Only the first change after creation waits.
         val before = testScheduler.currentTime
         source.replacePlaylist(current, "Sommer 3", listOf("a"))
         assertEquals(before, testScheduler.currentTime)
@@ -143,7 +143,7 @@ class JellyfinDataSourceTest {
 
     @Test
     fun `own changes fetch the entries again even when the etag stays`() = runTest {
-        // Emby lässt den Etag beim Umsortieren gleich; die gemerkten Einträge gälten sonst als Änderung auf dem Server.
+        // Emby keeps the Etag unchanged on reordering; otherwise the remembered entries would count as a change on the server.
         source.replacePlaylist(RemotePlaylist(source.playlists().single(), listOf("a")), "Sommer", listOf("a"))
         val afterReplace = synchronized(requests) { requests.size }
         source.playlists()

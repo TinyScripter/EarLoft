@@ -15,11 +15,11 @@ import kotlinx.serialization.SerializationException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Der letzte Statusbericht der Uhr: Speicher und Fortschritt je Auswahl ([WearPaths.WATCH_STATUS]). */
+/** The watch's last status report: storage and progress per selection ([WearPaths.WATCH_STATUS]). */
 @Singleton
 class WatchStatusRepository @Inject constructor(private val dataClient: DataClient) {
 
-    /** `null`, solange die Uhr noch nichts gemeldet hat. */
+    /** `null` as long as the watch hasn't reported anything yet. */
     @OptIn(ExperimentalCoroutinesApi::class)
     val status: Flow<WearStatusDto?> = dataClient.changesAt(WearPaths.WATCH_STATUS)
         .mapLatest {

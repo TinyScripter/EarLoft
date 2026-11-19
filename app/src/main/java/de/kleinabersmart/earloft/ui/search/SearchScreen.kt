@@ -65,7 +65,7 @@ import de.kleinabersmart.earloft.ui.components.SongListItem
 import de.kleinabersmart.earloft.ui.spoken.BookCard
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Abschnitt mit Überschrift und Kachelreihe für Bücher bzw. Podcast-Folgen; leere Listen entfallen. */
+/** Section with a header and a tile row for books or podcast episodes; empty lists are omitted. */
 private fun LazyListScope.spokenSection(
     key: String,
     @StringRes title: Int,
@@ -96,8 +96,8 @@ private fun LazyListScope.spokenSection(
 }
 
 /**
- * Suche im aktuellen Bereich wie die Suche im einzelnen Abo: oben Zurück und Eingabefeld (mit Fokus beim Öffnen),
- * darunter der Bereich und der Schalter „Überall suchen“, der sich seinen Zustand merkt.
+ * Search in the current area like the search within a single subscription: Back and the input field at the top (focused on open),
+ * below it the area and the "Search everywhere" switch, which remembers its state.
  */
 @Composable
 fun SearchScreen(
@@ -115,8 +115,8 @@ fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
     modeViewModel: SpokenModeViewModel = hiltViewModel(),
 ) {
-    // Der Text liegt hier und geht nur ans ViewModel: Über dessen StateFlow käme er verzögert zurück, und beim schnellen
-    // Tippen spränge der Cursor bzw. gingen Zeichen verloren. Der Anfangswert überlebt so auch das Ende des Prozesses.
+    // The text lives here and only goes to the ViewModel: via its StateFlow it would come back delayed, and when typing
+    // fast the cursor would jump or characters would get lost. This way the initial value also survives process death.
     var query by rememberSaveable { mutableStateOf(viewModel.query.value) }
     val state by viewModel.results.collectAsStateWithLifecycle()
     val mode by modeViewModel.mode.collectAsStateWithLifecycle()
@@ -127,7 +127,7 @@ fun SearchScreen(
     val playingAlbumId by playControl.playingAlbumId.collectAsStateWithLifecycle()
     val playingBookId by playControl.playingBookId.collectAsStateWithLifecycle()
     val focus = remember { FocusRequester() }
-    // Nur beim ersten Öffnen; zurück aus einem Treffer bleibt die Tastatur zu.
+    // Only on first open; coming back from a hit, the keyboard stays closed.
     LaunchedEffect(Unit) { if (query.isEmpty()) focus.requestFocus() }
 
     Column(modifier.fillMaxSize()) {
@@ -160,8 +160,8 @@ fun SearchScreen(
             )
         }
         Row(Modifier.padding(start = 68.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Mit „Überall“ gilt der Bereich nicht; dann steht nur der Schalter da. Mit nur einem eingeschalteten Bereich
-            // gibt es kein „Überall“.
+            // With "Everywhere" the area doesn't apply; then only the switch is shown. With only one enabled area
+            // there is no "Everywhere".
             val everywhere = searchAll && areas.size > 1
             Text(
                 if (everywhere) "" else stringResource(searchLabel(mode)),
@@ -185,7 +185,7 @@ fun SearchScreen(
             state.query.isEmpty() -> Unit
             state.isEmpty -> EmptyHint(stringResource(R.string.search_no_results, state.query))
             else -> FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                // Reihenfolge wie die Bereiche der App: Musik, Podcasts, Bücher; darin jeweils vom Allgemeinen zum Einzelnen.
+                // Order like the app's areas: music, podcasts, books; within each from the general to the specific.
                 if (results.artists.isNotEmpty()) {
                     item(key = "artists") { SectionHeader(stringResource(R.string.library_artists)) }
                     groupedItems(results.artists, key = { "artist-${it.id}" }) { artist ->
@@ -194,7 +194,7 @@ fun SearchScreen(
                 }
                 if (results.genres.isNotEmpty()) {
                     item(key = "genres") { SectionHeader(stringResource(R.string.library_genres)) }
-                    // Der Name unverändert: Die Abfrage fasst nur ASCII-Schreibweisen zusammen, „Électro“ und „électro“ sind zwei Zeilen.
+                    // The name unchanged: the query only merges ASCII spellings, "Électro" and "électro" are two rows.
                     groupedItems(results.genres, key = { "genre-${it.name}" }) { genre ->
                         GenreListItem(genre = genre, onClick = { onGenreClick(genre.name) })
                     }

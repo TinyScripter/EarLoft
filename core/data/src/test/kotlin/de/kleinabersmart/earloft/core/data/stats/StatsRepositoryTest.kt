@@ -122,7 +122,7 @@ class StatsRepositoryTest {
         assertEquals(listOf("Altes Abo", "Test-Podcast"), result.podcasts.map { it.title })
         assertNull(result.podcasts[0].feedId)
         assertEquals(feedId, result.podcasts[1].feedId)
-        // „guid-A“ zählt einmal, auch wenn gezählte und importierte Zeile existieren.
+        // "guid-A" counts once, even if both a counted and an imported row exist.
         assertEquals(1, result.podcasts[1].episodes)
         assertTrue(result.hasHistory)
         assertEquals(3_600_000, result.months.last().listenedMs)
@@ -175,7 +175,7 @@ class StatsRepositoryTest {
 
         assertEquals(7_000, stats.podcastStats(zone = ZoneOffset.UTC) { today }.first().silenceSavedMs)
         assertEquals(1_000, stats.podcastStats(2025, ZoneOffset.UTC) { today }.first().silenceSavedMs)
-        // Die gesparte Zeit zählt nicht zur gehörten.
+        // The saved time doesn't count toward the listened time.
         assertEquals(120_000, stats.podcastStats(zone = ZoneOffset.UTC) { today }.first().totalMs)
     }
 

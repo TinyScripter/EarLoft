@@ -21,8 +21,8 @@ class QueuedForMusicViewModel @Inject constructor(private val playbackConnection
 }
 
 /**
- * „Als Nächstes“/„Zur Warteschlange“ für Songs, während ein Buch bzw. eine Folge lief: Die Songs liegen in der gespeicherten
- * Musik-Warteschlange. Der Hinweis sagt das und bietet an, die Musik gleich zu spielen (löst das Gesprochene ab).
+ * "Play next"/"Add to queue" for songs while a book or episode was playing: the songs go into the saved
+ * music queue. The hint says so and offers to play the music right away (replacing the spoken content).
  */
 @Composable
 fun QueuedForMusicEffect(viewModel: QueuedForMusicViewModel = hiltViewModel()) {

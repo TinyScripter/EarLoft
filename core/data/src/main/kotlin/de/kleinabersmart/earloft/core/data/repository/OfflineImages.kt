@@ -47,14 +47,14 @@ import javax.inject.Singleton
 private val Context.offlineImagesDataStore: DataStore<Preferences> by preferencesDataStore(name = "offline_images")
 
 /**
- * Hält alle Bilder auch ohne Netz bereit (nur am Handy): Cover der Server-Alben, Bilder der Abos und Folgen, Cover der
- * Bücher, Autorenbilder und – wenn die Option an ist – Interpreten-Bilder. Bisher kamen sie erst beim Anzeigen und lagen im
- * Cache-Verzeichnis; offline fehlten so alle, die noch nie zu sehen waren.
+ * Keeps all images available without network too (phone only): covers of server albums, images of subscriptions and episodes, covers of
+ * books, author images and – if the option is on – artist images. Previously they only came when displayed and lived in the
+ * cache directory; offline, all those never seen before were missing.
  *
- * Ändert sich der Bestand (Alben, Interpreten, Bücher, Folgen, Abos oder deren Bilder, eingeschaltete Bereiche), lädt
- * [OfflineImagesWorker] im WLAN, was fehlt, und räumt Bilder weg, zu denen es nichts mehr gibt. Der Stand des letzten
- * vollständigen Laufs ist gemerkt: Ein Neustart des Prozesses ohne Änderung lädt nichts. Ein Lauf, in dem ein Server oder
- * Abo nicht antwortete, gilt nicht als vollständig (Review D7): Er wiederholt sich mit Backoff, danach beim nächsten Start.
+ * When the inventory changes (albums, artists, books, episodes, subscriptions or their images, enabled sections),
+ * [OfflineImagesWorker] downloads what is missing over Wi-Fi and cleans up images that no longer belong to anything. The state of the last
+ * complete run is remembered: a process restart without changes downloads nothing. A run in which a server or
+ * subscription didn't respond doesn't count as complete (review D7): it is retried with backoff, then on the next start.
  */
 @Singleton
 class OfflineImages @Inject constructor(
@@ -75,7 +75,7 @@ class OfflineImages @Inject constructor(
     fun start() {
         if (!started.compareAndSet(false, true)) return
         scope.launch {
-            // Der erste Stand nach dem Prozessstart lässt einen wartenden Lauf (Backoff) stehen; erst eine Änderung ersetzt ihn.
+            // The first state after process start leaves a waiting run (backoff) in place; only a change replaces it.
             var first = true
             combine(
                 libraryDao.observeImageStamp(),
@@ -85,7 +85,7 @@ class OfflineImages @Inject constructor(
                 artworkSettings.authorImages,
             ) { music, spoken, areas, artists, authors -> "$music|$spoken|${areas.sorted()}|$artists|$authors" }
                 .distinctUntilChanged()
-                // Ein Abgleich schreibt in vielen Schritten; geladen wird erst, wenn er durch ist.
+                // A sync writes in many steps; downloading only starts once it is done.
                 .debounce(DEBOUNCE_MS)
                 .collect { stamp ->
                     if (stamp != doneStamp()) OfflineImagesWorker.enqueue(context, stamp, replace = !first)
@@ -95,9 +95,9 @@ class OfflineImages @Inject constructor(
     }
 
     /**
-     * Lädt alle fehlenden Bilder der eingeschalteten Bereiche, neueste Folgen und Bücher zuerst, und räumt verwaiste weg.
-     * Antwortet ein Server oder Abo mehrmals nicht, bleibt der Rest von ihm für den nächsten Lauf (statt jedes Mal den
-     * Zeitüberschreitungen nachzuwarten). @return `false`, wenn deshalb etwas übersprungen wurde.
+     * Downloads all missing images of the enabled sections, newest episodes and books first, and cleans up orphaned ones.
+     * If a server or subscription repeatedly doesn't respond, the rest of it is left for the next run (instead of waiting out the
+     * timeouts every time). @return `false` if something was skipped because of this.
      */
     suspend fun prefetch(): Boolean {
         var complete = true
@@ -117,14 +117,14 @@ class OfflineImages @Inject constructor(
             bookDao.listedCoverRows(BookKind.BOOK)
                 .filterNot { isLocalSource(it.serverId) }
                 .forEach { row -> unreachable.attempt(row.serverId) { bookCovers.ensureOwnCached(row) } }
-            // Autorenbilder kommen vom selben Server; antwortet er nicht, warteten sonst alle Autoren einzeln darauf.
+            // Author images come from the same server; if it doesn't respond, all authors would otherwise wait for it individually.
             if (unreachable.none()) bookDao.listedAuthors().flatMap(::bookAuthors).distinct().forEach { authorImages.image(it) }
             if (!unreachable.none()) complete = false
         }
         if (SpokenMode.MUSIC in areas) {
             val unreachable = Unreachable()
             libraryDao.getAllAlbumIds().forEach { albumId ->
-                // Cover vom Gerät liest die App ohnehin ohne Netz.
+                // The app reads covers from the device without network anyway.
                 val source = libraryDao.getCoverSource(albumId)?.takeIf { it.sourceType.isServer } ?: return@forEach
                 unreachable.attempt(source.sourceId) { artwork.keepAlbumCoverOffline(albumId, source, ALBUM_COVER_PX) }
             }
@@ -142,7 +142,7 @@ class OfflineImages @Inject constructor(
 
     private suspend fun doneStamp(): String? = context.offlineImagesDataStore.data.first()[KEY_DONE_STAMP]
 
-    /** Zählt Fehlschläge je Server bzw. Abo; nach [MAX_FAILURES] in Folge wird er in diesem Lauf übersprungen. */
+    /** Counts failures per server or subscription; after [MAX_FAILURES] in a row it is skipped for this run. */
     private class Unreachable {
         private val failures = HashMap<String, Int>()
 
@@ -160,13 +160,13 @@ class OfflineImages @Inject constructor(
         const val DEBOUNCE_MS = 10_000L
         const val MAX_FAILURES = 3
 
-        /** So groß wie die Cover der Downloads und das größte, das die Oberfläche anfragt: offline sieht es aus wie online. */
+        /** As large as the covers of the downloads and the largest the UI requests: offline looks like online. */
         const val ALBUM_COVER_PX = 1024
         val KEY_DONE_STAMP = stringPreferencesKey("done_stamp")
     }
 }
 
-/** Ein Lauf von [OfflineImages.prefetch]; nur im WLAN, wie die anderen Abrufe im Hintergrund. */
+/** A run of [OfflineImages.prefetch]; Wi-Fi only, like the other background fetches. */
 class OfflineImagesWorker(
     context: Context,
     params: WorkerParameters,
@@ -178,7 +178,7 @@ class OfflineImagesWorker(
             inputData.getString(KEY_STAMP)?.let { offlineImages.markDone(it) }
             return Result.success()
         }
-        // Unvollständig: nicht als erledigt merken, sonst käme der Rest erst mit dem nächsten geänderten Bestand.
+        // Incomplete: don't mark as done, otherwise the rest would only come with the next inventory change.
         return if (runAttemptCount + 1 < MAX_ATTEMPTS) Result.retry() else Result.success()
     }
 
@@ -192,12 +192,12 @@ class OfflineImagesWorker(
         private const val WORK_NAME = "offline-images"
         private const val KEY_STAMP = "stamp"
 
-        /** Läufe mit Backoff (5 min, verdoppelt) für einen unvollständigen Stand, zusammen gut 2,5 h. */
+        /** Runs with backoff (5 min, doubled) for an incomplete state, about 2.5 h in total. */
         private const val MAX_ATTEMPTS = 5
 
         /**
-         * Mit [replace] ersetzt der neue Lauf einen laufenden bzw. wartenden: Er sieht den neuen Bestand, schon geladene Bilder
-         * überspringt er.
+         * With [replace], the new run replaces a running or waiting one: it sees the new inventory and skips images
+         * already downloaded.
          */
         fun enqueue(context: Context, stamp: String, replace: Boolean) {
             val request = OneTimeWorkRequestBuilder<OfflineImagesWorker>()

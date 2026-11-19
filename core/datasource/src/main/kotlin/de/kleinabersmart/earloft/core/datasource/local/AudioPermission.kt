@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 
-/** Die Berechtigung, die zum Lesen der lokalen Musik nötig ist. */
+/** The permission needed to read local music. */
 object AudioPermission {
 
     val name: String =

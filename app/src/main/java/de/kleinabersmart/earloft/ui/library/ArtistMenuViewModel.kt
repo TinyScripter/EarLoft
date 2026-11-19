@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Aktionen des [ArtistMenu]; die Songs werden erst bei Bedarf geladen. */
+/** Actions of the [ArtistMenu]; the songs are only loaded when needed. */
 @HiltViewModel
 class ArtistMenuViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
@@ -20,7 +20,7 @@ class ArtistMenuViewModel @Inject constructor(
     private val playbackConnection: PlaybackConnection,
 ) : ViewModel() {
 
-    /** Download-Zustand der Alben des Künstlers; nur beobachten, solange das Menü offen ist. */
+    /** Download state of the artist's albums; only observe while the menu is open. */
     fun offline(artistId: Long): Flow<AlbumOfflineStatus> = downloadRepository.artistStatus(artistId)
 
     fun playNext(artistId: Long) = withSongs(artistId, playbackConnection::playNext)
@@ -35,7 +35,7 @@ class ArtistMenuViewModel @Inject constructor(
         viewModelScope.launch { downloadRepository.removeArtist(artistId) }
     }
 
-    // viewModelScope läuft auf dem Main-Thread, wie es PlaybackConnection verlangt.
+    // viewModelScope runs on the main thread, as PlaybackConnection requires.
     private fun withSongs(artistId: Long, action: (List<Song>) -> Unit) {
         viewModelScope.launch { libraryRepository.songsOfArtist(artistId).takeIf { it.isNotEmpty() }?.let(action) }
     }

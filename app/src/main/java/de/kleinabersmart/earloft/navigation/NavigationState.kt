@@ -17,7 +17,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.runtime.serialization.NavKeySerializer
 import androidx.savedstate.compose.serialization.serializers.MutableStateSerializer
 
-/** Navigationszustand, der Konfigurationswechsel und Prozess-Tod übersteht. */
+/** Navigation state that survives configuration changes and process death. */
 @Composable
 fun rememberNavigationState(
     startRoute: NavKey,
@@ -42,10 +42,10 @@ fun rememberNavigationState(
 }
 
 /**
- * Hält einen Back Stack pro Bottom-Bar-Ziel. Wird ausschließlich über [Navigator] verändert.
+ * Holds one back stack per bottom bar destination. Modified exclusively via [Navigator].
  *
- * Muster „Exit through home“: Der Start-Stack ist immer enthalten, darüber höchstens
- * der Stack des aktuell gewählten Ziels.
+ * "Exit through home" pattern: the Home stack is always included, on top of it at most
+ * the stack of the currently selected destination.
  */
 class NavigationState(
     val startRoute: NavKey,
@@ -58,7 +58,7 @@ class NavigationState(
     fun toDecoratedEntries(
         entryProvider: (NavKey) -> NavEntry<NavKey>,
     ): List<NavEntry<NavKey>> {
-        // Je Stack eigene Decorators, damit UI-Zustand und ViewModels pro Tab erhalten bleiben.
+        // Separate decorators per stack so UI state and ViewModels are kept per tab.
         val decoratedEntries = backStacks.mapValues { (_, stack) ->
             rememberDecoratedNavEntries(
                 backStack = stack,
