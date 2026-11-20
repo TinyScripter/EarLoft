@@ -59,7 +59,10 @@ class WifiNetwork @Inject constructor(@ApplicationContext private val context: C
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 Log.d(TAG, "Wi-Fi available: $network")
-                if (continuation.isActive) continuation.resume(WifiLease(network) { release(this) })
+                // If the caller is cancelled between this resume and its continuation, the lease never reaches it: release it
+                // here, otherwise the request would stay until the process ends (review G28).
+                val lease = WifiLease(network) { release(this) }
+                if (continuation.isActive) continuation.resume(lease) { _, unused, _ -> unused.close() }
             }
 
             override fun onUnavailable() {

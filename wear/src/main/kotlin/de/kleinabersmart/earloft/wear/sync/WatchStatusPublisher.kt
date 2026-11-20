@@ -51,6 +51,9 @@ class WatchStatusPublisher @Inject constructor(
         }
     }
 
+    /** Last sent report; only a different one is sent (review G47). */
+    private var last: WearStatusDto? = null
+
     private suspend fun publish(selections: List<WearSelectionStatusDto>) {
         val settings = state.settings.value
         val used = wearDao.getDoneBytes() + bookDao.trackTotals().doneBytes
@@ -64,10 +67,20 @@ class WatchStatusPublisher @Inject constructor(
             lastError = state.lastError.value,
             updatedAt = System.currentTimeMillis(),
         )
+        // While a file is being written, the free space and the progress of the running file (not in the report) change
+        // all the time: without a real change the phone isn't woken every 10 s.
+        val previous = last
+        if (previous != null && previous.copy(updatedAt = status.updatedAt, freeBytes = status.freeBytes) == status &&
+            kotlin.math.abs(previous.freeBytes - status.freeBytes) < FREE_BYTES_STEP
+        ) {
+            return
+        }
         dataClient.putPayload(WearPaths.WATCH_STATUS, WearCodec.encode(status), urgent = false)
+        last = status
     }
 
     private companion object {
         const val THROTTLE_MS = 10_000L
+        const val FREE_BYTES_STEP = 50L * 1024 * 1024
     }
 }

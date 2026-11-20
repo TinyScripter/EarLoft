@@ -27,6 +27,12 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     /** Failed attempts at loading from the server per `sourceUid`; after [SERVER_ATTEMPTS] it goes via the phone (Wear concept 8.3). */
     private val serverFailures = context.getSharedPreferences("watch_server_failures", Context.MODE_PRIVATE)
 
+    /**
+     * Covers that could not be fetched (none on the server, or not reachable), with the time of the attempt. Such an album
+     * doesn't start the download job again for [COVER_RETRY_MS] (review G48); the job still tries it whenever it runs anyway.
+     */
+    private val coverMisses = context.getSharedPreferences("watch_cover_misses", Context.MODE_PRIVATE)
+
     private val _settings = MutableStateFlow(readSettings())
     val settings: StateFlow<WearSettingsDto> = _settings.asStateFlow()
 
@@ -158,6 +164,18 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         if (prefs.contains(KEY_RETRY_RUNS)) prefs.edit().remove(KEY_RETRY_RUNS).apply()
     }
 
+    fun recordCoverMissing(key: String, now: Long = System.currentTimeMillis()) {
+        coverMisses.edit().putLong(key, now).apply()
+    }
+
+    fun clearCoverMissing(key: String) {
+        if (coverMisses.contains(key)) coverMisses.edit().remove(key).apply()
+    }
+
+    /** Whether the cover [key] was missing at the last attempt, less than [COVER_RETRY_MS] ago. */
+    fun coverRecentlyMissing(key: String, now: Long = System.currentTimeMillis()): Boolean =
+        now - coverMisses.getLong(key, Long.MIN_VALUE / 2) < COVER_RETRY_MS
+
     fun setWaitingForWifi(waiting: Boolean) {
         if (waiting == _waitingForWifi.value) return
         prefs.edit().putBoolean(KEY_WAITING_WIFI, waiting).apply()
@@ -182,6 +200,12 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         const val PHONE_ATTEMPTS = 5
 
         private const val VIA_PHONE_PREFIX = "via_phone:"
+
+        /** Keys for [recordCoverMissing]. */
+        fun albumCoverKey(albumId: Long) = "album:$albumId"
+        fun bookCoverKey(bookId: Long) = "book:$bookId"
+
+        private const val COVER_RETRY_MS = 6 * 60 * 60 * 1000L
 
         private const val TAG = "WatchState"
         private const val KEY_SETTINGS = "settings"

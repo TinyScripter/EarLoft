@@ -182,6 +182,20 @@ suspend fun DataClient.payloadsAt(path: String): Map<String, ByteArray> =
         }
     }.orEmpty()
 
+/**
+ * DataItems of all devices whose path starts with [prefix], with their address: `uri → payload` (only those of this protocol
+ * version). For packages whose change event never arrived.
+ */
+suspend fun DataClient.payloadsUnder(prefix: String): Map<Uri, ByteArray> =
+    runCatchingApi("Read $prefix…") {
+        val buffer = getDataItems(allNodesUri(prefix), DataClient.FILTER_PREFIX).await()
+        try {
+            buffer.mapNotNull { item -> item.payloadOrNull()?.let { item.uri to it } }.toMap()
+        } finally {
+            buffer.release()
+        }
+    }.orEmpty()
+
 /** Emits once immediately and then on every change of a DataItem under [path]. */
 fun DataClient.changesAt(path: String): Flow<Unit> = callbackFlow {
     // Only read events within the callback; the buffer is released afterwards.

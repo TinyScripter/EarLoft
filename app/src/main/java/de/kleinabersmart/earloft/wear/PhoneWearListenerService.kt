@@ -1,9 +1,7 @@
 package de.kleinabersmart.earloft.wear
 
 import android.util.Log
-import android.net.Uri
 import com.google.android.gms.wearable.ChannelClient
-import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.MessageClient
@@ -14,11 +12,6 @@ import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.data.wear.PhoneFile
 import de.kleinabersmart.earloft.core.data.wear.PhoneFileLocator
-import de.kleinabersmart.earloft.core.data.wear.WatchEpisodeImporter
-import de.kleinabersmart.earloft.core.data.wear.WatchEpisodeListening
-import de.kleinabersmart.earloft.core.data.wear.WatchEpisodeProgress
-import de.kleinabersmart.earloft.core.data.wear.WatchPlay
-import de.kleinabersmart.earloft.core.data.wear.WatchPlayImporter
 import de.kleinabersmart.earloft.core.data.wear.WatchSpoken
 import de.kleinabersmart.earloft.core.data.wear.WearSelectionRepository
 import de.kleinabersmart.earloft.core.data.wear.WearServerMirror
@@ -31,9 +24,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearCoverFile
 import de.kleinabersmart.earloft.core.wearsync.WearCredentialsDto
 import de.kleinabersmart.earloft.core.wearsync.WearCredentialsRequest
 import de.kleinabersmart.earloft.core.wearsync.WearEpisodeFile
-import de.kleinabersmart.earloft.core.wearsync.WearEpisodeReportDto
 import de.kleinabersmart.earloft.core.wearsync.WearPaths
-import de.kleinabersmart.earloft.core.wearsync.WearPlaysDto
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteCommand
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteEpisodesRequest
 import de.kleinabersmart.earloft.core.wearsync.WearRemotePlayRequest
@@ -41,7 +32,6 @@ import de.kleinabersmart.earloft.core.wearsync.WearRemoteTracksRequest
 import de.kleinabersmart.earloft.core.wearsync.WearSelectRequest
 import de.kleinabersmart.earloft.core.wearsync.WearSelectSpokenRequest
 import de.kleinabersmart.earloft.core.wearsync.WearThumbnailFile
-import de.kleinabersmart.earloft.core.wearsync.delete
 import de.kleinabersmart.earloft.core.wearsync.payloadOrNull
 import de.kleinabersmart.earloft.core.wearsync.sendFile
 import de.kleinabersmart.earloft.core.wearsync.sendPayload
@@ -64,9 +54,7 @@ class PhoneWearListenerService : WearableListenerService() {
     @Inject lateinit var messageClient: MessageClient
     @Inject lateinit var channelClient: ChannelClient
     @Inject lateinit var fileLocator: PhoneFileLocator
-    @Inject lateinit var dataClient: DataClient
-    @Inject lateinit var playImporter: WatchPlayImporter
-    @Inject lateinit var episodeImporter: WatchEpisodeImporter
+    @Inject lateinit var watchPackets: WatchPackets
     @Inject lateinit var selections: WearSelectionRepository
     @Inject lateinit var remote: WearRemoteHandler
     @Inject lateinit var remotePublisher: WearRemotePublisher
@@ -142,48 +130,14 @@ class PhoneWearListenerService : WearableListenerService() {
         packets.forEach { (uri, payload) ->
             val path = uri.path.orEmpty()
             when {
-                path.startsWith(WearPaths.PLAYS_PREFIX) -> applicationScope.launch { importPlays(uri, payload) }
-                path.startsWith(WearPaths.EPISODES_PREFIX) -> applicationScope.launch { importEpisodes(uri, payload) }
+                path.startsWith(WearPaths.PLAYS_PREFIX) -> applicationScope.launch { watchPackets.importPlays(uri, payload) }
+                path.startsWith(WearPaths.EPISODES_PREFIX) -> applicationScope.launch { watchPackets.importEpisodes(uri, payload) }
                 path == WearPaths.PHONE_WANTED -> uri.host?.let { watchNode ->
                     Log.d(TAG, "Watch $watchNode is waiting for the phone, answering")
                     applicationScope.launch { messageClient.sendPayload(watchNode, WearPaths.PHONE_BACK, payload) }
                 }
             }
         }
-    }
-
-    private suspend fun importPlays(uri: Uri, payload: ByteArray) {
-        val packet = try {
-            WearCodec.decode<WearPlaysDto>(payload)
-        } catch (e: SerializationException) {
-            Log.w(TAG, "$uri not readable", e)
-            // A broken package would otherwise stay around forever.
-            dataClient.delete(uri)
-            return
-        }
-        val imported = playImporter.import(packet.packetId, packet.plays.map { WatchPlay(it.songUid, it.playedAt, it.listenedMs) })
-        Log.d(TAG, "Packet ${packet.packetId}: $imported of ${packet.plays.size} plays imported")
-        dataClient.delete(uri)
-    }
-
-    private suspend fun importEpisodes(uri: Uri, payload: ByteArray) {
-        val report = try {
-            WearCodec.decode<WearEpisodeReportDto>(payload)
-        } catch (e: SerializationException) {
-            Log.w(TAG, "$uri not readable", e)
-            dataClient.delete(uri)
-            return
-        }
-        val applied = episodeImporter.import(
-            packetId = report.packetId,
-            progress = report.progress.map {
-                val p = it.progress
-                WatchEpisodeProgress(it.feedId, it.guid, p.positionMs, p.durationMs, p.finished, p.speed, p.updatedAt, p.skipSilence, p.volumeBoostDb)
-            },
-            listening = report.listening.map { WatchEpisodeListening(it.feedId, it.guid, it.listenedMs, it.at) },
-        )
-        Log.d(TAG, "Packet ${report.packetId} (episodes/books): $applied of ${report.progress.size} progress entries, ${report.listening.size} listening times")
-        dataClient.delete(uri)
     }
 
     /**

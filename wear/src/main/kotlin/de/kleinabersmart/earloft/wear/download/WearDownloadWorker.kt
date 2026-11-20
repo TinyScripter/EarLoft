@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Network
 import android.os.BatteryManager
 import android.content.pm.ServiceInfo
 import android.util.Log
@@ -80,11 +81,27 @@ class WearDownloadWorker(
     private val episodeDownloader = entryPoint.episodeDownloader()
     private val bookDao = entryPoint.bookDao()
 
+    /**
+     * The Wi-Fi request for downloads from the servers; held only while one is running. Every transfer via the phone releases it
+     * first: those go over the Bluetooth channel at about 100 KB/s, and a 300 MB file kept the Wi-Fi on for some 50 min
+     * (review G7, `wear_konzept.md` 8.4). The next server download requests it again.
+     */
+    private var lease: WifiLease? = null
+
+    private suspend fun wifiNetwork(): Network? =
+        (lease ?: entryPoint.wifi().acquire()?.also { lease = it })?.network
+
+    private fun releaseWifi() {
+        lease?.close()
+        lease = null
+    }
+
     override suspend fun doWork(): Result {
         downloadDao.requeueRunning()
         podcastDao.requeueRunningDownloads()
         bookDao.requeueRunningBookDownloads()
-        val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
+        val coversMissing = downloadDao.getAlbumIdsWithDoneDownload()
+            .any { !coverFiles.has(it) && !state.coverRecentlyMissing(WatchState.albumCoverKey(it)) }
         val pending = pendingCount()
         if (pending == 0 && !coversMissing) return finish()
         if (!hasRoomToStart()) return finish()
@@ -96,7 +113,6 @@ class WearDownloadWorker(
         // delivers is downloaded anyway (Review V1).
         val phoneReachable = drainPhoneQueue()
 
-        var lease: WifiLease? = null
         try {
             val profile = state.settings.value.quality.toProfile()
             while (true) {
@@ -113,11 +129,10 @@ class WearDownloadWorker(
                     if (!viaPhoneForUnknownSource(next)) return waitForPhone()
                     continue
                 }
-                lease = lease ?: entryPoint.wifi().acquire()
-                if (lease == null) return waitForWifi()
+                val network = wifiNetwork() ?: return waitForWifi()
                 state.setWaitingForWifi(false)
                 val throttle = ProgressThrottle()
-                val outcome = downloader.download(next, profile, lease.network) { done, total ->
+                val outcome = downloader.download(next, profile, network) { done, total ->
                     val percent = throttle.next(done, total)
                     if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
                 }
@@ -167,10 +182,8 @@ class WearDownloadWorker(
                     if (!episodeViaPhone(track)) return waitForPhone()
                     continue
                 }
-                lease = lease ?: entryPoint.wifi().acquire()
-                if (lease == null) return waitForWifi()
+                val network = wifiNetwork() ?: return waitForWifi()
                 state.setWaitingForWifi(false)
-                val network = lease.network
                 val outcome = downloadSpoken(track) { onProgress -> episodeDownloader.download(track, network, onProgress) }
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
@@ -209,10 +222,8 @@ class WearDownloadWorker(
                     if (!bookViaPhone(track)) return waitForPhone()
                     continue
                 }
-                lease = lease ?: entryPoint.wifi().acquire()
-                if (lease == null) return waitForWifi()
+                val network = wifiNetwork() ?: return waitForWifi()
                 state.setWaitingForWifi(false)
-                val network = lease.network
                 val outcome = downloadSpoken(track) { onProgress -> entryPoint.bookDownloader().download(track, network, onProgress) }
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
@@ -235,7 +246,7 @@ class WearDownloadWorker(
                 }
             }
         } finally {
-            lease?.close()
+            releaseWifi()
         }
         cacheCovers()
         if (!phoneReachable) return waitForPhone()
@@ -305,6 +316,12 @@ class WearDownloadWorker(
         }
         // Every attempt starts a foreground service and turns Wi-Fi on for up to 30 s: after a few
         // attempts continue only on the charger.
+        if (isPluggedIn()) {
+            // Already on the charger: a job without delay would start right away and the cycle would begin again, all night
+            // (review G8). Like waiting for the phone, the interval grows instead.
+            Log.i(TAG, "No Wi-Fi after $attempt attempts on the charger, retrying later")
+            return retryLater(onCharger = true)
+        }
         Log.i(TAG, "No Wi-Fi after $attempt attempts, continuing on the charger")
         entryPoint.scheduler().enqueueOnCharger()
         return Result.success()
@@ -331,6 +348,7 @@ class WearDownloadWorker(
      * If the phone has no file, the episode stays failed (new attempt when the phone adds it to the manifest again).
      */
     private suspend fun episodeViaPhone(track: BookTrackEntity): Boolean {
+        releaseWifi()
         return when (val outcome = downloadSpoken(track) { onProgress -> phoneFetcher.fetchEpisode(track, onProgress) }) {
             DownloadOutcome.Done -> {
                 state.clearServerFailures(episodeFailureKey(track.bookId))
@@ -354,6 +372,7 @@ class WearDownloadWorker(
 
     /** Like [episodeViaPhone] for a book file. */
     private suspend fun bookViaPhone(track: BookTrackEntity): Boolean {
+        releaseWifi()
         return when (val outcome = downloadSpoken(track) { onProgress -> phoneFetcher.fetchBookTrack(track, onProgress) }) {
             DownloadOutcome.Done -> {
                 state.clearServerFailures(bookFailureKey(track.bookId))
@@ -440,6 +459,7 @@ class WearDownloadWorker(
      * via the phone right away. @return like [viaPhone].
      */
     private suspend fun viaPhoneForUnknownSource(download: DownloadEntity): Boolean {
+        releaseWifi()
         val uid = download.sourceUid
         val sourceId = downloadDao.getSongSource(uid)?.sourceId
         state.markViaPhone(listOf(uid) + sourceId?.let { downloadDao.queuedUidsOfSource(it) }.orEmpty())
@@ -453,6 +473,7 @@ class WearDownloadWorker(
      * @return `false` if the phone was unreachable; the entry then keeps waiting.
      */
     private suspend fun viaPhone(download: DownloadEntity, serverFailed: Boolean): Boolean {
+        releaseWifi()
         val uid = download.sourceUid
         // Back to QUEUED: from RUNNING (network error) or FAILED (server refused).
         downloadDao.requeue(uid)
@@ -499,7 +520,14 @@ class WearDownloadWorker(
         // Once per book, even with several files.
         for (bookId in (podcastDao.downloadedTracks() + bookDao.downloadedBookTracks()).map { it.bookId }.distinct()) {
             try {
-                if (!bookCovers.ensureCached(bookId)) phoneFetcher.fetchCover(bookId)?.let { bookCovers.store(bookId, it) }
+                val key = WatchState.bookCoverKey(bookId)
+                if (bookCovers.ensureCached(bookId)) {
+                    state.clearCoverMissing(key)
+                } else if (!state.coverRecentlyMissing(key)) {
+                    // A channel to the phone per book on every run: only again after a while if the phone had none either.
+                    val cover = phoneFetcher.fetchCover(bookId)
+                    if (cover != null) bookCovers.store(bookId, cover) else state.recordCoverMissing(key)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -508,7 +536,8 @@ class WearDownloadWorker(
         }
         for (albumId in downloadDao.getAlbumIdsWithDoneDownload()) {
             try {
-                artwork.cacheAlbumCover(albumId, COVER_SIZE_PX)
+                val key = WatchState.albumCoverKey(albumId)
+                if (artwork.cacheAlbumCover(albumId, COVER_SIZE_PX)) state.clearCoverMissing(key) else state.recordCoverMissing(key)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

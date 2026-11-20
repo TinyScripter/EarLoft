@@ -188,7 +188,8 @@ private const val REMOVING_TIMEOUT_MS = 20_000L
 private fun SelectionItem.toEntry(): StoredEntry {
     // Album covers from the phone (as in the "Phone" section); playlists and favorites have none.
     val cover = phoneRefId?.takeIf { kind == WearSelectionKind.ALBUM }?.let { CoverRef.Phone(WearThumbnailFile.Ref.Album(it)) }
-    return StoredEntry(key, StoredSection.MUSIC, title, bytes, downloadedCount >= songCount, StoredRef.Music(kind, phoneRefId), cover)
+    // Distinct songs: a playlist with a song twice would otherwise never count as loaded (review G49).
+    return StoredEntry(key, StoredSection.MUSIC, title, bytes, downloadedCount >= distinctSongs, StoredRef.Music(kind, phoneRefId), cover)
 }
 
 private fun StoredSpoken.toEntry(section: StoredSection) =

@@ -22,7 +22,11 @@ data class WearManifest(
 data class WearSelectionDto(
     /** [WearSelectionKind.key] with the phone's IDs – only as a key, not as an ID on the watch. */
     val key: String,
-    val kind: WearSelectionKind,
+    /**
+     * `null`: a kind this watch version doesn't know (from a newer phone app); the watch skips the selection instead of
+     * failing to read the whole manifest (review G29).
+     */
+    val kind: WearSelectionKind? = null,
     val title: String,
     /** Order of the selection; duplicates allowed for playlists. Refers to [WearSongDto.key]. */
     val songKeys: List<String>,

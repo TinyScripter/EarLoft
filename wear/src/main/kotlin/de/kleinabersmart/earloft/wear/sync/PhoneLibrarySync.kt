@@ -90,8 +90,10 @@ class PhoneLibrarySync @Inject constructor(
             planner.plan(replaceSchedule = phoneBack)
             return@withLock
         }
-        if (servers != null) {
-            val dto = WearCodec.decode<WearServersDto>(servers.value)
+        // Unreadable: the known servers stay (an empty list would remove them along with their songs).
+        val serversDto = servers?.let { decodeOrNull<WearServersDto>(it.value, "Servers") }
+        if (servers != null && serversDto != null) {
+            val dto = serversDto
             val renewed = serverMirror.apply((dto.servers + dto.otherServers).mapNotNull { it.toMirrored() }) +
                 audiobookshelf.mirror(dto.spokenServers.map { MirroredAbsServer(it.serverId, it.name, it.baseUrl, it.credentialsStamp) })
             // Fetch credentials changed on the phone right away, not only after the waiting time for missing ones.
@@ -99,12 +101,14 @@ class PhoneLibrarySync @Inject constructor(
             requestMissingPasswords(phoneNodeId = servers.key)
         }
         val manifest = dataClient.assetPayloadsAt(WearPaths.MANIFEST).values.firstOrNull()
-        manifest?.let { manifestApplier.apply(WearCodec.decodeManifest(it)) }
+        // Each part on its own: one the watch can't read (newer phone app) must not block the others (review G29).
+        manifest?.let { bytes -> readOrNull("Manifest") { WearCodec.decodeManifest(bytes) }?.let { manifestApplier.apply(it) } }
         val podcasts = dataClient.assetPayloadsAt(WearPaths.PODCASTS).values.firstOrNull()
         if (podcasts != null) {
             // Report the positions first: whatever the new manifest no longer contains is deleted by the mirror along with its progress.
             episodeReporter.report()
-            episodeQueue.setOrder(podcastMirror.apply(WearCodec.decodeCompressed<WearPodcastManifest>(podcasts)))
+            readOrNull("Episodes") { WearCodec.decodeCompressed<WearPodcastManifest>(podcasts) }
+                ?.let { episodeQueue.setOrder(podcastMirror.apply(it)) }
         }
         planner.plan(replaceSchedule = settingsChanged || phoneBack)
         // A DataItem whose asset was not readable (yet) (phone out of range, transfer running) does not count as
@@ -134,11 +138,17 @@ class PhoneLibrarySync @Inject constructor(
         credentials.requestMissing(serverMirror.serversWithoutPassword() + audiobookshelf.withoutKey(), phoneNodeId)
     }
 
-    private inline fun <reified T> decodeOrNull(bytes: ByteArray, what: String): T? =
+    private inline fun <reified T> decodeOrNull(bytes: ByteArray, what: String): T? = readOrNull(what) { WearCodec.decode<T>(bytes) }
+
+    /** Something from the phone this watch can't read stays unread; retrying wouldn't help until an update. */
+    private inline fun <T> readOrNull(what: String, read: () -> T): T? =
         try {
-            WearCodec.decode<T>(bytes)
+            read()
         } catch (e: SerializationException) {
             Log.w(TAG, "$what from the phone not readable (newer app version?): ${e.message}")
+            null
+        } catch (e: java.io.IOException) {
+            Log.w(TAG, "$what from the phone not readable: ${e.message}")
             null
         }
 
@@ -194,6 +204,7 @@ class ManifestApplier @Inject constructor(
         val existing = wearDao.getSelections().associateBy { it.key }
         val now = System.currentTimeMillis()
         manifest.selections.forEachIndexed { index, selection ->
+            val kind = selection.kind ?: return@forEachIndexed
             val playlistId = existing[selection.key]?.refId?.takeIf { playlistDao.getPlaylist(it) != null }
                 ?.also { playlistDao.rename(it, selection.title, now) }
                 ?: playlistDao.insertPlaylist(PlaylistEntity(name = selection.title, updatedAt = now))
@@ -202,9 +213,9 @@ class ManifestApplier @Inject constructor(
                 selection.songKeys.mapNotNull { songIdsByKey[it] }
                     .mapIndexed { position, songId -> PlaylistEntryEntity(playlistId = playlistId, songId = songId, position = position) },
             )
-            wearDao.upsert(WearSelectionEntity(selection.key, selection.kind, playlistId, addedAt = index.toLong()))
+            wearDao.upsert(WearSelectionEntity(selection.key, kind, playlistId, addedAt = index.toLong()))
         }
-        val removed = existing.keys - manifest.selections.mapTo(HashSet()) { it.key }
+        val removed = existing.keys - manifest.selections.filter { it.kind != null }.mapTo(HashSet()) { it.key }
         removed.forEach { key ->
             wearDao.delete(key)
             existing.getValue(key).refId?.let { playlistDao.deletePlaylist(it) }

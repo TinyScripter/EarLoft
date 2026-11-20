@@ -100,7 +100,9 @@ class WearDownloadPlanner @Inject constructor(
         }
         if (queued > 0) Log.d(TAG, "$queued downloads queued")
         // Even if there is nothing left to download: the same job fetches missing covers.
-        val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
+        // Albums whose cover was just missing don't start the job again (review G48).
+        val coversMissing = downloadDao.getAlbumIdsWithDoneDownload()
+            .any { !coverFiles.has(it) && !state.coverRecentlyMissing(WatchState.albumCoverKey(it)) }
         // New downloads replace a waiting job: otherwise they would be stuck behind the backoff of an earlier failed attempt.
         // Without new ones a waiting or running job is enough.
         val pending = downloadDao.countPending() + podcastDao.countPendingDownloads() + bookDao.countPendingBookDownloads()

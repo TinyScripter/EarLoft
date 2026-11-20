@@ -10,13 +10,13 @@ import de.kleinabersmart.earloft.core.data.spoken.SeekSteps
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.data.wear.MirroredServer
 import de.kleinabersmart.earloft.core.data.wear.WatchSpoken
-import de.kleinabersmart.earloft.core.data.wear.WearContent
 import de.kleinabersmart.earloft.core.data.wear.WearSelectionRepository
 import de.kleinabersmart.earloft.core.data.wear.WearServerMirror
 import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.playback.ReplayGainSettings
 import de.kleinabersmart.earloft.core.wearsync.WearCodec
+import de.kleinabersmart.earloft.core.wearsync.WearManifest
 import de.kleinabersmart.earloft.core.wearsync.WearPaths
 import de.kleinabersmart.earloft.core.wearsync.WearPodcastManifest
 import de.kleinabersmart.earloft.core.wearsync.WearServerDto
@@ -46,6 +46,7 @@ class WearPublisher @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val dataClient: DataClient,
     private val selections: WearSelectionRepository,
+    private val packets: WatchPackets,
     private val servers: WearServerMirror,
     private val watchSettings: WatchSettingsRepository,
     private val replayGainSettings: ReplayGainSettings,
@@ -61,7 +62,21 @@ class WearPublisher @Inject constructor(
 
     @OptIn(FlowPreview::class)
     fun start(scope: CoroutineScope) {
-        scope.launch { selections.content().collect { publishManifest(it) } }
+        // History and progress the watch left while the phone app wasn't listening.
+        scope.launch { packets.catchUp() }
+        scope.launch {
+            // Every finished download on the phone changes a song's phone file, the watch's fallback when its server fails.
+            // For the watch nothing else changes, yet every new manifest started its process and re-planned everything (up
+            // to 300 times for an album selection, review G12): such changes only go out after a quiet period.
+            var lastStructure: WearManifest? = null
+            selections.content()
+                .map { WearManifestBuilder.build(it, context.getString(R.string.favorites_title)) }
+                .debounce { manifest -> if (manifest.withoutPhoneFiles() == lastStructure) PHONE_FILE_DEBOUNCE_MS else 0L }
+                .collect { manifest ->
+                    lastStructure = manifest.withoutPhoneFiles()
+                    publishManifest(manifest)
+                }
+        }
         scope.launch {
             // While the phone plays an episode, it writes the progress every 15 s: pure progress changes only go out
             // after a quiet period, otherwise each would wake the watch. Everything else (episodes, order, downloads) soon.
@@ -120,11 +135,12 @@ class WearPublisher @Inject constructor(
         }
     }
 
+    private fun WearManifest.withoutPhoneFiles() = copy(songs = songs.map { it.copy(phoneFile = null) })
+
     private fun MirroredServer.toDto() = WearServerDto(sourceId, type.name, name, baseUrl, username, priority, formPost, credentialsStamp)
 
     /** Only when the content changed – otherwise every sync on the phone would trigger work on the watch. */
-    private suspend fun publishManifest(content: WearContent) {
-        val manifest = WearManifestBuilder.build(content, context.getString(R.string.favorites_title))
+    private suspend fun publishManifest(manifest: WearManifest) {
         val hash = WearCodec.manifestHash(manifest)
         if (publishedHash == null) publishedHash = dataClient.hashesAt(WearPaths.MANIFEST).values.firstOrNull()
         if (hash == publishedHash) return
@@ -158,5 +174,6 @@ class WearPublisher @Inject constructor(
         const val BYTES_PER_GB = 1_000_000_000L
         const val CHANGE_DEBOUNCE_MS = 2_000L
         const val PROGRESS_DEBOUNCE_MS = 30_000L
+        const val PHONE_FILE_DEBOUNCE_MS = 5 * 60_000L
     }
 }
