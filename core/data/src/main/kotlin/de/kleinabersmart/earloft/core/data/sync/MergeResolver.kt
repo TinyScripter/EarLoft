@@ -122,6 +122,57 @@ class MergeResolver @Inject constructor(
         }
     }
 
+    /**
+     * Before the sweep of a full sync of [sourceId] (review G1): a track the server now delivers under a new ID (Jellyfin/Emby
+     * after moving a folder, Navidrome after a retag) became a second song in [merge], because the old source of the same
+     * server still blocked the old song (V10). For every source about to be swept whose song loses its last source of this
+     * server, a song of the same album that only this server's new source delivers and that matches by MBID or by position,
+     * title and length is joined with it: history, playlist entries, queue, lyrics, favorite and the downloaded file
+     * (if it is the same file) are kept. Two tracks that the server still delivers both stay two songs.
+     *
+     * Must be called within the sweep transaction, before [MergeDao.deleteStaleSongSources].
+     */
+    suspend fun adoptChangedIds(sourceId: String, generation: Long) {
+        val taken = mutableSetOf<String>()
+        for (stale in mergeDao.getStaleSongSources(sourceId, generation)) {
+            val old = mergeDao.getSong(stale.songId) ?: continue
+            if (mergeDao.hasFreshSourceFrom(old.songId, sourceId, generation)) continue
+            val candidate = mergeDao.findSoleFreshSources(old.albumId, old.songId, sourceId, generation)
+                .filterNot { it.uid in taken }
+                .firstOrNull { source -> mergeDao.getSong(source.songId)?.isSameTrackAs(old) == true }
+                ?: continue
+            val new = mergeDao.getSong(candidate.songId) ?: continue
+            taken += candidate.uid
+            // A song that keeps other sources (e.g. the local file) stays; otherwise the new one with the current tags does.
+            val keepOld = mergeDao.countSurvivingSources(old.songId, sourceId, generation) > 0
+            val (from, into) = if (keepOld) new to old else old to new
+            if (keepOld) {
+                mergeDao.moveSongSource(candidate.uid, old.songId)
+                mergeDao.moveDownloadsOfSong(new.songId, old.songId)
+            }
+            if (stale.sizeBytes == candidate.sizeBytes && stale.mimeType == candidate.mimeType) {
+                mergeDao.moveDownload(stale.uid, candidate.uid, into.songId)
+            }
+            mergeDao.retargetSyncActions(sourceId, stale.uid, candidate.uid)
+            mergeDao.movePlayEvents(from.songId, into.songId)
+            mergeDao.movePlaylistEntries(from.songId, into.songId)
+            mergeDao.moveQueueItems(from.songId, into.songId)
+            mergeDao.moveLyrics(from.songId, into.songId)
+            if (from.isFavorite && !into.isFavorite) {
+                syncDao.setSongFavorite(into.songId, true, from.favoriteChangedAt)
+                if (candidate.starredAt == null) syncDao.pushFavoriteToServers(into.songId, favorite = true)
+            }
+            // `from` loses its last source with the sweep and is removed by cleanupOrphans.
+        }
+    }
+
+    private fun SongEntity.isSameTrackAs(other: SongEntity): Boolean {
+        if (conflicts(mbid, other.mbid)) return false
+        if (mbid != null && mbid == other.mbid) return true
+        return discNumber == other.discNumber && trackNumber == other.trackNumber && normTitle == other.normTitle &&
+            abs(durationMs - other.durationMs) < DURATION_TOLERANCE_MS
+    }
+
     private suspend fun resolveArtist(raw: RawArtist): Long {
         raw.mbid?.let { mbid -> mergeDao.findArtistByMbid(mbid)?.let { return it.artistId } }
 

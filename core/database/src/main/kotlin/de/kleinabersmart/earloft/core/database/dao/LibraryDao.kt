@@ -48,8 +48,9 @@ private const val SELECT_SONG_ROWS = """
     FROM songs s JOIN albums a ON a.albumId = s.albumId AND $SONG_VISIBLE
 """
 
+// DISTINCT: queries that join `play_events` would otherwise count plays instead of songs (review G44).
 private const val SELECT_ALBUM_ROWS = """
-    SELECT a.albumId, a.title, a.albumArtistDisplay, a.year, COUNT(s.songId) AS songCount
+    SELECT a.albumId, a.title, a.albumArtistDisplay, a.year, COUNT(DISTINCT s.songId) AS songCount
     FROM albums a JOIN songs s ON s.albumId = a.albumId AND $SONG_VISIBLE
 """
 

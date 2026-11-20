@@ -128,6 +128,7 @@ class LibrarySyncer @Inject constructor(
 
             // Only clean up after a complete scan – an aborted scan must not delete anything.
             val removed = database.withTransaction {
+                mergeResolver.adoptChangedIds(source.sourceId, generation)
                 val removed = mergeDao.deleteStaleSongSources(source.sourceId, generation)
                 mergeDao.deleteStaleAlbumSources(source.sourceId, generation)
                 mergeDao.deleteStaleArtistSources(source.sourceId, generation)

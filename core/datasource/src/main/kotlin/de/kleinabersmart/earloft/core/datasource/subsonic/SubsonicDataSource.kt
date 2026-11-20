@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import androidx.core.net.toUri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.datasource.ExternalPlayback
+import de.kleinabersmart.earloft.core.datasource.IncompleteScanException
 import de.kleinabersmart.earloft.core.datasource.MusicDataSource
 import de.kleinabersmart.earloft.core.datasource.PlaybackLocation
 import de.kleinabersmart.earloft.core.datasource.RemoteLibraryActions
@@ -31,6 +32,7 @@ import de.kleinabersmart.earloft.core.network.subsonic.authenticatedUrl
 import de.kleinabersmart.earloft.core.network.subsonic.dto.AlbumDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -55,16 +57,13 @@ class SubsonicDataSource internal constructor(
      */
     override fun fullScan(): Flow<SourceBatch> = flow {
         val albums = loadAllAlbums()
-        var offset = 0
-        var received = 0
-        while (true) {
-            val page = api.searchAllSongs(server, offset, PAGE_SIZE)
-            received += page.size
-            val tracks = page.filter(SubsonicTrackMapper::isMusic)
-                .map { SubsonicTrackMapper.map(it, albums[it.albumId], names) }
-            if (tracks.isNotEmpty()) emit(SourceBatch(tracks))
-            if (page.size < PAGE_SIZE) break
-            offset += page.size
+        val received = scanSongs(albums) ?: scanSongs(albums)
+            ?: throw IncompleteScanException(displayName, "$displayName changed during the sync")
+
+        // A server that caps the page size or stops early would otherwise make the sweep delete the rest (review G5).
+        val expected = albums.values.sumOf { it.songCount ?: 0 }
+        if (received in 1 until expected / 2) {
+            throw IncompleteScanException(displayName, "$displayName delivered only $received of $expected songs")
         }
 
         if (received == 0 && albums.isNotEmpty()) {
@@ -77,19 +76,48 @@ class SubsonicDataSource internal constructor(
         }
     }
 
-    /** `getAlbumList2?type=newest` is sorted by creation time descending: it stops at an older album. */
+    /**
+     * All songs via `search3`, like Jellyfin's scan: from the second page on, each request starts one song earlier, and that
+     * song must be the last one of the previous page. Otherwise something was dropped before the offset and the first song of
+     * the page would never be read – the sweep would delete it. Only an empty page ends the scan, so a server that delivers
+     * fewer songs per request than asked for is read completely.
+     * @return the number of songs received, `null` on a shift.
+     */
+    private suspend fun FlowCollector<SourceBatch>.scanSongs(albums: Map<String, AlbumDto>): Int? {
+        var offset = 0
+        var lastId: String? = null
+        while (true) {
+            val overlap = if (lastId == null) 0 else 1
+            val result = api.searchAllSongs(server, offset - overlap, PAGE_SIZE + overlap)
+            // At the end of the list only the overlap song comes back; without it, something before the offset was removed.
+            if (lastId != null && result.firstOrNull()?.id != lastId) return null
+            val page = result.drop(overlap)
+            if (page.isEmpty()) return offset
+            val tracks = page.filter(SubsonicTrackMapper::isMusic)
+                .map { SubsonicTrackMapper.map(it, albums[it.albumId], names) }
+            if (tracks.isNotEmpty()) emit(SourceBatch(tracks))
+            offset += page.size
+            lastId = page.last().id
+        }
+    }
+
+    /**
+     * `getAlbumList2?type=newest` is sorted by creation time descending, on Navidrome with `RecentlyAddedByModTime` by
+     * modification time: a retagged old album can then come before the really new ones. So older albums are skipped, not
+     * a reason to stop (review G52); it stops after a page that ends with an older album.
+     */
     override suspend fun tracksAddedSince(since: Long): List<RawTrack> {
         val tracks = mutableListOf<RawTrack>()
         var offset = 0
+        // Without a timestamp, better to load (the merge detects unchanged items).
+        fun AlbumDto.isFresh() = created?.toEpochMillis()?.let { it > since } ?: true
         while (offset < MAX_NEW_ALBUMS) {
             val page = api.albumList(server, "newest", offset, NEWEST_PAGE_SIZE)
-            // Without a timestamp, better to load (the merge detects unchanged items).
-            val fresh = page.takeWhile { album -> album.created?.toEpochMillis()?.let { it > since } ?: true }
-            fresh.forEach { summary ->
+            page.filter { it.isFresh() }.forEach { summary ->
                 val album = api.album(server, summary.id)
                 album.song.filter(SubsonicTrackMapper::isMusic).mapTo(tracks) { SubsonicTrackMapper.map(it, album, names) }
             }
-            if (fresh.size < page.size || page.size < NEWEST_PAGE_SIZE) break
+            if (page.size < NEWEST_PAGE_SIZE || !page.last().isFresh()) break
             offset += page.size
         }
         return tracks

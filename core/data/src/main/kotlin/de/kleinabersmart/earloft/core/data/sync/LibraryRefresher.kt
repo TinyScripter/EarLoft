@@ -144,7 +144,10 @@ class LibraryRefresher @Inject constructor(
                 if (librarySettings.useLocalMedia.first()) delay(DEBOUNCE_MS + LOCAL_START_SLACK_MS)
                 syncer.activeSyncs.first { it == 0 }
                 val fresh = newSongs.newSongs(baseline)
-                events.emit(RefreshEvent.Finished(RefreshKind.MUSIC, fresh, failed = syncer.failures.value.isNotEmpty()))
+                // Only sources of this run: a server removed or turned off since its last failure doesn't count (review G24).
+                val active = activeSourceIds()
+                val failed = syncer.failures.value.keys.any { it in active }
+                events.emit(RefreshEvent.Finished(RefreshKind.MUSIC, fresh, failed = failed))
             } finally {
                 _refreshing.value = false
             }

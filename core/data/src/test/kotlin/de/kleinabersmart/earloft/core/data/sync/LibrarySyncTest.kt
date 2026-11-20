@@ -6,6 +6,9 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
+import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
+import de.kleinabersmart.earloft.core.database.entity.PlaylistEntity
+import de.kleinabersmart.earloft.core.database.entity.PlaylistEntryEntity
 import de.kleinabersmart.earloft.core.datasource.MusicDataSource
 import de.kleinabersmart.earloft.core.datasource.PlaybackLocation
 import de.kleinabersmart.earloft.core.datasource.RawArtist
@@ -178,6 +181,47 @@ class LibrarySyncTest {
         // A second source with the same tracks merges each track into one of the songs, without new ones.
         syncer.syncAdding(db, FakeSource("local", listOf(original, bonus, interlude, interlude2).map { it.copy(remoteId = "l" + it.remoteId) }))
         assertEquals(4, db.libraryDao().observeSongRows().first().size)
+    }
+
+    @Test
+    fun `a new server id for the same track keeps history, playlist entries and the download`() = runTest {
+        val gong = track("x", "Gong", track = 4, sizeBytes = 100)
+        syncer.syncAdding(db, FakeSource("nd", listOf(gong, track("y", "Hoppípolla", track = 3))))
+        val songId = db.libraryDao().observeSongRows().first().single { it.title == "Gong" }.songId
+        db.playbackDao().insertPlayEventIfSongExists(PlayEventEntity(songId = songId, playedAt = 1_000, listenedMs = 60_000))
+        val playlistId = db.playlistDao().insertPlaylist(PlaylistEntity(name = "Mix", updatedAt = 1))
+        db.playlistDao().insertEntries(listOf(PlaylistEntryEntity(playlistId = playlistId, songId = songId, position = 0)))
+        db.downloadDao().insertIfAbsent(listOf(DownloadEntity("nd:x", songId, DownloadState.DONE, filePath = "/dl/x.flac")))
+
+        // The server moved the folder: same track, new ID.
+        syncer.syncAdding(db, FakeSource("nd", listOf(gong.copy(remoteId = "x2"), track("y", "Hoppípolla", track = 3))))
+
+        val songs = db.libraryDao().observeSongRows().first()
+        assertEquals(2, songs.size)
+        val newId = songs.single { it.title == "Gong" }.songId
+        assertEquals(listOf("nd:x2"), db.libraryDao().getSourcesOfSong(newId).map { it.uid })
+        db.openHelper.readableDatabase.query("SELECT songId FROM play_events").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(newId, cursor.getLong(0))
+        }
+        assertEquals(listOf("Gong"), db.playlistDao().observeEntryRows(playlistId).first().map { it.song.title })
+        val download = db.downloadDao().get("nd:x2")!!
+        assertEquals(DownloadState.DONE, download.state)
+        assertEquals(newId, download.songId)
+    }
+
+    @Test
+    fun `a removed track does not hand its history to a different track of the album`() = runTest {
+        syncer.syncAdding(db, FakeSource("nd", listOf(track("x", "Gong", track = 4), track("y", "Hoppípolla", track = 3))))
+        val songId = db.libraryDao().observeSongRows().first().single { it.title == "Gong" }.songId
+        db.playbackDao().insertPlayEventIfSongExists(PlayEventEntity(songId = songId, playedAt = 1_000, listenedMs = 60_000))
+
+        syncer.syncAdding(db, FakeSource("nd", listOf(track("y", "Hoppípolla", track = 3))))
+
+        db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM play_events").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
     }
 
     @Test

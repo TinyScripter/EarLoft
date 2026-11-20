@@ -127,6 +127,63 @@ interface MergeDao {
     @Query("DELETE FROM song_sources WHERE sourceId = :sourceId AND seenInGeneration < :generation")
     suspend fun deleteStaleSongSources(sourceId: String, generation: Long): Int
 
+    // --- Changed server IDs (review G1) ---
+
+    /** The sources [deleteStaleSongSources] is about to remove. */
+    @Query("SELECT * FROM song_sources WHERE sourceId = :sourceId AND seenInGeneration < :generation")
+    suspend fun getStaleSongSources(sourceId: String, generation: Long): List<SongSourceEntity>
+
+    /** The song still has a source from [sourceId] that the current full sync has seen. */
+    @Query(
+        "SELECT EXISTS (SELECT 1 FROM song_sources WHERE songId = :songId AND sourceId = :sourceId AND seenInGeneration >= :generation)",
+    )
+    suspend fun hasFreshSourceFrom(songId: Long, sourceId: String, generation: Long): Boolean
+
+    @Query("SELECT COUNT(*) FROM song_sources WHERE songId = :songId AND NOT (sourceId = :sourceId AND seenInGeneration < :generation)")
+    suspend fun countSurvivingSources(songId: Long, sourceId: String, generation: Long): Int
+
+    /**
+     * Songs of [albumId] other than [exceptSongId] whose only source is one of [sourceId] seen in the current full sync:
+     * the candidates for a track the server now delivers under a new ID.
+     */
+    @Query(
+        """
+        SELECT ss.* FROM song_sources ss JOIN songs s ON s.songId = ss.songId
+        WHERE s.albumId = :albumId AND s.songId != :exceptSongId
+          AND ss.sourceId = :sourceId AND ss.seenInGeneration >= :generation
+          AND (SELECT COUNT(*) FROM song_sources o WHERE o.songId = s.songId) = 1
+        ORDER BY s.songId
+        """,
+    )
+    suspend fun findSoleFreshSources(albumId: Long, exceptSongId: Long, sourceId: String, generation: Long): List<SongSourceEntity>
+
+    @Query("UPDATE song_sources SET songId = :songId WHERE uid = :uid")
+    suspend fun moveSongSource(uid: String, songId: Long)
+
+    @Query("UPDATE play_events SET songId = :into WHERE songId = :from")
+    suspend fun movePlayEvents(from: Long, into: Long)
+
+    @Query("UPDATE playlist_entries SET songId = :into WHERE songId = :from")
+    suspend fun movePlaylistEntries(from: Long, into: Long)
+
+    @Query("UPDATE queue_items SET songId = :into WHERE songId = :from")
+    suspend fun moveQueueItems(from: Long, into: Long)
+
+    /** Keeps the lyrics [into] already has. */
+    @Query("UPDATE OR IGNORE lyrics SET songId = :into WHERE songId = :from")
+    suspend fun moveLyrics(from: Long, into: Long)
+
+    @Query("UPDATE downloads SET songId = :into WHERE songId = :from")
+    suspend fun moveDownloadsOfSong(from: Long, into: Long)
+
+    /** Hands the downloaded file of [fromUid] to [toUid] (same file under a new ID); keeps a download [toUid] already has. */
+    @Query("UPDATE OR IGNORE downloads SET sourceUid = :toUid, songId = :songId WHERE sourceUid = :fromUid")
+    suspend fun moveDownload(fromUid: String, toUid: String, songId: Long)
+
+    /** Pending server actions (favorite, scrobble) follow the new ID. */
+    @Query("UPDATE sync_actions SET targetKey = :toUid WHERE sourceId = :sourceId AND targetKey = :fromUid")
+    suspend fun retargetSyncActions(sourceId: String, fromUid: String, toUid: String)
+
     // --- Album and artist sources ---
 
     @Query("SELECT * FROM album_sources WHERE sourceId = :sourceId AND remoteId = :remoteId")
