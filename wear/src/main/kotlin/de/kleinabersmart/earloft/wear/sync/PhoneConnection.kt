@@ -2,8 +2,8 @@ package de.kleinabersmart.earloft.wear.sync
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.util.Log
+import androidx.core.net.toUri
 import androidx.wear.remote.interactions.RemoteActivityHelper
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.DataClient
@@ -89,7 +89,7 @@ class PhoneConnection @Inject constructor(
     suspend fun openStoreOnPhone(nodeId: String): Boolean {
         val intent = Intent(Intent.ACTION_VIEW)
             .addCategory(Intent.CATEGORY_BROWSABLE)
-            .setData(Uri.parse("market://details?id=${context.packageName}"))
+            .setData("market://details?id=${context.packageName}".toUri())
         return try {
             RemoteActivityHelper(context).startRemoteActivity(intent, nodeId).await()
             true

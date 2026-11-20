@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.wear.sync
 
 import android.content.Context
+import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,14 +18,14 @@ class ReportedEpisodes @Inject constructor(@ApplicationContext context: Context)
     fun progressAt(feedId: String, guid: String): Long = prefs.getLong(progressKey(feedId, guid), 0)
 
     fun markProgress(feedId: String, guid: String, updatedAt: Long) {
-        prefs.edit().putLong(progressKey(feedId, guid), updatedAt).apply()
+        prefs.edit { putLong(progressKey(feedId, guid), updatedAt) }
     }
 
     /** Reported time of the statistics entry ([groupKey] = feed address, [itemKey] = guid). */
     fun listenedMs(groupKey: String, itemKey: String): Long = prefs.getLong(listeningKey(groupKey, itemKey), 0)
 
     fun markListened(groupKey: String, itemKey: String, listenedMs: Long) {
-        prefs.edit().putLong(listeningKey(groupKey, itemKey), listenedMs).apply()
+        prefs.edit { putLong(listeningKey(groupKey, itemKey), listenedMs) }
     }
 
     // Separator that occurs in no address and no guid.

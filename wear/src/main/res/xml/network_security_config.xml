@@ -2,13 +2,13 @@
 <!--
     As on the phone (app/.../network_security_config.xml): home servers often run over HTTP or with a self-signed
     certificate. The server dialog on the phone only allows HTTP after explicit confirmation; the watch takes over
-    the servers set up there (Wear concept 6).
+    the servers set up there (Wear concept 6). Both are deliberate, hence the suppressed lint warnings.
 -->
-<network-security-config>
-    <base-config cleartextTrafficPermitted="true">
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration">
         <trust-anchors>
             <certificates src="system" />
-            <certificates src="user" />
+            <certificates src="user" tools:ignore="AcceptsUserCertificates" />
         </trust-anchors>
     </base-config>
 </network-security-config>

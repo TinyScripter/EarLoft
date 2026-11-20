@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.createBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
@@ -675,7 +676,7 @@ private fun SeekButton(iconRes: Int, seconds: Int, description: String, onClick:
 /** Colorful sample cover for the preview (gradient with a bright spot, as real covers often have). */
 private fun previewCover(): android.graphics.Bitmap {
     val size = 200
-    val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val bitmap = createBitmap(size, size)
     val canvas = android.graphics.Canvas(bitmap)
     val paint = android.graphics.Paint().apply {
         shader = android.graphics.LinearGradient(

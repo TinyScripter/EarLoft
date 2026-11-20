@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name" translatable="false">EarLoft</string>
     <plurals name="song_count">
         <item quantity="one">%d track</item>
@@ -10,7 +10,8 @@
     </plurals>
     <string name="selection_missing">No longer on the watch</string>
     <string name="selection_not_loaded">Not loaded yet</string>
-    <string name="selection_progress">%1$d of %2$d loaded</string>
+    <!-- "loaded" refers to the selection, so the wording doesn't depend on the numbers. -->
+    <string name="selection_progress" tools:ignore="PluralsCandidate">%1$d of %2$d loaded</string>
 
     <string name="selection_play">Play</string>
     <string name="selection_shuffle">Shuffle</string>

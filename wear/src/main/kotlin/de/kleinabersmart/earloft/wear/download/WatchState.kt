@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.wear.download
 
 import android.content.Context
 import android.util.Log
+import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.wearsync.WearCodec
 import de.kleinabersmart.earloft.core.wearsync.WearSettingsDto
@@ -64,12 +65,12 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     /** Server and manifest from the phone that were last fully applied (see `PhoneLibrarySync`). */
     var appliedPhoneStamp: String?
         get() = prefs.getString(KEY_APPLIED_STAMP, null)
-        set(value) = prefs.edit().putString(KEY_APPLIED_STAMP, value).apply()
+        set(value) = prefs.edit { putString(KEY_APPLIED_STAMP, value) }
 
     /** @return `true` if something changed. */
     fun updateSettings(settings: WearSettingsDto): Boolean {
         if (settings == _settings.value) return false
-        prefs.edit().putString(KEY_SETTINGS, WearCodec.encode(settings).decodeToString()).apply()
+        prefs.edit { putString(KEY_SETTINGS, WearCodec.encode(settings).decodeToString()) }
         _settings.value = settings
         return true
     }
@@ -77,14 +78,14 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     /** Counts a failed attempt at loading from the server. @return the count so far. */
     fun recordServerFailure(sourceUid: String): Int {
         val count = serverFailures.getInt(sourceUid, 0) + 1
-        serverFailures.edit().putInt(sourceUid, count).apply()
+        serverFailures.edit { putInt(sourceUid, count) }
         return count
     }
 
     /** Counts a failed attempt for several songs at once (the server was unreachable, not just one song). */
     fun recordServerFailures(sourceUids: Collection<String>) {
         if (sourceUids.isEmpty()) return
-        serverFailures.edit().apply { sourceUids.forEach { putInt(it, serverFailures.getInt(it, 0) + 1) } }.apply()
+        serverFailures.edit { sourceUids.forEach { putInt(it, serverFailures.getInt(it, 0) + 1) } }
     }
 
     fun hasServerFailedTooOften(sourceUid: String): Boolean = serverFailures.getInt(sourceUid, 0) >= SERVER_ATTEMPTS
@@ -95,7 +96,7 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
      */
     fun markViaPhone(sourceUids: Collection<String>) {
         if (sourceUids.isEmpty()) return
-        serverFailures.edit().apply { sourceUids.forEach { putBoolean(VIA_PHONE_PREFIX + it, true) } }.apply()
+        serverFailures.edit { sourceUids.forEach { putBoolean(VIA_PHONE_PREFIX + it, true) } }
     }
 
     fun isMarkedViaPhone(sourceUid: String): Boolean = serverFailures.getBoolean(VIA_PHONE_PREFIX + sourceUid, false)
@@ -103,22 +104,22 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     fun clearServerFailures(sourceUid: String) {
         val viaPhoneKey = VIA_PHONE_PREFIX + sourceUid
         if (serverFailures.contains(sourceUid) || serverFailures.contains(viaPhoneKey)) {
-            serverFailures.edit().remove(sourceUid).remove(viaPhoneKey).apply()
+            serverFailures.edit { remove(sourceUid).remove(viaPhoneKey) }
         }
     }
 
     /** For "Retry": otherwise every song would go straight to the phone without asking the server again. */
     fun clearAllServerFailures() {
-        serverFailures.edit().clear().apply()
+        serverFailures.edit { clear() }
     }
 
     fun setMissingForStorage(count: Int) {
-        prefs.edit().putInt(KEY_MISSING, count).apply()
+        prefs.edit { putInt(KEY_MISSING, count) }
         _missingForStorage.value = count
     }
 
     fun setLastError(message: String?) {
-        prefs.edit().putString(KEY_LAST_ERROR, message).apply()
+        prefs.edit { putString(KEY_LAST_ERROR, message) }
         _lastError.value = message
     }
 
@@ -128,21 +129,21 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
      */
     fun recordPhoneUnreachable(): Int {
         val count = prefs.getInt(KEY_PHONE_FAILURES, 0) + 1
-        prefs.edit().putInt(KEY_PHONE_FAILURES, count).apply()
+        prefs.edit { putInt(KEY_PHONE_FAILURES, count) }
         return count
     }
 
     /** The phone delivered or checked in: full attempts again. */
     fun clearPhoneUnreachable() {
         if (prefs.contains(KEY_PHONE_FAILURES) || prefs.contains(KEY_WAITING_PHONE)) {
-            prefs.edit().remove(KEY_PHONE_FAILURES).remove(KEY_WAITING_PHONE).apply()
+            prefs.edit { remove(KEY_PHONE_FAILURES).remove(KEY_WAITING_PHONE) }
         }
     }
 
     /** After [PHONE_ATTEMPTS] runs without the phone the job waits for the charger; if the phone checks in, it continues right away. */
     var waitingForPhone: Boolean
         get() = prefs.getBoolean(KEY_WAITING_PHONE, false)
-        set(value) = prefs.edit().putBoolean(KEY_WAITING_PHONE, value).apply()
+        set(value) = prefs.edit { putBoolean(KEY_WAITING_PHONE, value) }
 
     /**
      * Consecutive runs of the download job that ended with a retry (no Wi-Fi, server or phone unreachable).
@@ -155,21 +156,21 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     /** @return the count including this run. */
     fun recordRetry(): Int {
         val count = retryRuns + 1
-        prefs.edit().putInt(KEY_RETRY_RUNS, count).apply()
+        prefs.edit { putInt(KEY_RETRY_RUNS, count) }
         return count
     }
 
     /** A run ended without a retry, or a new job starts from scratch (new selection, charger). */
     fun clearRetries() {
-        if (prefs.contains(KEY_RETRY_RUNS)) prefs.edit().remove(KEY_RETRY_RUNS).apply()
+        if (prefs.contains(KEY_RETRY_RUNS)) prefs.edit { remove(KEY_RETRY_RUNS) }
     }
 
     fun recordCoverMissing(key: String, now: Long = System.currentTimeMillis()) {
-        coverMisses.edit().putLong(key, now).apply()
+        coverMisses.edit { putLong(key, now) }
     }
 
     fun clearCoverMissing(key: String) {
-        if (coverMisses.contains(key)) coverMisses.edit().remove(key).apply()
+        if (coverMisses.contains(key)) coverMisses.edit { remove(key) }
     }
 
     /** Whether the cover [key] was missing at the last attempt, less than [COVER_RETRY_MS] ago. */
@@ -178,7 +179,7 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
 
     fun setWaitingForWifi(waiting: Boolean) {
         if (waiting == _waitingForWifi.value) return
-        prefs.edit().putBoolean(KEY_WAITING_WIFI, waiting).apply()
+        prefs.edit { putBoolean(KEY_WAITING_WIFI, waiting) }
         _waitingForWifi.value = waiting
     }
 

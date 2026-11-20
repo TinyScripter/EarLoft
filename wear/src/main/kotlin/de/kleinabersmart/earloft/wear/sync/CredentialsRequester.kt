@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.wear.sync
 
 import android.content.Context
 import android.util.Log
+import androidx.core.content.edit
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.MessageClient
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,7 +31,7 @@ class CredentialsRequester @Inject constructor(
         if (sourceIds.isEmpty()) return
         val nodeId = phoneNodeId ?: dataClient.payloadsAt(WearPaths.SERVERS).keys.firstOrNull() ?: return
         val now = System.currentTimeMillis()
-        asked.edit().apply { sourceIds.forEach { putLong(it, now) } }.apply()
+        asked.edit { sourceIds.forEach { putLong(it, now) } }
         sourceIds.forEach { sourceId ->
             Log.d(TAG, "Requesting credentials for $sourceId")
             messageClient.sendPayload(nodeId, WearPaths.CREDENTIALS_REQUEST, WearCodec.encode(WearCredentialsRequest(sourceId)))

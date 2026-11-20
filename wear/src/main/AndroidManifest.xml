@@ -26,10 +26,14 @@
 
     <!-- largeHeap: The watch plays long M4B files with the same ExoPlayer as the phone; it keeps the sample table of the whole file
          in the Java heap (a 17 h book about 85 MB, briefly double that while parsing); the normal limit is 192 MB even on
-         the watch emulator (512 MB with largeHeap). -->
+         the watch emulator (512 MB with largeHeap).
+         Backup: nothing of the watch is backed up or transferred (data_extraction_rules.xml). Up to Android 11
+         allowBackup="false" already covers device transfer, so there is no fullBackupContent. -->
     <application
         android:name=".WearApplication"
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        tools:ignore="DataExtractionRules"
         android:largeHeap="true"
         android:icon="@mipmap/ic_launcher"
         android:networkSecurityConfig="@xml/network_security_config"

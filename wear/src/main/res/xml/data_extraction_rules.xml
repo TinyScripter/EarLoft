@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 31+. The watch keeps nothing of its own: server, credentials and selection come from the phone, downloads are
+     fetched again, and credentials are bound to this watch's Keystore. allowBackup="false" only stops the cloud backup
+     from Android 12 on; device transfer needs these rules to leave everything out as well. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="external" path="." />
+    </device-transfer>
+</data-extraction-rules>

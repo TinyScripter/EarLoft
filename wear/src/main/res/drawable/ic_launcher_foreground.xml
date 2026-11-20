@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Headphones-house emblem; the ring with ~62dp diameter sits in the 66dp safe zone of the adaptive icon. -->
+<!-- Long paths are fine here: traced artwork, rendered once per size and cached. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="VectorPath"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="1635.7"
