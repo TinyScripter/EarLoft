@@ -82,7 +82,7 @@ import de.kleinabersmart.earloft.ui.components.PinnableHeaderBox
 import de.kleinabersmart.earloft.ui.components.gridContentPadding
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
-import de.kleinabersmart.earloft.ui.components.letterOf
+import de.kleinabersmart.earloft.ui.components.foldedLetterOf
 import de.kleinabersmart.earloft.ui.components.SongActions
 import de.kleinabersmart.earloft.ui.components.SongListItem
 import de.kleinabersmart.earloft.ui.playlists.PlaylistIcon
@@ -368,7 +368,7 @@ private fun PlaylistList(
             }
         }
         // The first two rows are "New playlist" and "Favorites".
-        LazyListFastScroller(state, labelAt = { index -> letterOf(playlists.getOrNull((index - 2).coerceAtLeast(0))?.name.orEmpty()) })
+        LazyListFastScroller(state, labelAt = { index -> foldedLetterOf(playlists.getOrNull((index - 2).coerceAtLeast(0))?.name.orEmpty()) })
     }
 }
 
@@ -511,16 +511,16 @@ private val SongSort.label: Int
 
 /** Fast scroller label matching the order; by date without a label (thumb only). */
 private fun AlbumSort.scrollLabel(): ((Album) -> String)? = when (this) {
-    AlbumSort.TITLE -> { album -> letterOf(album.title.sortKey()) }
-    AlbumSort.ARTIST -> { album -> letterOf(album.artist.sortKey()) }
+    AlbumSort.TITLE -> { album -> foldedLetterOf(album.title.sortKey()) }
+    AlbumSort.ARTIST -> { album -> foldedLetterOf(album.artist.sortKey()) }
     AlbumSort.YEAR -> { album -> album.year?.toString() ?: "#" }
     AlbumSort.RECENTLY_ADDED, AlbumSort.RECENTLY_PLAYED -> null
 }
 
 private fun SongSort.scrollLabel(): ((Song) -> String)? = when (this) {
-    SongSort.TITLE -> { song -> letterOf(song.title) }
-    SongSort.ARTIST -> { song -> letterOf(song.artist.sortKey()) }
-    SongSort.ALBUM -> { song -> letterOf(song.albumTitle.sortKey()) }
+    SongSort.TITLE -> { song -> foldedLetterOf(song.title) }
+    SongSort.ARTIST -> { song -> foldedLetterOf(song.artist.sortKey()) }
+    SongSort.ALBUM -> { song -> foldedLetterOf(song.albumTitle.sortKey()) }
     SongSort.RECENTLY_ADDED -> null
 }
 
@@ -604,7 +604,7 @@ internal fun ArtistGrid(
         }
         val offset = if (inlineHeader != null) 1 else 0
         LazyGridFastScroller(state, labelAt = if (byName) { index ->
-            letterOf(artists.getOrNull((index - offset).coerceAtLeast(0))?.name.orEmpty().sortKey())
+            foldedLetterOf(artists.getOrNull((index - offset).coerceAtLeast(0))?.name.orEmpty().sortKey())
         } else null)
     }
 }

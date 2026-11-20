@@ -19,3 +19,10 @@ fun String.normalizeForMerge(): String =
 
 /** Sort key without a leading English article ("The Beatles" → "Beatles"). */
 fun String.sortKey(): String = trim().removePrefix("The ").removePrefix("the ")
+
+/**
+ * Stored sort key of artists and albums and the order of other lists sorted by name (review G14): [sortKey] without case,
+ * accents and punctuation, the way the book lists sort. "Die Ärzte" sorts under D, "Ärzte" and "Édith Piaf" with A and E
+ * (SQLite's `NOCASE` only folds ASCII and put them behind Z).
+ */
+fun String.foldedSortKey(): String = sortKey().normalizeForMerge().ifEmpty { trim().lowercase(Locale.ROOT) }

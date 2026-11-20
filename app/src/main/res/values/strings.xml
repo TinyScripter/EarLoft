@@ -477,6 +477,10 @@
     <string name="playlist_delete_text_server">“%1$s” will also be deleted on %2$s.</string>
     <string name="playlist_empty">No songs yet. Add some from the song menu.</string>
     <string name="playlist_missing_on_server">Not on %1$s</string>
+    <plurals name="playlist_unknown_songs">
+        <item quantity="one">Contains a song the app doesn\'t know; change it only on %2$s.</item>
+        <item quantity="other">Contains %1$d songs the app doesn\'t know; change it only on %2$s.</item>
+    </plurals>
     <string name="playlist_added">Added to “%1$s”</string>
     <string name="action_add_to_playlist">Add to playlist</string>
     <string name="action_remove_from_playlist">Remove from playlist</string>

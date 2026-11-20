@@ -362,6 +362,31 @@ class MigrationTest {
     }
 
     @Test
+    fun `v45 to v46 sorts artists and albums without case and accents`() {
+        helper.createDatabase(DB_NAME, 45).use { db ->
+            for ((id, name) in listOf(1 to "Ärzte", 2 to "ZZ Top", 3 to "The Édith Band")) {
+                db.execSQL(
+                    "INSERT INTO albums (albumId, title, sortTitle, normTitle, albumArtistDisplay, normAlbumArtist, isCompilation) " +
+                        "VALUES ($id, ?, ?, 'x', 'Band', 'band', 0)",
+                    arrayOf(name, name),
+                )
+                db.execSQL("INSERT INTO artists (artistId, name, sortName, normName) VALUES ($id, ?, ?, 'x')", arrayOf(name, name))
+            }
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 46, true).use { db ->
+            db.query("SELECT title, sortTitle FROM albums ORDER BY sortTitle COLLATE NOCASE").use { cursor ->
+                val rows = buildList { while (cursor.moveToNext()) add(cursor.getString(0) to cursor.getString(1)) }
+                assertEquals(listOf("Ärzte" to "arzte", "The Édith Band" to "edithband", "ZZ Top" to "zztop"), rows)
+            }
+            db.query("SELECT name FROM artists ORDER BY sortName COLLATE NOCASE").use { cursor ->
+                val names = buildList { while (cursor.moveToNext()) add(cursor.getString(0)) }
+                assertEquals(listOf("Ärzte", "The Édith Band", "ZZ Top"), names)
+            }
+        }
+    }
+
+    @Test
     fun `v44 to v45 keeps the one genre of each song and has the servers synced again`() {
         helper.createDatabase(DB_NAME, 44).use { db ->
             db.execSQL(

@@ -51,7 +51,8 @@ import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import de.kleinabersmart.earloft.ui.components.HeaderAction
 import de.kleinabersmart.earloft.ui.components.LazyGridFastScroller
 import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
-import de.kleinabersmart.earloft.ui.components.letterOf
+import de.kleinabersmart.earloft.ui.components.foldedLetterOf
+import de.kleinabersmart.earloft.core.common.sortKey
 import de.kleinabersmart.earloft.ui.components.SortButton
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -413,7 +414,7 @@ private fun FeedGrid(
             LazyGridFastScroller(
                 gridState,
                 Modifier.padding(bottom = 88.dp),
-                labelAt = if (byName) { index -> letterOf(feeds.getOrNull(index)?.title.orEmpty()) } else null,
+                labelAt = if (byName) { index -> foldedLetterOf(feeds.getOrNull(index)?.title.orEmpty().sortKey()) } else null,
             )
         }
         FloatingActionButton(onClick = onAdd, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {

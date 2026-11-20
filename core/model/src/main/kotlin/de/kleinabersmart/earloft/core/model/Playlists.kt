@@ -7,6 +7,8 @@ data class Playlist(
     val durationMs: Long,
     /** Server the playlist is synced with; `null` = only on this device. */
     val serverName: String?,
+    /** Songs of the server playlist the library doesn't know: missing here, changes only on the server (review G15). */
+    val unknownSongs: Int = 0,
 )
 
 data class PlaylistEntry(

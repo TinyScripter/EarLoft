@@ -64,6 +64,7 @@ class PlaylistSyncTest {
         syncer.syncAdding(db, nd)
         val id = playlists.playlists().first().single().id
         assertEquals(listOf("A"), titles(id))
+        assertEquals("the page says one song is unknown", 1, playlists.playlists().first().single().unknownSongs)
 
         // A change in the app would send [a, b] and remove "d" on the server: the server version wins instead.
         playlists.addSongs(id, listOf(songId("b")))
@@ -74,6 +75,7 @@ class PlaylistSyncTest {
         nd.tracks = nd.tracks + track("d", "D", 4)
         syncer.syncAdding(db, nd)
         assertEquals(listOf("A", "D"), titles(id))
+        assertEquals(0, playlists.playlists().first().single().unknownSongs)
     }
 
     @Test

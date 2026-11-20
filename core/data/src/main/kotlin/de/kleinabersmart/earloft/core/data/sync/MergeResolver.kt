@@ -1,7 +1,7 @@
 package de.kleinabersmart.earloft.core.data.sync
 
 import de.kleinabersmart.earloft.core.common.normalizeForMerge
-import de.kleinabersmart.earloft.core.common.sortKey
+import de.kleinabersmart.earloft.core.common.foldedSortKey
 import de.kleinabersmart.earloft.core.data.repository.audioQuality
 import de.kleinabersmart.earloft.core.data.repository.pushFavoriteToServers
 import de.kleinabersmart.earloft.core.database.dao.MergeDao
@@ -183,7 +183,7 @@ class MergeResolver @Inject constructor(
             return byName.artistId
         }
         return mergeDao.insertArtist(
-            ArtistEntity(name = raw.name, sortName = raw.name.sortKey(), normName = normName, mbid = raw.mbid),
+            ArtistEntity(name = raw.name, sortName = raw.name.foldedSortKey(), normName = normName, mbid = raw.mbid),
         )
     }
 
@@ -204,7 +204,7 @@ class MergeResolver @Inject constructor(
         val albumId = mergeDao.insertAlbum(
             AlbumEntity(
                 title = track.albumTitle,
-                sortTitle = track.albumTitle.sortKey(),
+                sortTitle = track.albumTitle.foldedSortKey(),
                 normTitle = track.albumTitle.mergeKey(),
                 albumArtistDisplay = track.albumArtistDisplay,
                 normAlbumArtist = track.albumArtistDisplay.mergeKey(),

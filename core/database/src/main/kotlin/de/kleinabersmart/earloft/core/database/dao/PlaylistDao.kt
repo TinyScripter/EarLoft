@@ -10,7 +10,7 @@ import de.kleinabersmart.earloft.core.database.model.PlaylistRow
 import kotlinx.coroutines.flow.Flow
 
 private const val SELECT_PLAYLIST_ROWS = """
-    SELECT p.playlistId, p.name, p.boundSourceId, src.name AS serverName,
+    SELECT p.playlistId, p.name, p.boundSourceId, src.name AS serverName, p.unknownSongs,
            COUNT(s.songId) AS songCount, COALESCE(SUM(s.durationMs), 0) AS durationMs
     FROM playlists p
     LEFT JOIN sources src ON src.sourceId = p.boundSourceId
@@ -65,9 +65,15 @@ interface PlaylistDao {
     @Query("UPDATE playlists SET remotePlaylistId = :remoteId, remoteUpdatedAt = :remoteUpdatedAt WHERE playlistId = :playlistId")
     suspend fun setRemoteState(playlistId: Long, remoteId: String, remoteUpdatedAt: Long): Int
 
-    /** The server state [changedAt]; [remoteUpdatedAt] `null` if it was adopted incomplete (see `PlaylistSyncer.applyRemote`). */
-    @Query("UPDATE playlists SET name = :name, remoteUpdatedAt = :remoteUpdatedAt, updatedAt = :changedAt WHERE playlistId = :playlistId")
-    suspend fun applyRemote(playlistId: Long, name: String, changedAt: Long, remoteUpdatedAt: Long?)
+    /**
+     * The server state [changedAt]; [remoteUpdatedAt] `null` if it was adopted incomplete, then [unknownSongs] are missing (see
+     * `PlaylistSyncer.applyRemote`).
+     */
+    @Query(
+        "UPDATE playlists SET name = :name, remoteUpdatedAt = :remoteUpdatedAt, updatedAt = :changedAt, unknownSongs = :unknownSongs " +
+            "WHERE playlistId = :playlistId",
+    )
+    suspend fun applyRemote(playlistId: Long, name: String, changedAt: Long, remoteUpdatedAt: Long?, unknownSongs: Int)
 
     @Query("DELETE FROM playlists WHERE playlistId = :playlistId")
     suspend fun deletePlaylist(playlistId: Long)

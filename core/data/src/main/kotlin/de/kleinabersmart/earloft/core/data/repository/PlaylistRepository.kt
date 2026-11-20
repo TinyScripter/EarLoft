@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.repository
 
+import de.kleinabersmart.earloft.core.common.foldedSortKey
 import androidx.room.withTransaction
 import de.kleinabersmart.earloft.core.data.sync.SyncScheduler
 import de.kleinabersmart.earloft.core.data.sync.replaceAction
@@ -30,7 +31,9 @@ class PlaylistRepository @Inject constructor(
     private val syncDao: SyncDao,
     private val scheduler: SyncScheduler,
 ) {
-    fun playlists(): Flow<List<Playlist>> = playlistDao.observePlaylistRows().map { rows -> rows.map { it.toPlaylist() } }
+    /** By name without case and accents (review G14). */
+    fun playlists(): Flow<List<Playlist>> =
+        playlistDao.observePlaylistRows().map { rows -> rows.sortedBy { it.name.foldedSortKey() }.map { it.toPlaylist() } }
 
     /** `null` once the playlist is deleted. */
     fun playlist(playlistId: Long): Flow<PlaylistDetails?> =
@@ -137,5 +140,6 @@ class PlaylistRepository @Inject constructor(
         songCount = songCount,
         durationMs = durationMs,
         serverName = serverName,
+        unknownSongs = unknownSongs,
     )
 }

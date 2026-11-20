@@ -142,6 +142,7 @@ data class PlaylistRow(
     val serverName: String?,
     val songCount: Int,
     val durationMs: Long,
+    val unknownSongs: Int = 0,
 )
 
 data class PlaylistEntryRow(

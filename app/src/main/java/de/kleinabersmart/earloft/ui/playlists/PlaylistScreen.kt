@@ -211,6 +211,16 @@ private fun PlaylistEntries(
                         playlistLocation(playlist.serverName),
                     ).joinToString(" · ")
                     Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // Songs the library doesn't know (yet): a change here would remove them on the server (review G15).
+                    val server = playlist.serverName
+                    if (playlist.unknownSongs > 0 && server != null) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            pluralStringResource(R.plurals.playlist_unknown_songs, playlist.unknownSongs, playlist.unknownSongs, server),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                     if (details.entries.isNotEmpty()) {
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {

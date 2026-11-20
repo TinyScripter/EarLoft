@@ -8,12 +8,14 @@ import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.AlbumEntity
 import de.kleinabersmart.earloft.core.database.entity.SongEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
+import de.kleinabersmart.earloft.core.database.entity.SyncActionEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
 import de.kleinabersmart.earloft.core.datasource.MusicDataSource
 import de.kleinabersmart.earloft.core.datasource.RemoteLibraryActions
 import de.kleinabersmart.earloft.core.datasource.RemotePlaybackReporting
 import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.model.SyncActionType
+import de.kleinabersmart.earloft.core.network.HttpStatusException
 import de.kleinabersmart.earloft.core.network.subsonic.SubsonicException
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -90,6 +92,31 @@ class SyncQueueProcessorTest {
         val left = db.syncDao().getActions().single()
         assertEquals("home:h", left.targetKey)
         assertEquals(1, left.attempts)
+    }
+
+    @Test
+    fun `an unreachable server keeps the action beyond the attempts until it is a month old`() = runTest {
+        home.failure = IOException("Connection refused")
+        val day = 24 * 60 * 60 * 1000L
+        val now = System.currentTimeMillis()
+        db.syncDao().insert(SyncActionEntity(sourceId = "home", actionType = SyncActionType.SET_FAVORITE, targetKey = "home:h", payloadJson = "true", createdAt = now - 29 * day, attempts = 40))
+        db.syncDao().insert(SyncActionEntity(sourceId = "home", actionType = SyncActionType.SCROBBLE, targetKey = "home:h", payloadJson = "1", createdAt = now - 31 * day, attempts = 1))
+
+        assertFalse(processor().process())
+        assertFalse(processor().process())
+
+        val left = db.syncDao().getActions().single()
+        assertEquals(SyncActionType.SET_FAVORITE, left.actionType)
+        assertEquals("an unreachable server doesn't use up attempts", 40, left.attempts)
+    }
+
+    @Test
+    fun `a server error uses up the attempts`() = runTest {
+        home.failure = HttpStatusException(503)
+        db.syncDao().insert(SyncActionEntity(sourceId = "home", actionType = SyncActionType.SET_FAVORITE, targetKey = "home:h", payloadJson = "true", createdAt = System.currentTimeMillis(), attempts = 19))
+
+        assertTrue(processor().process())
+        assertEquals(0, db.syncDao().countActions())
     }
 
     @Test

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.repository
 
+import de.kleinabersmart.earloft.core.common.foldedSortKey
 import de.kleinabersmart.earloft.core.database.dao.LibraryDao
 import de.kleinabersmart.earloft.core.model.Album
 import de.kleinabersmart.earloft.core.model.AlbumDetails
@@ -46,7 +47,9 @@ class LibraryRepository @Inject constructor(
 
     fun songs(sort: SongSort): Flow<List<Song>> = libraryDao.observeSongRowsSorted(sort.name).map { rows -> rows.map { it.toSong() } }
 
-    fun genres(): Flow<List<Genre>> = libraryDao.observeGenreRows().map { rows -> rows.map { it.toGenre() } }
+    /** By name without case and accents (review G14). */
+    fun genres(): Flow<List<Genre>> =
+        libraryDao.observeGenreRows().map { rows -> rows.sortedBy { it.name.foldedSortKey() }.map { it.toGenre() } }
 
     /** Albums with songs of the genre [genre] (name in any spelling). */
     fun albumsOfGenre(genre: String): Flow<List<Album>> =

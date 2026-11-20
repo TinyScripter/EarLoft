@@ -13,6 +13,8 @@ android {
 
 dependencies {
     api(projects.core.model)
+    // The sort key of the v46 migration (review G14).
+    implementation(projects.core.common)
 
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.robolectric)

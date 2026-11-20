@@ -211,6 +211,7 @@ abstract class LibraryDao {
             CASE WHEN :sort IN ('ARTIST', 'ALBUM') THEN s.discNumber END,
             CASE WHEN :sort IN ('ARTIST', 'ALBUM') THEN s.trackNumber END,
             CASE WHEN :sort = 'RECENTLY_ADDED' THEN s.dateAdded END DESC,
+            s.normTitle,
             s.title COLLATE NOCASE
         """,
     )
@@ -435,7 +436,8 @@ abstract class LibraryDao {
     @Query("SELECT * FROM album_artists")
     abstract fun observeAlbumArtists(): Flow<List<AlbumArtistCrossRef>>
 
-    @Query("$SELECT_SONG_ROWS ORDER BY s.title COLLATE NOCASE")
+    // normTitle: without case and accents (review G14).
+    @Query("$SELECT_SONG_ROWS ORDER BY s.normTitle, s.title COLLATE NOCASE")
     abstract fun observeSongRows(): Flow<List<SongRow>>
 
     @Query("$SELECT_SONG_ROWS WHERE s.albumId = :albumId ORDER BY s.discNumber, s.trackNumber, s.title")

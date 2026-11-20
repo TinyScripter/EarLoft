@@ -124,9 +124,11 @@ class SyncQueueProcessor @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (isRetryable(e) && action.attempts + 1 < MAX_ATTEMPTS) {
+                if (keepsAfter(e, action)) {
                     Log.w(TAG, "${action.actionType} to ${action.sourceId}: retrying later", e)
-                    syncDao.incrementAttempts(action.actionId)
+                    // An unreachable server or a wrong password doesn't use up the attempts (review G23); the first failure is
+                    // still counted, because an aborted playlist upload must win next time (see upsertPlaylist).
+                    if (failureOf(e) == Failure.SERVER || action.attempts == 0) syncDao.incrementAttempts(action.actionId)
                     unreachable += action.sourceId
                 } else {
                     Log.w(TAG, "${action.actionType} to ${action.sourceId} discarded", e)
@@ -205,19 +207,38 @@ class SyncQueueProcessor @Inject constructor(
         SyncActionType.SCROBBLE, SyncActionType.DELETE_PLAYLIST -> null
     }
 
+    /**
+     * Whether [action] stays queued after [e] (review G23): after a server error up to [MAX_ATTEMPTS] tries; while the server is
+     * unreachable (only at home, phone elsewhere) or the password is wrong, up to [MAX_UNREACHABLE_AGE_MS] after it was
+     * queued, so a few days away don't lose favorites, playlist changes and scrobbles.
+     */
+    private fun keepsAfter(e: Exception, action: SyncActionEntity): Boolean = when (failureOf(e)) {
+        Failure.SERVER -> action.attempts + 1 < MAX_ATTEMPTS
+        Failure.UNREACHABLE -> System.currentTimeMillis() - action.createdAt < MAX_UNREACHABLE_AGE_MS
+        Failure.FINAL -> false
+    }
+
+    private enum class Failure { SERVER, UNREACHABLE, FINAL }
+
     /** Special cases first: all server and HTTP errors are `IOException`s too. */
-    private fun isRetryable(e: Exception): Boolean = when (e) {
+    private fun failureOf(e: Exception): Failure = when (e) {
         // Wrong password: keep it queued until it's corrected.
-        is HttpStatusException -> e.isAuthError || e.status >= 500 || e.status == 429
-        is ServerApiException -> e.isAuthError
-        is UnexpectedResponseException -> true
-        is IOException -> true
-        else -> false
+        is HttpStatusException -> when {
+            e.isAuthError -> Failure.UNREACHABLE
+            e.status >= 500 || e.status == 429 -> Failure.SERVER
+            else -> Failure.FINAL
+        }
+        is ServerApiException -> if (e.isAuthError) Failure.UNREACHABLE else Failure.FINAL
+        is UnexpectedResponseException -> Failure.SERVER
+        // Connection errors: no network to the server.
+        is IOException -> Failure.UNREACHABLE
+        else -> Failure.FINAL
     }
 
     private companion object {
         const val TAG = "SyncQueue"
         const val MAX_ATTEMPTS = 20
+        const val MAX_UNREACHABLE_AGE_MS = 30L * 24 * 60 * 60 * 1000
     }
 }
 

@@ -44,6 +44,11 @@ data class PlaylistEntity(
     val remoteUpdatedAt: Long? = null,
     /** ID of local playlists in the backup (`user.db`, review K9); a new device assigns a new `playlistId`. */
     @ColumnInfo(defaultValue = "NULL") val backupKey: String? = null,
+    /**
+     * Songs of the server playlist the library doesn't know (v46, review G15): they are missing here, and a change in the app
+     * would remove them on the server, so the server's version wins until they are known.
+     */
+    @ColumnInfo(defaultValue = "0") val unknownSongs: Int = 0,
 )
 
 @Entity(

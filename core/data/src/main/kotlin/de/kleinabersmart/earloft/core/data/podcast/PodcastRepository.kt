@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.podcast
 
+import de.kleinabersmart.earloft.core.common.foldedSortKey
 import android.text.Html
 import android.util.Log
 import androidx.room.withTransaction
@@ -172,7 +173,8 @@ class PodcastRepository @Inject constructor(
         }
     }
 
-    val feeds: Flow<List<PodcastFeed>> = dao.observeFeeds().map { list -> list.map { it.toModel() } }
+    /** By title without case and accents (review G14); the other orders of the subscription list sort this list stably. */
+    val feeds: Flow<List<PodcastFeed>> = dao.observeFeeds().map { list -> list.sortedBy { it.title.foldedSortKey() }.map { it.toModel() } }
 
     /** Subscriptions whose title or author contains [query] (ignoring case and accents). */
     suspend fun searchFeeds(query: String): List<PodcastFeed> {

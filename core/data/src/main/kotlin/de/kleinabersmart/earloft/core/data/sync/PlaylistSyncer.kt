@@ -71,7 +71,7 @@ class PlaylistSyncer @Inject constructor(
      *
      * If songs are missing, the server state is not marked as adopted (`remoteUpdatedAt` stays empty, review G15): the next
      * full sync, which brings the new songs, adopts the playlist again, and a change in the app doesn't send the shortened
-     * list – the server's version wins as after a change there.
+     * list – the server's version wins as after a change there. The playlist page says how many songs are missing (G15 part 2).
      */
     internal suspend fun applyRemote(sourceId: String, playlistId: Long?, playlist: RemotePlaylist): Long {
         val info = playlist.info
@@ -85,10 +85,11 @@ class PlaylistSyncer @Inject constructor(
                     remotePlaylistId = info.remoteId,
                     updatedAt = info.changedAt,
                     remoteUpdatedAt = adopted,
+                    unknownSongs = playlist.songRemoteIds.size - songIds.size,
                 ),
             )
         } else {
-            playlistDao.applyRemote(playlistId, info.name, info.changedAt, adopted)
+            playlistDao.applyRemote(playlistId, info.name, info.changedAt, adopted, playlist.songRemoteIds.size - songIds.size)
             playlistDao.deleteEntries(playlistId)
             playlistId
         }

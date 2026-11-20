@@ -7,6 +7,7 @@ import androidx.room.DeleteColumn
 import androidx.room.RoomDatabase
 import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.db.SupportSQLiteDatabase
+import de.kleinabersmart.earloft.core.common.foldedSortKey
 import de.kleinabersmart.earloft.core.database.dao.AbsSessionDao
 import de.kleinabersmart.earloft.core.database.dao.BackupDao
 import de.kleinabersmart.earloft.core.database.dao.BookDao
@@ -99,7 +100,7 @@ import java.io.File
         EpisodePersonEntity::class,
         SongGenreEntity::class,
     ],
-    version = 45,
+    version = 46,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -146,6 +147,7 @@ import java.io.File
         AutoMigration(from = 42, to = 43, spec = EarLoftDatabase.FillFinishedAt::class),
         AutoMigration(from = 43, to = 44),
         AutoMigration(from = 44, to = 45, spec = EarLoftDatabase.SeveralGenres::class),
+        AutoMigration(from = 45, to = 46, spec = EarLoftDatabase.FoldSortKeys::class),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {
@@ -272,6 +274,25 @@ abstract class EarLoftDatabase : RoomDatabase() {
                 "UPDATE song_sources SET lastModified = NULL WHERE sourceId IN (SELECT sourceId FROM sources WHERE type != 'LOCAL')",
             )
             db.execSQL("UPDATE sources SET lastFullSyncAt = 1 WHERE type != 'LOCAL' AND lastFullSyncAt > 0")
+        }
+    }
+
+    /**
+     * v45 → v46 (no schema change): artists and albums get their sort key without case and accents (review G14); "Ärzte" and
+     * "Édith Piaf" were sorted behind Z, because SQLite's `NOCASE` only folds ASCII.
+     */
+    class FoldSortKeys : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) {
+            refold(db, "SELECT albumId, title FROM albums", "UPDATE albums SET sortTitle = ? WHERE albumId = ?")
+            refold(db, "SELECT artistId, name FROM artists", "UPDATE artists SET sortName = ? WHERE artistId = ?")
+        }
+
+        private fun refold(db: SupportSQLiteDatabase, select: String, update: String) {
+            db.query(select).use { cursor ->
+                while (cursor.moveToNext()) {
+                    db.execSQL(update, arrayOf<Any>(cursor.getString(1).foldedSortKey(), cursor.getLong(0)))
+                }
+            }
         }
     }
 
