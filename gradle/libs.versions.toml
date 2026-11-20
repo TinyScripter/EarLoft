@@ -1,7 +1,7 @@
 [versions]
 # Build
 agp = "9.6.0-alpha04"
-# R8 9.6.0-alpha09 (bundled with AGP 9.6.0-alpha03) up to at least alpha12 breaks static initializers in release
+# R8 9.6.0-alpha09 (bundled with AGP 9.6.0-alpha03) up to at least alpha15 breaks static initializers in release
 # builds (null static fields in Media3, Compose, Room): crash at start. alpha08 (from AGP 9.6.0-alpha02) works.
 # Pinned in the root build.gradle.kts; before raising it, start a release build and check for the crash.
 r8 = "9.6.0-alpha08"
