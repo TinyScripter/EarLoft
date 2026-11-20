@@ -439,6 +439,8 @@ class PodcastFeedParserTest {
             "Mon, 30 Oct 2025 11:00:00 GMT",
             "Thursday, 30 Oct 2025 11:00:00 +0000",
             "Thu, 30 Oct 25 12:00:00 +01:00",
+            "Thu, 30 Oct 25 12:00:00 +0100",
+            "30 Oct 25 12:00 +0100",
             "30 Oct 2025 11:00 GMT",
             "Do, 30 Okt 2025 12:00:00 MEZ",
             "2025-10-30T11:00:00Z",

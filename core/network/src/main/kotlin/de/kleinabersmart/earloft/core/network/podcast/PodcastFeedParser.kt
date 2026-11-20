@@ -241,12 +241,17 @@ object PodcastFeedParser {
         return if (seconds >= 0) (seconds * 1000).roundToLong() else null
     }
 
-    internal fun parseRfc1123(raw: String): Long =
-        try {
-            ZonedDateTime.parse(raw.trim(), DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli()
+    internal fun parseRfc1123(raw: String): Long {
+        val strict = try {
+            ZonedDateTime.parse(raw.trim(), DateTimeFormatter.RFC_1123_DATE_TIME)
         } catch (_: DateTimeParseException) {
-            parseLenientDate(raw.trim()) ?: parseIso(raw)
+            null
         }
+        // The strict parser takes a two-digit year literally ("05 Oct 24 10:00 +0200" is the year 24); the lenient one
+        // maps it to 2024.
+        if (strict != null && strict.year >= MIN_FOUR_DIGIT_YEAR) return strict.toInstant().toEpochMilli()
+        return parseLenientDate(raw.trim()) ?: parseIso(raw)
+    }
 
     /**
      * What feeds write instead of strict RFC 1123 (review G13): zone names (`EST`, `UTC`, `Z`, `CEST`), a weekday that
@@ -286,6 +291,8 @@ object PodcastFeedParser {
     private val LENIENT_DATE = Regex(
         """(?:[A-Za-zÄÖÜäöü]+\.?,?\s*)?(\d{1,2})\.?\s+([A-Za-zÄÖÜäöü]{3,})\.?\s+(\d{4}|\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?\s*(.*)""",
     )
+    /** Below this, the strict parser has read a two-digit year. */
+    private const val MIN_FOUR_DIGIT_YEAR = 1000
     private val NUMERIC_ZONE = Regex("""(?:GMT|UTC)?([+-])(\d{1,2}):?(\d{2})?""")
     private val MONTHS = mapOf(
         "jan" to 1, "feb" to 2, "mar" to 3, "mär" to 3, "mrz" to 3, "apr" to 4, "may" to 5, "mai" to 5, "jun" to 6,

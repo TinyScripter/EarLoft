@@ -951,7 +951,7 @@ class PodcastRepository @Inject constructor(
             if (stored != listOf(track)) dao.setTrack(track)
             if (episode.chapters.isNotEmpty()) storeChapters(id, episode.chapters, ChapterSource.FEED, track.durationMs, existing?.chapterSource)
         }
-        if (shrinksPlausibly(known.values, feed.syncGeneration, parsed.episodes.mapTo(HashSet()) { it.guid } + renamed.keys)) {
+        if (shrinksPlausibly(known.values, parsed.episodes.mapTo(HashSet()) { it.guid } + renamed.keys)) {
             dao.deleteUnseenEpisodes(feed.feedId, generation, queued)
         } else {
             Log.w(TAG, "${feed.title}: feed lists ${parsed.episodes.size} episodes, sweep postponed")
@@ -1219,12 +1219,16 @@ internal fun String.toDescriptionHtml(): String {
 
 /**
  * Whether the sweep of unlisted episodes may run for this sync (review G3). A feed that suddenly lists no episodes (a fault at
- * the publisher) never sweeps. If more than half of the episodes the last sync listed ([lastGeneration]) are missing, the sweep
- * waits one sync: the episodes the feed still lists get the new generation, so the next sync compares against the shrunk list
- * and only then removes the rest. A publisher really trimming the archive thus takes effect one sync later.
+ * the publisher) never sweeps. If more than half of the episodes the last listing sync saw are missing, the sweep waits one
+ * sync: the episodes the feed still lists get the new generation, so the next sync compares against the shrunk list and only
+ * then removes the rest. A publisher really trimming the archive thus takes effect one sync later.
+ *
+ * The comparison uses the newest generation an episode carries, not the feed's: an empty sync raises the feed's generation
+ * without giving it to any episode, and a partly recovered feed right after it would otherwise sweep at once.
  */
-internal fun shrinksPlausibly(known: Collection<BookEntity>, lastGeneration: Long, listed: Set<String>): Boolean {
+internal fun shrinksPlausibly(known: Collection<BookEntity>, listed: Set<String>): Boolean {
     if (listed.isEmpty()) return false
+    val lastGeneration = known.maxOfOrNull { it.seenInGeneration } ?: return true
     val lastListed = known.filter { it.seenInGeneration == lastGeneration }
     val missing = lastListed.count { it.remoteId !in listed }
     return missing * 2 <= lastListed.size

@@ -1057,6 +1057,20 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `a feed coming back shrunk after an empty sync still waits one sync`() = runTest {
+        val feedId = subscribe()
+        served = feed()
+        repository.refresh(feedId)
+        served = feed("A" to "Wed, 29 Oct 2025 06:00:00 GMT")
+
+        repository.refresh(feedId)
+        assertEquals("postponed", setOf("A", "B", "C"), repository.episodes(feedId).first().map { it.book.title }.toSet())
+
+        repository.refresh(feedId)
+        assertEquals("confirmed", setOf("A"), repository.episodes(feedId).first().map { it.book.title }.toSet())
+    }
+
+    @Test
     fun `a feed losing at most half sweeps right away`() = runTest {
         val feedId = subscribe()
         served = feed("A" to "Wed, 29 Oct 2025 06:00:00 GMT", "B" to "Tue, 28 Oct 2025 06:00:00 GMT")
