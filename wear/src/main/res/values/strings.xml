@@ -104,6 +104,7 @@
     <string name="download_error_server_refused_via_phone">Server did not deliver, phone delivers</string>
     <string name="download_error_server_no_phone_copy">Server unreachable, phone has no copy</string>
     <string name="download_error_phone_no_copy">Phone has no copy</string>
+    <string name="download_error_storage_full">The watch\'s storage is full</string>
     <string name="download_error_phone_unreachable">Phone unreachable</string>
 
     <!-- Storage & downloads -->

@@ -190,7 +190,7 @@ class WearDownloadPlannerTest {
 
         assertEquals(listOf("nd:t1", "phone:local:9"), db.downloadDao().getAll().map { it.sourceUid }.sorted())
         assertEquals("phone:local:9", db.downloadDao().nextQueuedFromPhone()?.sourceUid)
-        assertEquals("nd:t1", db.downloadDao().nextQueuedFromServers()?.sourceUid)
+        assertEquals("nd:t1", db.downloadDao().nextQueuedFromServers(emptyList())?.sourceUid)
         assertEquals(0, state.missingForStorage.value)
     }
 

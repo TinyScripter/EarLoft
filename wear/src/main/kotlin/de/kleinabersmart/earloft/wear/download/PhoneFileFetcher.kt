@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.wear.download
 
+import android.system.ErrnoException
+import android.system.OsConstants
 import android.util.Log
 import com.google.android.gms.wearable.ChannelClient
 import de.kleinabersmart.earloft.core.database.dao.BookDao
@@ -89,6 +91,16 @@ class PhoneFileFetcher @Inject constructor(
             withContext(NonCancellable) { downloadDao.requeue(uid) }
             throw e
         } catch (e: IOException) {
+            if (e.isNoSpace()) {
+                // A full storage is no unreachable phone (review G11): the next attempt would fail the same way.
+                Log.w(TAG, "Storage full while receiving $requestUid", e)
+                withContext(NonCancellable + Dispatchers.IO) {
+                    part.delete()
+                    lengthFile.delete()
+                }
+                downloadDao.markFailed(uid)
+                return DownloadOutcome.Failed(NO_SPACE)
+            }
             Log.w(TAG, "Transfer of $requestUid aborted (${part.length()} bytes kept for the next attempt)", e)
             DownloadOutcome.Retry(e)
         }
@@ -142,6 +154,12 @@ class PhoneFileFetcher @Inject constructor(
             withContext(NonCancellable) { podcastDao.requeueDownload(bookId) }
             throw e
         } catch (e: IOException) {
+            if (e.isNoSpace()) {
+                Log.w(TAG, "Storage full while receiving $requestUid", e)
+                withContext(NonCancellable + Dispatchers.IO) { part.delete() }
+                podcastDao.markDownloadFailed(bookId)
+                return DownloadOutcome.Failed(NO_SPACE)
+            }
             Log.w(TAG, "Transfer of $requestUid aborted (${part.length()} bytes kept for the next attempt)", e)
             DownloadOutcome.Retry(e)
         }
@@ -199,6 +217,12 @@ class PhoneFileFetcher @Inject constructor(
             withContext(NonCancellable) { bookDao.requeueBookTrack(bookId, index) }
             throw e
         } catch (e: IOException) {
+            if (e.isNoSpace()) {
+                Log.w(TAG, "Storage full while receiving $requestUid", e)
+                withContext(NonCancellable + Dispatchers.IO) { part.delete() }
+                bookDao.markBookDownloadFailed(bookId)
+                return DownloadOutcome.Failed(NO_SPACE)
+            }
             Log.w(TAG, "Transfer of $requestUid aborted (${part.length()} bytes kept for the next attempt)", e)
             DownloadOutcome.Retry(e)
         }
@@ -252,5 +276,10 @@ class PhoneFileFetcher @Inject constructor(
 
         /** Failure reason when the phone has no file (only logged). */
         const val MISSING_ON_PHONE = "Phone has no copy"
+        const val NO_SPACE = "No space left on the watch"
     }
 }
+
+/** The storage is full (`ENOSPC`), somewhere in the chain of causes. */
+internal fun IOException.isNoSpace(): Boolean =
+    generateSequence<Throwable>(this) { it.cause }.any { it.message?.contains("ENOSPC") == true || (it is ErrnoException && it.errno == OsConstants.ENOSPC) }

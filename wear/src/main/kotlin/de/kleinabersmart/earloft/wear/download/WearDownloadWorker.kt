@@ -96,6 +96,23 @@ class WearDownloadWorker(
         lease = null
     }
 
+    /**
+     * The Wi-Fi went away during the download (review G30): that is no server failure. Otherwise three such runs sent the rest
+     * of the selection as originals over Bluetooth. Releases the request; waiting for Wi-Fi takes over.
+     */
+    private fun wifiLost(): Boolean {
+        if (lease?.lost != true) return false
+        Log.i(TAG, "Wi-Fi lost during the download, waiting for Wi-Fi instead of counting a server failure")
+        releaseWifi()
+        return true
+    }
+
+    /**
+     * Songs left out in this run because their original from the phone doesn't fit (review G11): the planner counted them
+     * as Opus from the server, the phone only has the original (a FLAC is many times larger).
+     */
+    private val waitingForServer = mutableListOf<String>()
+
     override suspend fun doWork(): Result {
         downloadDao.requeueRunning()
         podcastDao.requeueRunningDownloads()
@@ -116,7 +133,7 @@ class WearDownloadWorker(
         try {
             val profile = state.settings.value.quality.toProfile()
             while (true) {
-                val next = downloadDao.nextQueuedFromServers() ?: break
+                val next = downloadDao.nextQueuedFromServers(waitingForServer) ?: break
                 val uid = next.sourceUid
                 if (state.hasServerFailedTooOften(uid)) {
                     // The server has already failed several times (switch elsewhere, retried later).
@@ -138,6 +155,10 @@ class WearDownloadWorker(
                 }
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
+                        if (wifiLost()) {
+                            downloadDao.requeue(uid)
+                            return waitForWifi()
+                        }
                         val failures = state.recordServerFailure(uid)
                         // An unreachable server affects all waiting songs from it: otherwise each would need three runs of its
                         // own, and WorkManager's backoff would keep growing meanwhile.
@@ -187,6 +208,10 @@ class WearDownloadWorker(
                 val outcome = downloadSpoken(track) { onProgress -> episodeDownloader.download(track, network, onProgress) }
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
+                        if (wifiLost()) {
+                            podcastDao.requeueDownload(track.bookId)
+                            return waitForWifi()
+                        }
                         val failures = state.recordServerFailure(key)
                         Log.w(TAG, "Episode ${track.bookId} interrupted (failed attempt $failures of ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
                         if (failures < WatchState.SERVER_ATTEMPTS) {
@@ -227,6 +252,10 @@ class WearDownloadWorker(
                 val outcome = downloadSpoken(track) { onProgress -> entryPoint.bookDownloader().download(track, network, onProgress) }
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
+                        if (wifiLost()) {
+                            bookDao.requeueBookTrack(track.bookId, track.trackIndex)
+                            return waitForWifi()
+                        }
                         val failures = state.recordServerFailure(key)
                         Log.w(TAG, "Book ${track.bookId} file ${track.trackIndex} interrupted (failed attempt $failures of ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
                         // The partial file stays; the next run resumes there.
@@ -306,7 +335,10 @@ class WearDownloadWorker(
             ?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
             ?.let { it != 0 } == true
 
-    /** No Wi-Fi does not count as a failed server attempt: otherwise the whole selection would come over Bluetooth. */
+    /**
+     * No Wi-Fi, also one lost during the run ([wifiLost]), does not count as a failed server attempt: otherwise the whole
+     * selection would come over Bluetooth.
+     */
     private fun waitForWifi(): Result {
         state.setWaitingForWifi(true)
         val attempt = state.retryRuns + 1
@@ -357,7 +389,8 @@ class WearDownloadWorker(
             }
             is DownloadOutcome.Failed -> {
                 state.clearPhoneUnreachable()
-                Log.w(TAG, "Phone does not have episode ${track.bookId}: ${outcome.reason}")
+                Log.w(TAG, "Episode ${track.bookId} not loaded from the phone: ${outcome.reason}")
+                if (outcome.reason == PhoneFileFetcher.NO_SPACE) state.setLastError(applicationContext.getString(R.string.download_error_storage_full))
                 true
             }
             is DownloadOutcome.Retry -> {
@@ -381,7 +414,8 @@ class WearDownloadWorker(
             }
             is DownloadOutcome.Failed -> {
                 state.clearPhoneUnreachable()
-                Log.w(TAG, "Phone does not have book ${track.bookId} file ${track.trackIndex}: ${outcome.reason}")
+                Log.w(TAG, "Book ${track.bookId} file ${track.trackIndex} not loaded from the phone: ${outcome.reason}")
+                if (outcome.reason == PhoneFileFetcher.NO_SPACE) state.setLastError(applicationContext.getString(R.string.download_error_storage_full))
                 true
             }
             is DownloadOutcome.Retry -> {
@@ -415,6 +449,16 @@ class WearDownloadWorker(
         } finally {
             state.setSpokenFileProgress(null)
         }
+    }
+
+    /** Whether the original of [uid] (the size the server reported for it) fits into the storage budget. Unknown size: try. */
+    private suspend fun originalFits(uid: String): Boolean {
+        val size = downloadDao.getSongSource(uid)?.sizeBytes?.takeIf { it > 0 } ?: return true
+        val settings = state.settings.value
+        val free = withContext(Dispatchers.IO) { storage.freeBytes() }
+        // A transfer that broke off resumes; what has arrived is already on the storage.
+        val received = withContext(Dispatchers.IO) { storage.phonePartFileFor(uid).length() }
+        return size - received <= downloadBudget(settings, free, wearDao.getDoneBytes() + bookDao.trackTotals().doneBytes, reservedBytes = 0)
     }
 
     private suspend fun pendingCount(): Int =
@@ -475,6 +519,15 @@ class WearDownloadWorker(
     private suspend fun viaPhone(download: DownloadEntity, serverFailed: Boolean): Boolean {
         releaseWifi()
         val uid = download.sourceUid
+        if (serverFailed && !originalFits(uid)) {
+            // Stays queued and waits for the server, which delivers it as Opus; its failed attempts start over, so the next run
+            // asks the server again instead of the phone.
+            Log.i(TAG, "Original of $uid does not fit in the storage, waiting for the server")
+            waitingForServer += uid
+            state.clearServerFailures(uid)
+            downloadDao.requeue(uid)
+            return true
+        }
         // Back to QUEUED: from RUNNING (network error) or FAILED (server refused).
         downloadDao.requeue(uid)
         downloadDao.retryFailed(listOf(uid))
@@ -491,10 +544,14 @@ class WearDownloadWorker(
             }
             is DownloadOutcome.Failed -> {
                 state.clearPhoneUnreachable()
-                Log.w(TAG, "Phone does not have $uid: ${outcome.reason}")
+                Log.w(TAG, "$uid not loaded from the phone: ${outcome.reason}")
                 state.setLastError(
                     applicationContext.getString(
-                        if (serverFailed) R.string.download_error_server_no_phone_copy else R.string.download_error_phone_no_copy,
+                        when {
+                            outcome.reason == PhoneFileFetcher.NO_SPACE -> R.string.download_error_storage_full
+                            serverFailed -> R.string.download_error_server_no_phone_copy
+                            else -> R.string.download_error_phone_no_copy
+                        },
                     ),
                 )
                 true

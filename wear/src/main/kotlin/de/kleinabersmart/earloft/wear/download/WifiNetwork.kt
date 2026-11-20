@@ -17,7 +17,17 @@ import kotlin.coroutines.resume
 class WifiLease internal constructor(
     val network: Network,
     private val close: () -> Unit,
+    private val isUp: () -> Boolean = { true },
 ) : AutoCloseable {
+    @Volatile
+    internal var reportedLost = false
+
+    /**
+     * The network went away while it was held (out of range, Wi-Fi turned off; review G30). A download that broke off then
+     * failed because of the Wi-Fi, not the server. The callback can come slightly after the error, hence also the current state.
+     */
+    val lost: Boolean get() = reportedLost || !isUp()
+
     override fun close() = close.invoke()
 }
 
@@ -48,7 +58,7 @@ class WifiNetwork @Inject constructor(@ApplicationContext private val context: C
         val enabled = context.getSharedPreferences("watch_state", Context.MODE_PRIVATE).getBoolean(DEBUG_ANY_NETWORK, false)
         if (!debuggable || !enabled) return null
         Log.w(TAG, "Debug: using the active network instead of Wi-Fi")
-        return connectivity.activeNetwork?.let { WifiLease(it) {} }
+        return connectivity.activeNetwork?.let { WifiLease(it, close = {}) }
     }
 
     private suspend fun requestWifi(timeoutMs: Int): WifiLease? = suspendCancellableCoroutine { continuation ->
@@ -57,12 +67,20 @@ class WifiNetwork @Inject constructor(@ApplicationContext private val context: C
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
         val callback = object : ConnectivityManager.NetworkCallback() {
+            private var lease: WifiLease? = null
+
             override fun onAvailable(network: Network) {
                 Log.d(TAG, "Wi-Fi available: $network")
                 // If the caller is cancelled between this resume and its continuation, the lease never reaches it: release it
                 // here, otherwise the request would stay until the process ends (review G28).
-                val lease = WifiLease(network) { release(this) }
+                val lease = WifiLease(network, { release(this) }, { connectivity.getNetworkCapabilities(network) != null })
+                this.lease = lease
                 if (continuation.isActive) continuation.resume(lease) { _, unused, _ -> unused.close() }
+            }
+
+            override fun onLost(network: Network) {
+                Log.i(TAG, "Wi-Fi lost: $network")
+                lease?.takeIf { it.network == network }?.reportedLost = true
             }
 
             override fun onUnavailable() {

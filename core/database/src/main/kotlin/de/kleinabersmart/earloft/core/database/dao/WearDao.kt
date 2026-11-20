@@ -64,7 +64,10 @@ interface WearDao {
     @Query("DELETE FROM wear_books WHERE bookId IN (SELECT bookId FROM books WHERE kind = :kind)")
     suspend fun deleteBooksOfKind(kind: BookKind)
 
-    /** Episodes listened to the end drop off the watch (user's decision, 2026-11-05). */
+    /**
+     * Episodes and audiobooks listened to the end drop off the watch (user's decision, 2026-11-05; for books confirmed on
+     * 2026-11-20, review G46): a finished book is rarely heard again right away and is the largest file on the watch.
+     */
     @Query("DELETE FROM wear_books WHERE bookId IN (SELECT bookId FROM book_progress WHERE finished)")
     suspend fun deleteFinishedBooks(): Int
 

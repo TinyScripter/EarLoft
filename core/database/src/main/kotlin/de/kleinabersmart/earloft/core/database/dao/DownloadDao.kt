@@ -81,17 +81,17 @@ interface DownloadDao {
     )
     suspend fun queuedUidsOfSource(sourceId: String): List<String>
 
-    /** Like [nextQueued], but without sources of type `PHONE`. */
+    /** Like [nextQueued], but without sources of type `PHONE` and without [skipped] (left out in this run). */
     @Query(
         """
         SELECT d.* FROM downloads d
         JOIN song_sources ss ON ss.uid = d.sourceUid
         JOIN sources src ON src.sourceId = ss.sourceId
-        WHERE d.state = 'QUEUED' AND src.type != 'PHONE'
+        WHERE d.state = 'QUEUED' AND src.type != 'PHONE' AND d.sourceUid NOT IN (:skipped)
         ORDER BY d.rowid LIMIT 1
         """,
     )
-    suspend fun nextQueuedFromServers(): DownloadEntity?
+    suspend fun nextQueuedFromServers(skipped: List<String>): DownloadEntity?
 
     @Query("UPDATE downloads SET state = 'RUNNING', bytesDone = 0 WHERE sourceUid = :sourceUid AND state = 'QUEUED'")
     suspend fun markRunning(sourceUid: String): Int
