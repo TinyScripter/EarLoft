@@ -1,0 +1,31 @@
+EarLoft ist ein Audioplayer für deine eigene Sammlung: Musik, Podcasts und Bücher. Die App spielt die Dateien auf deinem Handy zusammen mit deinem eigenen Musikserver (Navidrome, Jellyfin oder Emby) und deinem Audiobookshelf-Server – auf dem Handy, auf deiner Wear-OS-Uhr und in Android Auto. Podcasts kommen direkt aus ihren RSS-Feeds. Kein Streaming-Abo, kein Konto bei einem Drittanbieter.
+
+<b>Musik</b>
+• Eine Bibliothek aus lokalen Dateien und Servern, ohne Dubletten
+• Lückenlose Wiedergabe, ReplayGain und synchronisierte Songtexte
+• Mixe aus ähnlichen Songs und „Endlos weiterspielen“, damit die Musik nie aufhört
+• Favoriten, Playlists und Wiedergabezähler werden mit deinem Server abgeglichen
+• Automatische Downloads deiner Lieblingsalben, der neuesten und der meistgehörten Alben
+
+<b>Podcasts</b>
+• Suche in Apple Podcasts, Podcast Index und ARD Sounds oder füge einen beliebigen RSS- oder Atom-Feed hinzu
+• Kapitel, Shownotes mit Zeitmarken, Transkripte
+• Geschwindigkeit, Stille kürzen, Lautstärke anheben, Intro und Outro überspringen – je Podcast
+• Automatische Downloads und eine sortierbare „Weiterhören“-Liste
+• OPML-Import und -Export
+
+<b>Hörbücher</b>
+• Deine Audiobookshelf-Bibliotheken, Hörbücher auf dem Handy sowie Hörbücher und Hörspiele aus ARD Sounds
+• Fortschritt und Lesezeichen werden in beide Richtungen abgeglichen, auch nach dem Hören ohne Netz
+• Kapitel und einstellbare Sprünge
+• Automatischer Download des nächsten Bands einer Serie
+
+<b>Überall</b>
+• Alles lässt sich für das Hören ohne Netz herunterladen
+• Sleep-Timer – bei Podcasts und Hörbüchern verlängert Schütteln den Sleep-Timer
+• Wear-OS-App: Musik, Podcasts und Bücher auf der Uhr ohne Handy, mit Bluetooth-Kopfhörern
+• Android Auto, Chromecast und Widgets für den Startbildschirm
+• Material-You-Design, hell und dunkel, in 14 Sprachen
+
+<b>Datenschutz</b>
+Keine Werbung, kein Tracking, keine Analyse. EarLoft ist Open Source (GPLv3). Deine Bibliothek und dein Hörverlauf bleiben auf deinem Gerät und deinen eigenen Servern.

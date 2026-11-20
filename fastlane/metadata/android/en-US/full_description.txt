@@ -1,0 +1,31 @@
+EarLoft is an audio player for your own collection: music, podcasts and books. It plays the files on your phone together with your self-hosted music server (Navidrome, Jellyfin or Emby) and your Audiobookshelf server in one app – on your phone, on your Wear OS watch and in Android Auto. Podcasts come straight from their RSS feeds. No streaming subscription, no account with a third party.
+
+<b>Music</b>
+• One library from local files and your servers, without duplicates
+• Gapless playback, ReplayGain and synchronized lyrics
+• Mixes of similar songs, and “Keep playing” so the music never stops
+• Favorites, playlists and play counts sync with your server
+• Automatic downloads of your favorite, newest and most played albums
+
+<b>Podcasts</b>
+• Search Apple Podcasts and Podcast Index, or add any RSS or Atom feed
+• Chapters, show notes with timestamps, transcripts
+• Speed, shorter silences, volume boost, skip intro and outro – per podcast
+• Automatic downloads and an editable “Continue listening” queue
+• OPML import and export
+
+<b>Audiobooks</b>
+• Your Audiobookshelf libraries and the audiobooks on your phone
+• Progress and bookmarks sync both ways, also after listening offline
+• Chapters and adjustable jumps
+• Automatic download of the next book in a series
+
+<b>Everywhere</b>
+• Download everything for offline listening
+• Sleep timer – for podcasts and audiobooks, shaking your phone extends the sleep timer
+• Wear OS app: music, podcasts and books on your watch without your phone, with Bluetooth headphones
+• Android Auto, Chromecast and home screen widgets
+• Material You design, light and dark, in 14 languages
+
+<b>Privacy</b>
+No ads, no tracking, no analytics. EarLoft is open source (GPLv3). Your library and listening history stay on your device and your own servers.
