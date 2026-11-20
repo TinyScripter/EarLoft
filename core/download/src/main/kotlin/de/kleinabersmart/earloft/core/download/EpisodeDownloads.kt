@@ -125,10 +125,12 @@ class EpisodeDownloads @Inject constructor(
 
     /**
      * Enqueues the newest unplayed episodes if the podcast downloads automatically. Before that, what the backup knows about the
-     * episodes applies (played, download removed): after a device change they only show up again after the sync.
+     * episodes applies (played, download removed): after a device change they only show up again after the sync. Never for
+     * archived and trial subscriptions, and not while a database import runs (review G26).
      */
     suspend fun queueAutomatic(feedId: String) {
-        val feed = dao.feed(feedId)?.takeIf { it.autoDownload } ?: return
+        if (podcasts.automationPaused) return
+        val feed = dao.feed(feedId)?.takeIf { it.autoDownload && it.subscribed && !it.archived } ?: return
         userData.applyWaiting()
         // "Only the newest" in Continue listening: keep only the newest ready as well; otherwise the subscription's count or the default.
         val newestOnly = feed.queueMode == FeedQueueMode.NEWEST_ONLY
@@ -164,7 +166,10 @@ class EpisodeDownloads @Inject constructor(
         scope.launch {
             merge(
                 podcasts.refreshed,
-                // Switched on, count changed or "Only the newest" chosen: only the changed subscriptions.
+                // Switched on, count changed or "Only the newest" chosen: only the changed subscriptions. The first list is
+                // compared against an empty map on purpose, so every process start checks all automatic subscriptions once and
+                // catches up on downloads a crash or a full disk left out (user's decision, review G38); without anything
+                // missing that's one query per subscription.
                 podcasts.feeds
                     .map { feeds -> feeds.filter { it.autoDownload }.associate { it.id to (it.autoDownloadCount to it.queueMode) } }
                     .distinctUntilChanged()

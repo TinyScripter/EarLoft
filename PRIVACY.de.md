@@ -39,8 +39,9 @@ Gerät (bzw. deiner Uhr) zum jeweiligen Dienst:
 * **Podcast-Verzeichnisse (optional, standardmäßig aus):** Schaltest du ein Verzeichnis ein (in **Einstellungen →
   Podcasts** oder mit dem Zahnrad auf **Podcast hinzufügen**), wird es nach beliebten Podcasts gefragt, sobald du
   **Podcast hinzufügen** öffnest (dabei werden dein Land und deine Sprache gesendet), und bei einer Suche nach deinen Suchbegriffen: Apple Podcasts (Apples Such-API),
-  Podcast Index (die API von podcastindex.org) und ARD Sounds (öffentliche Schnittstelle der ARD). Sendungen aus ARD
-  Sounds ohne eigenen Feed werden ebenfalls über diese Schnittstelle aktualisiert.
+  Podcast Index (die API von podcastindex.org), fyyd (die API von fyyd.de; nur deine Suchbegriffe, es fragt nicht nach
+  beliebten Podcasts) und ARD Sounds (öffentliche Schnittstelle der ARD). Sendungen aus ARD Sounds ohne eigenen Feed
+  werden ebenfalls über diese Schnittstelle aktualisiert.
 * **Hörbücher aus ARD Sounds (optional, standardmäßig aus):** Schaltest du sie in **Einstellungen → Bücher** ein,
   kommen die Bücher und Hörspiele, die du durchstöberst, suchst, abspielst oder herunterlädst, über die öffentliche
   Schnittstelle der ARD. Die Bücher in deiner Bibliothek und die Sendungen, denen du folgst, werden dort regelmäßig,

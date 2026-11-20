@@ -23,7 +23,8 @@ android {
     defaultConfig {
         buildConfigField("String", "PODCAST_INDEX_KEY", localString("podcastindex.key"))
         buildConfigField("String", "PODCAST_INDEX_SECRET", localString("podcastindex.secret"))
-        buildConfigField("boolean", "FYYD_ENABLED", localProperties.getProperty("fyyd.enabled", "false").trim().toBoolean().toString())
+        // fyyd needs no key and is part of the release (review G69, listed in the privacy policy); `fyyd.enabled=false` leaves it out.
+        buildConfigField("boolean", "FYYD_ENABLED", localProperties.getProperty("fyyd.enabled", "true").trim().toBoolean().toString())
     }
 }
 

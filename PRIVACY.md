@@ -35,8 +35,9 @@ watch) to the respective service:
   respective publishers.
 * **Podcast directories (optional, off by default):** when you switch on a directory (in **Settings → Podcasts** or
   with the gear on **Add podcast**), it is asked for popular podcasts as soon as you open **Add podcast** (your country
-  and language are sent), and for your search terms when you search: Apple Podcasts (Apple's search API), Podcast Index (the API of podcastindex.org) and
-  ARD Sounds (ARD's public interface). Shows from ARD Sounds without their own feed are also refreshed through that
+  and language are sent), and for your search terms when you search: Apple Podcasts (Apple's search API), Podcast Index (the API of podcastindex.org),
+  fyyd (the API of fyyd.de; only your search terms, it is not asked for popular podcasts) and ARD Sounds (ARD's public
+  interface). Shows from ARD Sounds without their own feed are also refreshed through that
   interface.
 * **Audiobooks from ARD Sounds (optional, off by default):** when you switch them on in **Settings → Books**, the
   books and radio plays you browse, search for, play or download come from ARD's public interface. The books in your

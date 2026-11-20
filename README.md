@@ -413,10 +413,10 @@ the phone app on the watch too.
 If Gradle cannot find the SDK, create `local.properties` in the project root with `sdk.dir=/path/to/Android/Sdk`
 (Android Studio does this for you).
 
-The release builds come with a Podcast Index key. In your own build, the podcast directories Podcast Index and fyyd
-are only offered if you enable them in `local.properties` (`podcastindex.key` and `podcastindex.secret` with your own
-[Podcast Index API key](https://api.podcastindex.org), `fyyd.enabled=true`); otherwise they are missing from the
-settings.
+The release builds come with a Podcast Index key. In your own build, the podcast directory Podcast Index is only offered
+if you add your own [Podcast Index API key](https://api.podcastindex.org) to `local.properties` (`podcastindex.key` and
+`podcastindex.secret`); otherwise it is missing from the settings. fyyd needs no key and is offered in every build
+(`fyyd.enabled=false` leaves it out).
 
 ### Tests
 

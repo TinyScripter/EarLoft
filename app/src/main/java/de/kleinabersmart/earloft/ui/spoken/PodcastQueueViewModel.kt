@@ -29,7 +29,7 @@ import javax.inject.Inject
 class PodcastQueueViewModel @Inject constructor(
     private val continueListening: ContinueListening,
     playback: PlaybackConnection,
-    podcasts: PodcastRepository,
+    private val podcasts: PodcastRepository,
     spokenSettings: SpokenSettings,
 ) : ViewModel() {
 
@@ -70,10 +70,27 @@ class PodcastQueueViewModel @Inject constructor(
         searchQuery.value = text.trim()
     }
 
-    /** Matches in title, summary and podcast name, in queue order. */
+    /** Show notes beginnings of the queued episodes; re-read only when the queue's episodes change, not on every progress save. */
+    private var notes: Pair<List<Long>, Map<Long, String>> = emptyList<Long>() to emptyMap()
+
+    private suspend fun notesOf(ids: List<Long>): Map<Long, String> {
+        if (notes.first != ids) notes = ids to podcasts.descriptionStarts(ids)
+        return notes.second
+    }
+
+    /**
+     * Matches in title, summary and podcast name, in queue order. The queue comes without descriptions; their beginnings are
+     * added here (review G22).
+     */
     @OptIn(FlowPreview::class)
     val searchHits: StateFlow<EpisodeHits?> = combine(
-        continueListening.episodes.map { episodes -> episodes.map { SearchEntry(it, withPodcast = true) } },
+        continueListening.episodes.map { episodes ->
+            val starts = notesOf(episodes.map { it.book.id })
+            episodes.map { episode ->
+                val described = starts[episode.book.id]?.let { episode.copy(book = episode.book.copy(description = it)) } ?: episode
+                SearchEntry(described, withPodcast = true)
+            }
+        },
         searchQuery.debounce { if (it.isEmpty()) 0L else SEARCH_DEBOUNCE_MS },
     ) { index, query ->
         val needle = query.normalizeForMerge()

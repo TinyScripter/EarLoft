@@ -47,7 +47,13 @@ class DatabaseImporter @Inject constructor(
     private val bookDao: BookDao,
     private val statsDao: StatsDao,
 ) {
-    suspend fun import(backup: ImportData): DatabaseImportResult {
+    /**
+     * Never starts downloads (review G26): the subscriptions are synced before their progress is applied, so the automation
+     * would load played episodes. With "auto-download new subscriptions" on, it starts with the next regular sync.
+     */
+    suspend fun import(backup: ImportData): DatabaseImportResult = repository.withoutAutomation { importPaused(backup) }
+
+    private suspend fun importPaused(backup: ImportData): DatabaseImportResult {
         val known = podcastDao.feeds().mapTo(HashSet()) { it.url }
         // If an address is in the file as both active and archived, it counts as active.
         val wanted = backup.feeds

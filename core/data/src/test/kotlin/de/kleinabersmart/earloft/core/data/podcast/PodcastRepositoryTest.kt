@@ -417,6 +417,8 @@ class PodcastRepositoryTest {
 
         repository.setStarred(listOf(c), starred = false)
         served = feed("A" to "Thu, 30 Oct 2025 06:00:00 GMT")
+        // Two of three gone: the second sync confirms (review G3).
+        repository.refresh(feedId)
         repository.refresh(feedId)
 
         // B is no longer in the feed but stays along with its star; C went with the feed.
@@ -437,6 +439,7 @@ class PodcastRepositoryTest {
         db.bookDao().insertBookmark(bookmark.copy(bookId = c, deleted = true))
 
         served = feed("A" to "Thu, 30 Oct 2025 06:00:00 GMT")
+        repository.refresh(feedId)
         repository.refresh(feedId)
 
         assertEquals(listOf("A", "B"), repository.episodes(feedId).first().map { it.book.title })
@@ -991,6 +994,8 @@ class PodcastRepositoryTest {
         served = feed("D" to "Fri, 31 Oct 2025 06:00:00 GMT")
 
         val result = repository.refresh(feedId)
+        // All three listed episodes are gone at once: the sweep waits for the next sync to confirm (review G3).
+        repository.refresh(feedId)
 
         assertEquals(1, result!!.newEpisodeIds.size)
         val titles = repository.episodes(feedId).first().map { it.book.title }
@@ -1006,6 +1011,7 @@ class PodcastRepositoryTest {
         served = feed("D" to "Fri, 31 Oct 2025 06:00:00 GMT")
 
         repository.refresh(feedId)
+        repository.refresh(feedId)
 
         assertEquals(setOf("C", "D"), repository.episodes(feedId).first().map { it.book.title }.toSet())
     }
@@ -1018,9 +1024,46 @@ class PodcastRepositoryTest {
         served = feed("D" to "Fri, 31 Oct 2025 06:00:00 GMT")
 
         repository.refresh(feedId)
+        repository.refresh(feedId)
 
         assertEquals(setOf("C", "D"), repository.episodes(feedId).first().map { it.book.title }.toSet())
         assertEquals("the queue keeps pointing at it", queued, db.bookDao().booksOf(feedId).single { it.title == "C" }.bookId)
+    }
+
+    @Test
+    fun `a feed without episodes never sweeps`() = runTest {
+        val feedId = subscribe()
+        served = feed()
+
+        repository.refresh(feedId)
+        repository.refresh(feedId)
+
+        assertEquals(setOf("A", "B", "C"), repository.episodes(feedId).first().map { it.book.title }.toSet())
+    }
+
+    @Test
+    fun `a feed losing more than half waits one sync, then a recovered feed keeps everything`() = runTest {
+        val feedId = subscribe()
+        val full = served
+        served = feed("A" to "Wed, 29 Oct 2025 06:00:00 GMT")
+
+        repository.refresh(feedId)
+        assertEquals("postponed", setOf("A", "B", "C"), repository.episodes(feedId).first().map { it.book.title }.toSet())
+
+        served = full
+        repository.refresh(feedId)
+        repository.refresh(feedId)
+        assertEquals(setOf("A", "B", "C"), repository.episodes(feedId).first().map { it.book.title }.toSet())
+    }
+
+    @Test
+    fun `a feed losing at most half sweeps right away`() = runTest {
+        val feedId = subscribe()
+        served = feed("A" to "Wed, 29 Oct 2025 06:00:00 GMT", "B" to "Tue, 28 Oct 2025 06:00:00 GMT")
+
+        repository.refresh(feedId)
+
+        assertEquals(setOf("A", "B"), repository.episodes(feedId).first().map { it.book.title }.toSet())
     }
 
     @Test

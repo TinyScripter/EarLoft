@@ -71,6 +71,7 @@ import java.io.File
 import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import javax.net.ssl.SSLException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -153,6 +154,24 @@ class PodcastRepository @Inject constructor(
     /** Emits the ID of every podcast whose feed was just synced (even without changes), for the download automation. */
     val refreshed: SharedFlow<String> = _refreshed.asSharedFlow()
 
+    private val importsRunning = AtomicInteger(0)
+
+    /**
+     * `true` while a database import runs: it creates and syncs subscriptions before the listening progress is applied, and must
+     * never start downloads (review G26). The automation picks them up with the next regular sync.
+     */
+    val automationPaused: Boolean get() = importsRunning.get() > 0
+
+    /** Runs [block] with the download automation paused ([automationPaused]). */
+    suspend fun <T> withoutAutomation(block: suspend () -> T): T {
+        importsRunning.incrementAndGet()
+        try {
+            return block()
+        } finally {
+            importsRunning.decrementAndGet()
+        }
+    }
+
     val feeds: Flow<List<PodcastFeed>> = dao.observeFeeds().map { list -> list.map { it.toModel() } }
 
     /** Subscriptions whose title or author contains [query] (ignoring case and accents). */
@@ -233,6 +252,10 @@ class PodcastRepository @Inject constructor(
             },
         )
     }.flowOn(Dispatchers.Default) // Over all episodes and all progress, every 15 s during playback.
+
+    /** Beginning of the show notes of [bookIds] (as in [DescriptionStarts]), e.g. for searching the queue (review G22). */
+    suspend fun descriptionStarts(bookIds: List<Long>): Map<Long, String> =
+        bookIds.chunked(MAX_ARGS).flatMap { dao.descriptionStarts(it, NOTES_CHARS) }.associate { it.bookId to it.description }
 
     /**
      * Beginning of the show notes ([NOTES_CHARS] characters) for a short summary in lists spanning several subscriptions:
@@ -926,7 +949,11 @@ class PodcastRepository @Inject constructor(
             if (stored != listOf(track)) dao.setTrack(track)
             if (episode.chapters.isNotEmpty()) storeChapters(id, episode.chapters, ChapterSource.FEED, track.durationMs, existing?.chapterSource)
         }
-        dao.deleteUnseenEpisodes(feed.feedId, generation, queued)
+        if (shrinksPlausibly(known.values, feed.syncGeneration, parsed.episodes.mapTo(HashSet()) { it.guid } + renamed.keys)) {
+            dao.deleteUnseenEpisodes(feed.feedId, generation, queued)
+        } else {
+            Log.w(TAG, "${feed.title}: feed lists ${parsed.episodes.size} episodes, sweep postponed")
+        }
         dao.upsertFeed(
             feed.copy(
                 title = title,
@@ -1186,4 +1213,17 @@ private fun List<BookEntity>.visibleIn(feeds: List<PodcastFeedEntity>, byBook: M
 internal fun String.toDescriptionHtml(): String {
     val text = trim()
     return if ('<' !in text && text.contains("&lt;")) Html.fromHtml(text, Html.FROM_HTML_MODE_COMPACT).toString().trim() else text
+}
+
+/**
+ * Whether the sweep of unlisted episodes may run for this sync (review G3). A feed that suddenly lists no episodes (a fault at
+ * the publisher) never sweeps. If more than half of the episodes the last sync listed ([lastGeneration]) are missing, the sweep
+ * waits one sync: the episodes the feed still lists get the new generation, so the next sync compares against the shrunk list
+ * and only then removes the rest. A publisher really trimming the archive thus takes effect one sync later.
+ */
+internal fun shrinksPlausibly(known: Collection<BookEntity>, lastGeneration: Long, listed: Set<String>): Boolean {
+    if (listed.isEmpty()) return false
+    val lastListed = known.filter { it.seenInGeneration == lastGeneration }
+    val missing = lastListed.count { it.remoteId !in listed }
+    return missing * 2 <= lastListed.size
 }
