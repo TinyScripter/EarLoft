@@ -23,7 +23,6 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import androidx.wear.compose.material3.AppScaffold
-import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.navigation3.rememberSwipeDismissableSceneStrategy
 import dagger.hilt.android.AndroidEntryPoint
 import de.kleinabersmart.earloft.core.model.BookKind
@@ -60,6 +59,7 @@ import de.kleinabersmart.earloft.wear.ui.SleepTimerCustomScreen
 import de.kleinabersmart.earloft.wear.ui.SleepTimerScreen
 import de.kleinabersmart.earloft.wear.ui.StartScreen
 import de.kleinabersmart.earloft.wear.ui.StorageScreen
+import de.kleinabersmart.earloft.wear.ui.WearTheme
 import kotlinx.serialization.Serializable
 import javax.inject.Inject
 
@@ -222,7 +222,7 @@ private fun MutableList<NavKey>.openNowPlaying(remote: Boolean = false) = openOn
 
 @Composable
 fun WearApp(openRoute: NavKey? = null, onRouteOpened: () -> Unit = {}) {
-    MaterialTheme {
+    WearTheme {
         AppScaffold {
             val backStack = rememberNavBackStack(StartRoute)
             LaunchedEffect(openRoute) {
