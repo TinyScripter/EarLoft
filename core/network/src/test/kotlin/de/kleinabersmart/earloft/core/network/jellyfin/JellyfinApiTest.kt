@@ -4,6 +4,7 @@ import de.kleinabersmart.earloft.core.network.HttpStatusException
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.junit.After
@@ -378,6 +379,17 @@ class JellyfinApiTest {
 
         assertEquals("jf", registry.forUrl(mockServer.url("/jellyfin/Audio/1/stream"))?.sourceId)
         assertEquals("a", registry.forUrl(mockServer.url("/Audio/1/stream"))?.sourceId)
+    }
+
+    @Test
+    fun `the token follows a redirect to https on the same host but never back to http or elsewhere`() {
+        val server = JellyfinServer("jf", "http://media.example/jellyfin/".toHttpUrl(), "u", "t")
+        val secure = JellyfinServer("s", "https://media.example/jellyfin/".toHttpUrl(), "u", "t")
+
+        assertTrue(server.owns("https://media.example/jellyfin/Audio/1/stream".toHttpUrl()))
+        assertFalse(secure.owns("http://media.example/jellyfin/Audio/1/stream".toHttpUrl()))
+        assertFalse(server.owns("https://other.example/jellyfin/Audio/1/stream".toHttpUrl()))
+        assertFalse(server.owns("https://media.example/navidrome/rest/ping".toHttpUrl()))
     }
 
     private fun json(body: String) =

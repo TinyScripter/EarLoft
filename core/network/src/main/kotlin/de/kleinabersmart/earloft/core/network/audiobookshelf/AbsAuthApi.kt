@@ -107,8 +107,12 @@ class AbsAuthApi @Inject constructor(
             .header("x-refresh-token", refreshToken)
             .post(ByteArray(0).toRequestBody())
             .build()
-        return client.newCall(request).execute().use { it.tokensOrThrow() }
+        // Without redirects: OkHttp only drops `Authorization` on another host, the long-lived refresh token in its own
+        // header would follow a redirect (auth proxy) anywhere, even from HTTPS to HTTP (review G34). A 30x is an error.
+        return noRedirectClient.newCall(request).execute().use { it.tokensOrThrow() }
     }
+
+    private val noRedirectClient by lazy { client.newBuilder().followRedirects(false).followSslRedirects(false).build() }
 
     /** Without redirects (the `Location` is the result), without cache and with the login's cookies. */
     private fun loginClient(cookies: CookieJar): OkHttpClient =

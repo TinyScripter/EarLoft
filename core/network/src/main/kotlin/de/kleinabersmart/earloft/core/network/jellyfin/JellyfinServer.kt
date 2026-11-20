@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.network.jellyfin
 
 import de.kleinabersmart.earloft.core.model.SourceType
+import de.kleinabersmart.earloft.core.network.acceptsCredentialsOf
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.URLEncoder
@@ -38,12 +39,13 @@ data class JellyfinServer(
 
     fun endpoint(path: String): HttpUrl.Builder = baseUrl.newBuilder().addPathSegments(path.trimStart('/'))
 
-    /** Jellyfin and Emby have no fixed API path: everything under the base URL belongs to the server. */
+    /**
+     * Jellyfin and Emby have no fixed API path: everything under the base URL belongs to the server. Like the request tag
+     * ([acceptsCredentialsOf]) also after a redirect from HTTP to HTTPS on the same host: streams, downloads and covers
+     * otherwise lost the token there and failed with 401 (review G33).
+     */
     fun owns(url: HttpUrl): Boolean =
-        url.scheme == baseUrl.scheme &&
-            url.host == baseUrl.host &&
-            url.port == baseUrl.port &&
-            url.encodedPath.startsWith(baseUrl.encodedPath)
+        url.acceptsCredentialsOf(baseUrl) && url.encodedPath.startsWith(baseUrl.encodedPath)
 
     companion object {
         /**
