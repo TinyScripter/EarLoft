@@ -104,7 +104,7 @@ private fun StartContent(
                     header(R.string.start_section_phone, transformationSpec)
                     message(R.string.remote_unreachable, transformationSpec)
                     // As the last element the hint would sit at the round edge and be cut off; the spacing lets it scroll up further.
-                    item { Spacer(Modifier.height(BOTTOM_HINT_SPACE)) }
+                    item { Spacer(Modifier.height(LIST_END_SPACE)) }
                 }
             } else {
                 setup(state, transformationSpec, onOpenOnPhone, onRetry)
@@ -113,7 +113,11 @@ private fun StartContent(
     }
 }
 
-private val BOTTOM_HINT_SPACE = 48.dp
+/**
+ * Space after the last element of a short list: without it the last element stays squeezed at the round bottom edge
+ * (small watches, large font) because the list cannot scroll any further.
+ */
+internal val LIST_END_SPACE = 48.dp
 
 private fun TransformingLazyColumnScope.setup(
     state: StartUiState,

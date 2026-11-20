@@ -1,11 +1,8 @@
 package de.kleinabersmart.earloft.wear.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.width
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.focusable
@@ -20,6 +17,7 @@ import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,13 +31,11 @@ import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
-import androidx.wear.compose.material3.IconButton
-import androidx.wear.compose.material3.IconButtonDefaults
+import androidx.wear.compose.material3.Stepper
 import androidx.wear.compose.material3.SurfaceTransformation
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
-import androidx.compose.ui.unit.dp
 import de.kleinabersmart.earloft.core.playback.SleepTimer
 import de.kleinabersmart.earloft.wear.R
 
@@ -111,14 +107,20 @@ fun SleepTimerScreen(onCustom: () -> Unit, onDone: () -> Unit, viewModel: SleepT
                     label = { Text(stringResource(R.string.sleep_timer_custom)) },
                 )
             }
+            item { Spacer(Modifier.height(LIST_END_SPACE)) }
         }
     }
 }
 
-/** Custom duration: the crown (or +/−) changes the minutes in steps of five up to 240, "Start" applies them. */
+/**
+ * Custom duration: the crown (or + at the top, − at the bottom) changes the minutes in steps of five up to 240, the
+ * button in the middle starts the timer. The Wear stepper keeps + and − inside the round screen even on small watches;
+ * a row − / minutes / + did not fit there (WO-V16).
+ */
 @Composable
 fun SleepTimerCustomScreen(onDone: () -> Unit, viewModel: SleepTimerModel = hiltViewModel<PlayerViewModel>()) {
-    var minutes by remember { mutableIntStateOf(CUSTOM_DEFAULT_MINUTES) }
+    // Saveable: a configuration change (font size, language) or process restart keeps the chosen duration.
+    var minutes by rememberSaveable { mutableIntStateOf(CUSTOM_DEFAULT_MINUTES) }
     val crown = remember { CrownStepper(CROWN_PX_PER_STEP) }
     val focusRequester = remember { FocusRequester() }
     var hasFocus by remember { mutableStateOf(false) }
@@ -130,9 +132,10 @@ fun SleepTimerCustomScreen(onDone: () -> Unit, viewModel: SleepTimerModel = hilt
         }
     }
     fun change(steps: Int) {
-        minutes = (minutes + steps * SleepTimer.STEP_MINUTES).coerceIn(SleepTimer.STEP_MINUTES, SleepTimer.MAX_MINUTES)
+        minutes = (minutes + steps * SleepTimer.STEP_MINUTES).coerceIn(CUSTOM_RANGE.first, CUSTOM_RANGE.last)
     }
-    ScreenScaffold {
+    // No clock: on small watches and with large font it covers the + button at the top edge.
+    ScreenScaffold(timeText = {}) {
         Box(
             Modifier
                 .fillMaxSize()
@@ -146,23 +149,20 @@ fun SleepTimerCustomScreen(onDone: () -> Unit, viewModel: SleepTimerModel = hilt
                 .focusable(),
             contentAlignment = Alignment.Center,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = { change(-1) }, colors = IconButtonDefaults.filledTonalIconButtonColors()) { Text("−") }
-                    Text(
-                        pluralStringResource(R.plurals.sleep_timer_minutes, minutes, minutes),
-                        modifier = Modifier.width(MINUTES_WIDTH),
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    IconButton(onClick = { change(1) }, colors = IconButtonDefaults.filledTonalIconButtonColors()) { Text("+") }
-                }
+            Stepper(
+                value = minutes,
+                onValueChange = { minutes = it },
+                valueProgression = CUSTOM_RANGE,
+                decreaseIcon = { Text("−", style = MaterialTheme.typography.titleLarge) },
+                increaseIcon = { Text("+", style = MaterialTheme.typography.titleLarge) },
+            ) {
                 Button(
                     onClick = {
                         viewModel.startSleepTimer(minutes)
                         onDone()
                     },
-                    label = { Text(stringResource(R.string.sleep_timer_start)) },
+                    label = { Text(pluralStringResource(R.plurals.sleep_timer_minutes, minutes, minutes), maxLines = 1) },
+                    secondaryLabel = { Text(stringResource(R.string.sleep_timer_start), maxLines = 1) },
                 )
             }
         }
@@ -171,7 +171,7 @@ fun SleepTimerCustomScreen(onDone: () -> Unit, viewModel: SleepTimerModel = hilt
 
 private const val CUSTOM_DEFAULT_MINUTES = 20
 private const val FOCUS_RETRY_MS = 150L
-private val MINUTES_WIDTH = 96.dp
+private val CUSTOM_RANGE = SleepTimer.STEP_MINUTES..SleepTimer.MAX_MINUTES step SleepTimer.STEP_MINUTES
 
 /** As with the volume: just below a slow detent so that every detent gives exactly one step (5 min). */
 private const val CROWN_PX_PER_STEP = 30f
