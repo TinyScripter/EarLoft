@@ -70,7 +70,8 @@ interface WearDao {
 
     /**
      * Selected episodes and books in the order they were selected. Episodes of archived subscriptions and books of disabled servers
-     * stay selected but are kept off the watch; books from the device (`local…`) and from ARD Sounds have no server.
+     * or of deselected Audiobookshelf libraries (review G46) stay selected but are kept off the watch; books from the device
+     * (`local…`) and from ARD Sounds have no server.
      */
     @Query(
         """
@@ -79,7 +80,8 @@ interface WearDao {
         LEFT JOIN podcast_feeds f ON f.feedId = b.serverId
         LEFT JOIN spoken_servers s ON s.serverId = b.serverId
         WHERE (b.kind = 'EPISODE' AND f.feedId IS NOT NULL AND NOT f.archived)
-           OR (b.kind = 'BOOK' AND (s.enabled OR b.serverId LIKE 'local%' OR b.serverId = '$ARD_BOOK_SERVER_ID'))
+           OR (b.kind = 'BOOK' AND (b.serverId LIKE 'local%' OR b.serverId = '$ARD_BOOK_SERVER_ID' OR (s.enabled AND
+               (b.libraryId IS NULL OR instr(',' || s.hiddenLibraries || ',', ',' || b.libraryId || ',') = 0))))
         ORDER BY w.addedAt, w.bookId
         """,
     )

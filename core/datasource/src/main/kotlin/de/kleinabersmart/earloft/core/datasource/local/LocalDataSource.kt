@@ -135,7 +135,7 @@ class LocalDataSource @Inject constructor(
         val cursor = context.contentResolver.query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             columns.toTypedArray(),
-            "${MediaStore.Audio.Media.IS_MUSIC} != 0",
+            MUSIC_SELECTION,
             null,
             null,
         ) ?: throw MediaStoreUnavailableException()
@@ -184,3 +184,15 @@ class LocalDataSource @Inject constructor(
         private const val TAG_PARALLELISM = 4
     }
 }
+
+/**
+ * Music only. Before Android 10 the media scanner knew no audiobooks and counted files in "Audiobooks" as music: every book
+ * chapter would also have been a song in the library, the shuffle and the mix (review G20). Their path is excluded there.
+ */
+@Suppress("DEPRECATION") // DATA: the only way to the path before Android 10.
+private val MUSIC_SELECTION: String =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        "${MediaStore.Audio.Media.IS_MUSIC} != 0"
+    } else {
+        "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DATA} NOT LIKE '%/Audiobooks/%'"
+    }
