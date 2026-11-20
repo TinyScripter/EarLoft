@@ -1,19 +1,19 @@
-# Die APP
-Dies ist eine Android App für selbstgehostete Musik (Navidrome), Podcasts (RSS-Feeds) und Audiobücher (Audiobookshelf) und lokal auf dem Gerät.
+# The App
+This is an Android app for self-hosted music (Navidrome, Jellyfin, Emby), podcasts (RSS feeds), audiobooks (Audiobookshelf), and local storage on the device.
 
-# Kontext und Fortschritt
-Alles, was über kleine Bugfixes allgemeine Fragen hinausgeht, muss gegen ideas/konzept_und_architektur.md geprüft werden.
-Veränderungen und Stände werden in ideas/stand.md gepflegt; abgeschlossene Etappenberichte werden nach ideas/stand_erledigt.md verschoben.
-ideas/stand_erledigt.md und ideas/konzept_und_architektur_archiv.md nur lesen, wenn stand.md bzw. konzept_und_architektur.md für die Anforderung/das Thema nicht ausreichen.
+# Context and Progress
+Anything beyond minor bug fixes and general questions must be checked against `ideas/konzept_und_architektur.md`.
+Changes and status updates are maintained in `ideas/stand.md`; completed stage reports are moved to `ideas/stand_erledigt.md`.
+Only read `ideas/stand_erledigt.md` and `ideas/konzept_und_architektur_archiv.md` if `stand.md` or `konzept_und_architektur.md` do not provide enough context for the requirement or topic.
 
-# Verhaltensregeln
-Erledige grundsätzlich alles auf dem Pixel 10 Pro im Emulator. Wenn ein Emulator nicht ausreicht, gib Rückmeldung.
-Falls ein Chromecast Gerät benötigt wird, frage welches genommen werden darf.
-Wenn du ein Problem nach 3 Iterationen nicht gelöst hast, stoppe und frage, wie weiter vorgegangen werden soll.
+# Rules of Conduct
+Always perform everything on the Pixel 10 Pro in the emulator. If an emulator is not sufficient, provide feedback.
+If a Chromecast device is required, ask which one may be used.
+If you have not solved a problem after 3 iterations, stop and ask how to proceed.
 
-# Sprache im Code
-Alles im Code ist immer zwingend Englisch: Kommentare, KDoc, Bezeichner, Log-Meldungen, Testnamen, Build-Skripte und Konfigurationsdateien.
-Abweichen darf nur der Inhalt von Übersetzungsdateien (z. B. `values-de/strings.xml`, `PRIVACY.de.md`).
+# Code Language
+Everything in the code must strictly be in English: comments, KDoc, identifiers, log messages, test names, build scripts, and configuration files.
+The only exceptions are the contents of localization files (e.g., `values-de/strings.xml`, `PRIVACY.de.md`).
 
 # Commits
-Alle Commits werden grundsätzlich in Englisch verfasst.
+All commit messages must strictly be written in English.
