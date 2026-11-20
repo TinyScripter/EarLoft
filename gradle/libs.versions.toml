@@ -1,10 +1,9 @@
 [versions]
 # Build
-agp = "9.6.0-alpha04"
-# R8 9.6.0-alpha09 (bundled with AGP 9.6.0-alpha03) up to at least alpha15 breaks static initializers in release
-# builds (null static fields in Media3, Compose, Room): crash at start. alpha08 (from AGP 9.6.0-alpha02) works.
-# Pinned in the root build.gradle.kts; before raising it, start a release build and check for the crash.
-r8 = "9.6.0-alpha08"
+# Stable line: Android Studio stable/RC only syncs AGP up to its own version. The bundled R8 (9.5.x) is used.
+# R8 9.6.0-alpha09 to at least alpha15 broke static initializers in release builds (crash at start); before
+# moving to AGP 9.6, start a release build and check for that crash.
+agp = "9.5.1"
 kotlin = "2.4.21"
 ksp = "2.3.13"
 
@@ -144,7 +143,6 @@ kxml2 = { group = "net.sf.kxml", name = "kxml2", version = "2.3.0" }
 
 # build-logic (Convention Plugins)
 android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
-android-r8 = { group = "com.android.tools", name = "r8", version.ref = "r8" }
 kotlin-gradlePlugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
 compose-gradlePlugin = { group = "org.jetbrains.kotlin", name = "compose-compiler-gradle-plugin", version.ref = "kotlin" }
 ksp-gradlePlugin = { group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
