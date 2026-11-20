@@ -58,6 +58,8 @@ import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.di.LoggingExceptionHandler
 import de.kleinabersmart.earloft.core.data.mix.MixRepository
 import de.kleinabersmart.earloft.core.data.mix.MixSeed
+import de.kleinabersmart.earloft.core.datasource.PlaybackLocation
+import de.kleinabersmart.earloft.core.model.AppUris
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -205,7 +207,11 @@ class PlaybackService : MediaLibraryService() {
                 isFullyCached = streamCache::isFullyCached,
             ).also(localPlayer::addListener)
         }
-        localPlayer.addListener(WakeModeListener(localPlayer, playbackPolicy.allowStreaming))
+        localPlayer.addListener(
+            WakeModeListener(localPlayer, playbackPolicy.allowStreaming, mainScope) { songId ->
+                sourceResolver.candidates(songId).firstOrNull()?.location is PlaybackLocation.LocalFile
+            },
+        )
         localPlayer.addListener(ContentTypeListener(localPlayer))
         localPlayer.addListener(object : Player.Listener {
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
@@ -519,7 +525,7 @@ class PlaybackService : MediaLibraryService() {
                 val prepared = withContext(Dispatchers.IO) { bookPlaybackSource.restore(lastBookId) }
                 if (taken()) return@launch
                 if (prepared != null) {
-                    player.playBook(prepared, autoPlay = false)
+                    player.playBook(prepared, autoPlay = false, prepare = false)
                     prepared.pausedSinceMs?.let { bookListener.restoredPaused(lastBookId, it) }
                     return@launch
                 }
@@ -616,21 +622,47 @@ class PlaybackService : MediaLibraryService() {
     /**
      * During playback Media3 keeps the CPU awake; with [C.WAKE_MODE_NETWORK] also the Wi-Fi (high-perf lock), which only
      * streams need. The watch never streams, and neither do books and episodes from files. Songs (`earloft://song/…`) are only
-     * resolved on load and may be streams; for them the network mode stays.
+     * resolved on load; for them [playsLocally] asks where the current and the next one (Media3 loads it ahead) would come
+     * from – a downloaded or device album with the display off no longer holds the Wi-Fi for hours (review G9).
      */
-    private class WakeModeListener(private val player: ExoPlayer, private val allowStreaming: Boolean) : Player.Listener {
+    private class WakeModeListener(
+        private val player: ExoPlayer,
+        private val allowStreaming: Boolean,
+        private val scope: CoroutineScope,
+        private val playsLocally: suspend (songId: Long) -> Boolean,
+    ) : Player.Listener {
         private var currentMode = C.WAKE_MODE_LOCAL
+        private var check: Job? = null
 
-        override fun onTimelineChanged(timeline: Timeline, reason: Int) {
-            val mode = if (allowStreaming && !allLocal()) C.WAKE_MODE_NETWORK else C.WAKE_MODE_LOCAL
+        override fun onTimelineChanged(timeline: Timeline, reason: Int) = update()
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = update()
+
+        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = update()
+
+        override fun onRepeatModeChanged(repeatMode: Int) = update()
+
+        private fun update() {
+            check?.cancel()
+            if (!allowStreaming) return apply(C.WAKE_MODE_LOCAL)
+            val uris = listOf(player.currentMediaItemIndex, player.nextMediaItemIndex)
+                .filter { it in 0 until player.mediaItemCount }
+                .mapNotNull { player.getMediaItemAt(it).localConfiguration?.uri }
+            val songIds = uris.mapNotNull { AppUris.parseSongId(it.toString()) }
+            val othersLocal = uris.filter { AppUris.parseSongId(it.toString()) == null }.all { it.scheme in LOCAL_SCHEMES }
+            if (!othersLocal) return apply(C.WAKE_MODE_NETWORK)
+            if (songIds.isEmpty()) return apply(C.WAKE_MODE_LOCAL)
+            check = scope.launch {
+                val local = withContext(Dispatchers.IO) { songIds.all { playsLocally(it) } }
+                apply(if (local) C.WAKE_MODE_LOCAL else C.WAKE_MODE_NETWORK)
+            }
+        }
+
+        private fun apply(mode: Int) {
             if (mode != currentMode) {
                 currentMode = mode
                 player.setWakeMode(mode)
             }
-        }
-
-        private fun allLocal(): Boolean = (0 until player.mediaItemCount).all { index ->
-            player.getMediaItemAt(index).localConfiguration?.uri?.scheme in LOCAL_SCHEMES
         }
 
         private companion object {

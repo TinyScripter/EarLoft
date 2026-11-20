@@ -128,7 +128,18 @@ class EpisodeMenuViewModel @Inject constructor(
                 val duration = item.book.durationMs
                 progressSync.record(id, if (played) duration else 0, duration, finished = played, force = true, hidden = !played)
             }
+            // "Unplayed" on the loaded entry: the player would otherwise write its position back on the next save.
+            if (!played) seekLoadedToStart(item)
         }
+    }
+
+    /**
+     * If [item] is in the player, jump to its very beginning. A book is one media item per file: `seekTo(0)` would only go to
+     * the start of the current file, and the next save would write that back (review G19).
+     */
+    private fun seekLoadedToStart(item: BookWithProgress) {
+        if (playback.state.value.spoken?.bookId != item.book.id) return
+        if (item.isEpisode) playback.seekTo(0) else playback.seekToTrack(0, 0)
     }
 
     /** "Mark as played and play next" (episodes only): afterwards the next episode of the queue. */
@@ -152,7 +163,7 @@ class EpisodeMenuViewModel @Inject constructor(
                 progressSync.record(bookId, 0, item.book.durationMs, finished = false, force = true, hidden = true)
             }
             // If the episode is currently playing, playback also jumps to the start.
-            if (playback.state.value.spoken?.bookId == bookId) playback.seekTo(0)
+            seekLoadedToStart(item)
         }
     }
 

@@ -109,11 +109,14 @@ internal class PhoneMediaServer @Inject constructor(
 
     /** At the end of the session. */
     fun stop() {
-        active = false
+        synchronized(lockGuard) { active = false }
         host = null
         server.stop()
         releaseLocks()
     }
+
+    /** [keepAwake] (server threads) and [stop] check [active] and take the locks only together (review G40). */
+    private val lockGuard = Any()
 
     override fun fileUrl(uri: Uri, mimeType: String): String? {
         val base = baseUrl() ?: return null
@@ -238,19 +241,24 @@ internal class PhoneMediaServer @Inject constructor(
     /** Extends the locks on every request; without requests they expire. */
     @SuppressLint("WakelockTimeout")
     private fun keepAwake() {
-        if (!active) return
-        wakeLock.acquire(LOCK_TIMEOUT_MS)
-        if (!wifiLock.isHeld) wifiLock.acquire()
-        lockReleaser.removeCallbacksAndMessages(null)
-        lockReleaser.postDelayed(::releaseLocks, LOCK_TIMEOUT_MS)
+        synchronized(lockGuard) {
+            // Without the guard a request finishing right after [stop] could take both locks again for up to 10 min.
+            if (!active) return
+            wakeLock.acquire(LOCK_TIMEOUT_MS)
+            if (!wifiLock.isHeld) wifiLock.acquire()
+            lockReleaser.removeCallbacksAndMessages(null)
+            lockReleaser.postDelayed(::releaseLocks, LOCK_TIMEOUT_MS)
+        }
     }
 
     private val lockReleaser by lazy { Handler(Looper.getMainLooper()) }
 
     private fun releaseLocks() {
-        lockReleaser.removeCallbacksAndMessages(null)
-        if (wakeLock.isHeld) wakeLock.release()
-        if (wifiLock.isHeld) wifiLock.release()
+        synchronized(lockGuard) {
+            lockReleaser.removeCallbacksAndMessages(null)
+            if (wakeLock.isHeld) wakeLock.release()
+            if (wifiLock.isHeld) wifiLock.release()
+        }
     }
 
     private fun newToken(): String = ByteArray(16).also(random::nextBytes).joinToString("") { "%02x".format(it) }

@@ -16,6 +16,9 @@ class QueueReserve<T>(private val keyOf: (T) -> Any? = { it }) {
     private var listStart: Any? = null
     private var rotated = false
 
+    /** By how many titles [nextRound] has rotated the list in total; tells apart several titles with the key [listStart]. */
+    private var rotatedBy = 0
+
     /** How many titles can still be handed over. */
     val remaining: Int get() = after.size
 
@@ -31,6 +34,7 @@ class QueueReserve<T>(private val keyOf: (T) -> Any? = { it }) {
         this.after.addAll(after)
         listStart = null
         rotated = false
+        rotatedBy = 0
     }
 
     /**
@@ -44,6 +48,7 @@ class QueueReserve<T>(private val keyOf: (T) -> Any? = { it }) {
             listStart = keyOf(before.first())
             rotated = true
         }
+        rotatedBy += before.size
         after.addAll(before)
         before = emptyList()
         return true
@@ -79,8 +84,13 @@ class QueueReserve<T>(private val keyOf: (T) -> Any? = { it }) {
         val index = if (windowIndex < 0) windowIndex else windowIndex + before.size
         val all = before + window + after
         // After [nextRound] the list is rotated; it goes back to the phone in its original order.
-        val start = if (rotated) all.indexOfFirst { keyOf(it) == listStart } else -1
-        if (start <= 0) return all to index
+        // If the first title occurs more than once, the one where the rotation puts the start (review G41); titles added since
+        // shift it only a little, so the nearest occurrence counts.
+        val matches = if (rotated) all.indices.filter { keyOf(all[it]) == listStart } else emptyList()
+        if (matches.isEmpty()) return all to index
+        val expected = (all.size - rotatedBy % all.size) % all.size
+        val start = matches.minBy { minOf(Math.floorMod(it - expected, all.size), Math.floorMod(expected - it, all.size)) }
+        if (start == 0) return all to index
         val unrotated = all.subList(start, all.size) + all.subList(0, start)
         return unrotated to if (index < 0) index else (index - start + all.size) % all.size
     }

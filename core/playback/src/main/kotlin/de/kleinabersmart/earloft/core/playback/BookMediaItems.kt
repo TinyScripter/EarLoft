@@ -81,15 +81,16 @@ internal fun PreparedBook.toMediaItems(): List<MediaItem> {
 /**
  * Replaces the queue with the book and plays it at the saved position or at [startPositionMs]. Shuffle and
  * repeat are only turned off afterwards: before that the player still held the music, and the app would have saved "off"
- * as the mode of the music queue.
+ * as the mode of the music queue. Without [prepare] the player stays idle until play is pressed (Media3 prepares then): the
+ * restore at service start then neither streams nor reads the sample table of a long M4B (review G32).
  */
-internal fun Player.playBook(prepared: PreparedBook, startPositionMs: Long? = null, autoPlay: Boolean = true) {
+internal fun Player.playBook(prepared: PreparedBook, startPositionMs: Long? = null, autoPlay: Boolean = true, prepare: Boolean = true) {
     val start = prepared.timeline.locate(startPositionMs ?: prepared.startPositionMs)
     setMediaItems(prepared.toMediaItems(), start.trackIndex, start.offsetMs)
     shuffleModeEnabled = false
     repeatMode = Player.REPEAT_MODE_OFF
     setPlaybackSpeed(prepared.speed)
-    prepare()
+    if (prepare || autoPlay) prepare()
     if (autoPlay) playSetItems()
 }
 

@@ -328,7 +328,10 @@ internal class LibrarySessionCallback(
             voiceQuery != null -> when (val target = voiceTarget(player, voiceQuery)) {
                 is VoiceStart.Ready -> return@future target.items
                 is VoiceStart.Spoken -> return@future startSpoken(player, target.bookId)
-                is VoiceStart.Songs -> target.songs.map { it.toMediaItem() } to 0
+                // Nothing found (unknown name, podcast without episodes, empty library): keep what is playing instead of
+                // replacing it with an empty queue (review G10).
+                is VoiceStart.Songs -> target.songs.ifEmpty { throw UnsupportedOperationException("Nothing found for the voice request") }
+                    .map { it.toMediaItem() } to 0
             }
             else -> expandContext(mediaItems, startIndex)
         }

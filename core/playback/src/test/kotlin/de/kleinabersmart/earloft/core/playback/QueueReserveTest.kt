@@ -94,6 +94,19 @@ class QueueReserveTest {
     }
 
     @Test
+    fun `complete finds the real list start when the first title occurs again later`() {
+        // Title 0 is at positions 0 and 6 of the list 0..5, 0, 7.
+        val reserve = QueueReserve<Int>().apply { reset(before = listOf(0, 1, 2), after = emptyList()) }
+
+        // The receiver holds 3, 4, 5, 0, 7; the next round starts with the first 0.
+        assertTrue(reserve.nextRound())
+        assertEquals(listOf(0, 1, 2), reserve.take(3))
+        reserve.keepBefore(listOf(3, 4))
+
+        assertEquals(listOf(0, 1, 2, 3, 4, 5, 0, 7) to 7, reserve.complete(listOf(5, 0, 7, 0, 1, 2), windowIndex = 2))
+    }
+
+    @Test
     fun `nextRound does nothing while titles are pending or nothing lay before`() {
         val pending = QueueReserve<Int>().apply { reset(before = listOf(0), after = listOf(5)) }
         val nothingBefore = QueueReserve<Int>().apply { reset(before = emptyList(), after = emptyList()) }
