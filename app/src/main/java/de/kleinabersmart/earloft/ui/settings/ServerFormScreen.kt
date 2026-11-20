@@ -173,6 +173,9 @@ private fun ServerFormContent(
             // Below the text fields instead of below the address: the hint already appears while typing "http://" and would otherwise
             // push the following fields away.
             if (state.isHttp) {
+                if (state.onlyHttp) {
+                    Text(stringResource(R.string.add_server_http_only), style = MaterialTheme.typography.bodyMedium)
+                }
                 Text(
                     stringResource(R.string.add_server_http_warning),
                     style = MaterialTheme.typography.bodySmall,

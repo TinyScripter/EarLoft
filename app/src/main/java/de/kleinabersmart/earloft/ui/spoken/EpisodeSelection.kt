@@ -279,8 +279,10 @@ fun EpisodeSwipeBox(
                 snackbars.show(resources.getString(R.string.queue_added_at_end, item.book.title))
             }
             SwipeToDismissBoxValue.EndToStart -> if (loaded && !played) {
+                // Paused, nothing would be stopped (review G60); either way there is no undo for the loaded episode.
+                val hint = if (viewModel.isPlaying()) R.string.episode_swipe_loaded else R.string.episode_swipe_loaded_paused
                 snackbars.show(
-                    resources.getString(R.string.episode_swipe_loaded, item.book.title),
+                    resources.getString(hint, item.book.title),
                     SnackbarDuration.Long,
                     resources.getString(R.string.episode_mark_played),
                 ) { viewModel.setPlayed(item, true) }

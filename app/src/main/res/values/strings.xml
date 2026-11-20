@@ -307,6 +307,7 @@
     <string name="add_server_username">Username</string>
     <string name="add_server_password">Password</string>
     <string name="add_server_http_warning">Unencrypted connection: username, music and the login token are transmitted in readable form – anyone listening can reuse the token to access your server. Only use this on your own home network.</string>
+    <string name="add_server_http_only">The server only answers unencrypted (http). Only use it in your home network.</string>
     <string name="add_server_allow_http">Connect unencrypted anyway</string>
     <string name="add_server_save">Save</string>
     <string name="add_server_success">Connected to %1$s %2$s</string>
@@ -476,6 +477,8 @@
     <string name="playlist_delete_text">“%1$s” will be deleted.</string>
     <string name="playlist_delete_text_server">“%1$s” will also be deleted on %2$s.</string>
     <string name="playlist_empty">No songs yet. Add some from the song menu.</string>
+    <string name="voice_nothing_found">Nothing found for “%1$s”.</string>
+    <string name="voice_nothing_to_play">Nothing to play found.</string>
     <string name="playlist_missing_on_server">Not on %1$s</string>
     <plurals name="playlist_unknown_songs">
         <item quantity="one">Contains a song the app doesn\'t know; change it only on %2$s.</item>
@@ -1094,6 +1097,7 @@
     <string name="episode_marked_played">“%1$s” marked as played</string>
     <string name="episode_marked_unplayed">“%1$s” marked as unplayed</string>
     <string name="episode_swipe_loaded">“%1$s” is playing and would be stopped.</string>
+    <string name="episode_swipe_loaded_paused">“%1$s” is loaded in the player right now.</string>
     <string name="episode_select">Select</string>
     <string name="episode_select_all">Select all</string>
     <string name="episode_selection_end">End selection</string>

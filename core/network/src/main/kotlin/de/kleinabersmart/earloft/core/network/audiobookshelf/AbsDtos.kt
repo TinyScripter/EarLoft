@@ -29,7 +29,7 @@ data class AbsAuthorDto(
     val name: String = "",
     /** Path of the image on the server; `null` if the author has none. */
     val imagePath: String? = null,
-    /** Description of the author (maintained or taken over from Audible via "Match"). */
+    /** Description of the author (maintained on the server or taken over by its "Match"). */
     val description: String? = null,
 )
 

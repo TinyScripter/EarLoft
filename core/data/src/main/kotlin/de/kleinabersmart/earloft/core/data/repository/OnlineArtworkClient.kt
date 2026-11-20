@@ -52,7 +52,7 @@ class OnlineArtworkClient @Inject constructor(
     }
 
     /**
-     * Author image from Audnexus (Audible's author data, also used by Audiobookshelf): first search the author by name,
+     * Author image from Audnexus (the author data Audiobookshelf uses as well): first search the author by name,
      * then load their image. Only a hit with the same name counts.
      */
     suspend fun findAuthorImage(name: String): ByteArray? {

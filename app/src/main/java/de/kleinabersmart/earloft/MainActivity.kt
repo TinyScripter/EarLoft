@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft
 
+import android.widget.Toast
 import android.app.SearchManager
 import android.content.Intent
 import android.graphics.Color
@@ -152,11 +153,21 @@ class MainActivity : ComponentActivity() {
         if (address != null) sharedFeedUrl = address
     }
 
-    /** System voice search ("Play … with EarLoft"): play and show the playback screen. */
+    /**
+     * System voice search ("Play … with EarLoft"): play and show the playback screen. Without results nothing plays (the queue
+     * stays as it is) and a hint says so.
+     */
     private fun playFromSearch(intent: Intent) {
         if (intent.action != MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH) return
-        playbackConnection.playFromSearch(intent.getStringExtra(SearchManager.QUERY).orEmpty())
-        openNowPlaying = true
+        val query = intent.getStringExtra(SearchManager.QUERY).orEmpty()
+        lifecycleScope.launch {
+            if (playbackConnection.playFromSearch(query)) {
+                openNowPlaying = true
+            } else {
+                val text = if (query.isBlank()) getString(R.string.voice_nothing_to_play) else getString(R.string.voice_nothing_found, query)
+                Toast.makeText(this@MainActivity, text, Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     /**

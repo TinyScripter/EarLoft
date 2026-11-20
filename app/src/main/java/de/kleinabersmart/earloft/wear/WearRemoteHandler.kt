@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.abs
 
 /** A track list of the phone with its name (album, playlist, favorites, everything). */
 internal class RemoteTrackList(val title: String, val songs: List<Song>)
@@ -150,7 +151,12 @@ class WearRemoteHandler @Inject constructor(
         WearRemoteListKind.CONTINUE -> null
     }
 
+    /** While casting the crown sets the cast device's volume, otherwise the phone's (review G50). */
     private fun changeVolume(steps: Int) {
+        if (playback.state.value.isRemote) {
+            repeat(abs(steps)) { playback.changeRemoteVolume(up = steps > 0) }
+            return
+        }
         val audio = context.getSystemService(AudioManager::class.java)
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         val target = (audio.getStreamVolume(AudioManager.STREAM_MUSIC) + steps).coerceIn(0, max)

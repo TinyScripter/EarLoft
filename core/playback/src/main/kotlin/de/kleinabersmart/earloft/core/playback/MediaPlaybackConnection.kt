@@ -1,5 +1,8 @@
 package de.kleinabersmart.earloft.core.playback
 
+import androidx.media3.session.SessionResult
+import androidx.media3.session.SessionCommand
+import android.os.Bundle
 import android.content.ComponentName
 import android.content.Context
 import android.os.SystemClock
@@ -208,18 +211,32 @@ class MediaPlaybackConnection @Inject constructor(
 
     override fun play(songs: List<Song>, startIndex: Int, shuffle: Boolean) = withController {
         if (songs.isEmpty()) return@withController
-        shuffleModeEnabled = shuffle
         val index = if (shuffle) songs.indices.random() else startIndex.coerceIn(songs.indices)
-        setMediaItems(songs.map { it.toMediaItem() }, index, 0)
+        if (shuffle && deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) {
+            // The cast receiver knows no shuffle and plays in list order: started at a random place, the titles before it never
+            // came (review G42). Like at the handover (E11) the list goes over already shuffled, with the start title first.
+            val order = listOf(index) + (songs.indices - index).shuffled()
+            setMediaItems(order.map { songs[it].toMediaItem() }, 0, 0)
+        } else {
+            shuffleModeEnabled = shuffle
+            setMediaItems(songs.map { it.toMediaItem() }, index, 0)
+        }
         prepare()
         playSetItems()
     }
 
-    override fun playFromSearch(query: String) = withController {
-        val request = MediaItem.RequestMetadata.Builder().setSearchQuery(query).build()
-        setMediaItem(MediaItem.Builder().setRequestMetadata(request).build())
-        prepare()
-        playSetItems()
+    override suspend fun playFromSearch(query: String): Boolean = withContext(Dispatchers.Main.immediate) {
+        useController {
+            // Only a request with results is set and played: otherwise the session keeps the queue and "play" would continue it.
+            val check = sendCustomCommand(SessionCommand(ACTION_VOICE_CHECK, Bundle.EMPTY), Bundle().apply { putString(EXTRA_VOICE_QUERY, query) })
+                .await()
+            if (check.resultCode != SessionResult.RESULT_SUCCESS) return@useController false
+            val request = MediaItem.RequestMetadata.Builder().setSearchQuery(query).build()
+            setMediaItem(MediaItem.Builder().setRequestMetadata(request).build())
+            prepare()
+            playSetItems()
+            true
+        } ?: false
     }
 
     override suspend fun playBook(bookId: Long, startPositionMs: Long?): PreparedBook? {

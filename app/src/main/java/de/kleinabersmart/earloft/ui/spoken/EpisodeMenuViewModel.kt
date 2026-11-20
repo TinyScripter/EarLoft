@@ -8,6 +8,7 @@ import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.spoken.ArdBooks
+import de.kleinabersmart.earloft.core.data.spoken.BookDownload
 import de.kleinabersmart.earloft.core.data.spoken.BookProgressSync
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.download.BookDownloads
@@ -20,6 +21,7 @@ import de.kleinabersmart.earloft.core.playback.ServicePlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -53,6 +55,12 @@ class EpisodeMenuViewModel @Inject constructor(
     val loadedBookId: StateFlow<Long?> = playback.state
         .map { it.spoken?.bookId }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Download state of a book with its size, for the question before deleting it (review G61). */
+    fun bookDownload(bookId: Long): Flow<BookDownload> = books.download(bookId)
+
+    /** The player is playing right now (not: paused); for the hint when swiping the loaded episode (review G60). */
+    fun isPlaying(): Boolean = playback.state.value.isPlaying
 
     /** Remove a book from ARD Sounds including downloads from the library (`books_improvements.md` M9). */
     fun removeFromLibrary(item: BookWithProgress) {

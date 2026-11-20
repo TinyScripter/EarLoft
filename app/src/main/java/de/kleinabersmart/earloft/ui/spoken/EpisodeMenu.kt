@@ -32,6 +32,7 @@ import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
 import de.kleinabersmart.earloft.ui.components.ShareMediaMenuItem
+import de.kleinabersmart.earloft.ui.formatBytes
 import de.kleinabersmart.earloft.ui.components.ShareMenuItem
 import de.kleinabersmart.earloft.ui.components.WatchMenuItem
 import de.kleinabersmart.earloft.ui.components.WatchTarget
@@ -105,6 +106,7 @@ fun EpisodeMenu(
     val trialFeeds by viewModel.trialFeeds.collectAsStateWithLifecycle()
     val loadedBookId by viewModel.loadedBookId.collectAsStateWithLifecycle()
     var confirmRemove by remember { mutableStateOf(false) }
+    var confirmDeleteDownload by remember { mutableStateOf(false) }
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     val id = item.book.id
@@ -195,7 +197,8 @@ fun EpisodeMenu(
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.episode_delete_download)) },
                     onClick = {
-                        viewModel.removeDownload(item)
+                        // A book is often several gigabytes: ask with its size, as the book page does (review G61).
+                        if (item.isEpisode) viewModel.removeDownload(item) else confirmDeleteDownload = true
                         onDismiss()
                     },
                 )
@@ -216,6 +219,21 @@ fun EpisodeMenu(
                 confirmRemove = true
                 onDismiss()
             },
+        )
+    }
+    if (confirmDeleteDownload) {
+        val download by remember(id) { viewModel.bookDownload(id) }.collectAsStateWithLifecycle(null)
+        AlertDialog(
+            onDismissRequest = { confirmDeleteDownload = false },
+            title = { Text(stringResource(R.string.book_download_delete_title)) },
+            text = { Text(stringResource(R.string.book_download_delete_message, formatBytes(download?.bytes ?: 0))) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDeleteDownload = false
+                    viewModel.removeDownload(item)
+                }) { Text(stringResource(R.string.book_download_delete_confirm)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDeleteDownload = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
     if (confirmRemove) {

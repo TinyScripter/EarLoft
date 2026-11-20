@@ -87,9 +87,10 @@ interface PlaybackConnection {
 
     /**
      * Voice search ("Play … on EarLoft"): an item without a media ID with [query] as search term; the session picks the
-     * songs (`LibrarySessionCallback.voiceSongs`, empty term = shuffled favorites), as with Android Auto.
+     * songs (`LibrarySessionCallback.voiceSongs`, empty term = shuffled favorites), as with Android Auto. `false` if the request
+     * finds nothing: then nothing is played and the queue stays as it is.
      */
-    fun playFromSearch(query: String)
+    suspend fun playFromSearch(query: String): Boolean
 
     /**
      * Starts an audiobook at the saved position (or at [startPositionMs], e.g. a chapter) after the

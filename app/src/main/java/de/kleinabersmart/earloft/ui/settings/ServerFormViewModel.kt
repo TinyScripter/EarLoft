@@ -8,6 +8,7 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.core.data.repository.ConnectionResult
 import de.kleinabersmart.earloft.core.data.repository.ServerRepository
+import de.kleinabersmart.earloft.core.data.repository.UnencryptedProbe
 import de.kleinabersmart.earloft.core.download.DownloadRepository
 import de.kleinabersmart.earloft.core.download.DownloadSettings
 import de.kleinabersmart.earloft.core.model.ServerInfo
@@ -33,6 +34,11 @@ data class ServerFormUiState(
     /** When editing: there is a readable stored password (for Jellyfin: a sign-in). */
     val hasStoredPassword: Boolean = false,
     val allowHttp: Boolean = false,
+    /**
+     * The address was typed without a scheme, HTTPS failed and the server answers over HTTP (review G63): the form now shows the
+     * `http://` address with the checkbox; only after ticking it does the app connect unencrypted.
+     */
+    val onlyHttp: Boolean = false,
     /** Automatically download everything from this server. */
     val autoDownload: Boolean = false,
     val isBusy: Boolean = false,
@@ -56,6 +62,7 @@ class ServerFormViewModel @AssistedInject constructor(
     private val serverRepository: ServerRepository,
     private val downloadSettings: DownloadSettings,
     private val downloads: DownloadRepository,
+    private val unencryptedProbe: UnencryptedProbe,
     @Assisted private val sourceId: String?,
 ) : ViewModel() {
 
@@ -96,7 +103,7 @@ class ServerFormViewModel @AssistedInject constructor(
 
     fun onTypeChange(value: SourceType) = _state.update { if (it.isEditing) it else it.copy(type = value, result = null) }
     fun onNameChange(value: String) = _state.update { it.copy(name = value) }
-    fun onUrlChange(value: String) = _state.update { it.copy(url = value, result = null) }
+    fun onUrlChange(value: String) = _state.update { it.copy(url = value, result = null, onlyHttp = false) }
     fun onUsernameChange(value: String) = _state.update { it.copy(username = value, result = null) }
     fun onPasswordChange(value: String) = _state.update { it.copy(password = value, result = null) }
     fun onAllowHttpChange(value: Boolean) = _state.update { it.copy(allowHttp = value) }
@@ -143,6 +150,13 @@ class ServerFormViewModel @AssistedInject constructor(
         _state.update { it.copy(isBusy = true, result = null) }
         viewModelScope.launch {
             val result = action(current)
+            // Typed without "http(s)://": never switch to HTTP silently, but offer it if the server answers there.
+            if (result is ConnectionResult.Unreachable && "://" !in current.url && unencryptedProbe.answers(current.url)) {
+                _state.update {
+                    it.copy(isBusy = false, result = null, url = "http://${current.url.trim()}", allowHttp = false, onlyHttp = true)
+                }
+                return@launch
+            }
             _state.update { it.copy(isBusy = false, result = result) }
         }
     }

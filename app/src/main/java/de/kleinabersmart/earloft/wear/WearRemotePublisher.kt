@@ -1,5 +1,12 @@
 package de.kleinabersmart.earloft.wear
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.channels.awaitClose
+import android.provider.Settings
+import android.os.Looper
+import android.os.Handler
+import android.database.ContentObserver
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.AudioManager
@@ -128,7 +135,7 @@ class WearRemotePublisher @Inject constructor(
                         .filter { publishedState?.sleepTimerDiffers(System.currentTimeMillis(), it.remainingMs, it.toEnd) == true }
                         .map { }
                     // Combine state changes and jumps (seeking): a track change triggers both.
-                    merge(playback.state.map { }, playback.positionJumps, sleepChanges).debounce(STATE_DEBOUNCE_MS)
+                    merge(playback.state.map { }, playback.positionJumps, sleepChanges, volumeChanges()).debounce(STATE_DEBOUNCE_MS)
                 }
             }.collect { publishState() }
         }
@@ -219,8 +226,8 @@ class WearRemotePublisher @Inject constructor(
             shuffle = state.shuffle,
             repeatMode = state.repeatMode,
             seedColor = albumId?.let { albumColors.seedColorNow(it) },
-            volume = musicVolume(),
-            volumeMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
+            volume = volumeOf(state),
+            volumeMax = volumeMaxOf(state),
         )
     }
 
@@ -243,8 +250,8 @@ class WearRemotePublisher @Inject constructor(
             seekBackSeconds = spoken.seek.backSeconds,
             seekForwardSeconds = spoken.seek.forwardSeconds,
             seedColor = bookCovers.seedColor(spoken.bookId),
-            volume = musicVolume(),
-            volumeMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
+            volume = volumeOf(state),
+            volumeMax = volumeMaxOf(state),
         )
     }
 
@@ -280,10 +287,29 @@ class WearRemotePublisher @Inject constructor(
         }
     }
 
-    private fun musicVolume(): Float {
+    /** While casting the cast device's volume (the crown sets it, review G50), otherwise the phone's music volume. */
+    private fun volumeOf(state: PlayerState): Float {
+        if (state.isRemote && state.maxDeviceVolume > 0) return state.deviceVolume / state.maxDeviceVolume.toFloat()
         val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         return if (max > 0) audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) / max.toFloat() else 0f
     }
+
+    private fun volumeMaxOf(state: PlayerState): Int =
+        if (state.isRemote && state.maxDeviceVolume > 0) state.maxDeviceVolume else audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+
+    /**
+     * Changes of the phone's volume (keys, other apps): they don't change the player state, so the watch showed the old value
+     * until the next track (review G50). The system settings hold the stream volumes; only a changed value is reported.
+     */
+    private fun volumeChanges(): Flow<Unit> = callbackFlow {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                trySend(Unit)
+            }
+        }
+        context.contentResolver.registerContentObserver(Settings.System.CONTENT_URI, true, observer)
+        awaitClose { context.contentResolver.unregisterContentObserver(observer) }
+    }.filter { publishedState?.let { it.volume != volumeOf(playback.state.value) } == true }
 
     /** Book covers come at 800 px; as with album covers, the watch only needs [maxPx] (and the 100 KB limit applies). */
     private fun Bitmap.scaledTo(maxPx: Int): Bitmap {

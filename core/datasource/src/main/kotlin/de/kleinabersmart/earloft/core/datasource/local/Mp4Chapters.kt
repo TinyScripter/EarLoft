@@ -44,7 +44,7 @@ internal class ChannelSource(private val channel: FileChannel) : RandomAccessSou
 /**
  * Reads the chapters of an m4b/m4a from the MP4 atoms (concept 12.1, spike "m4b chapters"). Two methods are
  * common: the list `moov/udta/chpl` (Nero, ffmpeg, mp4v2) and a text track that `tref/chap` points to
- * (QuickTime/Apple, Audible). If both exist, `chpl` wins. Broken files return an empty list.
+ * (QuickTime/Apple, also in audiobook stores). If both exist, `chpl` wins. Broken files return an empty list.
  */
 internal object Mp4Chapters {
 

@@ -44,7 +44,10 @@ class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
     override fun play(songs: List<Song>, startIndex: Int, shuffle: Boolean) =
         record(Command.Play(songs.map { it.id }, startIndex, shuffle))
 
-    override fun playFromSearch(query: String) = record(Command.PlayFromSearch(query))
+    override suspend fun playFromSearch(query: String): Boolean {
+        record(Command.PlayFromSearch(query))
+        return true
+    }
 
     override suspend fun playBook(bookId: Long, startPositionMs: Long?): PreparedBook? {
         record(Command.PlayBook(bookId, startPositionMs))

@@ -45,6 +45,13 @@ internal const val ACTION_CHAPTER_PREVIOUS = "de.kleinabersmart.earloft.CHAPTER_
 internal const val ACTION_CHAPTER_NEXT = "de.kleinabersmart.earloft.CHAPTER_NEXT"
 
 /**
+ * Does the voice request [EXTRA_VOICE_QUERY] find anything? The app asks before it sets and plays the request: a request
+ * without results keeps the queue (review G10), and a "play" right after it would only continue that queue.
+ */
+internal const val ACTION_VOICE_CHECK = "de.kleinabersmart.earloft.VOICE_CHECK"
+internal const val EXTRA_VOICE_QUERY = "query"
+
+/**
  * Browse tree and resolution of media items for all controllers (app, system, watch, Android Auto).
  *
  * The tree's content comes from [BrowseTree] (tabs depending on the enabled areas, at most four). Songs in lists
@@ -203,6 +210,7 @@ internal class LibrarySessionCallback(
             .add(SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY))
             .add(SessionCommand(ACTION_CHAPTER_PREVIOUS, Bundle.EMPTY))
             .add(SessionCommand(ACTION_CHAPTER_NEXT, Bundle.EMPTY))
+            .add(SessionCommand(ACTION_VOICE_CHECK, Bundle.EMPTY))
             .build()
         return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller).setAvailableSessionCommands(commands).build()
     }
@@ -266,6 +274,10 @@ internal class LibrarySessionCallback(
             ACTION_TOGGLE_FAVORITE -> session.player.currentMediaItem?.songId?.let { favoritesRepository.toggleFavorite(it) }
             ACTION_CHAPTER_PREVIOUS -> onChapterButton(false)
             ACTION_CHAPTER_NEXT -> onChapterButton(true)
+            ACTION_VOICE_CHECK -> {
+                val target = voiceTarget(session.player, args.getString(EXTRA_VOICE_QUERY).orEmpty())
+                if (target is VoiceStart.Songs && target.songs.isEmpty()) return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+            }
             else -> return@future SessionResult(SessionError.ERROR_NOT_SUPPORTED)
         }
         SessionResult(SessionResult.RESULT_SUCCESS)
