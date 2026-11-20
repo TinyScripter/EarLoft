@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.cast
 
+import android.annotation.SuppressLint
 import android.util.Log
 import com.google.android.gms.cast.CastDevice
 import kotlinx.coroutines.Dispatchers
@@ -91,7 +92,11 @@ internal object CastReceiverStatus {
 /**
  * Accepts only the certificate of the receiver [deviceId]: self-signed, valid, CN equal to the device ID (compared
  * without hyphens, which is how [CastDevice.getDeviceId] reports it).
+ *
+ * Receivers present a self-signed certificate that no system CA can confirm, so a custom manager is required; it is
+ * stricter than "trust all" and rejects everything but this one device.
  */
+@SuppressLint("CustomX509TrustManager")
 private class DeviceCertificate(private val deviceId: String) : X509TrustManager {
 
     override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {

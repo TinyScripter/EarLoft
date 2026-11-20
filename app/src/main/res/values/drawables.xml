@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Media3 uses this icon for the playback notification; the app's emblem instead of the note. -->
-    <drawable name="media3_notification_small_icon">@drawable/ic_stat_earloft</drawable>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Media3 uses this icon for the playback notification; the app's emblem instead of the note.
+         Looked up by name inside Media3, so lint sees no reference. -->
+    <drawable name="media3_notification_small_icon" tools:ignore="UnusedResources">@drawable/ic_stat_earloft</drawable>
 </resources>

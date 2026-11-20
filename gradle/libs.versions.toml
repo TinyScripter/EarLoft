@@ -34,12 +34,12 @@ androidxHilt = "1.4.0"
 coroutines = "1.11.0"
 serialization = "1.12.0"
 
-# Netzwerk & Bilder
+# Network & images
 okhttp = "5.5.1"
 coil = "3.6.3"
 materialKolor = "5.0.1"
 
-# Lizenzen
+# Licenses
 aboutLibraries = "15.3.0"
 
 # Google Play Services
@@ -70,7 +70,7 @@ androidx-work-testing = { group = "androidx.work", name = "work-testing", versio
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
 
-# Compose (Phone)
+# Compose (phone)
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
@@ -120,14 +120,14 @@ kotlinx-coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-co
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 
-# Netzwerk & Bilder
+# Network & images
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver3", version.ref = "okhttp" }
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 materialkolor = { group = "com.materialkolor", name = "material-kolor", version.ref = "materialKolor" }
 
-# Lizenzen
+# Licenses
 aboutlibraries-compose-m3 = { group = "com.mikepenz", name = "aboutlibraries-compose-m3", version.ref = "aboutLibraries" }
 
 # Google Play Services
@@ -162,7 +162,7 @@ room = { id = "androidx.room", version.ref = "room" }
 aboutlibraries-android = { id = "com.mikepenz.aboutlibraries.plugin.android", version.ref = "aboutLibraries" }
 aboutlibraries-base = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "aboutLibraries" }
 
-# Convention Plugins aus build-logic
+# Convention plugins from build-logic
 earloft-android-application = { id = "earloft.android.application" }
 earloft-android-library = { id = "earloft.android.library" }
 earloft-android-compose = { id = "earloft.android.compose" }

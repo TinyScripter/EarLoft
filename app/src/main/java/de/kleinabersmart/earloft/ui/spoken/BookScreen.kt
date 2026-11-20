@@ -2,8 +2,9 @@ package de.kleinabersmart.earloft.ui.spoken
 
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.clickable
@@ -250,8 +251,8 @@ private fun BookHeader(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         // Low (small phone, landscape): smaller cover, so "Resume" stays visible without scrolling.
-        val screenHeight = LocalConfiguration.current.screenHeightDp
-        val coverMax = if (screenHeight < 700) (screenHeight * 0.2f).coerceIn(96f, 280f).dp else 280.dp
+        val windowHeight = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() }
+        val coverMax = if (windowHeight < 700.dp) (windowHeight * 0.2f).coerceIn(96.dp, 280.dp) else 280.dp
         BookArt(book.id, Modifier.widthIn(max = coverMax).fillMaxWidth())
         Text(
             book.title,

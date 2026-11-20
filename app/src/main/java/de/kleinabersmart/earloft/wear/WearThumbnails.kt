@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.wear
 
 import android.graphics.Bitmap
+import androidx.core.graphics.scale
 import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
@@ -36,7 +37,7 @@ class WearThumbnails @Inject constructor(
         val longest = maxOf(width, height)
         if (longest <= maxPx) return this
         val factor = maxPx.toFloat() / longest
-        return Bitmap.createScaledBitmap(this, (width * factor).toInt().coerceAtLeast(1), (height * factor).toInt().coerceAtLeast(1), true)
+        return scale((width * factor).toInt().coerceAtLeast(1), (height * factor).toInt().coerceAtLeast(1))
     }
 
     private fun Bitmap.toJpeg(): ByteArray =

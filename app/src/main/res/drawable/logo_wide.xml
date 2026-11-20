@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Logo for dark surfaces: emblem and "Ear" light, "Loft" orange, transparent background. -->
+<!-- Long paths are fine here: traced artwork, rendered once per size and cached. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="VectorPath"
     android:width="151dp"
     android:height="48dp"
     android:viewportWidth="1514"

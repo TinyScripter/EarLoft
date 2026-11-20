@@ -42,7 +42,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -202,7 +203,7 @@ internal fun ServerRow(
 ) {
     val server = item.server
     // On narrow phones the buttons sit below the text, otherwise there's hardly any width left for name and address.
-    val narrow = LocalConfiguration.current.screenWidthDp < 400
+    val narrow = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp() } < 400.dp
     val actions: @Composable () -> Unit = {
         Row {
             if (server.enabled) {

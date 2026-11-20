@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Status bar icon (notifications): the emblem from ic_launcher_monochrome, at 24 dp with a 1 dp margin. -->
+<!-- Long paths are fine here: traced artwork, rendered once per size and cached. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="VectorPath"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="980"

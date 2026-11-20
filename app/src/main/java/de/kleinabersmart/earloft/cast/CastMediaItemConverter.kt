@@ -1,8 +1,8 @@
 package de.kleinabersmart.earloft.cast
 
-import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.core.net.toUri
 import androidx.media3.cast.MediaItemConverter
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
@@ -42,7 +42,7 @@ internal class CastMediaItemConverter(private val cache: CastMediaCache) : Media
                 meta.trackNumber?.let { putInt(MediaMetadata.KEY_TRACK_NUMBER, it) }
                 meta.discNumber?.let { putInt(MediaMetadata.KEY_DISC_NUMBER, it) }
             }
-            media?.coverUrl?.let { addImage(WebImage(Uri.parse(it))) }
+            media?.coverUrl?.let { addImage(WebImage(it.toUri())) }
         }
         val info = MediaInfo.Builder(mediaItem.mediaId)
             .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)

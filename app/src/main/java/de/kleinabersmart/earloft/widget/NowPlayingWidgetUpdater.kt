@@ -12,6 +12,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.scale
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
@@ -492,7 +493,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
         val longest = maxOf(width, height)
         if (longest <= COVER_SIZE_PX) return this
         val factor = COVER_SIZE_PX.toFloat() / longest
-        return Bitmap.createScaledBitmap(this, (width * factor).toInt().coerceAtLeast(1), (height * factor).toInt().coerceAtLeast(1), true)
+        return scale((width * factor).toInt().coerceAtLeast(1), (height * factor).toInt().coerceAtLeast(1))
     }
 
     private companion object {

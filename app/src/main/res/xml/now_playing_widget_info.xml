@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WidgetConfigActivity opens when the widget is added (sections, colors); "Customize widget" reopens it. -->
+<!-- WidgetConfigActivity opens when the widget is added (sections, colors); "Customize widget" reopens it.
+     Older launchers ignore the attributes from API 28 and 31 on and fall back to the remaining ones. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:targetApi="31"
     android:configure="de.kleinabersmart.earloft.widget.WidgetConfigActivity"
     android:widgetFeatures="reconfigurable"
     android:description="@string/widget_description"

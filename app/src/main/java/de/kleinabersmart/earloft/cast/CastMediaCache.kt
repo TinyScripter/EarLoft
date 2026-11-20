@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.cast
 
 import android.net.Uri
 import android.util.Log
+import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import de.kleinabersmart.earloft.core.data.repository.CastMedia
 import de.kleinabersmart.earloft.core.data.repository.CastFormats
@@ -92,12 +93,12 @@ class CastMediaCache @Inject constructor(
      * send headers, so it is appended to the address as `token` (in memory only, never stored or logged).
      */
     private fun spoken(source: SpokenCastSource): CastMedia? {
-        val url = Uri.parse(source.url)
+        val url = source.url.toUri()
         if (url.scheme == "content" || url.scheme == "file") return fromPhone(url, source)
         if (url.scheme != "http" && url.scheme != "https") return null
         val apiKey = source.absServerId?.let { id -> serverKeys()[id] ?: return null }
         fun withKey(address: String): String =
-            if (apiKey == null) address else Uri.parse(address).buildUpon().appendQueryParameter("token", apiKey).build().toString()
+            if (apiKey == null) address else address.toUri().buildUpon().appendQueryParameter("token", apiKey).build().toString()
         return CastMedia(
             streamUrl = withKey(source.url),
             mimeType = CastFormats.playableMimeType(source.mimeType) ?: guessMimeType(url.lastPathSegment),

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- Merging mipmap-anydpi-v26 into mipmap-anydpi (minSdk 26) confused the Gradle build cache: an incremental build
+         restored a resource merge without the adaptive icon, so the APK fell back to the placeholder icon.
+         The versioned folder works the same on every supported release. -->
+    <issue id="ObsoleteSdkInt">
+        <ignore path="src/main/res/mipmap-anydpi-v26" />
+    </issue>
+</lint>

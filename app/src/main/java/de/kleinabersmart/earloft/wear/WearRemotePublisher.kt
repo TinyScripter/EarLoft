@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.wear
 
+import androidx.core.graphics.scale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.channels.awaitClose
@@ -316,7 +317,7 @@ class WearRemotePublisher @Inject constructor(
         val longest = maxOf(width, height)
         if (longest <= maxPx) return this
         val factor = maxPx.toFloat() / longest
-        return Bitmap.createScaledBitmap(this, (width * factor).toInt().coerceAtLeast(1), (height * factor).toInt().coerceAtLeast(1), true)
+        return scale((width * factor).toInt().coerceAtLeast(1), (height * factor).toInt().coerceAtLeast(1))
     }
 
     private fun Bitmap.toJpeg(): ByteArray =

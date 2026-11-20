@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.ui.permission
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -19,7 +20,9 @@ object NotificationPermission {
 /**
  * Requests notifications (setup wizard, concept 15). [onResult] receives `true` if they are allowed.
  * If the system no longer shows a dialog, the app's page in the system settings opens instead.
+ * Below Android 13 [NotificationPermission.isGranted] is always `true`, so the permission is never requested there.
  */
+@SuppressLint("InlinedApi")
 @Composable
 fun rememberNotificationPermissionRequester(onResult: (granted: Boolean) -> Unit): () -> Unit {
     val context = LocalContext.current

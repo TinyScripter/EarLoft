@@ -1,6 +1,6 @@
 package de.kleinabersmart.earloft.ui.image
 
-import android.graphics.Bitmap
+import androidx.core.graphics.scale
 import coil3.ImageLoader
 import coil3.Uri
 import coil3.asImage
@@ -28,7 +28,7 @@ class BookCoverFetcher(
         ).coerceAtMost(MAX_SIZE_PX)
         val bitmap = bookCovers.cover(bookId) ?: throw IOException("No cover for book $bookId")
         val scaled = if (bitmap.width > sizePx) {
-            Bitmap.createScaledBitmap(bitmap, sizePx, (bitmap.height * sizePx.toFloat() / bitmap.width).toInt().coerceAtLeast(1), true)
+            bitmap.scale(sizePx, (bitmap.height * sizePx.toFloat() / bitmap.width).toInt().coerceAtLeast(1))
         } else {
             bitmap
         }

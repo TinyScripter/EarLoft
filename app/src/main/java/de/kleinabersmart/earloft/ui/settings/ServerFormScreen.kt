@@ -33,7 +33,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -107,7 +108,7 @@ private fun ServerFormContent(
             return@Column
         }
         // On low windows, result and buttons stay pinned at the bottom, otherwise they'd be out of sight below the fields.
-        val pinned = LocalConfiguration.current.screenHeightDp < 700
+        val pinned = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() } < 700.dp
         val actions: @Composable ColumnScope.() -> Unit = {
             state.result?.let { ResultText(it, state.type) }
 
