@@ -144,6 +144,9 @@ data class PlaylistEntryRow(
     val missingOnServer: Boolean,
 )
 
+/** An episode's ID and length (`PodcastDao.episodeDurations`). */
+data class EpisodeDuration(val bookId: Long, val durationMs: Long)
+
 /** Details used to search for an album cover on the internet. */
 data class AlbumLookupRow(val albumId: Long, val title: String, val artist: String, val mbid: String?)
 

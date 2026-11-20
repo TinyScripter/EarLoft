@@ -279,6 +279,33 @@ class PodcastSourceSwitchTest {
     private fun episode(guid: String, audio: String, title: String, publishedAt: Long) =
         ParsedEpisode(guid, title, "", audio, null, 0, publishedAt, null, null)
 
+    @Test
+    fun `episodes without guid keep progress and keys when the audio address gets a new token`() = runTest {
+        fun noGuid(token: String) = """<rss version="2.0"><channel><title>Talk</title>
+            <item><title>Episode A</title><pubDate>Thu, 30 Oct 2025 06:00:00 GMT</pubDate>
+            <enclosure url="https://cdn.example/a.mp3?token=$token" type="audio/mpeg"/></item>
+            <item><title>Episode B</title><pubDate>Wed, 29 Oct 2025 06:00:00 GMT</pubDate>
+            <enclosure url="https://cdn.example/b.mp3?token=$token" type="audio/mpeg"/></item>
+            </channel></rss>"""
+        bodies[OLD_URL] = noGuid("1")
+        val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
+        val b = idOf(feedId, "Episode B")
+        db.bookDao().upsertProgress(BookProgressEntity(b, 60_000, 600_000, false, 1f, 100))
+
+        bodies[OLD_URL] = noGuid("2")
+        val result = repository.refresh(feedId)!!
+
+        assertTrue("nothing counts as new", result.newEpisodeIds.isEmpty())
+        val books = db.bookDao().booksOf(feedId)
+        assertEquals(2, books.size)
+        assertEquals("https://cdn.example/b.mp3?token=2", books.single { it.bookId == b }.remoteId)
+        assertEquals(60_000L, db.bookDao().progress(b)!!.positionMs)
+        assertEquals(
+            BookKeys.encode(feedId, "https://cdn.example/b.mp3?token=2"),
+            renamed.single()[BookKeys.encode(feedId, "https://cdn.example/b.mp3?token=1")],
+        )
+    }
+
     private companion object {
         const val OLD_URL = "https://bridge.example/feed.xml"
         const val NEW_URL = "https://new.example/feed.xml"

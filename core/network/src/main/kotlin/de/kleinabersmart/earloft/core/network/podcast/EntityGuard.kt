@@ -54,6 +54,30 @@ internal fun declaresEntities(text: String, whole: Boolean): Boolean {
     }
 }
 
+/**
+ * Whether the document names its encoding itself: a byte order mark, a non-ASCII-compatible start or `encoding=` in the XML
+ * declaration. Only then does it take precedence over the charset of the HTTP header (review G53). The stream must support
+ * `mark` (as the one from [rejectingEntityDeclarations]).
+ */
+internal fun InputStream.declaresEncoding(): Boolean {
+    mark(DECLARATION_BYTES)
+    val head = ByteArray(DECLARATION_BYTES)
+    var read = 0
+    while (read < head.size) {
+        val n = read(head, read, head.size - read)
+        if (n < 0) break
+        read += n
+    }
+    reset()
+    val charset = charsetOf(head, read)
+    if (charset != Charsets.ISO_8859_1) return true
+    if (read >= 3 && head[0] == 0xEF.toByte() && head[1] == 0xBB.toByte() && head[2] == 0xBF.toByte()) return true
+    val text = String(head, 0, read, charset).trimStart()
+    return text.startsWith("<?xml") && text.substringBefore("?>").contains("encoding")
+}
+
+private const val DECLARATION_BYTES = 256
+
 /** The encoding of the start [head]: UTF-16/UTF-32 by byte order mark or null bytes, otherwise ISO-8859-1 (for the prolog's ASCII characters same as UTF-8). */
 private fun charsetOf(head: ByteArray, length: Int): Charset {
     fun at(i: Int) = if (i < length) head[i].toInt() and 0xFF else -1

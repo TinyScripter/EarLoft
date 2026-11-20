@@ -8,11 +8,12 @@ import androidx.room.Transaction
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
-import kotlinx.coroutines.flow.Flow
+import de.kleinabersmart.earloft.core.database.model.EpisodeDuration
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
 import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.TrackDownload
+import kotlinx.coroutines.flow.Flow
 
 /** Downloaded episodes of a podcast: count and bytes used. */
 data class FeedDownloadRow(val feedId: String, val episodes: Int, val bytes: Long)
@@ -146,6 +147,10 @@ abstract class PodcastDao {
     )
     abstract suspend fun recordRefreshFailure(feedId: String, error: FeedError, now: Long)
 
+    /** The feed answered 304: only the fetch state, so that settings changed meanwhile stay (review G2). */
+    @Query("UPDATE podcast_feeds SET lastRefreshAt = :now, failedRefreshes = 0, lastError = NULL, failingSince = 0 WHERE feedId = :feedId")
+    abstract suspend fun recordNotModified(feedId: String, now: Long)
+
     /** Podcast of an episode. */
     @Query("SELECT serverId FROM books WHERE bookId = :bookId AND kind = 'EPISODE'")
     abstract suspend fun feedIdOf(bookId: Long): String?
@@ -156,6 +161,10 @@ abstract class PodcastDao {
     /** IDs of a podcast's episodes, oldest first (with the same date in order of appearance). */
     @Query("SELECT bookId FROM books WHERE kind = 'EPISODE' AND serverId = :feedId ORDER BY addedAt, bookId")
     abstract suspend fun episodeIdsOldestFirst(feedId: String): List<Long>
+
+    /** ID and length of a podcast's episodes, without the show notes ("Mark all as played", review G45). */
+    @Query("SELECT bookId, durationMs FROM books WHERE kind = 'EPISODE' AND serverId = :feedId")
+    abstract suspend fun episodeDurations(feedId: String): List<EpisodeDuration>
 
     @Query(
         "SELECT p.bookId FROM book_progress p JOIN books b ON b.bookId = p.bookId " +
@@ -181,7 +190,7 @@ abstract class PodcastDao {
      * and with over a thousand episodes the texts amount to several MB that would be reloaded several times on every change (OOM).
      */
     @Query(
-        "SELECT $EPISODE_COLUMNS FROM books WHERE kind = 'EPISODE' AND $NOT_TRIAL ORDER BY addedAt DESC",
+        "SELECT $EPISODE_COLUMNS FROM books WHERE kind = 'EPISODE' AND $NOT_TRIAL ORDER BY addedAt DESC, bookId DESC",
     )
     abstract fun observeEpisodes(): Flow<List<BookEntity>>
 
@@ -232,11 +241,11 @@ abstract class PodcastDao {
     /** Like [observeEpisodes], only the episodes of trial subscriptions (for the queue). */
     @Query(
         "SELECT $EPISODE_COLUMNS FROM books WHERE kind = 'EPISODE' AND serverId IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0) " +
-            "ORDER BY addedAt DESC",
+            "ORDER BY addedAt DESC, bookId DESC",
     )
     abstract fun observeTrialEpisodes(): Flow<List<BookEntity>>
 
-    @Query("SELECT * FROM books WHERE kind = 'EPISODE' AND serverId = :feedId ORDER BY addedAt DESC")
+    @Query("SELECT * FROM books WHERE kind = 'EPISODE' AND serverId = :feedId ORDER BY addedAt DESC, bookId DESC")
     abstract fun observeEpisodesOf(feedId: String): Flow<List<BookEntity>>
 
     @Query("SELECT remoteId FROM books WHERE serverId = :feedId")

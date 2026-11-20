@@ -64,6 +64,9 @@ class PodcastRepositoryTest {
     /** All fetched addresses in order. */
     private val requested = mutableListOf<String>()
 
+    /** Runs while the feed is being fetched (changes made during a sync). */
+    private var duringFetch: () -> Unit = {}
+
     @Before
     fun setUp() {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), EarLoftDatabase::class.java)
@@ -72,6 +75,7 @@ class PodcastRepositoryTest {
         val client = OkHttpClient.Builder()
             .addInterceptor { chain ->
                 requested += chain.request().url.toString()
+                duringFetch()
                 if (chain.request().url.isHttps && !httpsAvailable) throw IOException("no TLS")
                 val ard = chain.request().url.host == "api.ardaudiothek.de"
                 val body = (if (ard) ardServed else served) ?: throw IOException("offline")
@@ -154,6 +158,38 @@ class PodcastRepositoryTest {
         served = podcasting20("Carla")
         repository.refresh(feedId)
         assertEquals(listOf("Carla"), db.bookDao().personsOf(feedId).map { it.name })
+    }
+
+    @Test
+    fun `settings changed during a sync are not overwritten by it`() = runTest {
+        val feedId = subscribe()
+        duringFetch = {
+            kotlinx.coroutines.runBlocking {
+                db.podcastDao().setAutoDownload(feedId, true)
+                db.podcastDao().setArchived(feedId, true)
+            }
+        }
+
+        repository.refresh(feedId)
+        val changed = db.podcastDao().feed(feedId)!!
+        assertTrue(changed.autoDownload && changed.archived)
+
+        // A 304 doesn't write the old row back either.
+        duringFetch = { kotlinx.coroutines.runBlocking { db.podcastDao().setAutoDownload(feedId, false) } }
+        servedCode = 304
+        repository.refresh(feedId)
+        assertEquals(false, db.podcastDao().feed(feedId)!!.autoDownload)
+    }
+
+    @Test
+    fun `a subscription ended during a sync does not come back`() = runTest {
+        val feedId = subscribe()
+        duringFetch = { kotlinx.coroutines.runBlocking { repository.unsubscribe(feedId) } }
+
+        repository.refresh(feedId)
+
+        assertEquals(null, db.podcastDao().feed(feedId))
+        assertTrue(db.bookDao().booksOf(feedId).isEmpty())
     }
 
     @Test

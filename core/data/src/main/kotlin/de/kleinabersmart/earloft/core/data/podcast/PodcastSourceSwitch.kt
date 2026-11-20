@@ -147,6 +147,23 @@ class PodcastSourceSwitch @Inject constructor(
         return true
     }
 
+    /**
+     * A sync gave episodes without guid a new ID ([renames]: old → new, review G27): statistics, the keys in the queue and
+     * "recently played" and the backed-up progress follow, as with a source switch.
+     */
+    internal suspend fun episodesRenamed(feedId: String, feedUrl: String, renames: Map<String, String>) {
+        if (renames.isEmpty()) return
+        database.withTransaction {
+            val groups = listOf(feedUrl)
+            statsDao.replaceGroups(groups, rekeyStats(statsDao.statsOfGroups(groups), feedUrl, feedUrl, renames), statsDao.daysOfGroups(groups))
+        }
+        renamers.forEach { renamer ->
+            renamer.renameBookKeys(renames.entries.associate { (old, new) -> BookKeys.encode(feedId, old) to BookKeys.encode(feedId, new) })
+        }
+        userDataBackup.forgetProgress(feedId, renames.keys.toList())
+        Log.i(TAG, "${renames.size} episodes without guid got a new address")
+    }
+
     /** Moves that failed (target not a feed, already subscribed …); they are not retried until restart. */
     private val refusedMoves = Collections.synchronizedSet(HashSet<Pair<String, String>>())
 

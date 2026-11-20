@@ -428,6 +428,45 @@ class PodcastFeedParserTest {
         assertTrue(feed.episodes.isEmpty())
     }
 
+    @Test
+    fun `dates with zone names, wrong weekdays and two-digit years are understood`() {
+        val expected = Instant.parse("2025-10-30T11:00:00Z").toEpochMilli()
+        listOf(
+            "Thu, 30 Oct 2025 06:00:00 EST",
+            "Thu, 30 Oct 2025 11:00:00 UTC",
+            "Thu, 30 Oct 2025 11:00:00 UT",
+            "Thu, 30 Oct 2025 11:00:00 Z",
+            "Mon, 30 Oct 2025 11:00:00 GMT",
+            "Thursday, 30 Oct 2025 11:00:00 +0000",
+            "Thu, 30 Oct 25 12:00:00 +01:00",
+            "30 Oct 2025 11:00 GMT",
+            "Do, 30 Okt 2025 12:00:00 MEZ",
+            "2025-10-30T11:00:00Z",
+        ).forEach { raw -> assertEquals(raw, expected, PodcastFeedParser.parseRfc1123(raw)) }
+        assertEquals(0L, PodcastFeedParser.parseRfc1123("yesterday"))
+    }
+
+    @Test
+    fun `html entities outside cdata do not make the feed invalid`() {
+        val feed = parse(
+            """<rss><channel><title>Caf&eacute;&nbsp;Talk</title><item><title>Folge&nbsp;1 &ndash; Start</title>
+            <description>A &amp; B</description><enclosure url="https://e.com/1.mp3"/></item></channel></rss>""",
+        )
+        assertEquals("Café Talk".replace(' ', ' '), feed.title.replace(' ', ' '))
+        assertEquals("Folge 1 – Start", feed.episodes.single().title.replace(' ', ' '))
+        assertEquals("A & B", feed.episodes.single().description)
+    }
+
+    @Test
+    fun `the http charset applies only to documents without their own encoding`() {
+        val latin1 = "<rss><channel><title>Bücher</title></channel></rss>".toByteArray(Charsets.ISO_8859_1)
+        assertEquals("Bücher", PodcastFeedParser.parse(latin1.inputStream(), charset = "ISO-8859-1").title)
+
+        val declared = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><rss><channel><title>Bücher</title></channel></rss>"
+            .toByteArray(Charsets.UTF_8)
+        assertEquals("Bücher", PodcastFeedParser.parse(declared.inputStream(), charset = "ISO-8859-1").title)
+    }
+
     private fun assertThrowsFeed(xml: String) {
         try {
             parse(xml)

@@ -74,7 +74,10 @@ class PodcastFeedApi @Inject constructor(
             if (response.code == 304) return@use FeedFetch.NotModified(movedTo)
             if (!response.isSuccessful) throw HttpStatusException(response.code, movedTo)
             // A feed that is too large is read truncated and rejected by the parser as incomplete.
-            val feed = PodcastFeedParser.parse(response.peekBody(MAX_FEED_BYTES).byteStream())
+            val feed = PodcastFeedParser.parse(
+                response.peekBody(MAX_FEED_BYTES).byteStream(),
+                charset = response.body.contentType()?.charset()?.name(),
+            )
             FeedFetch.Fetched(feed, response.header("ETag"), response.header("Last-Modified"), movedTo)
         }
     }

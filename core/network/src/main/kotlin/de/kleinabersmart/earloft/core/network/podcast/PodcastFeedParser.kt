@@ -75,9 +75,10 @@ object PodcastFeedParser {
     private const val NS_PSC = "http://podlove.org/simple-chapters"
     private const val NS_NONE = ""
 
-    fun parse(input: InputStream): ParsedFeed {
+    /** @param charset from the HTTP `Content-Type`; applies only if the document itself names no encoding. */
+    fun parse(input: InputStream, charset: String? = null): ParsedFeed {
         val root = try {
-            readTree(input)
+            readTree(input, charset)
         } catch (e: XmlPullParserException) {
             throw PodcastFeedException("Not valid XML", e)
         }
@@ -240,12 +241,61 @@ object PodcastFeedParser {
         return if (seconds >= 0) (seconds * 1000).roundToLong() else null
     }
 
-    private fun parseRfc1123(raw: String): Long =
+    internal fun parseRfc1123(raw: String): Long =
         try {
             ZonedDateTime.parse(raw.trim(), DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli()
         } catch (_: DateTimeParseException) {
-            0
+            parseLenientDate(raw.trim()) ?: parseIso(raw)
         }
+
+    /**
+     * What feeds write instead of strict RFC 1123 (review G13): zone names (`EST`, `UTC`, `Z`, `CEST`), a weekday that
+     * doesn't match the date or is written out, two-digit years, missing seconds, German month abbreviations. Otherwise
+     * the date would be 0 and, on subscribing, every episode of the feed would count as published "today".
+     */
+    private fun parseLenientDate(raw: String): Long? {
+        val match = LENIENT_DATE.matchEntire(raw) ?: return null
+        val (dayText, monthText, yearText, hourText, minuteText, secondText, zoneText) = match.destructured
+        val month = MONTHS[monthText.take(3).lowercase()] ?: return null
+        val year = yearText.toInt().let { if (yearText.length == 2) it + if (it < 50) 2000 else 1900 else it }
+        val offset = zoneOffset(zoneText.trim()) ?: return null
+        return try {
+            java.time.LocalDateTime.of(year, month, dayText.toInt(), hourText.toInt(), minuteText.toInt(), secondText.ifEmpty { "0" }.toInt())
+                .toInstant(offset).toEpochMilli()
+        } catch (_: java.time.DateTimeException) {
+            null
+        }
+    }
+
+    private fun zoneOffset(zone: String): java.time.ZoneOffset? {
+        if (zone.isEmpty()) return java.time.ZoneOffset.UTC
+        ZONE_HOURS[zone.uppercase()]?.let { return java.time.ZoneOffset.ofHours(it) }
+        NUMERIC_ZONE.matchEntire(zone)?.let { m ->
+            val sign = if (m.groupValues[1] == "-") -1 else 1
+            val hours = m.groupValues[2].toInt()
+            val minutes = m.groupValues[3].ifEmpty { "0" }.toInt()
+            return try {
+                java.time.ZoneOffset.ofHoursMinutes(sign * hours, sign * minutes)
+            } catch (_: java.time.DateTimeException) {
+                null
+            }
+        }
+        return null
+    }
+
+    private val LENIENT_DATE = Regex(
+        """(?:[A-Za-zÄÖÜäöü]+\.?,?\s*)?(\d{1,2})\.?\s+([A-Za-zÄÖÜäöü]{3,})\.?\s+(\d{4}|\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?\s*(.*)""",
+    )
+    private val NUMERIC_ZONE = Regex("""(?:GMT|UTC)?([+-])(\d{1,2}):?(\d{2})?""")
+    private val MONTHS = mapOf(
+        "jan" to 1, "feb" to 2, "mar" to 3, "mär" to 3, "mrz" to 3, "apr" to 4, "may" to 5, "mai" to 5, "jun" to 6,
+        "jul" to 7, "aug" to 8, "sep" to 9, "oct" to 10, "okt" to 10, "nov" to 11, "dec" to 12, "dez" to 12,
+    )
+    private val ZONE_HOURS = mapOf(
+        "GMT" to 0, "UT" to 0, "UTC" to 0, "Z" to 0, "WET" to 0, "BST" to 1, "WEST" to 1, "CET" to 1, "MEZ" to 1,
+        "CEST" to 2, "MESZ" to 2, "EET" to 2, "EEST" to 3, "EST" to -5, "EDT" to -4, "CST" to -6, "CDT" to -5,
+        "MST" to -7, "MDT" to -6, "PST" to -8, "PDT" to -7, "AKST" to -9, "AKDT" to -8, "HST" to -10,
+    )
 
     private fun parseIso(raw: String): Long =
         try {
@@ -291,9 +341,17 @@ object PodcastFeedParser {
         fun attr(name: String): String? = attributes[name]
     }
 
-    private fun readTree(input: InputStream): Node? {
+    private fun readTree(input: InputStream, charset: String?): Node? {
         val parser = XmlPullParserFactory.newInstance().apply { isNamespaceAware = true }.newPullParser()
-        parser.setInput(input.rejectingEntityDeclarations() ?: throw PodcastFeedException("Feed with custom XML entities"), null)
+        val guarded = input.rejectingEntityDeclarations() ?: throw PodcastFeedException("Feed with custom XML entities")
+        parser.setInput(guarded, charset?.takeUnless { guarded.declaresEncoding() })
+        // HTML entities outside CDATA (`&nbsp;`, `&eacute;`) are not XML; without this the parser rejects the whole feed
+        // (review G53).
+        try {
+            HTML_ONLY_ENTITIES.forEach { (name, value) -> parser.defineEntityReplacementText(name, value) }
+        } catch (_: Exception) {
+            // A parser without entity replacement: as before.
+        }
         val stack = ArrayDeque<Node>()
         var root: Node? = null
         while (true) {

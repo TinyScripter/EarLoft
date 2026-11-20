@@ -14,6 +14,9 @@ private val NAMED = mapOf(
     "euro" to "€", "copy" to "©", "reg" to "®", "trade" to "™", "deg" to "°", "times" to "×",
 )
 
+/** The named entities that XML doesn't predefine; declared to the feed parser (review G53). */
+internal val HTML_ONLY_ENTITIES: Map<String, String> = NAMED - setOf("amp", "lt", "gt", "quot", "apos")
+
 /**
  * Resolves HTML entities in plain text exactly once (`&amp;amp;` becomes `&amp;`, not `&`). For titles and names from
  * feeds that are still encoded after the XML parser; HTML descriptions are rendered by the UI itself.

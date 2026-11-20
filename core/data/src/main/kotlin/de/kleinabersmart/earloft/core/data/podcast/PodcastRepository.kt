@@ -398,21 +398,29 @@ class PodcastRepository @Inject constructor(
         }
     }
 
-    /** "Mark all as played": all still open episodes of the subscription at once; returns their count. */
-    suspend fun setAllPlayed(feedId: String): Int {
-        val finished = dao.finishedEpisodeIds(feedId).toSet()
+    /**
+     * "Mark all as played": all still open episodes of the subscription at once; returns their count. In one transaction
+     * and without the show notes: a position saved in between isn't overwritten, and 2000 episodes are a few queries
+     * instead of 4000 (review G45).
+     */
+    suspend fun setAllPlayed(feedId: String): Int = database.withTransaction {
         val now = System.currentTimeMillis()
-        val rows = dao.episodeIdsOldestFirst(feedId)
-            .filter { it !in finished }
-            .mapNotNull { id -> bookDao.book(id)?.let { playedProgress(it, bookDao.progress(id), played = true, now) } }
+        val episodes = dao.episodeDurations(feedId)
+        val progress = episodes.map { it.bookId }.chunked(MAX_ARGS).flatMap { bookDao.progressOf(it) }.associateBy { it.bookId }
+        val rows = episodes
+            .filter { progress[it.bookId]?.finished != true }
+            .map { playedProgress(it.bookId, it.durationMs, progress[it.bookId], played = true, now) }
         if (rows.isNotEmpty()) bookDao.upsertAllProgress(rows)
-        return rows.size
+        rows.size
     }
 
-    private fun playedProgress(book: BookEntity, old: BookProgressEntity?, played: Boolean, now: Long): BookProgressEntity {
-        val duration = book.durationMs.takeIf { it > 0 } ?: old?.durationMs ?: 0
+    private fun playedProgress(book: BookEntity, old: BookProgressEntity?, played: Boolean, now: Long) =
+        playedProgress(book.bookId, book.durationMs, old, played, now)
+
+    private fun playedProgress(bookId: Long, durationMs: Long, old: BookProgressEntity?, played: Boolean, now: Long): BookProgressEntity {
+        val duration = durationMs.takeIf { it > 0 } ?: old?.durationMs ?: 0
         return BookProgressEntity(
-            bookId = book.bookId,
+            bookId = bookId,
             positionMs = if (played) duration else 0,
             durationMs = duration,
             finished = played,
@@ -631,7 +639,7 @@ class PodcastRepository @Inject constructor(
         )
         // Before creating: the download automation of a new subscription needs them immediately.
         if (auth != null) credentials.set(feed.feedId, auth)
-        mutex.withLock { apply(feed, fetched) }
+        mutex.withLock { apply(feed, fetched, create = true) }
         return SubscribeResult.Added(feed.feedId)
     }
 
@@ -826,7 +834,7 @@ class PodcastRepository @Inject constructor(
         deniedMoves.update { it - feedId }
         val result = when (fetched) {
             is FeedFetch.NotModified -> {
-                dao.upsertFeed(feed.copy(lastRefreshAt = System.currentTimeMillis()).refreshSucceeded())
+                dao.recordNotModified(feedId, System.currentTimeMillis())
                 RefreshResult(emptyList())
             }
             is FeedFetch.Fetched -> apply(feed, fetched)
@@ -860,13 +868,28 @@ class PodcastRepository @Inject constructor(
      * In one transaction: an ARD show brings hundreds of episodes; written individually, each episode was its own commit and
      * its own UI notification (5 s for 352 episodes on the emulator, now 0.3 s).
      */
-    private suspend fun apply(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched): RefreshResult {
+    private suspend fun apply(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched, create: Boolean = false): RefreshResult {
         // Queued episodes stay even if the feed no longer lists them; the order lives outside the database.
         val queued = queue.queuedRemoteIds(feed.feedId).take(MAX_ARGS)
-        return database.withTransaction { applyInTransaction(feed, fetched, queued) }
+        val renamed = mutableMapOf<String, String>()
+        var url = feed.url
+        val result = database.withTransaction {
+            // Read again: settings, "Subscribe" or "Archive" changed during the fetch must not be overwritten with the state
+            // from before it, and a subscription ended meanwhile must not come back (review G2).
+            val current = dao.feed(feed.feedId) ?: feed.takeIf { create }
+            url = current?.url ?: url
+            if (current == null) RefreshResult(emptyList()) else applyInTransaction(current, fetched, queued, renamed)
+        }
+        if (renamed.isNotEmpty()) sourceSwitch.get().episodesRenamed(feed.feedId, url, renamed)
+        return result
     }
 
-    private suspend fun applyInTransaction(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched, queued: List<String>): RefreshResult {
+    private suspend fun applyInTransaction(
+        feed: PodcastFeedEntity,
+        fetched: FeedFetch.Fetched,
+        queued: List<String>,
+        renamed: MutableMap<String, String>,
+    ): RefreshResult {
         val parsed = fetched.feed
         val generation = feed.syncGeneration + 1
         val known = bookDao.booksOf(feed.feedId).associateBy { it.remoteId }
@@ -877,9 +900,21 @@ class PodcastRepository @Inject constructor(
         val now = System.currentTimeMillis()
         val newIds = mutableListOf<Long>()
         val knownPersons = bookDao.personsOf(feed.feedId).groupBy { it.bookId }
+        // Episodes without <guid> are identified by their audio address. A new tracking prefix or token would make every one
+        // of them new (notification, auto-download) and leave the started ones behind as duplicates (review G27): such an
+        // episode takes over a known one without guid that the feed no longer lists, with the same title and date or file.
+        val listed = parsed.episodes.mapTo(HashSet()) { it.guid }
+        val unlisted = known.values.filterTo(mutableListOf()) { it.remoteId !in listed && it.remoteId.isWebAddress() }
         // The feed lists the newest episode first; the first episode of a duplicate guid wins.
         parsed.episodes.distinctBy { it.guid }.forEach { episode ->
-            val existing = known[episode.guid]
+            val existing = known[episode.guid] ?: unlisted.takeIf { episode.guid == episode.audioUrl }
+                ?.firstOrNull { it.isSameEpisodeAs(episode) }
+                ?.let { previous ->
+                    unlisted.remove(previous)
+                    dao.setRemoteId(previous.bookId, episode.guid)
+                    renamed[previous.remoteId] = episode.guid
+                    previous.copy(remoteId = episode.guid)
+                }
             val id = bookDao.upsertBook(episode.toEntity(feed.feedId, title, image, existing, generation, now))
             if (existing == null) newIds += id
             // Contributors come back with every sync; only what changed is written.
@@ -999,6 +1034,15 @@ class PodcastRepository @Inject constructor(
         }
         if (current == source && bookDao.chapters(bookId) == entities) return
         bookDao.replaceChapters(bookId, entities, source)
+    }
+
+    private fun String.isWebAddress() = startsWith("https://", ignoreCase = true) || startsWith("http://", ignoreCase = true)
+
+    /** For episodes without guid (review G27): same title and the same date or the same file name in the address. */
+    private fun BookEntity.isSameEpisodeAs(episode: ParsedEpisode): Boolean {
+        if (episode.title.isBlank() || normTitle != episode.title.normalizeForMerge()) return false
+        fun fileName(url: String) = url.substringBefore('?').substringBefore('#').trimEnd('/').substringAfterLast('/')
+        return (episode.publishedAt > 0 && addedAt == episode.publishedAt) || fileName(remoteId) == fileName(episode.audioUrl)
     }
 
     private fun ParsedEpisode.toEntity(
