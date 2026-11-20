@@ -65,8 +65,9 @@ interface PlaylistDao {
     @Query("UPDATE playlists SET remotePlaylistId = :remoteId, remoteUpdatedAt = :remoteUpdatedAt WHERE playlistId = :playlistId")
     suspend fun setRemoteState(playlistId: Long, remoteId: String, remoteUpdatedAt: Long): Int
 
-    @Query("UPDATE playlists SET name = :name, remoteUpdatedAt = :remoteUpdatedAt, updatedAt = :remoteUpdatedAt WHERE playlistId = :playlistId")
-    suspend fun applyRemote(playlistId: Long, name: String, remoteUpdatedAt: Long)
+    /** The server state [changedAt]; [remoteUpdatedAt] `null` if it was adopted incomplete (see `PlaylistSyncer.applyRemote`). */
+    @Query("UPDATE playlists SET name = :name, remoteUpdatedAt = :remoteUpdatedAt, updatedAt = :changedAt WHERE playlistId = :playlistId")
+    suspend fun applyRemote(playlistId: Long, name: String, changedAt: Long, remoteUpdatedAt: Long?)
 
     @Query("DELETE FROM playlists WHERE playlistId = :playlistId")
     suspend fun deletePlaylist(playlistId: Long)

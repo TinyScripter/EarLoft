@@ -89,7 +89,7 @@ class LibrarySyncer @Inject constructor(
                     mergeResolver.mergeStarred(source.sourceId, starred.songs)
                     applyCollectionStars(source.sourceId, starred)
                 }
-                if (source is RemoteLibraryActions) playlistSyncer.sync(source.sourceId, source)
+                if (source is RemoteLibraryActions) playlistSyncer.sync(source.sourceId, source, afterFullSync = false)
                 syncQueue.startIfPending()
                 if (added.isNotEmpty()) changeListeners.forEach { it.onSyncFinished() }
                 lastQuickSyncAt[source.sourceId] = System.currentTimeMillis()

@@ -39,6 +39,7 @@ import de.kleinabersmart.earloft.core.network.UnexpectedResponseException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -152,9 +153,9 @@ class SyncQueueProcessor @Inject constructor(
                 val songSource = syncDao.getSongSource(action.targetKey) ?: return
                 remote.scrobble(songSource.remoteId, action.payloadJson!!.toLong())
             }
-            SyncActionType.UPSERT_PLAYLIST -> upsertPlaylist(action, remote)
+            SyncActionType.UPSERT_PLAYLIST -> PlaylistSyncLock.mutex.withLock { upsertPlaylist(action, remote) }
             // The local playlist is already deleted, so the remote ID is in the payload.
-            SyncActionType.DELETE_PLAYLIST -> remote.deletePlaylist(action.payloadJson!!)
+            SyncActionType.DELETE_PLAYLIST -> PlaylistSyncLock.mutex.withLock { remote.deletePlaylist(action.payloadJson!!) }
         }
     }
 

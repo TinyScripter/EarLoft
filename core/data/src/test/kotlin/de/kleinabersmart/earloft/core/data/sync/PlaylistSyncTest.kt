@@ -59,6 +59,24 @@ class PlaylistSyncTest {
     }
 
     @Test
+    fun `a playlist adopted while songs were missing is completed later and never sent shortened`() = runTest {
+        nd.putPlaylist("Mix", listOf("a", "d"))
+        syncer.syncAdding(db, nd)
+        val id = playlists.playlists().first().single().id
+        assertEquals(listOf("A"), titles(id))
+
+        // A change in the app would send [a, b] and remove "d" on the server: the server version wins instead.
+        playlists.addSongs(id, listOf(songId("b")))
+        assertTrue(processor().process())
+        assertTrue(nd.calls.none { it.startsWith("replace") })
+
+        // The next full sync brings "d" and adopts the playlist again, now complete.
+        nd.tracks = nd.tracks + track("d", "D", 4)
+        syncer.syncAdding(db, nd)
+        assertEquals(listOf("A", "D"), titles(id))
+    }
+
+    @Test
     fun `local change is sent when the server playlist is unchanged`() = runTest {
         nd.putPlaylist("Mix", listOf("a"))
         syncer.syncAdding(db, nd)
