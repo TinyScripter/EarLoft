@@ -82,7 +82,9 @@ internal class ResumableTransfer(
                             storage.deletePart(bookId, trackIndex)
                             throw IOException("Range not satisfiable, starting over")
                         }
-                        response.code in 500..599 -> throw IOException("HTTP ${response.code}")
+                        // Overloaded or rate-limited (a proxy with "everything from one server") is temporary, not a broken file
+                        // (review G25); the worker's backoff pauses.
+                        response.code in 500..599 || response.code in TRANSIENT_CODES -> throw IOException("HTTP ${response.code}")
                         // 401 is a network error from the caller's point of view: on the watch a new key may come from the phone.
                         response.code == 401 -> throw HttpStatusException(response.code)
                         response.code == 403 -> return@withContext TransferResult.Failed("Not signed in", forbidden = true)
@@ -99,7 +101,11 @@ internal class ResumableTransfer(
                     val total: Long?
                     if (response.code == 206) {
                         val range = parseContentRange(response.header("Content-Range"))
-                        if (resume == null || range == null || range.start != resume.offset) {
+                        // A host that ignores If-Range would otherwise glue the old start to the end of a replaced file
+                        // (review G18): the size and the fingerprint must still be those of the partial file.
+                        if (resume == null || range == null || range.start != resume.offset ||
+                            (range.total != null && range.total != resume.total) || response.contradicts(resume)
+                        ) {
                             storage.deletePart(bookId, trackIndex)
                             throw IOException("Unexpected range: ${response.header("Content-Range")}")
                         }
@@ -138,17 +144,26 @@ internal class ResumableTransfer(
         val total = lines.getOrNull(1)?.toLongOrNull() ?: return null
         val offset = part.length()
         // Empty or already as long as the file: nothing to resume from.
-        return if (offset in 1 until total) Resume(offset, validator) else null
+        return if (offset in 1 until total) Resume(offset, validator, total, isEtag = lines.getOrNull(2)?.let { it == KIND_ETAG }) else null
+    }
+
+    /** The 206 response names a different fingerprint than the one the partial file was started with. */
+    private fun okhttp3.Response.contradicts(resume: Resume): Boolean {
+        // Meta files from before the kind was noted: ETags are quoted.
+        val storedIsEtag = resume.isEtag ?: resume.validator.startsWith("\"")
+        val current = if (storedIsEtag) header("ETag")?.takeIf { !it.startsWith("W/") } else header("Last-Modified")
+        return current != null && current != resume.validator
     }
 
     /** Remembers fingerprint and size; without both the attempt can't be safely resumed later. */
     private fun rememberValidator(etag: String?, lastModified: String?, total: Long?, meta: File) {
-        val validator = etag?.takeIf { !it.startsWith("W/") } ?: lastModified
+        val strongEtag = etag?.takeIf { !it.startsWith("W/") }
+        val validator = strongEtag ?: lastModified
         if (validator == null || total == null) {
             meta.delete()
             return
         }
-        meta.writeText("$validator\n$total\n")
+        meta.writeText("$validator\n$total\n${if (strongEtag != null) KIND_ETAG else KIND_MODIFIED}\n")
     }
 
     private suspend fun write(
@@ -183,7 +198,8 @@ internal class ResumableTransfer(
         return true
     }
 
-    private class Resume(val offset: Long, val validator: String)
+    /** [isEtag]: whether [validator] is an ETag or a Last-Modified date; `null` in meta files from before it was noted. */
+    private class Resume(val offset: Long, val validator: String, val total: Long, val isEtag: Boolean?)
 
     internal class ContentRange(val start: Long, val total: Long?)
 
@@ -192,6 +208,11 @@ internal class ResumableTransfer(
         private const val BUFFER_BYTES = 64 * 1024
         private const val PROGRESS_INTERVAL_NANOS = 500_000_000L
         private const val FREE_SPACE_RESERVE_BYTES = 100L * 1024 * 1024
+        private const val KIND_ETAG = "etag"
+        private const val KIND_MODIFIED = "modified"
+
+        /** Request Timeout, Too Early, Too Many Requests: worth another try later. */
+        private val TRANSIENT_CODES = setOf(408, 425, 429)
 
         private val CONTENT_RANGE = Regex("""bytes (\d+)-\d+/(\d+|\*)""")
 

@@ -125,7 +125,9 @@ class Downloader @Inject constructor(
                 call.execute().use { response ->
                     val contentType = response.header("Content-Type").orEmpty()
                     when {
-                        response.code in 500..599 -> throw IOException("HTTP ${response.code}")
+                        // Overloaded or rate-limited is temporary (review G25): 408 Request Timeout, 425 Too Early, 429 Too Many Requests.
+                        response.code in 500..599 || response.code == 408 || response.code == 425 || response.code == 429 ->
+                            throw IOException("HTTP ${response.code}")
                         // Rejected credentials are temporary: the password or token may have changed.
                         response.code == HTTP_UNAUTHORIZED -> throw HttpStatusException(response.code)
                         !response.isSuccessful -> return@withContext DownloadOutcome.Failed("HTTP ${response.code}")

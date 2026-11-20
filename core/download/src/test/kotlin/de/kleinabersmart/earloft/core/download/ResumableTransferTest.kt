@@ -250,6 +250,48 @@ class ResumableTransferTest {
     }
 
     @Test
+    fun `a 206 of a replaced file is rejected even when the host ignores If-Range`() = runTest {
+        val have = interrupt()
+        server.takeRequest()
+        // Same start, but a different fingerprint.
+        server.enqueue(rest(have, etag = "\"v2\""))
+        try {
+            run()
+            fail("A different file must not be glued to the part file")
+        } catch (_: IOException) {
+        }
+        assertFalse(storage.partFileFor(7, 0).exists())
+
+        // No fingerprint in the answer, but a different total size.
+        val again = interrupt()
+        server.takeRequest()
+        server.enqueue(
+            MockResponse.Builder().code(206).addHeader("Content-Type", "audio/mp4")
+                .addHeader("Content-Range", "bytes $again-${audio.size}/${audio.size + 1}")
+                .body(Buffer().write(ByteArray(audio.size + 1 - again.toInt()))).build(),
+        )
+        try {
+            run()
+            fail("A different size must not be glued to the part file")
+        } catch (_: IOException) {
+        }
+        assertFalse(storage.partFileFor(7, 0).exists())
+    }
+
+    @Test
+    fun `rate limits and timeouts are temporary`() = runTest {
+        listOf(408, 425, 429).forEach { code ->
+            server.enqueue(MockResponse.Builder().code(code).build())
+            try {
+                run()
+                fail("HTTP $code must be retried later")
+            } catch (e: IOException) {
+                assertTrue(e !is HttpStatusException)
+            }
+        }
+    }
+
+    @Test
     fun `a rejected login is reported as an auth error and a forbidden one fails permanently`() = runTest {
         server.enqueue(MockResponse.Builder().code(401).build())
         try {
