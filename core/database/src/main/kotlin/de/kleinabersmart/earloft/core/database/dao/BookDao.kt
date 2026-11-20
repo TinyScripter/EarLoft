@@ -237,6 +237,13 @@ abstract class BookDao {
     abstract suspend fun markSeen(serverId: String, remoteId: String, generation: Long)
 
     /** Books the last full sync no longer saw have been deleted on the server (mark-and-sweep). */
+    @Query("SELECT COUNT(*) FROM books WHERE serverId = :serverId")
+    abstract suspend fun countBooksOf(serverId: String): Int
+
+    /** Entries of all sources whose ID starts with [prefix] (the podcasts on the device). */
+    @Query("SELECT COUNT(*) FROM books WHERE serverId LIKE :prefix || '%'")
+    abstract suspend fun countBooksWithServerPrefix(prefix: String): Int
+
     @Query("DELETE FROM books WHERE serverId = :serverId AND seenInGeneration < :generation")
     abstract suspend fun deleteUnseen(serverId: String, generation: Long)
 

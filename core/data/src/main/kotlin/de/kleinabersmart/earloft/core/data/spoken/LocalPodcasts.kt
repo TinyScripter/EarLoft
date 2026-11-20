@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.datasource.local.LocalBookScanner
+import de.kleinabersmart.earloft.core.data.sync.SweepGuard
 import de.kleinabersmart.earloft.core.datasource.local.LocalEpisode
 import de.kleinabersmart.earloft.core.datasource.local.LocalEpisodeDetails
 import de.kleinabersmart.earloft.core.datasource.local.LocalPodcast
@@ -36,6 +37,7 @@ class LocalPodcasts @Inject constructor(
     private val scanner: LocalBookScanner,
     private val settings: SpokenSettings,
     private val covers: BookCovers,
+    private val sweepGuard: SweepGuard,
 ) {
     private val mutex = Mutex()
 
@@ -46,7 +48,8 @@ class LocalPodcasts @Inject constructor(
     suspend fun sync(): Boolean = mutex.withLock {
         if (!settings.useLocalPodcasts.first()) return@withLock true
         val generation = bookDao.nextGeneration()
-        val scanned = try {
+        val known = bookDao.countBooksWithServerPrefix(LOCAL_PODCAST_PREFIX)
+        val scan = try {
             scanner.scanPodcasts { podcast, key, fingerprint ->
                 bookDao.bookByRemote(feedIdOf(podcast), key)?.let { it.remoteUpdatedAt == fingerprint && it.detailsLoaded } == true
             }
@@ -57,10 +60,17 @@ class LocalPodcasts @Inject constructor(
             Log.w(TAG, "Podcasts on the device not readable", e)
             return@withLock false
         }
-        scanned.forEach { store(it, generation) }
+        val scanned = scan.items
+        // A missing storage volume or a suspicious drop (media index being rebuilt) removes nothing (review G6): progress
+        // would go with the episodes.
+        val sweep = scan.complete && sweepGuard.allows(SWEEP_AREA, known, scanned.sumOf { it.episodes.size })
+        if (!sweep) Log.w(TAG, "Removal of podcasts on the device postponed")
+        scanned.forEach { store(it, generation, sweep) }
         // Podcasts without files are dropped. A failed sync never gets this far and therefore deletes nothing.
-        val present = scanned.mapTo(HashSet()) { feedIdOf(it.name) }
-        dao.feeds().filter { it.feedId.startsWith(LOCAL_PODCAST_PREFIX) && it.feedId !in present }.forEach { dao.deleteFeed(it.feedId) }
+        if (sweep) {
+            val present = scanned.mapTo(HashSet()) { feedIdOf(it.name) }
+            dao.feeds().filter { it.feedId.startsWith(LOCAL_PODCAST_PREFIX) && it.feedId !in present }.forEach { dao.deleteFeed(it.feedId) }
+        }
         true
     }
 
@@ -69,7 +79,7 @@ class LocalPodcasts @Inject constructor(
         dao.feeds().filter { it.feedId.startsWith(LOCAL_PODCAST_PREFIX) }.forEach { dao.deleteFeed(it.feedId) }
     }
 
-    private suspend fun store(podcast: LocalPodcast, generation: Long) {
+    private suspend fun store(podcast: LocalPodcast, generation: Long, sweep: Boolean) {
         val feedId = feedIdOf(podcast.name)
         var newestWithCover: Pair<Long, Long>? = null
         for (episode in podcast.episodes) {
@@ -83,7 +93,7 @@ class LocalPodcasts @Inject constructor(
                 newestWithCover = bookId to details.publishedAtMs
             }
         }
-        bookDao.deleteUnseen(feedId, generation)
+        if (sweep) bookDao.deleteUnseen(feedId, generation)
 
         val existing = dao.feed(feedId)
         // The podcast's image is the cover of one of its episodes, as long as that episode is still there.
@@ -127,5 +137,6 @@ class LocalPodcasts @Inject constructor(
 
     private companion object {
         const val TAG = "LocalPodcasts"
+        const val SWEEP_AREA = "podcasts"
     }
 }

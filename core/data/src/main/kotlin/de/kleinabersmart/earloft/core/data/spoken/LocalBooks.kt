@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.core.data.spoken
 
 import android.util.Log
 import de.kleinabersmart.earloft.core.common.normalizeForMerge
+import de.kleinabersmart.earloft.core.data.sync.SweepGuard
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.BookChapterEntity
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
@@ -33,6 +34,7 @@ class LocalBooks @Inject constructor(
     private val scanner: LocalBookScanner,
     private val settings: SpokenSettings,
     private val covers: BookCovers,
+    private val sweepGuard: SweepGuard,
 ) {
     private val mutex = Mutex()
 
@@ -44,7 +46,8 @@ class LocalBooks @Inject constructor(
     suspend fun sync(): Boolean = mutex.withLock {
         if (!settings.useLocalBooks.first()) return@withLock true
         val generation = dao.nextGeneration()
-        val scanned = try {
+        val known = dao.countBooksOf(LOCAL_BOOK_SERVER_ID)
+        val scan = try {
             scanner.scan { key, fingerprint ->
                 dao.bookByRemote(LOCAL_BOOK_SERVER_ID, key)?.let { it.remoteUpdatedAt == fingerprint && it.detailsLoaded } == true
             }
@@ -55,6 +58,7 @@ class LocalBooks @Inject constructor(
             Log.w(TAG, "Books on the device not readable", e)
             return@withLock false
         }
+        val scanned = scan.items
         for (book in scanned) {
             val details = book.details
             if (details == null) {
@@ -63,8 +67,13 @@ class LocalBooks @Inject constructor(
                 store(book, details, generation)
             }
         }
-        // An aborted or failed sync never gets this far and therefore deletes nothing.
-        dao.deleteUnseen(LOCAL_BOOK_SERVER_ID, generation)
+        // An aborted or failed sync never gets this far and therefore deletes nothing. Neither does one with a missing
+        // storage volume or a suspicious drop (media index being rebuilt, review G6): progress would go with the books.
+        if (scan.complete && sweepGuard.allows(SWEEP_AREA, known, scanned.size)) {
+            dao.deleteUnseen(LOCAL_BOOK_SERVER_ID, generation)
+        } else {
+            Log.w(TAG, "Removal of books on the device postponed (${scanned.size} of $known seen)")
+        }
         true
     }
 
@@ -139,5 +148,6 @@ class LocalBooks @Inject constructor(
 
     private companion object {
         const val TAG = "LocalBooks"
+        const val SWEEP_AREA = "books"
     }
 }

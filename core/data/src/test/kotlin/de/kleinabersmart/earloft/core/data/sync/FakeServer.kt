@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.sync
 
+import androidx.test.core.app.ApplicationProvider
 import android.graphics.Bitmap
 import android.net.Uri
 import de.kleinabersmart.earloft.core.data.source.MusicDataSources
@@ -156,6 +157,7 @@ internal fun EarLoftDatabase.librarySyncer(
     syncQueue = SyncQueueStarter(syncDao(), scheduler),
     playlistSyncer = playlistSyncer(notices),
     syncDao = syncDao(),
+    sweepGuard = SweepGuard(ApplicationProvider.getApplicationContext()),
 )
 
 /**

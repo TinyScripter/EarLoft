@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.wear.sync
 
+import de.kleinabersmart.earloft.core.data.sync.SweepGuard
 import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -79,6 +80,7 @@ class ManifestApplierTest {
             syncQueue = SyncQueueStarter(db.syncDao(), NoScheduler),
             playlistSyncer = PlaylistSyncer(db, db.playlistDao(), db.syncDao(), SyncNotices()),
             syncDao = db.syncDao(),
+            sweepGuard = SweepGuard(ApplicationProvider.getApplicationContext()),
         )
         applier = ManifestApplier(db, sourceDao, db.wearDao(), db.playlistDao(), syncer)
     }

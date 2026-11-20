@@ -24,6 +24,8 @@ internal data class MediaStoreRow(
     val sizeBytes: Long,
     val dateAddedSec: Long,
     val dateModifiedSec: Long,
+    /** Storage volume (Android 10 and later), see [VolumeWatch]. */
+    val volume: String? = null,
 )
 
 internal data class FallbackNames(

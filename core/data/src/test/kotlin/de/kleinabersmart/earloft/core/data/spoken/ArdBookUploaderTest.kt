@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.spoken
 
+import de.kleinabersmart.earloft.core.data.sync.SweepGuard
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -122,7 +123,7 @@ class ArdBookUploaderTest {
         val adoption = ArdUploadAdoption(context, dao, progressSync, bookmarks)
         syncer = BookSyncer(
             dao, servers, api, progressSync, bookmarks,
-            LocalBooks(dao, scanner, settings, covers),
+            LocalBooks(dao, scanner, settings, covers, SweepGuard(context)),
             ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(client)), settings, covers, { _, _ -> }),
             adoption,
         )

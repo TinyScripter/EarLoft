@@ -98,7 +98,10 @@ class LibraryRefresher @Inject constructor(
         localRequests.tryEmit(Unit)
     }
 
-    /** The state from before the scan is remembered: whatever changes in the meantime is scanned on the next start. */
+    /**
+     * The state from before the scan is remembered: whatever changes in the meantime is scanned on the next start. A scan whose
+     * removals were postponed (review G6) remembers nothing, so the next process start scans again.
+     */
     private suspend fun syncLocal() {
         val stamp = scanStamp.current()
         if (syncer.syncSafely(localDataSource)) scanStamp.save(stamp)

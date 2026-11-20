@@ -137,7 +137,11 @@ data class RemotePlaylist(
     val songRemoteIds: List<String>,
 )
 
-data class SourceBatch(val tracks: List<RawTrack>)
+/**
+ * [complete] `false`: the scan succeeded but may lack files that still exist (a storage volume that held some is not mounted,
+ * review G6); the sync then must not remove what it didn't see.
+ */
+data class SourceBatch(val tracks: List<RawTrack>, val complete: Boolean = true)
 
 sealed interface PlaybackLocation {
     data class LocalFile(val uri: Uri) : PlaybackLocation

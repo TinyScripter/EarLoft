@@ -14,6 +14,7 @@ import de.kleinabersmart.earloft.core.database.entity.SourceEntity
 import de.kleinabersmart.earloft.core.datasource.MusicDataSource
 import de.kleinabersmart.earloft.core.datasource.RemoteLibraryActions
 import de.kleinabersmart.earloft.core.datasource.RemoteQuickSync
+import de.kleinabersmart.earloft.core.model.SourceType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +40,7 @@ class LibrarySyncer @Inject constructor(
     private val syncQueue: SyncQueueStarter,
     private val playlistSyncer: PlaylistSyncer,
     private val syncDao: SyncDao,
+    private val sweepGuard: SweepGuard,
 ) {
     private val mutex = Mutex()
     private val runningSyncs = MutableStateFlow(0)
@@ -53,12 +55,15 @@ class LibrarySyncer @Inject constructor(
     /** Error of the respective last sync per `sourceId`; a successful sync removes the entry. */
     val failures: StateFlow<Map<String, SyncFailure>> = failedSyncs.asStateFlow()
 
-    /** Like [sync], but catches errors and remembers them in [failures]. @return `true` on success. */
+    /**
+     * Like [sync], but catches errors and remembers them in [failures]. @return `true` on success; `false` also if the sweep
+     * of music on the device was postponed (then the scan has to run again, review G6).
+     */
     suspend fun syncSafely(source: MusicDataSource): Boolean =
         try {
-            sync(source)
+            val complete = sync(source)
             failedSyncs.update { it - source.sourceId }
-            true
+            complete
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -105,12 +110,13 @@ class LibrarySyncer @Inject constructor(
         }
     }
 
-    suspend fun sync(source: MusicDataSource) = mutex.withLock {
+    /** @return `false` if the sweep of music on the device was postponed ([SweepGuard], review G6). */
+    suspend fun sync(source: MusicDataSource): Boolean = mutex.withLock {
         runningSyncs.update { it + 1 }
         try {
             if (source.type.isServer) {
                 // Removed while waiting for the mutex: don't bring it back as a server without address along with its library.
-                if (sourceDao.get(source.sourceId) == null) return@withLock
+                if (sourceDao.get(source.sourceId) == null) return@withLock true
             } else {
                 sourceDao.insertIfAbsent(SourceEntity(sourceId = source.sourceId, type = source.type, name = source.displayName))
             }
@@ -120,10 +126,24 @@ class LibrarySyncer @Inject constructor(
             val isUnchanged: suspend (String, Long) -> Boolean = { remoteId, lastModified ->
                 mergeDao.getSongSource("${source.sourceId}:$remoteId")?.lastModified == lastModified
             }
+            val known = if (source.type == SourceType.LOCAL) mergeDao.countSongSources(source.sourceId) else 0
+            var complete = true
+            var listed = 0
             source.fullScan(isUnchanged).collect { batch ->
+                if (!batch.complete) complete = false
+                listed += batch.tracks.size
                 database.withTransaction {
                     batch.tracks.forEach { mergeResolver.merge(source.sourceId, it, generation, syncsFavorites) }
                 }
+            }
+            // Music on the device: an ejected SD card or a media index being rebuilt delivers a successful but incomplete
+            // list. Then nothing is removed (review G6); the songs seen are already updated.
+            if (source.type == SourceType.LOCAL && !(complete && sweepGuard.allows(LOCAL_MUSIC_AREA, known, listed))) {
+                Log.w(TAG, "Sweep of ${source.sourceId} postponed ($listed of $known songs seen, complete: $complete)")
+                // The generation still moves on, so the next scan compares against what this one saw.
+                sourceDao.setSyncGeneration(source.sourceId, generation, System.currentTimeMillis())
+                changeListeners.forEach { it.onSyncFinished() }
+                return@withLock false
             }
 
             // Only clean up after a complete scan – an aborted scan must not delete anything.
@@ -144,6 +164,7 @@ class LibrarySyncer @Inject constructor(
             // The sync may have enqueued favorites for new server sources.
             syncQueue.startIfPending()
             changeListeners.forEach { it.onSyncFinished() }
+            true
         } finally {
             runningSyncs.update { it - 1 }
         }
@@ -185,6 +206,7 @@ class LibrarySyncer @Inject constructor(
 
     private companion object {
         const val TAG = "LibrarySyncer"
+        const val LOCAL_MUSIC_AREA = "music"
         const val CLOCK_SLACK_MS = 60 * 60 * 1000L
     }
 }

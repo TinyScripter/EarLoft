@@ -123,6 +123,9 @@ interface MergeDao {
     @Query("UPDATE song_sources SET seenInGeneration = :generation WHERE uid = :uid")
     suspend fun markSeen(uid: String, generation: Long)
 
+    @Query("SELECT COUNT(*) FROM song_sources WHERE sourceId = :sourceId")
+    suspend fun countSongSources(sourceId: String): Int
+
     /** Mark-and-sweep: sources that were no longer seen during the last full sync. */
     @Query("DELETE FROM song_sources WHERE sourceId = :sourceId AND seenInGeneration < :generation")
     suspend fun deleteStaleSongSources(sourceId: String, generation: Long): Int

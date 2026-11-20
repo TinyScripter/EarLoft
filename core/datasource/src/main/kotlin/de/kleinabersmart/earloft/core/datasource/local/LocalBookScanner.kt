@@ -71,6 +71,12 @@ data class LocalEpisodeDetails(
 data class LocalPodcast(val name: String, val episodes: List<LocalEpisode>)
 
 /**
+ * Result of a scan. [complete] `false`: a storage volume that held files is not mounted (review G6), the sync must not
+ * remove what it didn't see.
+ */
+data class LocalScan<T>(val items: List<T>, val complete: Boolean = true)
+
+/**
  * Finds audiobooks and podcast episodes on the device via MediaStore (concept 12.1): `m4b` directly in "Audiobooks" and folders full
  * of MP3 files in it. MediaStore suffices (no SAF) because the app has the audio permission for music anyway and
  * MediaStore lists files in "Audiobooks" as audio – but not as music, so they don't end up in the library.
@@ -82,17 +88,20 @@ class LocalBookScanner @Inject constructor(
     val folders: LocalBookFolders = LocalBookFolders(context),
 ) {
     private val tagReader = LocalTagReader(context)
+    private val volumes = VolumeWatch(context)
 
     /**
      * All books. For unchanged ones (according to [isUnchanged]) neither tags nor chapters are read.
      * Without permission this throws a `SecurityException`: otherwise MediaStore would return an empty list, and the
      * sync would delete all books including progress.
      */
-    suspend fun scan(isUnchanged: suspend (key: String, fingerprint: Long) -> Boolean): List<LocalBook> =
+    suspend fun scan(isUnchanged: suspend (key: String, fingerprint: Long) -> Boolean): LocalScan<LocalBook> =
         withContext(Dispatchers.IO) {
             if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} missing")
             val trees = folders.trees()
-            LocalBookLayout.group(queryRows()).map { book ->
+            val rows = queryRows()
+            val complete = volumes.complete(BOOKS_AREA, rows.mapNotNullTo(HashSet()) { it.volume })
+            val books = LocalBookLayout.group(rows).map { book ->
                 val added = book.files.minOf { it.dateAddedSec } * 1000
                 // Companion files only with a folder grant and only for books in their own folder. If the folder is currently
                 // unreadable, title, author and series would jump to tags and folder names without them until the next sync.
@@ -106,17 +115,20 @@ class LocalBookScanner @Inject constructor(
                 val fingerprint = 31 * LocalBookLayout.fingerprint(book) + sidecars.fingerprint
                 LocalBook(book.key, fingerprint, added, if (isUnchanged(book.key, fingerprint)) null else read(book, sidecars))
             }
+            LocalScan(books, complete)
         }
 
     /**
      * All podcasts from "Podcasts" (subfolder or album tag, see [LocalPodcastLayout]); errors and permission as with
      * [scan]. Unchanged episodes (according to [isUnchanged], with the name of their podcast) are not read.
      */
-    suspend fun scanPodcasts(isUnchanged: suspend (podcast: String, key: String, fingerprint: Long) -> Boolean): List<LocalPodcast> =
+    suspend fun scanPodcasts(isUnchanged: suspend (podcast: String, key: String, fingerprint: Long) -> Boolean): LocalScan<LocalPodcast> =
         withContext(Dispatchers.IO) {
             if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} missing")
             val untitled = context.getString(R.string.local_source_name)
-            LocalPodcastLayout.group(queryRows(LocalPodcastLayout.ROOT), untitled).map { podcast ->
+            val rows = queryRows(LocalPodcastLayout.ROOT)
+            val complete = volumes.complete(PODCASTS_AREA, rows.mapNotNullTo(HashSet()) { it.volume })
+            val podcasts = LocalPodcastLayout.group(rows, untitled).map { podcast ->
                 LocalPodcast(
                     podcast.name,
                     podcast.files.map { file ->
@@ -126,6 +138,7 @@ class LocalBookScanner @Inject constructor(
                     },
                 )
             }
+            LocalScan(podcasts, complete)
         }
 
     private suspend fun readEpisode(file: AudioFileRow): LocalEpisodeDetails {
@@ -261,6 +274,7 @@ class LocalBookScanner @Inject constructor(
             add(MediaStore.Audio.Media.DATE_ADDED)
             add(MediaStore.Audio.Media.DATE_MODIFIED)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) add(MediaStore.Audio.Media.ALBUM_ARTIST)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) add(MediaStore.Audio.Media.VOLUME_NAME)
         }
         val cursor = context.contentResolver.query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -286,6 +300,7 @@ class LocalBookScanner @Inject constructor(
                             sizeBytes = c.long(MediaStore.Audio.Media.SIZE) ?: 0,
                             dateAddedSec = c.long(MediaStore.Audio.Media.DATE_ADDED) ?: 0,
                             dateModifiedSec = c.long(MediaStore.Audio.Media.DATE_MODIFIED) ?: 0,
+                            volume = c.string("volume_name"),
                         ),
                     )
                 }
@@ -301,6 +316,8 @@ class LocalBookScanner @Inject constructor(
 
     private companion object {
         const val TAG = "LocalBookScanner"
+        const val BOOKS_AREA = "books"
+        const val PODCASTS_AREA = "podcasts"
         const val MAX_TEXT_BYTES = 512L * 1024
         const val MAX_IMAGE_BYTES = 20L * 1024 * 1024
     }

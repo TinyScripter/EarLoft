@@ -41,6 +41,7 @@ class LocalDataSource @Inject constructor(
 ) : MusicDataSource, LocalLyrics {
 
     private val tagReader = LocalTagReader(context)
+    private val volumes = VolumeWatch(context)
 
     override val sourceId: String = SOURCE_ID
     override val type: SourceType = SourceType.LOCAL
@@ -53,9 +54,12 @@ class LocalDataSource @Inject constructor(
         // sync would then delete the whole library.
         if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} missing")
         val rows = queryRows()
-        MediaStoreTrackMapper.map(rows, FallbackNames.from(context))
-            .chunked(BATCH_SIZE)
-            .forEach { emit(SourceBatch(withTags(it, isUnchanged))) }
+        // An ejected SD card: its songs are missing from a successful scan and must not be swept (review G6).
+        val complete = volumes.complete(VOLUMES_AREA, rows.mapNotNullTo(HashSet()) { it.volume })
+        val tracks = MediaStoreTrackMapper.map(rows, FallbackNames.from(context))
+        // An empty list still reports whether it is complete.
+        if (tracks.isEmpty()) emit(SourceBatch(emptyList(), complete))
+        tracks.chunked(BATCH_SIZE).forEach { emit(SourceBatch(withTags(it, isUnchanged), complete)) }
     }.flowOn(Dispatchers.IO)
 
     /** Reads the tags only for new or changed files (with few reads at a time). */
@@ -125,6 +129,7 @@ class LocalDataSource @Inject constructor(
             add(MediaStore.Audio.Media.SIZE)
             add(MediaStore.Audio.Media.DATE_ADDED)
             add(MediaStore.Audio.Media.DATE_MODIFIED)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) add(MediaStore.Audio.Media.VOLUME_NAME)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 add(MediaStore.Audio.Media.ALBUM_ARTIST)
                 add(MediaStore.Audio.Media.COMPILATION)
@@ -161,6 +166,7 @@ class LocalDataSource @Inject constructor(
                             sizeBytes = c.long(MediaStore.Audio.Media.SIZE) ?: 0,
                             dateAddedSec = c.long(MediaStore.Audio.Media.DATE_ADDED) ?: 0,
                             dateModifiedSec = c.long(MediaStore.Audio.Media.DATE_MODIFIED) ?: 0,
+                            volume = c.string("volume_name"),
                         ),
                     )
                 }
@@ -182,6 +188,7 @@ class LocalDataSource @Inject constructor(
         const val SOURCE_ID = "local"
         private const val BATCH_SIZE = 500
         private const val TAG_PARALLELISM = 4
+        private const val VOLUMES_AREA = "music"
     }
 }
 
