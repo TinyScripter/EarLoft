@@ -10,6 +10,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearSelectionStatusDto
 import de.kleinabersmart.earloft.core.wearsync.WearStatusDto
 import de.kleinabersmart.earloft.core.wearsync.putPayload
 import de.kleinabersmart.earloft.wear.download.WatchState
+import de.kleinabersmart.earloft.wear.download.downloadBudget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -58,6 +59,9 @@ class WatchStatusPublisher @Inject constructor(
         val settings = state.settings.value
         val used = wearDao.getDoneBytes() + bookDao.trackTotals().doneBytes
         val free = withContext(Dispatchers.IO) { storage.freeBytes() }
+        // "Storage full" from an earlier transfer is no longer true once downloads have room again; otherwise the phone showed
+        // it next to the freed space until the next download worked.
+        if (downloadBudget(settings, free, used, reservedBytes = 0) > 0) state.clearStorageFullError()
         val status = WearStatusDto(
             usedBytes = used,
             freeBytes = free,

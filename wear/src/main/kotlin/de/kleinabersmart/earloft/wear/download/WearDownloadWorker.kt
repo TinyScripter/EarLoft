@@ -225,7 +225,11 @@ class WearDownloadWorker(
                         Log.w(TAG, "Episode ${track.bookId} failed: ${outcome.reason}")
                         if (!episodeViaPhone(track)) return waitForPhone()
                     }
-                    DownloadOutcome.Done -> state.clearServerFailures(key)
+                    DownloadOutcome.Done -> {
+                        state.clearServerFailures(key)
+                        // Like for songs: a download that worked ends the last error (it stayed after episodes and books).
+                        state.setLastError(null)
+                    }
                     DownloadOutcome.Cancelled -> Unit
                 }
             }
@@ -270,7 +274,10 @@ class WearDownloadWorker(
                         Log.w(TAG, "Book ${track.bookId} failed: ${outcome.reason}")
                         if (!bookViaPhone(track)) return waitForPhone()
                     }
-                    DownloadOutcome.Done -> state.clearServerFailures(key)
+                    DownloadOutcome.Done -> {
+                        state.clearServerFailures(key)
+                        state.setLastError(null)
+                    }
                     DownloadOutcome.Cancelled -> Unit
                 }
             }
@@ -385,12 +392,13 @@ class WearDownloadWorker(
             DownloadOutcome.Done -> {
                 state.clearServerFailures(episodeFailureKey(track.bookId))
                 state.clearPhoneUnreachable()
+                state.setLastError(null)
                 true
             }
             is DownloadOutcome.Failed -> {
                 state.clearPhoneUnreachable()
                 Log.w(TAG, "Episode ${track.bookId} not loaded from the phone: ${outcome.reason}")
-                if (outcome.reason == PhoneFileFetcher.NO_SPACE) state.setLastError(applicationContext.getString(R.string.download_error_storage_full))
+                if (outcome.reason == PhoneFileFetcher.NO_SPACE) storageFull()
                 true
             }
             is DownloadOutcome.Retry -> {
@@ -410,12 +418,13 @@ class WearDownloadWorker(
             DownloadOutcome.Done -> {
                 state.clearServerFailures(bookFailureKey(track.bookId))
                 state.clearPhoneUnreachable()
+                state.setLastError(null)
                 true
             }
             is DownloadOutcome.Failed -> {
                 state.clearPhoneUnreachable()
                 Log.w(TAG, "Book ${track.bookId} file ${track.trackIndex} not loaded from the phone: ${outcome.reason}")
-                if (outcome.reason == PhoneFileFetcher.NO_SPACE) state.setLastError(applicationContext.getString(R.string.download_error_storage_full))
+                if (outcome.reason == PhoneFileFetcher.NO_SPACE) storageFull()
                 true
             }
             is DownloadOutcome.Retry -> {
@@ -450,6 +459,8 @@ class WearDownloadWorker(
             state.setSpokenFileProgress(null)
         }
     }
+
+    private fun storageFull() = state.setStorageFullError(applicationContext.getString(R.string.download_error_storage_full))
 
     /** Whether the original of [uid] (the size the server reported for it) fits into the storage budget. Unknown size: try. */
     private suspend fun originalFits(uid: String): Boolean {
@@ -545,15 +556,11 @@ class WearDownloadWorker(
             is DownloadOutcome.Failed -> {
                 state.clearPhoneUnreachable()
                 Log.w(TAG, "$uid not loaded from the phone: ${outcome.reason}")
-                state.setLastError(
-                    applicationContext.getString(
-                        when {
-                            outcome.reason == PhoneFileFetcher.NO_SPACE -> R.string.download_error_storage_full
-                            serverFailed -> R.string.download_error_server_no_phone_copy
-                            else -> R.string.download_error_phone_no_copy
-                        },
-                    ),
-                )
+                when {
+                    outcome.reason == PhoneFileFetcher.NO_SPACE -> storageFull()
+                    serverFailed -> state.setLastError(applicationContext.getString(R.string.download_error_server_no_phone_copy))
+                    else -> state.setLastError(applicationContext.getString(R.string.download_error_phone_no_copy))
+                }
                 true
             }
             is DownloadOutcome.Retry -> {

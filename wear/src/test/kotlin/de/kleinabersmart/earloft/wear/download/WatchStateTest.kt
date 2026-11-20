@@ -27,6 +27,19 @@ class WatchStateTest {
     }
 
     @Test
+    fun `a full storage error goes once there is room, other errors stay`() {
+        state.setStorageFullError("full")
+        assertEquals("full", WatchState(ApplicationProvider.getApplicationContext()).lastError.value)
+        state.clearStorageFullError()
+        assertEquals(null, state.lastError.value)
+
+        state.setStorageFullError("full")
+        state.setLastError("phone unreachable")
+        state.clearStorageFullError()
+        assertEquals("a later error replaces the full storage", "phone unreachable", state.lastError.value)
+    }
+
+    @Test
     fun `retry runs count up and start over after a clean end`() {
         assertEquals(0, state.retryRuns)
         assertEquals(1, state.recordRetry())

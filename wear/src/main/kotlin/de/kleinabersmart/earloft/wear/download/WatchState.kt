@@ -119,8 +119,22 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     }
 
     fun setLastError(message: String?) {
-        prefs.edit { putString(KEY_LAST_ERROR, message) }
+        prefs.edit { putString(KEY_LAST_ERROR, message).remove(KEY_LAST_ERROR_STORAGE_FULL) }
         _lastError.value = message
+    }
+
+    /**
+     * The storage ran full during a transfer. Unlike the other errors this describes a state: [clearStorageFullError] removes it
+     * as soon as there is room again, otherwise the phone kept showing it after space was freed.
+     */
+    fun setStorageFullError(message: String) {
+        prefs.edit { putString(KEY_LAST_ERROR, message).putBoolean(KEY_LAST_ERROR_STORAGE_FULL, true) }
+        _lastError.value = message
+    }
+
+    /** Removes the last error if it is the full storage ([setStorageFullError]); any other error stays. */
+    fun clearStorageFullError() {
+        if (prefs.getBoolean(KEY_LAST_ERROR_STORAGE_FULL, false)) setLastError(null)
     }
 
     /**
@@ -212,6 +226,7 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         private const val KEY_SETTINGS = "settings"
         private const val KEY_MISSING = "missing_for_storage"
         private const val KEY_LAST_ERROR = "last_error"
+        private const val KEY_LAST_ERROR_STORAGE_FULL = "last_error_storage_full"
         private const val KEY_WAITING_WIFI = "waiting_wifi"
         private const val KEY_APPLIED_STAMP = "applied_phone_stamp"
         private const val KEY_PHONE_FAILURES = "phone_unreachable_runs"
