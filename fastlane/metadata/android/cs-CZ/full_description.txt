@@ -1,0 +1,31 @@
+EarLoft je přehrávač zvuku pro vaši vlastní sbírku: hudbu, podcasty a knihy. Spojuje v jedné aplikaci soubory v telefonu, váš vlastní hudební server (Navidrome, Jellyfin nebo Emby) a váš server Audiobookshelf – v telefonu, v hodinkách s Wear OS i v Android Auto. Podcasty přicházejí přímo z jejich kanálů RSS. Žádné předplatné streamovací služby, žádný účet u třetí strany.
+
+<b>Hudba</b>
+• Jedna knihovna z místních souborů a vašich serverů, bez duplicit
+• Přehrávání bez mezer, ReplayGain a synchronizované texty písní
+• Mixy podobných skladeb a „Hrát dál“, aby hudba nikdy neutichla
+• Oblíbené, playlisty a počty přehrání se synchronizují s vaším serverem
+• Automatické stahování oblíbených, nejnovějších a nejposlouchanějších alb
+
+<b>Podcasty</b>
+• Vyhledávání v Apple Podcasts a Podcast Index nebo přidání libovolného kanálu RSS či Atom
+• Kapitoly, poznámky k epizodám s časovými značkami, přepisy
+• Rychlost, zkracování ticha, zesílení hlasitosti, přeskakování úvodu a závěru – pro každý podcast zvlášť
+• Automatické stahování a upravitelná fronta „Pokračovat v poslechu“
+• Import a export OPML
+
+<b>Audioknihy</b>
+• Vaše knihovny Audiobookshelf a audioknihy v telefonu
+• Průběh a záložky se synchronizují oběma směry, i po poslechu offline
+• Kapitoly a nastavitelné přeskoky
+• Automatické stažení dalšího dílu série
+
+<b>Všude</b>
+• Vše si můžete stáhnout a poslouchat offline
+• Časovač vypnutí – u podcastů a audioknih ho zatřesením telefonem prodloužíte
+• Aplikace pro Wear OS: hudba, podcasty a knihy v hodinkách bez telefonu, se sluchátky Bluetooth
+• Android Auto, Chromecast a widgety na plochu
+• Vzhled Material You, světlý i tmavý, ve 14 jazycích
+
+<b>Soukromí</b>
+Žádné reklamy, žádné sledování, žádná analytika. EarLoft je open source (GPLv3). Vaše knihovna a historie poslechu zůstávají ve vašem zařízení a na vašich vlastních serverech.

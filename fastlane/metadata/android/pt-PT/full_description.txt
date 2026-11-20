@@ -1,0 +1,31 @@
+O EarLoft é um leitor de áudio para a sua própria coleção: música, podcasts e livros. Reúne numa só app os ficheiros do seu telemóvel, o seu servidor de música próprio (Navidrome, Jellyfin ou Emby) e o seu servidor Audiobookshelf – no telemóvel, no seu relógio Wear OS e no Android Auto. Os podcasts chegam diretamente dos respetivos feeds RSS. Sem subscrição de streaming, sem conta num terceiro.
+
+<b>Música</b>
+• Uma só biblioteca com ficheiros locais e os seus servidores, sem duplicados
+• Reprodução sem pausas, ReplayGain e letras sincronizadas
+• Mixes de músicas semelhantes e «Continuar a tocar» para a música nunca parar
+• Favoritos, listas de reprodução e contagens de reprodução sincronizados com o seu servidor
+• Transferências automáticas dos seus álbuns favoritos, dos mais recentes e dos mais ouvidos
+
+<b>Podcasts</b>
+• Pesquise no Apple Podcasts e no Podcast Index ou adicione qualquer feed RSS ou Atom
+• Capítulos, notas do episódio com marcas de tempo, transcrições
+• Velocidade, silêncios encurtados, reforço de volume, saltar introdução e final – por podcast
+• Transferências automáticas e uma fila «Continuar a ouvir» editável
+• Importação e exportação OPML
+
+<b>Audiolivros</b>
+• As suas bibliotecas do Audiobookshelf e os audiolivros do telemóvel
+• Progresso e marcadores sincronizados nos dois sentidos, também depois de ouvir offline
+• Capítulos e saltos ajustáveis
+• Transferência automática do livro seguinte de uma série
+
+<b>Em todo o lado</b>
+• Transfira tudo para ouvir offline
+• Temporizador de suspensão – em podcasts e audiolivros, abanar o telemóvel prolonga-o
+• App para Wear OS: música, podcasts e livros no relógio sem o telemóvel, com auscultadores Bluetooth
+• Android Auto, Chromecast e widgets para o ecrã principal
+• Design Material You, claro e escuro, em 14 idiomas
+
+<b>Privacidade</b>
+Sem anúncios, sem rastreio, sem análises. O EarLoft é de código aberto (GPLv3). A sua biblioteca e o seu histórico de audição ficam no seu dispositivo e nos seus próprios servidores.

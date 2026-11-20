@@ -1,0 +1,31 @@
+EarLoft er en lydspiller for din egen samling: musikk, podkaster og bøker. Appen samler filene på telefonen din, din egen musikkserver (Navidrome, Jellyfin eller Emby) og Audiobookshelf-serveren din – på telefonen, på Wear OS-klokken din og i Android Auto. Podkaster kommer rett fra RSS-feedene sine. Ingen strømmeabonnement, ingen konto hos en tredjepart.
+
+<b>Musikk</b>
+• Ett bibliotek fra lokale filer og serverne dine, uten duplikater
+• Sømløs avspilling, ReplayGain og synkroniserte sangtekster
+• Mikser av lignende sanger og «Fortsett å spille», så musikken aldri stopper
+• Favoritter, spillelister og antall avspillinger synkroniseres med serveren din
+• Automatiske nedlastinger av favorittalbumene dine, de nyeste og de mest spilte albumene
+
+<b>Podkaster</b>
+• Søk i Apple Podcasts og Podcast Index, eller legg til en hvilken som helst RSS- eller Atom-feed
+• Kapitler, episodenotater med tidsstempler, transkripsjoner
+• Hastighet, kortere stillhet, volumforsterkning, hopp over intro og outro – per podkast
+• Automatiske nedlastinger og en redigerbar kø, «Fortsett å lytte»
+• Import og eksport av OPML
+
+<b>Lydbøker</b>
+• Audiobookshelf-bibliotekene dine og lydbøkene på telefonen
+• Fremdrift og bokmerker synkroniseres begge veier, også etter lytting uten nett
+• Kapitler og justerbare hopp
+• Automatisk nedlasting av neste bok i en serie
+
+<b>Overalt</b>
+• Last ned alt for å lytte uten nett
+• Søvntimer – for podkaster og lydbøker forlenger du timeren ved å riste telefonen
+• Wear OS-app: musikk, podkaster og bøker på klokken uten telefonen, med Bluetooth-hodetelefoner
+• Android Auto, Chromecast og moduler for startskjermen
+• Material You-design, lyst og mørkt, på 14 språk
+
+<b>Personvern</b>
+Ingen reklame, ingen sporing, ingen analyse. EarLoft er åpen kildekode (GPLv3). Biblioteket og lyttehistorikken din blir på enheten din og dine egne servere.

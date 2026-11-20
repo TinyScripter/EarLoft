@@ -1,0 +1,31 @@
+EarLoft is een audiospeler voor je eigen collectie: muziek, podcasts en boeken. De app combineert de bestanden op je telefoon met je eigen muziekserver (Navidrome, Jellyfin of Emby) en je Audiobookshelf-server – op je telefoon, op je Wear OS-horloge en in Android Auto. Podcasts komen rechtstreeks uit hun RSS-feeds. Geen streamingabonnement, geen account bij een derde partij.
+
+<b>Muziek</b>
+• Eén bibliotheek uit lokale bestanden en je servers, zonder dubbele nummers
+• Naadloos afspelen, ReplayGain en gesynchroniseerde songteksten
+• Mixen van vergelijkbare nummers en ‘Blijven spelen’, zodat de muziek nooit stopt
+• Favorieten, playlists en afspeeltellingen worden met je server gesynchroniseerd
+• Automatische downloads van je favoriete, nieuwste en meest beluisterde albums
+
+<b>Podcasts</b>
+• Zoek in Apple Podcasts en Podcast Index, of voeg een RSS- of Atom-feed naar keuze toe
+• Hoofdstukken, shownotes met tijdstempels, transcripties
+• Snelheid, stiltes inkorten, volume versterken, intro en outro overslaan – per podcast
+• Automatische downloads en een bewerkbare wachtrij ‘Verder luisteren’
+• OPML importeren en exporteren
+
+<b>Luisterboeken</b>
+• Je Audiobookshelf-bibliotheken en de luisterboeken op je telefoon
+• Voortgang en bladwijzers worden in beide richtingen gesynchroniseerd, ook na offline luisteren
+• Hoofdstukken en instelbare sprongen
+• Automatische download van het volgende boek in een serie
+
+<b>Overal</b>
+• Download alles om offline te luisteren
+• Slaaptimer – bij podcasts en luisterboeken verleng je de slaaptimer door je telefoon te schudden
+• Wear OS-app: muziek, podcasts en boeken op je horloge zonder telefoon, met een Bluetooth-koptelefoon
+• Android Auto, Chromecast en widgets voor het startscherm
+• Material You-ontwerp, licht en donker, in 14 talen
+
+<b>Privacy</b>
+Geen advertenties, geen tracking, geen analyses. EarLoft is open source (GPLv3). Je bibliotheek en luistergeschiedenis blijven op je apparaat en je eigen servers.
