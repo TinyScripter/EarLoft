@@ -21,7 +21,7 @@
     <string name="all_books">All books</string>
     <string name="authors">Authors</string>
     <string name="series">Series</string>
-    <string name="area_disabled">This area is turned off in the settings</string>
+    <string name="area_disabled">This section is turned off in the settings</string>
     <plurals name="book_count">
         <item quantity="one">%d book</item>
         <item quantity="other">%d books</item>

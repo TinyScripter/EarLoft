@@ -1,0 +1,42 @@
+<resources>
+    <string name="albums">Album</string>
+    <string name="artists">Artister</string>
+    <string name="genres">Genrer</string>
+    <string name="playlists">Spellistor</string>
+    <string name="favorites">Favoriter</string>
+    <string name="recently_played">Senast spelade</string>
+    <string name="library">Bibliotek</string>
+    <string name="songs">Låtar</string>
+    <string name="browse_recent">Senaste</string>
+    <string name="area_music">Musik</string>
+    <string name="area_podcasts">Poddar</string>
+    <string name="area_books">Böcker</string>
+    <string name="continue_listening">Fortsätt lyssna</string>
+    <string name="new_episodes">Nya avsnitt</string>
+    <string name="subscriptions">Prenumerationer</string>
+    <string name="downloaded">Nedladdat</string>
+    <string name="episodes">Avsnitt</string>
+    <string name="recently_added">Senast tillagda</string>
+    <string name="all_books">Alla böcker</string>
+    <string name="authors">Författare</string>
+    <string name="series">Serier</string>
+    <string name="area_disabled">Det här området är avstängt i inställningarna</string>
+    <plurals name="book_count">
+        <item quantity="one">%d bok</item>
+        <item quantity="other">%d böcker</item>
+    </plurals>
+    <string name="song_unavailable">Låten är inte tillgänglig: servern går inte att nå och låten är inte nedladdad</string>
+    <string name="favorite_add">Lägg till i favoriter</string>
+    <string name="favorite_remove">Ta bort från favoriter</string>
+    <plurals name="spoken_seek_back">
+        <item quantity="one">%d sekund bakåt</item>
+        <item quantity="other">%d sekunder bakåt</item>
+    </plurals>
+    <plurals name="spoken_seek_forward">
+        <item quantity="one">%d sekund framåt</item>
+        <item quantity="other">%d sekunder framåt</item>
+    </plurals>
+    <string name="spoken_chapter_number">Kapitel %1$d</string>
+    <string name="spoken_chapter_previous">Föregående kapitel</string>
+    <string name="spoken_chapter_next">Nästa kapitel</string>
+</resources>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="download_channel_name">Pobieranie</string>
+    <string name="download_notification_title">Pobieranie muzyki</string>
+    <string name="episode_download_notification_title">Pobieranie odcinków podcastów</string>
+    <string name="book_download_notification_title">Pobieranie książek</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">Pozostał %d utwór</item>
+        <item quantity="few">Pozostały %d utwory</item>
+        <item quantity="many">Pozostało %d utworów</item>
+        <item quantity="other">Pozostało %d utworów</item>
+    </plurals>
+</resources>

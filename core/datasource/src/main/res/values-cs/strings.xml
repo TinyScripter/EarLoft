@@ -1,0 +1,7 @@
+<resources>
+    <string name="unknown_title">Neznámý název</string>
+    <string name="unknown_artist">Neznámý interpret</string>
+    <string name="unknown_album">Neznámé album</string>
+    <string name="various_artists">Různí interpreti</string>
+    <string name="local_source_name">Toto zařízení</string>
+</resources>

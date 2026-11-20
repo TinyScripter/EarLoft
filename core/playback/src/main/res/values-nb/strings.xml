@@ -1,0 +1,42 @@
+<resources>
+    <string name="albums">Album</string>
+    <string name="artists">Artister</string>
+    <string name="genres">Sjangre</string>
+    <string name="playlists">Spillelister</string>
+    <string name="favorites">Favoritter</string>
+    <string name="recently_played">Nylig spilt</string>
+    <string name="library">Bibliotek</string>
+    <string name="songs">Sanger</string>
+    <string name="browse_recent">Nylig</string>
+    <string name="area_music">Musikk</string>
+    <string name="area_podcasts">Podkaster</string>
+    <string name="area_books">Bøker</string>
+    <string name="continue_listening">Fortsett å lytte</string>
+    <string name="new_episodes">Nye episoder</string>
+    <string name="subscriptions">Abonnementer</string>
+    <string name="downloaded">Nedlastet</string>
+    <string name="episodes">Episoder</string>
+    <string name="recently_added">Nylig lagt til</string>
+    <string name="all_books">Alle bøker</string>
+    <string name="authors">Forfattere</string>
+    <string name="series">Serier</string>
+    <string name="area_disabled">Dette området er slått av i innstillingene</string>
+    <plurals name="book_count">
+        <item quantity="one">%d bok</item>
+        <item quantity="other">%d bøker</item>
+    </plurals>
+    <string name="song_unavailable">Sangen er utilgjengelig: Serveren kan ikke nås, og sangen er ikke lastet ned</string>
+    <string name="favorite_add">Legg til i favoritter</string>
+    <string name="favorite_remove">Fjern fra favoritter</string>
+    <plurals name="spoken_seek_back">
+        <item quantity="one">%d sekund tilbake</item>
+        <item quantity="other">%d sekunder tilbake</item>
+    </plurals>
+    <plurals name="spoken_seek_forward">
+        <item quantity="one">%d sekund fremover</item>
+        <item quantity="other">%d sekunder fremover</item>
+    </plurals>
+    <string name="spoken_chapter_number">Kapittel %1$d</string>
+    <string name="spoken_chapter_previous">Forrige kapittel</string>
+    <string name="spoken_chapter_next">Neste kapittel</string>
+</resources>

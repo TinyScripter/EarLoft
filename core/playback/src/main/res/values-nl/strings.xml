@@ -1,0 +1,42 @@
+<resources>
+    <string name="albums">Albums</string>
+    <string name="artists">Artiesten</string>
+    <string name="genres">Genres</string>
+    <string name="playlists">Playlists</string>
+    <string name="favorites">Favorieten</string>
+    <string name="recently_played">Recent afgespeeld</string>
+    <string name="library">Bibliotheek</string>
+    <string name="songs">Nummers</string>
+    <string name="browse_recent">Recent</string>
+    <string name="area_music">Muziek</string>
+    <string name="area_podcasts">Podcasts</string>
+    <string name="area_books">Boeken</string>
+    <string name="continue_listening">Verder luisteren</string>
+    <string name="new_episodes">Nieuwe afleveringen</string>
+    <string name="subscriptions">Abonnementen</string>
+    <string name="downloaded">Gedownload</string>
+    <string name="episodes">Afleveringen</string>
+    <string name="recently_added">Recent toegevoegd</string>
+    <string name="all_books">Alle boeken</string>
+    <string name="authors">Auteurs</string>
+    <string name="series">Series</string>
+    <string name="area_disabled">Dit onderdeel is uitgezet in de instellingen</string>
+    <plurals name="book_count">
+        <item quantity="one">%d boek</item>
+        <item quantity="other">%d boeken</item>
+    </plurals>
+    <string name="song_unavailable">Nummer niet beschikbaar: server niet bereikbaar en niet gedownload</string>
+    <string name="favorite_add">Toevoegen aan favorieten</string>
+    <string name="favorite_remove">Verwijderen uit favorieten</string>
+    <plurals name="spoken_seek_back">
+        <item quantity="one">%d seconde terug</item>
+        <item quantity="other">%d seconden terug</item>
+    </plurals>
+    <plurals name="spoken_seek_forward">
+        <item quantity="one">%d seconde vooruit</item>
+        <item quantity="other">%d seconden vooruit</item>
+    </plurals>
+    <string name="spoken_chapter_number">Hoofdstuk %1$d</string>
+    <string name="spoken_chapter_previous">Vorig hoofdstuk</string>
+    <string name="spoken_chapter_next">Volgend hoofdstuk</string>
+</resources>

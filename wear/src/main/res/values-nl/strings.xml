@@ -1,0 +1,158 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <plurals name="song_count">
+        <item quantity="one">%d track</item>
+        <item quantity="other">%d tracks</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%d album</item>
+        <item quantity="other">%d albums</item>
+    </plurals>
+    <string name="selection_missing">Niet meer op het horloge</string>
+    <string name="selection_not_loaded">Nog niet geladen</string>
+    <!-- "loaded" refers to the selection, so the wording doesn't depend on the numbers. -->
+    <string name="selection_progress" tools:ignore="PluralsCandidate">%1$d van %2$d geladen</string>
+
+    <string name="selection_play">Afspelen</string>
+    <string name="selection_shuffle">Shuffle</string>
+    <string name="start_shuffle_all">Alles shuffelen</string>
+
+    <string name="start_section_watch">Horloge</string>
+    <string name="start_section_phone">Telefoon</string>
+    <string name="start_current_playback">Wordt nu afgespeeld</string>
+
+    <!-- Lists -->
+    <string name="list_music">Muziek</string>
+    <string name="list_podcasts">Podcasts</string>
+    <string name="list_books">Boeken</string>
+    <string name="list_queue">Wachtrij</string>
+    <string name="list_albums">Albums</string>
+    <string name="list_artists">Artiesten</string>
+    <string name="list_favorites">Favorieten</string>
+    <string name="list_songs">Nummers</string>
+    <string name="list_favorite_albums">Favoriete albums</string>
+    <string name="list_favorite_artists">Favoriete artiesten</string>
+    <string name="list_playlists">Playlists</string>
+    <string name="list_empty_watch">Nog niets op het horloge. Kies iets op de telefoon of hieronder bij ‘Telefoon’.</string>
+    <string name="list_empty_phone">Niets op de telefoon</string>
+    <string name="list_podcasts_empty_watch">Geen afleveringen op het horloge</string>
+    <string name="list_books_empty_watch">Geen boeken op het horloge</string>
+    <string name="list_load_failed">Kan niet worden geladen</string>
+
+    <!-- Phone remote control -->
+    <string name="remote_unreachable">Telefoon niet bereikbaar</string>
+    <string name="remote_missing">Niet meer op de telefoon</string>
+    <string name="remote_no_library">Open EarLoft één keer op de telefoon</string>
+    <string name="remote_truncated">Alleen de eerste tracks worden getoond</string>
+    <string name="remote_play_on_phone">Afspelen op telefoon</string>
+    <string name="remote_download">Downloaden</string>
+    <string name="remote_downloading">Downloaden…</string>
+    <string name="remote_downloading_percent">Downloaden: %1$d%%</string>
+    <string name="remote_remove">Verwijderen</string>
+    <string name="remote_download_failed">Download mislukt</string>
+    <string name="remote_on_watch_failed">Telefoon niet bereikbaar, niets gewijzigd</string>
+    <string name="list_started">Gestart</string>
+    <string name="list_started_by">Gestart · %1$s</string>
+
+    <!-- Playback -->
+    <string name="player_nothing">Er wordt niets afgespeeld</string>
+    <string name="player_no_output">Sluit een koptelefoon aan</string>
+    <string name="player_previous">Vorige</string>
+    <string name="player_play">Afspelen</string>
+    <string name="player_pause">Pauzeren</string>
+    <string name="player_next">Volgende</string>
+    <string name="player_shuffle">Shuffle</string>
+    <string name="player_repeat_off">Herhalen uit</string>
+    <string name="player_repeat_all">Alles herhalen</string>
+    <string name="player_repeat_one">Track herhalen</string>
+    <string name="player_output">Bluetooth-uitvoer</string>
+    <string name="player_position">Positie in track</string>
+    <string name="player_position_spoken">Afspeelpositie</string>
+    <string name="player_position_chapter">Positie in hoofdstuk</string>
+    <plurals name="player_skip_back">
+        <item quantity="one">%d seconde terug</item>
+        <item quantity="other">%d seconden terug</item>
+    </plurals>
+    <plurals name="player_skip_forward">
+        <item quantity="one">%d seconde vooruit</item>
+        <item quantity="other">%d seconden vooruit</item>
+    </plurals>
+    <string name="player_volume">Volume</string>
+    <string name="player_volume_percent">%d%%</string>
+    <string name="player_chapters">Hoofdstukken</string>
+    <string name="player_chapter_gone">Niet meer beschikbaar</string>
+
+    <!-- Sleep timer -->
+    <string name="sleep_timer_title">Slaaptimer</string>
+    <string name="sleep_timer_badge">%d min</string>
+    <plurals name="sleep_timer_minutes">
+        <item quantity="one">%1$d minuut</item>
+        <item quantity="other">%1$d minuten</item>
+    </plurals>
+    <string name="sleep_timer_custom">Aangepast</string>
+    <string name="sleep_timer_chapter_end">Einde van hoofdstuk</string>
+    <string name="sleep_timer_episode_end">Einde van aflevering</string>
+    <string name="sleep_timer_start">Starten</string>
+
+    <!-- Downloads -->
+    <string name="download_channel_name">Downloads</string>
+    <string name="download_notification_title">Laden op het horloge</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">Nog %d track</item>
+        <item quantity="other">Nog %d tracks</item>
+    </plurals>
+    <string name="download_error_server_via_phone">Server onbereikbaar, telefoon levert</string>
+    <string name="download_error_server_refused_via_phone">Server leverde niet, telefoon levert</string>
+    <string name="download_error_server_no_phone_copy">Server onbereikbaar, telefoon heeft geen kopie</string>
+    <string name="download_error_phone_no_copy">Telefoon heeft geen kopie</string>
+    <string name="download_error_storage_full">De opslag van het horloge is vol</string>
+    <string name="download_error_phone_unreachable">Telefoon onbereikbaar</string>
+
+    <!-- Storage & downloads -->
+    <string name="storage_title">Opslag &amp; downloads</string>
+    <string name="storage_used">Gebruikt: %s</string>
+    <string name="storage_free">Vrij: %s</string>
+    <string name="storage_limit">Limiet: %s</string>
+    <string name="storage_loading_percent">Laden… %1$d%%</string>
+    <string name="storage_idle">Alles geladen</string>
+    <string name="storage_waiting_charger">Wacht op de oplader</string>
+    <string name="storage_waiting_wifi">Wacht op wifi – zet wifi op het horloge aan</string>
+    <plurals name="storage_pending">
+        <item quantity="one">Nog %d track</item>
+        <item quantity="other">Nog %d tracks</item>
+    </plurals>
+    <plurals name="storage_missing">
+        <item quantity="one">Opslag vol – %d track ontbreekt</item>
+        <item quantity="other">Opslag vol – %d tracks ontbreken</item>
+    </plurals>
+    <plurals name="storage_failed">
+        <item quantity="one">%d track mislukt</item>
+        <item quantity="other">%d tracks mislukt</item>
+    </plurals>
+    <string name="storage_phone_transfer">Via de telefoon: %1$s, ca. %2$d min.</string>
+    <string name="storage_phone_charger_hint">Het best tijdens het opladen.</string>
+    <string name="storage_retry">Opnieuw proberen</string>
+    <string name="storage_last_error">Laatste fout: %s</string>
+    <string name="storage_clear_all">Alles verwijderen</string>
+    <string name="storage_clear_confirm">Alle muziek, podcasts en boeken van het horloge verwijderen? De selectie op de telefoon wordt gewist.</string>
+    <string name="storage_clear_music">Muziek verwijderen</string>
+    <string name="storage_clear_music_confirm">Alle muziek van het horloge verwijderen? De selectie op de telefoon wordt opgeheven.</string>
+    <string name="storage_clear_podcasts">Podcasts verwijderen</string>
+    <string name="storage_clear_podcasts_confirm">Alle afleveringen van het horloge verwijderen? De selectie op de telefoon wordt opgeheven.</string>
+    <string name="storage_clear_books">Boeken verwijderen</string>
+    <string name="storage_clear_books_confirm">Alle boeken van het horloge verwijderen? De selectie op de telefoon wordt opgeheven.</string>
+    <string name="storage_clear_no_phone">Telefoon niet verbonden – niets verwijderd.</string>
+    <string name="storage_remove_title">‘%1$s’ verwijderen?</string>
+    <string name="storage_remove_confirm">De selectie op de telefoon wordt opgeheven en het wordt van het horloge verwijderd.</string>
+    <string name="storage_removing">Verwijderen…</string>
+    <string name="storage_entry_loading">%1$s, wordt nog geladen</string>
+
+    <!-- Setup -->
+    <string name="setup_no_phone_title">Telefoon niet verbonden</string>
+    <string name="setup_no_phone_text">Voor het instellen moet de gekoppelde telefoon in de buurt zijn.</string>
+    <string name="setup_app_missing_title">App ontbreekt op de telefoon</string>
+    <string name="setup_app_missing_text">Installeer EarLoft op de telefoon. Daar kies je de muziek voor het horloge.</string>
+    <string name="setup_install_on_phone">Openen op telefoon</string>
+    <string name="setup_opened_on_phone">Ga verder op de telefoon</string>
+    <string name="setup_open_failed">Kan niet worden geopend</string>
+    <string name="setup_retry">Opnieuw controleren</string>
+</resources>

@@ -439,8 +439,8 @@
     <string name="widget_name">Playback</string>
     <string name="widget_description">Shows the current track with controls.</string>
     <string name="widget_config_title">Set up widget</string>
-    <string name="widget_config_areas">Areas</string>
-    <string name="widget_config_areas_hint">The widget shows what is playing from these areas. While something else plays, it shows the last thing played from them; “Play” resumes it.</string>
+    <string name="widget_config_areas">Sections</string>
+    <string name="widget_config_areas_hint">The widget shows what is playing from these sections. While something else plays, it shows the last thing played from them; “Play” resumes it.</string>
     <string name="widget_config_colors">Colors</string>
     <string name="widget_colors_cover">Cover colors</string>
     <string name="widget_colors_app">App colors</string>
@@ -481,8 +481,8 @@
     <string name="voice_nothing_to_play">Nothing to play found.</string>
     <string name="playlist_missing_on_server">Not on %1$s</string>
     <plurals name="playlist_unknown_songs">
-        <item quantity="one">Contains a song the app doesn\'t know; change it only on %2$s.</item>
-        <item quantity="other">Contains %1$d songs the app doesn\'t know; change it only on %2$s.</item>
+        <item quantity="one">Contains a song the app doesn’t know; change it only on %2$s.</item>
+        <item quantity="other">Contains %1$d songs the app doesn’t know; change it only on %2$s.</item>
     </plurals>
     <string name="playlist_added">Added to “%1$s”</string>
     <string name="action_add_to_playlist">Add to playlist</string>
@@ -550,7 +550,7 @@
     <string name="spoken_tab_stats">Statistics</string>
     <string name="book_stats_server_title">Audiobookshelf</string>
     <string name="book_stats_server_loading">Loading statistics from the server …</string>
-    <string name="book_stats_server_failed">The server\'s statistics could not be loaded.</string>
+    <string name="book_stats_server_failed">The server’s statistics could not be loaded.</string>
     <string name="book_stats_today">%1$s today</string>
     <plurals name="book_stats_streak">
         <item quantity="one">%1$d day in a row</item>
@@ -1049,7 +1049,7 @@
     <string name="settings_seek_back">Skip back button</string>
     <string name="settings_seek_forward">Skip forward button</string>
     <string name="settings_chapter_restart">Restart recent chapters</string>
-    <string name="settings_chapter_restart_summary">If you stopped within 30 seconds of a chapter\'s start, it begins again from its start.</string>
+    <string name="settings_chapter_restart_summary">If you stopped within 30 seconds of a chapter’s start, it begins again from its start.</string>
     <string name="settings_sleep_shake">Shake to extend sleep timer</string>
     <string name="settings_sleep_shake_summary">In the last minute and up to two minutes after it paused. Applies to books and podcasts.</string>
     <!-- New-content notifications: titles for several albums, podcasts or books, also the channel names -->
@@ -1161,7 +1161,7 @@
     </plurals>
     <!-- Switching the areas music / podcasts / books on and off (General → Areas) -->
     <string name="settings_section_areas">Sections</string>
-    <string name="settings_areas_hint">Turned-off sections disappear from Start, Library, search, settings and the watch. Nothing is deleted. One section always stays on.</string>
+    <string name="settings_areas_hint">Turned-off sections disappear from Home, Library, search, settings and the watch. Nothing is deleted. One section always stays on.</string>
     <string name="area_hide_music">Hide music</string>
     <string name="area_hide_podcasts">Hide podcasts</string>
     <string name="area_hide_books">Hide books</string>

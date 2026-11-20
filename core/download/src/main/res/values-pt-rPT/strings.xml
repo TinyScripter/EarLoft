@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="download_channel_name">Transferências</string>
+    <string name="download_notification_title">A transferir música</string>
+    <string name="episode_download_notification_title">A transferir episódios de podcasts</string>
+    <string name="book_download_notification_title">A transferir livros</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">Falta %d faixa</item>
+        <item quantity="many">Faltam %d faixas</item>
+        <item quantity="other">Faltam %d faixas</item>
+    </plurals>
+</resources>

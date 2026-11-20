@@ -1,0 +1,158 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <plurals name="song_count">
+        <item quantity="one">%d spor</item>
+        <item quantity="other">%d spor</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%d album</item>
+        <item quantity="other">%d album</item>
+    </plurals>
+    <string name="selection_missing">Ikke lenger på klokken</string>
+    <string name="selection_not_loaded">Ikke lastet inn ennå</string>
+    <!-- "loaded" refers to the selection, so the wording doesn't depend on the numbers. -->
+    <string name="selection_progress" tools:ignore="PluralsCandidate">%1$d av %2$d lastet inn</string>
+
+    <string name="selection_play">Spill av</string>
+    <string name="selection_shuffle">Bland</string>
+    <string name="start_shuffle_all">Bland alle</string>
+
+    <string name="start_section_watch">Klokke</string>
+    <string name="start_section_phone">Telefon</string>
+    <string name="start_current_playback">Spilles nå</string>
+
+    <!-- Lists -->
+    <string name="list_music">Musikk</string>
+    <string name="list_podcasts">Podkaster</string>
+    <string name="list_books">Bøker</string>
+    <string name="list_queue">Kø</string>
+    <string name="list_albums">Album</string>
+    <string name="list_artists">Artister</string>
+    <string name="list_favorites">Favoritter</string>
+    <string name="list_songs">Sanger</string>
+    <string name="list_favorite_albums">Favorittalbum</string>
+    <string name="list_favorite_artists">Favorittartister</string>
+    <string name="list_playlists">Spillelister</string>
+    <string name="list_empty_watch">Ingenting på klokken ennå. Velg noe på telefonen eller nedenfor under «Telefon».</string>
+    <string name="list_empty_phone">Ingenting på telefonen</string>
+    <string name="list_podcasts_empty_watch">Ingen episoder på klokken</string>
+    <string name="list_books_empty_watch">Ingen bøker på klokken</string>
+    <string name="list_load_failed">Kunne ikke lastes inn</string>
+
+    <!-- Phone remote control -->
+    <string name="remote_unreachable">Telefonen kan ikke nås</string>
+    <string name="remote_missing">Ikke lenger på telefonen</string>
+    <string name="remote_no_library">Åpne EarLoft på telefonen én gang</string>
+    <string name="remote_truncated">Bare de første sporene vises</string>
+    <string name="remote_play_on_phone">Spill av på telefonen</string>
+    <string name="remote_download">Last ned</string>
+    <string name="remote_downloading">Laster ned …</string>
+    <string name="remote_downloading_percent">Laster ned %1$d %%</string>
+    <string name="remote_remove">Fjern</string>
+    <string name="remote_download_failed">Nedlastingen mislyktes</string>
+    <string name="remote_on_watch_failed">Telefonen kan ikke nås, ingenting er endret</string>
+    <string name="list_started">Påbegynt</string>
+    <string name="list_started_by">Påbegynt · %1$s</string>
+
+    <!-- Playback -->
+    <string name="player_nothing">Ingenting spilles</string>
+    <string name="player_no_output">Koble til hodetelefoner</string>
+    <string name="player_previous">Forrige</string>
+    <string name="player_play">Spill av</string>
+    <string name="player_pause">Sett på pause</string>
+    <string name="player_next">Neste</string>
+    <string name="player_shuffle">Tilfeldig rekkefølge</string>
+    <string name="player_repeat_off">Gjenta av</string>
+    <string name="player_repeat_all">Gjenta alle</string>
+    <string name="player_repeat_one">Gjenta spor</string>
+    <string name="player_output">Bluetooth-utgang</string>
+    <string name="player_position">Posisjon i sporet</string>
+    <string name="player_position_spoken">Avspillingsposisjon</string>
+    <string name="player_position_chapter">Posisjon i kapittelet</string>
+    <plurals name="player_skip_back">
+        <item quantity="one">%d sekund tilbake</item>
+        <item quantity="other">%d sekunder tilbake</item>
+    </plurals>
+    <plurals name="player_skip_forward">
+        <item quantity="one">%d sekund fremover</item>
+        <item quantity="other">%d sekunder fremover</item>
+    </plurals>
+    <string name="player_volume">Volum</string>
+    <string name="player_volume_percent">%d %%</string>
+    <string name="player_chapters">Kapitler</string>
+    <string name="player_chapter_gone">Ikke lenger tilgjengelig</string>
+
+    <!-- Sleep timer -->
+    <string name="sleep_timer_title">Søvntimer</string>
+    <string name="sleep_timer_badge">%d min</string>
+    <plurals name="sleep_timer_minutes">
+        <item quantity="one">%1$d minutt</item>
+        <item quantity="other">%1$d minutter</item>
+    </plurals>
+    <string name="sleep_timer_custom">Egendefinert</string>
+    <string name="sleep_timer_chapter_end">Slutten av kapittelet</string>
+    <string name="sleep_timer_episode_end">Slutten av episoden</string>
+    <string name="sleep_timer_start">Start</string>
+
+    <!-- Downloads -->
+    <string name="download_channel_name">Nedlastinger</string>
+    <string name="download_notification_title">Laster inn på klokken</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">%d spor gjenstår</item>
+        <item quantity="other">%d spor gjenstår</item>
+    </plurals>
+    <string name="download_error_server_via_phone">Serveren kan ikke nås, telefonen leverer</string>
+    <string name="download_error_server_refused_via_phone">Serveren leverte ikke, telefonen leverer</string>
+    <string name="download_error_server_no_phone_copy">Serveren kan ikke nås, telefonen har ingen kopi</string>
+    <string name="download_error_phone_no_copy">Telefonen har ingen kopi</string>
+    <string name="download_error_storage_full">Lagringsplassen på klokken er full</string>
+    <string name="download_error_phone_unreachable">Telefonen kan ikke nås</string>
+
+    <!-- Storage & downloads -->
+    <string name="storage_title">Lagring og nedlastinger</string>
+    <string name="storage_used">Brukt: %s</string>
+    <string name="storage_free">Ledig: %s</string>
+    <string name="storage_limit">Grense: %s</string>
+    <string name="storage_loading_percent">Laster inn … %1$d %%</string>
+    <string name="storage_idle">Alt er lastet inn</string>
+    <string name="storage_waiting_charger">Venter på laderen</string>
+    <string name="storage_waiting_wifi">Venter på Wi-Fi – slå på Wi-Fi på klokken</string>
+    <plurals name="storage_pending">
+        <item quantity="one">%d spor gjenstår</item>
+        <item quantity="other">%d spor gjenstår</item>
+    </plurals>
+    <plurals name="storage_missing">
+        <item quantity="one">Lagringsplassen er full – %d spor mangler</item>
+        <item quantity="other">Lagringsplassen er full – %d spor mangler</item>
+    </plurals>
+    <plurals name="storage_failed">
+        <item quantity="one">%d spor mislyktes</item>
+        <item quantity="other">%d spor mislyktes</item>
+    </plurals>
+    <string name="storage_phone_transfer">Via telefonen: %1$s, ca. %2$d min.</string>
+    <string name="storage_phone_charger_hint">Helst under lading.</string>
+    <string name="storage_retry">Prøv igjen</string>
+    <string name="storage_last_error">Siste feil: %s</string>
+    <string name="storage_clear_all">Fjern alt</string>
+    <string name="storage_clear_confirm">Vil du fjerne all musikk, alle podkaster og alle bøker fra klokken? Utvalget på telefonen tømmes.</string>
+    <string name="storage_clear_music">Fjern musikk</string>
+    <string name="storage_clear_music_confirm">Vil du fjerne all musikk fra klokken? Den velges bort på telefonen.</string>
+    <string name="storage_clear_podcasts">Fjern podkaster</string>
+    <string name="storage_clear_podcasts_confirm">Vil du fjerne alle episoder fra klokken? De velges bort på telefonen.</string>
+    <string name="storage_clear_books">Fjern bøker</string>
+    <string name="storage_clear_books_confirm">Vil du fjerne alle bøker fra klokken? De velges bort på telefonen.</string>
+    <string name="storage_clear_no_phone">Telefonen er ikke tilkoblet – ingenting er fjernet.</string>
+    <string name="storage_remove_title">Vil du fjerne «%1$s»?</string>
+    <string name="storage_remove_confirm">Det velges bort på telefonen og slettes fra klokken.</string>
+    <string name="storage_removing">Fjerner …</string>
+    <string name="storage_entry_loading">%1$s, lastes fortsatt inn</string>
+
+    <!-- Setup -->
+    <string name="setup_no_phone_title">Telefonen er ikke tilkoblet</string>
+    <string name="setup_no_phone_text">For å konfigurere trenger klokken den sammenkoblede telefonen i nærheten.</string>
+    <string name="setup_app_missing_title">Appen mangler på telefonen</string>
+    <string name="setup_app_missing_text">Installer EarLoft på telefonen. Der velger du musikken for klokken.</string>
+    <string name="setup_install_on_phone">Åpne på telefonen</string>
+    <string name="setup_opened_on_phone">Fortsett på telefonen</string>
+    <string name="setup_open_failed">Kunne ikke åpnes</string>
+    <string name="setup_retry">Sjekk igjen</string>
+</resources>

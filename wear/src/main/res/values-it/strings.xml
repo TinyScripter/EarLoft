@@ -1,0 +1,167 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <plurals name="song_count">
+        <item quantity="one">%d brano</item>
+        <item quantity="many">%d brani</item>
+        <item quantity="other">%d brani</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%d album</item>
+        <item quantity="many">%d album</item>
+        <item quantity="other">%d album</item>
+    </plurals>
+    <string name="selection_missing">Non più sull’orologio</string>
+    <string name="selection_not_loaded">Non ancora caricato</string>
+    <!-- "loaded" refers to the selection, so the wording doesn't depend on the numbers. -->
+    <string name="selection_progress" tools:ignore="PluralsCandidate">Caricati: %1$d di %2$d</string>
+
+    <string name="selection_play">Riproduci</string>
+    <string name="selection_shuffle">Casuale</string>
+    <string name="start_shuffle_all">Tutto in ordine casuale</string>
+
+    <string name="start_section_watch">Orologio</string>
+    <string name="start_section_phone">Telefono</string>
+    <string name="start_current_playback">In riproduzione</string>
+
+    <!-- Lists -->
+    <string name="list_music">Musica</string>
+    <string name="list_podcasts">Podcast</string>
+    <string name="list_books">Libri</string>
+    <string name="list_queue">Coda</string>
+    <string name="list_albums">Album</string>
+    <string name="list_artists">Artisti</string>
+    <string name="list_favorites">Preferiti</string>
+    <string name="list_songs">Brani</string>
+    <string name="list_favorite_albums">Album preferiti</string>
+    <string name="list_favorite_artists">Artisti preferiti</string>
+    <string name="list_playlists">Playlist</string>
+    <string name="list_empty_watch">Ancora niente sull’orologio. Scegli qualcosa sul telefono o qui sotto in “Telefono”.</string>
+    <string name="list_empty_phone">Niente sul telefono</string>
+    <string name="list_podcasts_empty_watch">Nessun episodio sull’orologio</string>
+    <string name="list_books_empty_watch">Nessun libro sull’orologio</string>
+    <string name="list_load_failed">Impossibile caricare</string>
+
+    <!-- Phone remote control -->
+    <string name="remote_unreachable">Telefono non raggiungibile</string>
+    <string name="remote_missing">Non più sul telefono</string>
+    <string name="remote_no_library">Apri una volta EarLoft sul telefono</string>
+    <string name="remote_truncated">Vengono mostrati solo i primi brani</string>
+    <string name="remote_play_on_phone">Riproduci sul telefono</string>
+    <string name="remote_download">Scarica</string>
+    <string name="remote_downloading">Download in corso…</string>
+    <string name="remote_downloading_percent">Download: %1$d%%</string>
+    <string name="remote_remove">Rimuovi</string>
+    <string name="remote_download_failed">Download non riuscito</string>
+    <string name="remote_on_watch_failed">Telefono non raggiungibile, nessuna modifica</string>
+    <string name="list_started">Iniziati</string>
+    <string name="list_started_by">Iniziati · %1$s</string>
+
+    <!-- Playback -->
+    <string name="player_nothing">Nessuna riproduzione</string>
+    <string name="player_no_output">Collega le cuffie</string>
+    <string name="player_previous">Precedente</string>
+    <string name="player_play">Riproduci</string>
+    <string name="player_pause">Pausa</string>
+    <string name="player_next">Successivo</string>
+    <string name="player_shuffle">Ordine casuale</string>
+    <string name="player_repeat_off">Ripetizione disattivata</string>
+    <string name="player_repeat_all">Ripeti tutto</string>
+    <string name="player_repeat_one">Ripeti brano</string>
+    <string name="player_output">Uscita Bluetooth</string>
+    <string name="player_position">Posizione nel brano</string>
+    <string name="player_position_spoken">Posizione di riproduzione</string>
+    <string name="player_position_chapter">Posizione nel capitolo</string>
+    <plurals name="player_skip_back">
+        <item quantity="one">Indietro di %d secondo</item>
+        <item quantity="many">Indietro di %d secondi</item>
+        <item quantity="other">Indietro di %d secondi</item>
+    </plurals>
+    <plurals name="player_skip_forward">
+        <item quantity="one">Avanti di %d secondo</item>
+        <item quantity="many">Avanti di %d secondi</item>
+        <item quantity="other">Avanti di %d secondi</item>
+    </plurals>
+    <string name="player_volume">Volume</string>
+    <string name="player_volume_percent">%d%%</string>
+    <string name="player_chapters">Capitoli</string>
+    <string name="player_chapter_gone">Non più disponibile</string>
+
+    <!-- Sleep timer -->
+    <string name="sleep_timer_title">Timer di spegnimento</string>
+    <string name="sleep_timer_badge">%d min</string>
+    <plurals name="sleep_timer_minutes">
+        <item quantity="one">%1$d minuto</item>
+        <item quantity="many">%1$d minuti</item>
+        <item quantity="other">%1$d minuti</item>
+    </plurals>
+    <string name="sleep_timer_custom">Personalizzato</string>
+    <string name="sleep_timer_chapter_end">Fine del capitolo</string>
+    <string name="sleep_timer_episode_end">Fine dell’episodio</string>
+    <string name="sleep_timer_start">Avvia</string>
+
+    <!-- Downloads -->
+    <string name="download_channel_name">Download</string>
+    <string name="download_notification_title">Caricamento sull’orologio</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">%d brano rimanente</item>
+        <item quantity="many">%d brani rimanenti</item>
+        <item quantity="other">%d brani rimanenti</item>
+    </plurals>
+    <string name="download_error_server_via_phone">Server non raggiungibile, invia il telefono</string>
+    <string name="download_error_server_refused_via_phone">Il server non ha inviato, invia il telefono</string>
+    <string name="download_error_server_no_phone_copy">Server non raggiungibile, il telefono non ha una copia</string>
+    <string name="download_error_phone_no_copy">Il telefono non ha una copia</string>
+    <string name="download_error_storage_full">Lo spazio dell’orologio è esaurito</string>
+    <string name="download_error_phone_unreachable">Telefono non raggiungibile</string>
+
+    <!-- Storage & downloads -->
+    <string name="storage_title">Spazio e download</string>
+    <string name="storage_used">Usato: %s</string>
+    <string name="storage_free">Libero: %s</string>
+    <string name="storage_limit">Limite: %s</string>
+    <string name="storage_loading_percent">Caricamento… %1$d%%</string>
+    <string name="storage_idle">Tutto caricato</string>
+    <string name="storage_waiting_charger">In attesa del caricabatterie</string>
+    <string name="storage_waiting_wifi">In attesa del Wi-Fi – attiva il Wi-Fi dell’orologio</string>
+    <plurals name="storage_pending">
+        <item quantity="one">%d brano rimanente</item>
+        <item quantity="many">%d brani rimanenti</item>
+        <item quantity="other">%d brani rimanenti</item>
+    </plurals>
+    <plurals name="storage_missing">
+        <item quantity="one">Spazio esaurito – manca %d brano</item>
+        <item quantity="many">Spazio esaurito – mancano %d brani</item>
+        <item quantity="other">Spazio esaurito – mancano %d brani</item>
+    </plurals>
+    <plurals name="storage_failed">
+        <item quantity="one">%d brano non riuscito</item>
+        <item quantity="many">%d brani non riusciti</item>
+        <item quantity="other">%d brani non riusciti</item>
+    </plurals>
+    <string name="storage_phone_transfer">Tramite il telefono: %1$s, circa %2$d min.</string>
+    <string name="storage_phone_charger_hint">Meglio durante la ricarica.</string>
+    <string name="storage_retry">Riprova</string>
+    <string name="storage_last_error">Ultimo errore: %s</string>
+    <string name="storage_clear_all">Rimuovi tutto</string>
+    <string name="storage_clear_confirm">Rimuovere tutta la musica, i podcast e i libri dall’orologio? La selezione sul telefono viene cancellata.</string>
+    <string name="storage_clear_music">Rimuovi musica</string>
+    <string name="storage_clear_music_confirm">Rimuovere tutta la musica dall’orologio? Viene deselezionata sul telefono.</string>
+    <string name="storage_clear_podcasts">Rimuovi podcast</string>
+    <string name="storage_clear_podcasts_confirm">Rimuovere tutti gli episodi dall’orologio? Vengono deselezionati sul telefono.</string>
+    <string name="storage_clear_books">Rimuovi libri</string>
+    <string name="storage_clear_books_confirm">Rimuovere tutti i libri dall’orologio? Vengono deselezionati sul telefono.</string>
+    <string name="storage_clear_no_phone">Telefono non connesso – non è stato rimosso nulla.</string>
+    <string name="storage_remove_title">Rimuovere “%1$s”?</string>
+    <string name="storage_remove_confirm">Viene deselezionato sul telefono ed eliminato dall’orologio.</string>
+    <string name="storage_removing">Rimozione…</string>
+    <string name="storage_entry_loading">%1$s, caricamento in corso</string>
+
+    <!-- Setup -->
+    <string name="setup_no_phone_title">Telefono non connesso</string>
+    <string name="setup_no_phone_text">Per la configurazione, l’orologio ha bisogno del telefono associato nelle vicinanze.</string>
+    <string name="setup_app_missing_title">App mancante sul telefono</string>
+    <string name="setup_app_missing_text">Installa EarLoft sul telefono. Lì scegli la musica per l’orologio.</string>
+    <string name="setup_install_on_phone">Apri sul telefono</string>
+    <string name="setup_opened_on_phone">Continua sul telefono</string>
+    <string name="setup_open_failed">Impossibile aprire</string>
+    <string name="setup_retry">Verifica di nuovo</string>
+</resources>

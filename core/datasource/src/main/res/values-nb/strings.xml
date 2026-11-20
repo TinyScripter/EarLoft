@@ -1,0 +1,7 @@
+<resources>
+    <string name="unknown_title">Ukjent tittel</string>
+    <string name="unknown_artist">Ukjent artist</string>
+    <string name="unknown_album">Ukjent album</string>
+    <string name="various_artists">Ulike artister</string>
+    <string name="local_source_name">Denne enheten</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="download_channel_name">Nedladdningar</string>
+    <string name="download_notification_title">Laddar ned musik</string>
+    <string name="episode_download_notification_title">Laddar ned poddavsnitt</string>
+    <string name="book_download_notification_title">Laddar ned böcker</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">%d spår kvar</item>
+        <item quantity="other">%d spår kvar</item>
+    </plurals>
+</resources>

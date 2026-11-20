@@ -1,0 +1,176 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <plurals name="song_count">
+        <item quantity="one">%d utwór</item>
+        <item quantity="few">%d utwory</item>
+        <item quantity="many">%d utworów</item>
+        <item quantity="other">%d utworów</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%d album</item>
+        <item quantity="few">%d albumy</item>
+        <item quantity="many">%d albumów</item>
+        <item quantity="other">%d albumów</item>
+    </plurals>
+    <string name="selection_missing">Już nie ma na zegarku</string>
+    <string name="selection_not_loaded">Jeszcze nie wgrano</string>
+    <!-- "loaded" refers to the selection, so the wording doesn't depend on the numbers. -->
+    <string name="selection_progress" tools:ignore="PluralsCandidate">Wgrano %1$d z %2$d</string>
+
+    <string name="selection_play">Odtwórz</string>
+    <string name="selection_shuffle">Losowo</string>
+    <string name="start_shuffle_all">Wszystko losowo</string>
+
+    <string name="start_section_watch">Zegarek</string>
+    <string name="start_section_phone">Telefon</string>
+    <string name="start_current_playback">Teraz odtwarzane</string>
+
+    <!-- Lists -->
+    <string name="list_music">Muzyka</string>
+    <string name="list_podcasts">Podcasty</string>
+    <string name="list_books">Książki</string>
+    <string name="list_queue">Kolejka</string>
+    <string name="list_albums">Albumy</string>
+    <string name="list_artists">Wykonawcy</string>
+    <string name="list_favorites">Ulubione</string>
+    <string name="list_songs">Utwory</string>
+    <string name="list_favorite_albums">Ulubione albumy</string>
+    <string name="list_favorite_artists">Ulubieni wykonawcy</string>
+    <string name="list_playlists">Playlisty</string>
+    <string name="list_empty_watch">Na zegarku nic jeszcze nie ma. Wybierz coś na telefonie lub poniżej w sekcji „Telefon”.</string>
+    <string name="list_empty_phone">Na telefonie nic nie ma</string>
+    <string name="list_podcasts_empty_watch">Brak odcinków na zegarku</string>
+    <string name="list_books_empty_watch">Brak książek na zegarku</string>
+    <string name="list_load_failed">Nie udało się wczytać</string>
+
+    <!-- Phone remote control -->
+    <string name="remote_unreachable">Telefon jest nieosiągalny</string>
+    <string name="remote_missing">Już nie ma na telefonie</string>
+    <string name="remote_no_library">Otwórz raz EarLoft na telefonie</string>
+    <string name="remote_truncated">Widać tylko pierwsze utwory</string>
+    <string name="remote_play_on_phone">Odtwórz na telefonie</string>
+    <string name="remote_download">Pobierz</string>
+    <string name="remote_downloading">Pobieranie…</string>
+    <string name="remote_downloading_percent">Pobieranie %1$d%%</string>
+    <string name="remote_remove">Usuń</string>
+    <string name="remote_download_failed">Pobieranie nie powiodło się</string>
+    <string name="remote_on_watch_failed">Telefon nieosiągalny, nic nie zmieniono</string>
+    <string name="list_started">Rozpoczęte</string>
+    <string name="list_started_by">Rozpoczęte · %1$s</string>
+
+    <!-- Playback -->
+    <string name="player_nothing">Nic nie jest odtwarzane</string>
+    <string name="player_no_output">Podłącz słuchawki</string>
+    <string name="player_previous">Poprzedni</string>
+    <string name="player_play">Odtwórz</string>
+    <string name="player_pause">Wstrzymaj</string>
+    <string name="player_next">Następny</string>
+    <string name="player_shuffle">Kolejność losowa</string>
+    <string name="player_repeat_off">Powtarzanie wyłączone</string>
+    <string name="player_repeat_all">Powtarzaj wszystko</string>
+    <string name="player_repeat_one">Powtarzaj utwór</string>
+    <string name="player_output">Wyjście Bluetooth</string>
+    <string name="player_position">Pozycja w utworze</string>
+    <string name="player_position_spoken">Pozycja odtwarzania</string>
+    <string name="player_position_chapter">Pozycja w rozdziale</string>
+    <plurals name="player_skip_back">
+        <item quantity="one">Wstecz o %d sekundę</item>
+        <item quantity="few">Wstecz o %d sekundy</item>
+        <item quantity="many">Wstecz o %d sekund</item>
+        <item quantity="other">Wstecz o %d sekund</item>
+    </plurals>
+    <plurals name="player_skip_forward">
+        <item quantity="one">Do przodu o %d sekundę</item>
+        <item quantity="few">Do przodu o %d sekundy</item>
+        <item quantity="many">Do przodu o %d sekund</item>
+        <item quantity="other">Do przodu o %d sekund</item>
+    </plurals>
+    <string name="player_volume">Głośność</string>
+    <string name="player_volume_percent">%d%%</string>
+    <string name="player_chapters">Rozdziały</string>
+    <string name="player_chapter_gone">Już niedostępny</string>
+
+    <!-- Sleep timer -->
+    <string name="sleep_timer_title">Wyłącznik czasowy</string>
+    <string name="sleep_timer_badge">%d min</string>
+    <plurals name="sleep_timer_minutes">
+        <item quantity="one">%1$d minuta</item>
+        <item quantity="few">%1$d minuty</item>
+        <item quantity="many">%1$d minut</item>
+        <item quantity="other">%1$d minut</item>
+    </plurals>
+    <string name="sleep_timer_custom">Własny</string>
+    <string name="sleep_timer_chapter_end">Koniec rozdziału</string>
+    <string name="sleep_timer_episode_end">Koniec odcinka</string>
+    <string name="sleep_timer_start">Start</string>
+
+    <!-- Downloads -->
+    <string name="download_channel_name">Pobieranie</string>
+    <string name="download_notification_title">Wgrywanie na zegarek</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">Pozostał %d utwór</item>
+        <item quantity="few">Pozostały %d utwory</item>
+        <item quantity="many">Pozostało %d utworów</item>
+        <item quantity="other">Pozostało %d utworów</item>
+    </plurals>
+    <string name="download_error_server_via_phone">Serwer nieosiągalny, dostarcza telefon</string>
+    <string name="download_error_server_refused_via_phone">Serwer nie dostarczył pliku, dostarcza telefon</string>
+    <string name="download_error_server_no_phone_copy">Serwer nieosiągalny, telefon nie ma kopii</string>
+    <string name="download_error_phone_no_copy">Telefon nie ma kopii</string>
+    <string name="download_error_storage_full">Pamięć zegarka jest pełna</string>
+    <string name="download_error_phone_unreachable">Telefon nieosiągalny</string>
+
+    <!-- Storage & downloads -->
+    <string name="storage_title">Pamięć i pobieranie</string>
+    <string name="storage_used">Zajęte: %s</string>
+    <string name="storage_free">Wolne: %s</string>
+    <string name="storage_limit">Limit: %s</string>
+    <string name="storage_loading_percent">Wgrywanie… %1$d%%</string>
+    <string name="storage_idle">Wszystko wgrane</string>
+    <string name="storage_waiting_charger">Czekam na ładowarkę</string>
+    <string name="storage_waiting_wifi">Czekam na Wi-Fi – włącz Wi-Fi na zegarku</string>
+    <plurals name="storage_pending">
+        <item quantity="one">Pozostał %d utwór</item>
+        <item quantity="few">Pozostały %d utwory</item>
+        <item quantity="many">Pozostało %d utworów</item>
+        <item quantity="other">Pozostało %d utworów</item>
+    </plurals>
+    <plurals name="storage_missing">
+        <item quantity="one">Pamięć pełna – brakuje %d utworu</item>
+        <item quantity="few">Pamięć pełna – brakuje %d utworów</item>
+        <item quantity="many">Pamięć pełna – brakuje %d utworów</item>
+        <item quantity="other">Pamięć pełna – brakuje %d utworów</item>
+    </plurals>
+    <plurals name="storage_failed">
+        <item quantity="one">%d utworu nie udało się wgrać</item>
+        <item quantity="few">%d utworów nie udało się wgrać</item>
+        <item quantity="many">%d utworów nie udało się wgrać</item>
+        <item quantity="other">%d utworów nie udało się wgrać</item>
+    </plurals>
+    <string name="storage_phone_transfer">Przez telefon: %1$s, ok. %2$d min.</string>
+    <string name="storage_phone_charger_hint">Najlepiej podczas ładowania.</string>
+    <string name="storage_retry">Spróbuj ponownie</string>
+    <string name="storage_last_error">Ostatni błąd: %s</string>
+    <string name="storage_clear_all">Usuń wszystko</string>
+    <string name="storage_clear_confirm">Usunąć całą muzykę, podcasty i książki z zegarka? Wybór na telefonie zostanie wyczyszczony.</string>
+    <string name="storage_clear_music">Usuń muzykę</string>
+    <string name="storage_clear_music_confirm">Usunąć całą muzykę z zegarka? Zostanie odznaczona na telefonie.</string>
+    <string name="storage_clear_podcasts">Usuń podcasty</string>
+    <string name="storage_clear_podcasts_confirm">Usunąć wszystkie odcinki z zegarka? Zostaną odznaczone na telefonie.</string>
+    <string name="storage_clear_books">Usuń książki</string>
+    <string name="storage_clear_books_confirm">Usunąć wszystkie książki z zegarka? Zostaną odznaczone na telefonie.</string>
+    <string name="storage_clear_no_phone">Telefon nie jest połączony – niczego nie usunięto.</string>
+    <string name="storage_remove_title">Usunąć „%1$s”?</string>
+    <string name="storage_remove_confirm">Zostanie odznaczone na telefonie i usunięte z zegarka.</string>
+    <string name="storage_removing">Usuwanie…</string>
+    <string name="storage_entry_loading">%1$s, wciąż się wgrywa</string>
+
+    <!-- Setup -->
+    <string name="setup_no_phone_title">Telefon nie jest połączony</string>
+    <string name="setup_no_phone_text">Do konfiguracji zegarek potrzebuje sparowanego telefonu w pobliżu.</string>
+    <string name="setup_app_missing_title">Brak aplikacji na telefonie</string>
+    <string name="setup_app_missing_text">Zainstaluj EarLoft na telefonie. Tam wybierzesz muzykę na zegarek.</string>
+    <string name="setup_install_on_phone">Otwórz na telefonie</string>
+    <string name="setup_opened_on_phone">Kontynuuj na telefonie</string>
+    <string name="setup_open_failed">Nie udało się otworzyć</string>
+    <string name="setup_retry">Sprawdź ponownie</string>
+</resources>

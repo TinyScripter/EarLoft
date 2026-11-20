@@ -1,0 +1,42 @@
+<resources>
+    <string name="albums">Albumit</string>
+    <string name="artists">Artistit</string>
+    <string name="genres">Genret</string>
+    <string name="playlists">Soittolistat</string>
+    <string name="favorites">Suosikit</string>
+    <string name="recently_played">Viimeksi kuunnellut</string>
+    <string name="library">Kirjasto</string>
+    <string name="songs">Kappaleet</string>
+    <string name="browse_recent">Viimeisimmät</string>
+    <string name="area_music">Musiikki</string>
+    <string name="area_podcasts">Podcastit</string>
+    <string name="area_books">Kirjat</string>
+    <string name="continue_listening">Jatka kuuntelua</string>
+    <string name="new_episodes">Uudet jaksot</string>
+    <string name="subscriptions">Tilaukset</string>
+    <string name="downloaded">Ladatut</string>
+    <string name="episodes">Jaksot</string>
+    <string name="recently_added">Viimeksi lisätyt</string>
+    <string name="all_books">Kaikki kirjat</string>
+    <string name="authors">Kirjailijat</string>
+    <string name="series">Sarjat</string>
+    <string name="area_disabled">Tämä osio on poistettu käytöstä asetuksissa</string>
+    <plurals name="book_count">
+        <item quantity="one">%d kirja</item>
+        <item quantity="other">%d kirjaa</item>
+    </plurals>
+    <string name="song_unavailable">Kappale ei ole saatavilla: palvelimeen ei saada yhteyttä, eikä kappaletta ole ladattu</string>
+    <string name="favorite_add">Lisää suosikkeihin</string>
+    <string name="favorite_remove">Poista suosikeista</string>
+    <plurals name="spoken_seek_back">
+        <item quantity="one">%d sekunti taaksepäin</item>
+        <item quantity="other">%d sekuntia taaksepäin</item>
+    </plurals>
+    <plurals name="spoken_seek_forward">
+        <item quantity="one">%d sekunti eteenpäin</item>
+        <item quantity="other">%d sekuntia eteenpäin</item>
+    </plurals>
+    <string name="spoken_chapter_number">Luku %1$d</string>
+    <string name="spoken_chapter_previous">Edellinen luku</string>
+    <string name="spoken_chapter_next">Seuraava luku</string>
+</resources>

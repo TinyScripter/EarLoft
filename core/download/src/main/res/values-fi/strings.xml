@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="download_channel_name">Lataukset</string>
+    <string name="download_notification_title">Ladataan musiikkia</string>
+    <string name="episode_download_notification_title">Ladataan podcast-jaksoja</string>
+    <string name="book_download_notification_title">Ladataan kirjoja</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">%d raita jäljellä</item>
+        <item quantity="other">%d raitaa jäljellä</item>
+    </plurals>
+</resources>

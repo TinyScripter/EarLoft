@@ -1,0 +1,167 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <plurals name="song_count">
+        <item quantity="one">%d morceau</item>
+        <item quantity="many">%d morceaux</item>
+        <item quantity="other">%d morceaux</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%d album</item>
+        <item quantity="many">%d albums</item>
+        <item quantity="other">%d albums</item>
+    </plurals>
+    <string name="selection_missing">N’est plus sur la montre</string>
+    <string name="selection_not_loaded">Pas encore chargé</string>
+    <!-- "loaded" refers to the selection, so the wording doesn't depend on the numbers. -->
+    <string name="selection_progress" tools:ignore="PluralsCandidate">Chargé : %1$d sur %2$d</string>
+
+    <string name="selection_play">Lire</string>
+    <string name="selection_shuffle">Aléatoire</string>
+    <string name="start_shuffle_all">Tout en aléatoire</string>
+
+    <string name="start_section_watch">Montre</string>
+    <string name="start_section_phone">Téléphone</string>
+    <string name="start_current_playback">En cours de lecture</string>
+
+    <!-- Lists -->
+    <string name="list_music">Musique</string>
+    <string name="list_podcasts">Podcasts</string>
+    <string name="list_books">Livres</string>
+    <string name="list_queue">File d’attente</string>
+    <string name="list_albums">Albums</string>
+    <string name="list_artists">Artistes</string>
+    <string name="list_favorites">Favoris</string>
+    <string name="list_songs">Morceaux</string>
+    <string name="list_favorite_albums">Albums favoris</string>
+    <string name="list_favorite_artists">Artistes favoris</string>
+    <string name="list_playlists">Playlists</string>
+    <string name="list_empty_watch">Rien sur la montre pour l’instant. Choisissez du contenu sur le téléphone ou ci-dessous, sous « Téléphone ».</string>
+    <string name="list_empty_phone">Rien sur le téléphone</string>
+    <string name="list_podcasts_empty_watch">Aucun épisode sur la montre</string>
+    <string name="list_books_empty_watch">Aucun livre sur la montre</string>
+    <string name="list_load_failed">Chargement impossible</string>
+
+    <!-- Phone remote control -->
+    <string name="remote_unreachable">Téléphone inaccessible</string>
+    <string name="remote_missing">N’est plus sur le téléphone</string>
+    <string name="remote_no_library">Ouvrez une fois EarLoft sur le téléphone</string>
+    <string name="remote_truncated">Seuls les premiers morceaux sont affichés</string>
+    <string name="remote_play_on_phone">Lire sur le téléphone</string>
+    <string name="remote_download">Télécharger</string>
+    <string name="remote_downloading">Téléchargement…</string>
+    <string name="remote_downloading_percent">Téléchargement : %1$d %%</string>
+    <string name="remote_remove">Retirer</string>
+    <string name="remote_download_failed">Échec du téléchargement</string>
+    <string name="remote_on_watch_failed">Téléphone inaccessible, aucune modification</string>
+    <string name="list_started">Commencé</string>
+    <string name="list_started_by">Commencé · %1$s</string>
+
+    <!-- Playback -->
+    <string name="player_nothing">Aucune lecture en cours</string>
+    <string name="player_no_output">Connectez un casque</string>
+    <string name="player_previous">Précédent</string>
+    <string name="player_play">Lire</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_next">Suivant</string>
+    <string name="player_shuffle">Lecture aléatoire</string>
+    <string name="player_repeat_off">Répétition désactivée</string>
+    <string name="player_repeat_all">Répéter tout</string>
+    <string name="player_repeat_one">Répéter le morceau</string>
+    <string name="player_output">Sortie Bluetooth</string>
+    <string name="player_position">Position dans le morceau</string>
+    <string name="player_position_spoken">Position de lecture</string>
+    <string name="player_position_chapter">Position dans le chapitre</string>
+    <plurals name="player_skip_back">
+        <item quantity="one">Reculer de %d seconde</item>
+        <item quantity="many">Reculer de %d secondes</item>
+        <item quantity="other">Reculer de %d secondes</item>
+    </plurals>
+    <plurals name="player_skip_forward">
+        <item quantity="one">Avancer de %d seconde</item>
+        <item quantity="many">Avancer de %d secondes</item>
+        <item quantity="other">Avancer de %d secondes</item>
+    </plurals>
+    <string name="player_volume">Volume</string>
+    <string name="player_volume_percent">%d %%</string>
+    <string name="player_chapters">Chapitres</string>
+    <string name="player_chapter_gone">N’est plus disponible</string>
+
+    <!-- Sleep timer -->
+    <string name="sleep_timer_title">Minuteur de mise en veille</string>
+    <string name="sleep_timer_badge">%d min</string>
+    <plurals name="sleep_timer_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="many">%1$d minutes</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <string name="sleep_timer_custom">Personnalisé</string>
+    <string name="sleep_timer_chapter_end">Fin du chapitre</string>
+    <string name="sleep_timer_episode_end">Fin de l’épisode</string>
+    <string name="sleep_timer_start">Démarrer</string>
+
+    <!-- Downloads -->
+    <string name="download_channel_name">Téléchargements</string>
+    <string name="download_notification_title">Chargement sur la montre</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">%d morceau restant</item>
+        <item quantity="many">%d morceaux restants</item>
+        <item quantity="other">%d morceaux restants</item>
+    </plurals>
+    <string name="download_error_server_via_phone">Serveur inaccessible, le téléphone prend le relais</string>
+    <string name="download_error_server_refused_via_phone">Le serveur n’a rien envoyé, le téléphone prend le relais</string>
+    <string name="download_error_server_no_phone_copy">Serveur inaccessible, aucune copie sur le téléphone</string>
+    <string name="download_error_phone_no_copy">Aucune copie sur le téléphone</string>
+    <string name="download_error_storage_full">L’espace de stockage de la montre est plein</string>
+    <string name="download_error_phone_unreachable">Téléphone inaccessible</string>
+
+    <!-- Storage & downloads -->
+    <string name="storage_title">Stockage et téléchargements</string>
+    <string name="storage_used">Utilisé : %s</string>
+    <string name="storage_free">Libre : %s</string>
+    <string name="storage_limit">Limite : %s</string>
+    <string name="storage_loading_percent">Chargement… %1$d %%</string>
+    <string name="storage_idle">Tout est chargé</string>
+    <string name="storage_waiting_charger">En attente du chargeur</string>
+    <string name="storage_waiting_wifi">En attente du Wi-Fi – veuillez activer le Wi-Fi de la montre</string>
+    <plurals name="storage_pending">
+        <item quantity="one">%d morceau restant</item>
+        <item quantity="many">%d morceaux restants</item>
+        <item quantity="other">%d morceaux restants</item>
+    </plurals>
+    <plurals name="storage_missing">
+        <item quantity="one">Stockage plein – %d morceau manquant</item>
+        <item quantity="many">Stockage plein – %d morceaux manquants</item>
+        <item quantity="other">Stockage plein – %d morceaux manquants</item>
+    </plurals>
+    <plurals name="storage_failed">
+        <item quantity="one">Échec pour %d morceau</item>
+        <item quantity="many">Échec pour %d morceaux</item>
+        <item quantity="other">Échec pour %d morceaux</item>
+    </plurals>
+    <string name="storage_phone_transfer">Via le téléphone : %1$s, env. %2$d min.</string>
+    <string name="storage_phone_charger_hint">De préférence pendant la recharge.</string>
+    <string name="storage_retry">Réessayer</string>
+    <string name="storage_last_error">Dernière erreur : %s</string>
+    <string name="storage_clear_all">Tout retirer</string>
+    <string name="storage_clear_confirm">Retirer toute la musique, tous les podcasts et tous les livres de la montre ? La sélection sur le téléphone est effacée.</string>
+    <string name="storage_clear_music">Retirer la musique</string>
+    <string name="storage_clear_music_confirm">Retirer toute la musique de la montre ? Elle est désélectionnée sur le téléphone.</string>
+    <string name="storage_clear_podcasts">Retirer les podcasts</string>
+    <string name="storage_clear_podcasts_confirm">Retirer tous les épisodes de la montre ? Ils sont désélectionnés sur le téléphone.</string>
+    <string name="storage_clear_books">Retirer les livres</string>
+    <string name="storage_clear_books_confirm">Retirer tous les livres de la montre ? Ils sont désélectionnés sur le téléphone.</string>
+    <string name="storage_clear_no_phone">Téléphone non connecté – rien n’a été retiré.</string>
+    <string name="storage_remove_title">Retirer « %1$s » ?</string>
+    <string name="storage_remove_confirm">L’élément est désélectionné sur le téléphone et supprimé de la montre.</string>
+    <string name="storage_removing">Suppression…</string>
+    <string name="storage_entry_loading">%1$s, chargement en cours</string>
+
+    <!-- Setup -->
+    <string name="setup_no_phone_title">Téléphone non connecté</string>
+    <string name="setup_no_phone_text">Pour la configuration, le téléphone associé doit se trouver à proximité de la montre.</string>
+    <string name="setup_app_missing_title">Application absente du téléphone</string>
+    <string name="setup_app_missing_text">Installez EarLoft sur le téléphone. C’est là que vous choisissez la musique pour la montre.</string>
+    <string name="setup_install_on_phone">Ouvrir sur le téléphone</string>
+    <string name="setup_opened_on_phone">Continuez sur le téléphone</string>
+    <string name="setup_open_failed">Ouverture impossible</string>
+    <string name="setup_retry">Vérifier à nouveau</string>
+</resources>

@@ -45,7 +45,8 @@ library.
 - **Search** across all three areas or only the selected one, ignoring accents ("Bjork" finds "Björk").
 - **Material 3 design** in the colors of the logo or, if you like, of your wallpaper (Material You); album pages take
   their colors from the cover, and the player can follow the cover or the app colors (**Settings → General**). Light,
-  dark or following the system, phone and tablet layouts, English and German.
+  dark or following the system, phone and tablet layouts. Available in English, German, French, Spanish, Italian,
+  Portuguese (Brazil and Portugal), Dutch, Polish, Swedish, Danish, Norwegian, Finnish and Czech.
 - **Home screen widgets** (4×1) with cover and playback controls. Each widget gets its own areas and colors when you
   add it, and shows up to three lines of title when you pull it taller.
 - **Chromecast** (see [Known limitations](#known-limitations)).
@@ -193,7 +194,8 @@ Android Auto support is included and works fine with my car. So far this is the 
 
 ## Privacy
 
-The full privacy policy is in [PRIVACY.md](PRIVACY.md) (German: [PRIVACY.de.md](PRIVACY.de.md)) and in the app under
+The full privacy policy is in [PRIVACY.md](PRIVACY.md) (translations: `PRIVACY.<language>.md`, e.g.
+[PRIVACY.de.md](PRIVACY.de.md)) and in the app under
 **Settings → About → Privacy policy**. In short:
 
 - Your library, listening history and settings stay on your device and on your own server.

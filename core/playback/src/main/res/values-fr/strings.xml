@@ -1,0 +1,45 @@
+<resources>
+    <string name="albums">Albums</string>
+    <string name="artists">Artistes</string>
+    <string name="genres">Genres</string>
+    <string name="playlists">Playlists</string>
+    <string name="favorites">Favoris</string>
+    <string name="recently_played">Écoutés récemment</string>
+    <string name="library">Bibliothèque</string>
+    <string name="songs">Morceaux</string>
+    <string name="browse_recent">Récents</string>
+    <string name="area_music">Musique</string>
+    <string name="area_podcasts">Podcasts</string>
+    <string name="area_books">Livres</string>
+    <string name="continue_listening">Continuer l’écoute</string>
+    <string name="new_episodes">Nouveaux épisodes</string>
+    <string name="subscriptions">Abonnements</string>
+    <string name="downloaded">Téléchargés</string>
+    <string name="episodes">Épisodes</string>
+    <string name="recently_added">Ajoutés récemment</string>
+    <string name="all_books">Tous les livres</string>
+    <string name="authors">Auteurs</string>
+    <string name="series">Séries</string>
+    <string name="area_disabled">Cette section est désactivée dans les paramètres</string>
+    <plurals name="book_count">
+        <item quantity="one">%d livre</item>
+        <item quantity="many">%d livres</item>
+        <item quantity="other">%d livres</item>
+    </plurals>
+    <string name="song_unavailable">Morceau indisponible : serveur inaccessible et morceau non téléchargé</string>
+    <string name="favorite_add">Ajouter aux favoris</string>
+    <string name="favorite_remove">Retirer des favoris</string>
+    <plurals name="spoken_seek_back">
+        <item quantity="one">Reculer de %d seconde</item>
+        <item quantity="many">Reculer de %d secondes</item>
+        <item quantity="other">Reculer de %d secondes</item>
+    </plurals>
+    <plurals name="spoken_seek_forward">
+        <item quantity="one">Avancer de %d seconde</item>
+        <item quantity="many">Avancer de %d secondes</item>
+        <item quantity="other">Avancer de %d secondes</item>
+    </plurals>
+    <string name="spoken_chapter_number">Chapitre %1$d</string>
+    <string name="spoken_chapter_previous">Chapitre précédent</string>
+    <string name="spoken_chapter_next">Chapitre suivant</string>
+</resources>

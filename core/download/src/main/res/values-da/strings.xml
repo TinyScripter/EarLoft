@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="download_channel_name">Downloads</string>
+    <string name="download_notification_title">Downloader musik</string>
+    <string name="episode_download_notification_title">Downloader podcastafsnit</string>
+    <string name="book_download_notification_title">Downloader bøger</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">%d nummer tilbage</item>
+        <item quantity="other">%d numre tilbage</item>
+    </plurals>
+</resources>

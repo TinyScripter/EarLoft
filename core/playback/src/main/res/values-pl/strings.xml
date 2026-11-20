@@ -1,0 +1,48 @@
+<resources>
+    <string name="albums">Albumy</string>
+    <string name="artists">Wykonawcy</string>
+    <string name="genres">Gatunki</string>
+    <string name="playlists">Playlisty</string>
+    <string name="favorites">Ulubione</string>
+    <string name="recently_played">Ostatnio odtwarzane</string>
+    <string name="library">Biblioteka</string>
+    <string name="songs">Utwory</string>
+    <string name="browse_recent">Ostatnie</string>
+    <string name="area_music">Muzyka</string>
+    <string name="area_podcasts">Podcasty</string>
+    <string name="area_books">Książki</string>
+    <string name="continue_listening">Słuchaj dalej</string>
+    <string name="new_episodes">Nowe odcinki</string>
+    <string name="subscriptions">Subskrypcje</string>
+    <string name="downloaded">Pobrane</string>
+    <string name="episodes">Odcinki</string>
+    <string name="recently_added">Ostatnio dodane</string>
+    <string name="all_books">Wszystkie książki</string>
+    <string name="authors">Autorzy</string>
+    <string name="series">Serie</string>
+    <string name="area_disabled">Ta sekcja jest wyłączona w ustawieniach</string>
+    <plurals name="book_count">
+        <item quantity="one">%d książka</item>
+        <item quantity="few">%d książki</item>
+        <item quantity="many">%d książek</item>
+        <item quantity="other">%d książek</item>
+    </plurals>
+    <string name="song_unavailable">Utwór niedostępny: serwer jest nieosiągalny, a utwór nie został pobrany</string>
+    <string name="favorite_add">Dodaj do ulubionych</string>
+    <string name="favorite_remove">Usuń z ulubionych</string>
+    <plurals name="spoken_seek_back">
+        <item quantity="one">Wstecz o %d sekundę</item>
+        <item quantity="few">Wstecz o %d sekundy</item>
+        <item quantity="many">Wstecz o %d sekund</item>
+        <item quantity="other">Wstecz o %d sekund</item>
+    </plurals>
+    <plurals name="spoken_seek_forward">
+        <item quantity="one">Do przodu o %d sekundę</item>
+        <item quantity="few">Do przodu o %d sekundy</item>
+        <item quantity="many">Do przodu o %d sekund</item>
+        <item quantity="other">Do przodu o %d sekund</item>
+    </plurals>
+    <string name="spoken_chapter_number">Rozdział %1$d</string>
+    <string name="spoken_chapter_previous">Poprzedni rozdział</string>
+    <string name="spoken_chapter_next">Następny rozdział</string>
+</resources>

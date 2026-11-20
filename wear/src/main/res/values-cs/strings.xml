@@ -1,0 +1,176 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <plurals name="song_count">
+        <item quantity="one">%d skladba</item>
+        <item quantity="few">%d skladby</item>
+        <item quantity="many">%d skladeb</item>
+        <item quantity="other">%d skladeb</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%d album</item>
+        <item quantity="few">%d alba</item>
+        <item quantity="many">%d alb</item>
+        <item quantity="other">%d alb</item>
+    </plurals>
+    <string name="selection_missing">Už není v hodinkách</string>
+    <string name="selection_not_loaded">Zatím nenahráno</string>
+    <!-- "loaded" refers to the selection, so the wording doesn't depend on the numbers. -->
+    <string name="selection_progress" tools:ignore="PluralsCandidate">Nahráno %1$d z %2$d</string>
+
+    <string name="selection_play">Přehrát</string>
+    <string name="selection_shuffle">Náhodně</string>
+    <string name="start_shuffle_all">Vše náhodně</string>
+
+    <string name="start_section_watch">Hodinky</string>
+    <string name="start_section_phone">Telefon</string>
+    <string name="start_current_playback">Právě hraje</string>
+
+    <!-- Lists -->
+    <string name="list_music">Hudba</string>
+    <string name="list_podcasts">Podcasty</string>
+    <string name="list_books">Knihy</string>
+    <string name="list_queue">Fronta</string>
+    <string name="list_albums">Alba</string>
+    <string name="list_artists">Interpreti</string>
+    <string name="list_favorites">Oblíbené</string>
+    <string name="list_songs">Skladby</string>
+    <string name="list_favorite_albums">Oblíbená alba</string>
+    <string name="list_favorite_artists">Oblíbení interpreti</string>
+    <string name="list_playlists">Playlisty</string>
+    <string name="list_empty_watch">V hodinkách zatím nic není. Vyberte něco v telefonu nebo níže v části „Telefon“.</string>
+    <string name="list_empty_phone">V telefonu nic není</string>
+    <string name="list_podcasts_empty_watch">V hodinkách nejsou žádné epizody</string>
+    <string name="list_books_empty_watch">V hodinkách nejsou žádné knihy</string>
+    <string name="list_load_failed">Nepodařilo se načíst</string>
+
+    <!-- Phone remote control -->
+    <string name="remote_unreachable">Telefon není dostupný</string>
+    <string name="remote_missing">Už není v telefonu</string>
+    <string name="remote_no_library">Jednou otevřete EarLoft v telefonu</string>
+    <string name="remote_truncated">Zobrazují se jen první skladby</string>
+    <string name="remote_play_on_phone">Přehrát v telefonu</string>
+    <string name="remote_download">Stáhnout</string>
+    <string name="remote_downloading">Stahování…</string>
+    <string name="remote_downloading_percent">Stahování %1$d %%</string>
+    <string name="remote_remove">Odstranit</string>
+    <string name="remote_download_failed">Stahování se nezdařilo</string>
+    <string name="remote_on_watch_failed">Telefon není dostupný, nic se nezměnilo</string>
+    <string name="list_started">Spuštěné</string>
+    <string name="list_started_by">Spuštěné · %1$s</string>
+
+    <!-- Playback -->
+    <string name="player_nothing">Nic se nepřehrává</string>
+    <string name="player_no_output">Připojte sluchátka</string>
+    <string name="player_previous">Předchozí</string>
+    <string name="player_play">Přehrát</string>
+    <string name="player_pause">Pozastavit</string>
+    <string name="player_next">Další</string>
+    <string name="player_shuffle">Náhodné pořadí</string>
+    <string name="player_repeat_off">Opakování vypnuto</string>
+    <string name="player_repeat_all">Opakovat vše</string>
+    <string name="player_repeat_one">Opakovat skladbu</string>
+    <string name="player_output">Výstup Bluetooth</string>
+    <string name="player_position">Pozice ve skladbě</string>
+    <string name="player_position_spoken">Pozice přehrávání</string>
+    <string name="player_position_chapter">Pozice v kapitole</string>
+    <plurals name="player_skip_back">
+        <item quantity="one">Zpět o %d sekundu</item>
+        <item quantity="few">Zpět o %d sekundy</item>
+        <item quantity="many">Zpět o %d sekund</item>
+        <item quantity="other">Zpět o %d sekund</item>
+    </plurals>
+    <plurals name="player_skip_forward">
+        <item quantity="one">Vpřed o %d sekundu</item>
+        <item quantity="few">Vpřed o %d sekundy</item>
+        <item quantity="many">Vpřed o %d sekund</item>
+        <item quantity="other">Vpřed o %d sekund</item>
+    </plurals>
+    <string name="player_volume">Hlasitost</string>
+    <string name="player_volume_percent">%d %%</string>
+    <string name="player_chapters">Kapitoly</string>
+    <string name="player_chapter_gone">Už není k dispozici</string>
+
+    <!-- Sleep timer -->
+    <string name="sleep_timer_title">Časovač vypnutí</string>
+    <string name="sleep_timer_badge">%d min</string>
+    <plurals name="sleep_timer_minutes">
+        <item quantity="one">%1$d minuta</item>
+        <item quantity="few">%1$d minuty</item>
+        <item quantity="many">%1$d minut</item>
+        <item quantity="other">%1$d minut</item>
+    </plurals>
+    <string name="sleep_timer_custom">Vlastní</string>
+    <string name="sleep_timer_chapter_end">Konec kapitoly</string>
+    <string name="sleep_timer_episode_end">Konec epizody</string>
+    <string name="sleep_timer_start">Spustit</string>
+
+    <!-- Downloads -->
+    <string name="download_channel_name">Stahování</string>
+    <string name="download_notification_title">Nahrávání do hodinek</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">Zbývá %d skladba</item>
+        <item quantity="few">Zbývají %d skladby</item>
+        <item quantity="many">Zbývá %d skladeb</item>
+        <item quantity="other">Zbývá %d skladeb</item>
+    </plurals>
+    <string name="download_error_server_via_phone">Server je nedostupný, doručí telefon</string>
+    <string name="download_error_server_refused_via_phone">Server nic nedodal, doručí telefon</string>
+    <string name="download_error_server_no_phone_copy">Server je nedostupný, telefon nemá kopii</string>
+    <string name="download_error_phone_no_copy">Telefon nemá kopii</string>
+    <string name="download_error_storage_full">Úložiště hodinek je plné</string>
+    <string name="download_error_phone_unreachable">Telefon není dostupný</string>
+
+    <!-- Storage & downloads -->
+    <string name="storage_title">Úložiště a stahování</string>
+    <string name="storage_used">Využito: %s</string>
+    <string name="storage_free">Volno: %s</string>
+    <string name="storage_limit">Limit: %s</string>
+    <string name="storage_loading_percent">Nahrávání… %1$d %%</string>
+    <string name="storage_idle">Vše nahráno</string>
+    <string name="storage_waiting_charger">Čeká se na nabíječku</string>
+    <string name="storage_waiting_wifi">Čeká se na Wi-Fi – zapněte prosím Wi-Fi v hodinkách</string>
+    <plurals name="storage_pending">
+        <item quantity="one">Zbývá %d skladba</item>
+        <item quantity="few">Zbývají %d skladby</item>
+        <item quantity="many">Zbývá %d skladeb</item>
+        <item quantity="other">Zbývá %d skladeb</item>
+    </plurals>
+    <plurals name="storage_missing">
+        <item quantity="one">Úložiště je plné – chybí %d skladba</item>
+        <item quantity="few">Úložiště je plné – chybí %d skladby</item>
+        <item quantity="many">Úložiště je plné – chybí %d skladeb</item>
+        <item quantity="other">Úložiště je plné – chybí %d skladeb</item>
+    </plurals>
+    <plurals name="storage_failed">
+        <item quantity="one">Nezdařilo se: %d skladba</item>
+        <item quantity="few">Nezdařilo se: %d skladby</item>
+        <item quantity="many">Nezdařilo se: %d skladeb</item>
+        <item quantity="other">Nezdařilo se: %d skladeb</item>
+    </plurals>
+    <string name="storage_phone_transfer">Přes telefon: %1$s, asi %2$d min.</string>
+    <string name="storage_phone_charger_hint">Nejlépe při nabíjení.</string>
+    <string name="storage_retry">Zkusit znovu</string>
+    <string name="storage_last_error">Poslední chyba: %s</string>
+    <string name="storage_clear_all">Odstranit vše</string>
+    <string name="storage_clear_confirm">Odstranit z hodinek veškerou hudbu, podcasty a knihy? Výběr v telefonu se vymaže.</string>
+    <string name="storage_clear_music">Odstranit hudbu</string>
+    <string name="storage_clear_music_confirm">Odstranit z hodinek veškerou hudbu? V telefonu se zruší její výběr.</string>
+    <string name="storage_clear_podcasts">Odstranit podcasty</string>
+    <string name="storage_clear_podcasts_confirm">Odstranit z hodinek všechny epizody? V telefonu se zruší jejich výběr.</string>
+    <string name="storage_clear_books">Odstranit knihy</string>
+    <string name="storage_clear_books_confirm">Odstranit z hodinek všechny knihy? V telefonu se zruší jejich výběr.</string>
+    <string name="storage_clear_no_phone">Telefon není připojen – nic nebylo odstraněno.</string>
+    <string name="storage_remove_title">Odstranit „%1$s“?</string>
+    <string name="storage_remove_confirm">V telefonu se zruší výběr a z hodinek se smaže.</string>
+    <string name="storage_removing">Odstraňování…</string>
+    <string name="storage_entry_loading">%1$s, ještě se nahrává</string>
+
+    <!-- Setup -->
+    <string name="setup_no_phone_title">Telefon není připojen</string>
+    <string name="setup_no_phone_text">K nastavení potřebují hodinky spárovaný telefon v blízkosti.</string>
+    <string name="setup_app_missing_title">V telefonu chybí aplikace</string>
+    <string name="setup_app_missing_text">Nainstalujte EarLoft do telefonu. Tam vyberete hudbu pro hodinky.</string>
+    <string name="setup_install_on_phone">Otevřít v telefonu</string>
+    <string name="setup_opened_on_phone">Pokračujte v telefonu</string>
+    <string name="setup_open_failed">Nepodařilo se otevřít</string>
+    <string name="setup_retry">Zkontrolovat znovu</string>
+</resources>

@@ -1,0 +1,48 @@
+<resources>
+    <string name="albums">Alba</string>
+    <string name="artists">Interpreti</string>
+    <string name="genres">Žánry</string>
+    <string name="playlists">Playlisty</string>
+    <string name="favorites">Oblíbené</string>
+    <string name="recently_played">Nedávno přehrávané</string>
+    <string name="library">Knihovna</string>
+    <string name="songs">Skladby</string>
+    <string name="browse_recent">Nedávné</string>
+    <string name="area_music">Hudba</string>
+    <string name="area_podcasts">Podcasty</string>
+    <string name="area_books">Knihy</string>
+    <string name="continue_listening">Pokračovat v poslechu</string>
+    <string name="new_episodes">Nové epizody</string>
+    <string name="subscriptions">Odběry</string>
+    <string name="downloaded">Stažené</string>
+    <string name="episodes">Epizody</string>
+    <string name="recently_added">Nedávno přidané</string>
+    <string name="all_books">Všechny knihy</string>
+    <string name="authors">Autoři</string>
+    <string name="series">Série</string>
+    <string name="area_disabled">Tato sekce je v nastavení vypnutá</string>
+    <plurals name="book_count">
+        <item quantity="one">%d kniha</item>
+        <item quantity="few">%d knihy</item>
+        <item quantity="many">%d knih</item>
+        <item quantity="other">%d knih</item>
+    </plurals>
+    <string name="song_unavailable">Skladba není k dispozici: server je nedostupný a skladba není stažená</string>
+    <string name="favorite_add">Přidat do oblíbených</string>
+    <string name="favorite_remove">Odebrat z oblíbených</string>
+    <plurals name="spoken_seek_back">
+        <item quantity="one">Zpět o %d sekundu</item>
+        <item quantity="few">Zpět o %d sekundy</item>
+        <item quantity="many">Zpět o %d sekund</item>
+        <item quantity="other">Zpět o %d sekund</item>
+    </plurals>
+    <plurals name="spoken_seek_forward">
+        <item quantity="one">Vpřed o %d sekundu</item>
+        <item quantity="few">Vpřed o %d sekundy</item>
+        <item quantity="many">Vpřed o %d sekund</item>
+        <item quantity="other">Vpřed o %d sekund</item>
+    </plurals>
+    <string name="spoken_chapter_number">Kapitola %1$d</string>
+    <string name="spoken_chapter_previous">Předchozí kapitola</string>
+    <string name="spoken_chapter_next">Další kapitola</string>
+</resources>

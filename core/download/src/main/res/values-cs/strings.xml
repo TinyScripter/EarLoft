@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="download_channel_name">Stahování</string>
+    <string name="download_notification_title">Stahování hudby</string>
+    <string name="episode_download_notification_title">Stahování epizod podcastů</string>
+    <string name="book_download_notification_title">Stahování knih</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">Zbývá %d skladba</item>
+        <item quantity="few">Zbývají %d skladby</item>
+        <item quantity="many">Zbývá %d skladeb</item>
+        <item quantity="other">Zbývá %d skladeb</item>
+    </plurals>
+</resources>

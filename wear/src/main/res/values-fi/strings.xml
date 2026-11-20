@@ -1,0 +1,158 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <plurals name="song_count">
+        <item quantity="one">%d raita</item>
+        <item quantity="other">%d raitaa</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%d albumi</item>
+        <item quantity="other">%d albumia</item>
+    </plurals>
+    <string name="selection_missing">Ei enää kellossa</string>
+    <string name="selection_not_loaded">Ei vielä siirretty</string>
+    <!-- "loaded" refers to the selection, so the wording doesn't depend on the numbers. -->
+    <string name="selection_progress" tools:ignore="PluralsCandidate">Siirretty %1$d/%2$d</string>
+
+    <string name="selection_play">Toista</string>
+    <string name="selection_shuffle">Sekoita</string>
+    <string name="start_shuffle_all">Sekoita kaikki</string>
+
+    <string name="start_section_watch">Kello</string>
+    <string name="start_section_phone">Puhelin</string>
+    <string name="start_current_playback">Nyt soi</string>
+
+    <!-- Lists -->
+    <string name="list_music">Musiikki</string>
+    <string name="list_podcasts">Podcastit</string>
+    <string name="list_books">Kirjat</string>
+    <string name="list_queue">Jono</string>
+    <string name="list_albums">Albumit</string>
+    <string name="list_artists">Artistit</string>
+    <string name="list_favorites">Suosikit</string>
+    <string name="list_songs">Kappaleet</string>
+    <string name="list_favorite_albums">Suosikkialbumit</string>
+    <string name="list_favorite_artists">Suosikkiartistit</string>
+    <string name="list_playlists">Soittolistat</string>
+    <string name="list_empty_watch">Kellossa ei ole vielä mitään. Valitse jotain puhelimessa tai alempaa kohdasta ”Puhelin”.</string>
+    <string name="list_empty_phone">Puhelimessa ei ole mitään</string>
+    <string name="list_podcasts_empty_watch">Kellossa ei ole jaksoja</string>
+    <string name="list_books_empty_watch">Kellossa ei ole kirjoja</string>
+    <string name="list_load_failed">Lataaminen epäonnistui</string>
+
+    <!-- Phone remote control -->
+    <string name="remote_unreachable">Puhelimeen ei saada yhteyttä</string>
+    <string name="remote_missing">Ei enää puhelimessa</string>
+    <string name="remote_no_library">Avaa EarLoft kerran puhelimessa</string>
+    <string name="remote_truncated">Vain ensimmäiset raidat näytetään</string>
+    <string name="remote_play_on_phone">Toista puhelimessa</string>
+    <string name="remote_download">Lataa</string>
+    <string name="remote_downloading">Ladataan…</string>
+    <string name="remote_downloading_percent">Ladataan %1$d %%</string>
+    <string name="remote_remove">Poista</string>
+    <string name="remote_download_failed">Lataus epäonnistui</string>
+    <string name="remote_on_watch_failed">Puhelimeen ei saada yhteyttä, mitään ei muutettu</string>
+    <string name="list_started">Aloitetut</string>
+    <string name="list_started_by">Aloitetut · %1$s</string>
+
+    <!-- Playback -->
+    <string name="player_nothing">Mitään ei toisteta</string>
+    <string name="player_no_output">Yhdistä kuulokkeet</string>
+    <string name="player_previous">Edellinen</string>
+    <string name="player_play">Toista</string>
+    <string name="player_pause">Keskeytä</string>
+    <string name="player_next">Seuraava</string>
+    <string name="player_shuffle">Satunnaistoisto</string>
+    <string name="player_repeat_off">Jatkuva toisto pois</string>
+    <string name="player_repeat_all">Toista kaikki uudelleen</string>
+    <string name="player_repeat_one">Toista raita uudelleen</string>
+    <string name="player_output">Bluetooth-ulostulo</string>
+    <string name="player_position">Kohta raidassa</string>
+    <string name="player_position_spoken">Toistokohta</string>
+    <string name="player_position_chapter">Kohta luvussa</string>
+    <plurals name="player_skip_back">
+        <item quantity="one">%d sekunti taaksepäin</item>
+        <item quantity="other">%d sekuntia taaksepäin</item>
+    </plurals>
+    <plurals name="player_skip_forward">
+        <item quantity="one">%d sekunti eteenpäin</item>
+        <item quantity="other">%d sekuntia eteenpäin</item>
+    </plurals>
+    <string name="player_volume">Äänenvoimakkuus</string>
+    <string name="player_volume_percent">%d %%</string>
+    <string name="player_chapters">Luvut</string>
+    <string name="player_chapter_gone">Ei enää saatavilla</string>
+
+    <!-- Sleep timer -->
+    <string name="sleep_timer_title">Uniajastin</string>
+    <string name="sleep_timer_badge">%d min</string>
+    <plurals name="sleep_timer_minutes">
+        <item quantity="one">%1$d minuutti</item>
+        <item quantity="other">%1$d minuuttia</item>
+    </plurals>
+    <string name="sleep_timer_custom">Mukautettu</string>
+    <string name="sleep_timer_chapter_end">Luvun loppu</string>
+    <string name="sleep_timer_episode_end">Jakson loppu</string>
+    <string name="sleep_timer_start">Käynnistä</string>
+
+    <!-- Downloads -->
+    <string name="download_channel_name">Lataukset</string>
+    <string name="download_notification_title">Siirretään kelloon</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">%d raita jäljellä</item>
+        <item quantity="other">%d raitaa jäljellä</item>
+    </plurals>
+    <string name="download_error_server_via_phone">Palvelimeen ei saada yhteyttä, puhelin toimittaa</string>
+    <string name="download_error_server_refused_via_phone">Palvelin ei toimittanut, puhelin toimittaa</string>
+    <string name="download_error_server_no_phone_copy">Palvelimeen ei saada yhteyttä, puhelimessa ei ole kopiota</string>
+    <string name="download_error_phone_no_copy">Puhelimessa ei ole kopiota</string>
+    <string name="download_error_storage_full">Kellon tallennustila on täynnä</string>
+    <string name="download_error_phone_unreachable">Puhelimeen ei saada yhteyttä</string>
+
+    <!-- Storage & downloads -->
+    <string name="storage_title">Tallennustila ja lataukset</string>
+    <string name="storage_used">Käytössä: %s</string>
+    <string name="storage_free">Vapaana: %s</string>
+    <string name="storage_limit">Raja: %s</string>
+    <string name="storage_loading_percent">Siirretään… %1$d %%</string>
+    <string name="storage_idle">Kaikki siirretty</string>
+    <string name="storage_waiting_charger">Odotetaan laturia</string>
+    <string name="storage_waiting_wifi">Odotetaan Wi-Fi-yhteyttä – ota kellon Wi-Fi käyttöön</string>
+    <plurals name="storage_pending">
+        <item quantity="one">%d raita jäljellä</item>
+        <item quantity="other">%d raitaa jäljellä</item>
+    </plurals>
+    <plurals name="storage_missing">
+        <item quantity="one">Tallennustila täynnä – %d raita puuttuu</item>
+        <item quantity="other">Tallennustila täynnä – %d raitaa puuttuu</item>
+    </plurals>
+    <plurals name="storage_failed">
+        <item quantity="one">%d raita epäonnistui</item>
+        <item quantity="other">%d raitaa epäonnistui</item>
+    </plurals>
+    <string name="storage_phone_transfer">Puhelimen kautta: %1$s, noin %2$d min.</string>
+    <string name="storage_phone_charger_hint">Parasta laturissa.</string>
+    <string name="storage_retry">Yritä uudelleen</string>
+    <string name="storage_last_error">Viimeisin virhe: %s</string>
+    <string name="storage_clear_all">Poista kaikki</string>
+    <string name="storage_clear_confirm">Poistetaanko kaikki musiikki, podcastit ja kirjat kellosta? Puhelimen valinta tyhjennetään.</string>
+    <string name="storage_clear_music">Poista musiikki</string>
+    <string name="storage_clear_music_confirm">Poistetaanko kaikki musiikki kellosta? Sen valinta poistetaan puhelimessa.</string>
+    <string name="storage_clear_podcasts">Poista podcastit</string>
+    <string name="storage_clear_podcasts_confirm">Poistetaanko kaikki jaksot kellosta? Niiden valinta poistetaan puhelimessa.</string>
+    <string name="storage_clear_books">Poista kirjat</string>
+    <string name="storage_clear_books_confirm">Poistetaanko kaikki kirjat kellosta? Niiden valinta poistetaan puhelimessa.</string>
+    <string name="storage_clear_no_phone">Puhelinta ei ole yhdistetty – mitään ei poistettu.</string>
+    <string name="storage_remove_title">Poistetaanko ”%1$s”?</string>
+    <string name="storage_remove_confirm">Sen valinta poistetaan puhelimessa, ja se poistetaan kellosta.</string>
+    <string name="storage_removing">Poistetaan…</string>
+    <string name="storage_entry_loading">%1$s, siirto kesken</string>
+
+    <!-- Setup -->
+    <string name="setup_no_phone_title">Puhelinta ei ole yhdistetty</string>
+    <string name="setup_no_phone_text">Määritystä varten kello tarvitsee pariliitetyn puhelimen lähelleen.</string>
+    <string name="setup_app_missing_title">Sovellus puuttuu puhelimesta</string>
+    <string name="setup_app_missing_text">Asenna EarLoft puhelimeen. Siellä valitset musiikin kelloon.</string>
+    <string name="setup_install_on_phone">Avaa puhelimessa</string>
+    <string name="setup_opened_on_phone">Jatka puhelimessa</string>
+    <string name="setup_open_failed">Avaaminen epäonnistui</string>
+    <string name="setup_retry">Tarkista uudelleen</string>
+</resources>

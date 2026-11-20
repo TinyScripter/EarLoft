@@ -105,7 +105,7 @@
     <string name="download_error_server_refused_via_phone">Server did not deliver, phone delivers</string>
     <string name="download_error_server_no_phone_copy">Server unreachable, phone has no copy</string>
     <string name="download_error_phone_no_copy">Phone has no copy</string>
-    <string name="download_error_storage_full">The watch\'s storage is full</string>
+    <string name="download_error_storage_full">The watch’s storage is full</string>
     <string name="download_error_phone_unreachable">Phone unreachable</string>
 
     <!-- Storage & downloads -->
@@ -116,7 +116,7 @@
     <string name="storage_loading_percent">Loading … %1$d%%</string>
     <string name="storage_idle">Everything loaded</string>
     <string name="storage_waiting_charger">Waiting for the charger</string>
-    <string name="storage_waiting_wifi">Waiting for Wi-Fi – please turn on the watch\'s Wi-Fi</string>
+    <string name="storage_waiting_wifi">Waiting for Wi-Fi – please turn on the watch’s Wi-Fi</string>
     <plurals name="storage_pending">
         <item quantity="one">%d track left</item>
         <item quantity="other">%d tracks left</item>

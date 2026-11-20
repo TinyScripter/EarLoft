@@ -1,0 +1,45 @@
+<resources>
+    <string name="albums">Album</string>
+    <string name="artists">Artisti</string>
+    <string name="genres">Generi</string>
+    <string name="playlists">Playlist</string>
+    <string name="favorites">Preferiti</string>
+    <string name="recently_played">Ascoltati di recente</string>
+    <string name="library">Libreria</string>
+    <string name="songs">Brani</string>
+    <string name="browse_recent">Recenti</string>
+    <string name="area_music">Musica</string>
+    <string name="area_podcasts">Podcast</string>
+    <string name="area_books">Libri</string>
+    <string name="continue_listening">Continua ad ascoltare</string>
+    <string name="new_episodes">Nuovi episodi</string>
+    <string name="subscriptions">Iscrizioni</string>
+    <string name="downloaded">Scaricati</string>
+    <string name="episodes">Episodi</string>
+    <string name="recently_added">Aggiunti di recente</string>
+    <string name="all_books">Tutti i libri</string>
+    <string name="authors">Autori</string>
+    <string name="series">Serie</string>
+    <string name="area_disabled">Questa sezione è disattivata nelle impostazioni</string>
+    <plurals name="book_count">
+        <item quantity="one">%d libro</item>
+        <item quantity="many">%d libri</item>
+        <item quantity="other">%d libri</item>
+    </plurals>
+    <string name="song_unavailable">Brano non disponibile: server non raggiungibile e brano non scaricato</string>
+    <string name="favorite_add">Aggiungi ai preferiti</string>
+    <string name="favorite_remove">Rimuovi dai preferiti</string>
+    <plurals name="spoken_seek_back">
+        <item quantity="one">Indietro di %d secondo</item>
+        <item quantity="many">Indietro di %d secondi</item>
+        <item quantity="other">Indietro di %d secondi</item>
+    </plurals>
+    <plurals name="spoken_seek_forward">
+        <item quantity="one">Avanti di %d secondo</item>
+        <item quantity="many">Avanti di %d secondi</item>
+        <item quantity="other">Avanti di %d secondi</item>
+    </plurals>
+    <string name="spoken_chapter_number">Capitolo %1$d</string>
+    <string name="spoken_chapter_previous">Capitolo precedente</string>
+    <string name="spoken_chapter_next">Capitolo successivo</string>
+</resources>

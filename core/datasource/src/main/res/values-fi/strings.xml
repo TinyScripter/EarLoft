@@ -1,0 +1,7 @@
+<resources>
+    <string name="unknown_title">Tuntematon nimi</string>
+    <string name="unknown_artist">Tuntematon artisti</string>
+    <string name="unknown_album">Tuntematon albumi</string>
+    <string name="various_artists">Useita artisteja</string>
+    <string name="local_source_name">Tämä laite</string>
+</resources>
