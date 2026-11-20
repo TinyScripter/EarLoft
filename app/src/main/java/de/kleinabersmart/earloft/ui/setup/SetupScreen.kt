@@ -51,6 +51,7 @@ import de.kleinabersmart.earloft.navigation.SetupPage
 import de.kleinabersmart.earloft.ui.components.AppLogo
 import de.kleinabersmart.earloft.ui.components.ListGroup
 import de.kleinabersmart.earloft.ui.components.group
+import de.kleinabersmart.earloft.ui.components.launchOrHint
 import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.ui.permission.NotificationPermission
 import de.kleinabersmart.earloft.ui.permission.rememberAudioPermissionRequester
@@ -112,6 +113,7 @@ fun SetupScreen(
     watchViewModel: SetupWatchViewModel = hiltViewModel(),
     backupViewModel: FullBackupViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val watch by watchViewModel.watch.collectAsStateWithLifecycle()
     val watchSettings by watchViewModel.settings.collectAsStateWithLifecycle()
@@ -138,7 +140,7 @@ fun SetupScreen(
         onAddMusicServer = onAddMusicServer,
         onEditMusicServer = onEditMusicServer,
         onAddPodcast = onAddPodcast,
-        onImportPodcastDatabase = { podcastDatabaseLauncher.launch(arrayOf("*/*")) },
+        onImportPodcastDatabase = { podcastDatabaseLauncher.launchOrHint(arrayOf("*/*"), context) },
         onAddAudiobookshelf = onAddAudiobookshelf,
         onEditAudiobookshelf = onEditAudiobookshelf,
         setArea = viewModel::setAreaEnabled,

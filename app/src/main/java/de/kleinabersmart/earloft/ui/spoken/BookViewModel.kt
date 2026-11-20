@@ -63,6 +63,13 @@ class BookViewModel @AssistedInject constructor(
         .onEach { if (it != null) wasLoaded = true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /**
+     * Whether the entry no longer exists. Unlike [wasLoaded] this survives a process death: a page restored for a book removed
+     * meanwhile shows a hint instead of staying blank (review G56).
+     */
+    val missing: StateFlow<Boolean> = books.book(bookId).map { it == null }.orOnError(false)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** The book was already there; if it is now `null`, it was removed (not: still loading). */
     var wasLoaded = false
         private set

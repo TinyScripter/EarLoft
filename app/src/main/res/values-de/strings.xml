@@ -69,6 +69,7 @@
     <string name="spoken_no_authors">Noch keine Autoren.</string>
     <string name="library_syncing">Bibliothek wird aktualisiert …</string>
     <string name="item_missing">Nicht mehr in der Bibliothek.</string>
+    <string name="no_app_for_action">Auf diesem Gerät gibt es keine App dafür.</string>
     <string name="load_failed">Konnte nicht geladen werden. Bitte später erneut versuchen.</string>
     <string name="disc_number">CD %1$d</string>
     <plurals name="artist_count">

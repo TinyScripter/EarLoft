@@ -4,8 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
@@ -25,13 +23,5 @@ object NotificationPermission {
 @Composable
 fun rememberNotificationPermissionRequester(onResult: (granted: Boolean) -> Unit): () -> Unit {
     val context = LocalContext.current
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (!granted && context.findActivity()?.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) == false) {
-            context.openAppSettings()
-        }
-        onResult(granted)
-    }
-    return {
-        if (NotificationPermission.isGranted(context)) onResult(true) else launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
-    }
+    return rememberPermissionRequester(Manifest.permission.POST_NOTIFICATIONS, { NotificationPermission.isGranted(context) }, onResult)
 }

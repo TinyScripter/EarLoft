@@ -138,8 +138,8 @@ class LibraryViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), 0)
     val playlists: StateFlow<LoadState<List<Playlist>>> = playlistRepository.playlists().stateInViewModel()
 
-    /** `null` while still loading; only for the selection when creating a playlist. */
-    val servers: StateFlow<List<ServerInfo>?> = serverRepository.servers()
+    /** `null` while still loading; only for the selection when creating a playlist, so only enabled ones (review G64). */
+    val servers: StateFlow<List<ServerInfo>?> = serverRepository.servers().map { all -> all.filter { it.enabled } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
     fun setAlbumSort(sort: AlbumSort) {

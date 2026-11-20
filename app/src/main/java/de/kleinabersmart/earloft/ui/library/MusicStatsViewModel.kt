@@ -7,7 +7,8 @@ import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
 import de.kleinabersmart.earloft.core.data.stats.MusicStatsRepository
 import de.kleinabersmart.earloft.core.model.MusicStats
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
-import de.kleinabersmart.earloft.ui.orOnError
+import de.kleinabersmart.earloft.ui.LoadState
+import de.kleinabersmart.earloft.ui.asLoadState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,9 +27,10 @@ class MusicStatsViewModel @Inject constructor(
 ) : ViewModel() {
     private val year = MutableStateFlow<Int?>(null)
 
-    /** `null` while the numbers are still loading (or couldn't be read). */
-    val stats: StateFlow<MusicStats?> =
-        year.flatMapLatest { repository.musicStats(it).orOnError(null) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    /** Loading and a read error are told apart (review G65): before, the tab stayed blank in both cases. */
+    val stats: StateFlow<LoadState<MusicStats>> =
+        year.flatMapLatest { repository.musicStats(it).asLoadState() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     /** Shows the numbers of this year; `null` for "All time". */
     fun selectYear(value: Int?) {

@@ -13,9 +13,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import de.kleinabersmart.earloft.R
+import de.kleinabersmart.earloft.ui.components.launchOrHint
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 
 /**
@@ -25,6 +27,7 @@ import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
  */
 @Composable
 fun rememberFullBackupImport(viewModel: FullBackupViewModel): () -> Unit {
+    val context = LocalContext.current
     var toImport by rememberSaveable { mutableStateOf<Uri?>(null) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { toImport = it }
     toImport?.let { uri ->
@@ -45,7 +48,7 @@ fun rememberFullBackupImport(viewModel: FullBackupViewModel): () -> Unit {
             },
         )
     }
-    return { launcher.launch(arrayOf("*/*")) }
+    return { launcher.launchOrHint(arrayOf("*/*"), context) }
 }
 
 /** The messages of [viewModel] (backup saved or failed) as a snackbar. */

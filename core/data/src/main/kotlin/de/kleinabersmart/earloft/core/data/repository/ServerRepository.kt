@@ -137,6 +137,8 @@ class ServerRepository @Inject constructor(
         val baseUrl = SubsonicServer.normalizeBaseUrl(url) ?: return ConnectionResult.InvalidUrl
         val sourceId = UUID.randomUUID().toString()
         val server = SubsonicServer(sourceId, baseUrl, SubsonicCredentials.Password(username, password))
+        // Before storing anything: a connection that breaks off right here is a failed test, not a crash (review G43).
+        val capabilities = capabilitiesOrFailure(server) ?: return ConnectionResult.Unreachable(null)
 
         secretStore.put(DataSourceRegistry.passwordKey(sourceId), password)
         sourceDao.upsert(
@@ -146,7 +148,7 @@ class ServerRepository @Inject constructor(
                 name = name.trim().ifEmpty { baseUrl.host },
                 baseUrl = baseUrl.toString(),
                 username = username,
-                serverCapabilities = capabilities(server),
+                serverCapabilities = capabilities,
             ),
         )
         registry.reload()
@@ -168,6 +170,7 @@ class ServerRepository @Inject constructor(
 
         val baseUrl = SubsonicServer.normalizeBaseUrl(url) ?: return ConnectionResult.InvalidUrl
         val server = SubsonicServer(sourceId, baseUrl, SubsonicCredentials.Password(username, password))
+        val capabilities = capabilitiesOrFailure(server) ?: return ConnectionResult.Unreachable(null)
         if (newPassword != null) secretStore.put(DataSourceRegistry.passwordKey(sourceId), newPassword)
         // Sync generation and timestamp stay, otherwise the mark-and-sweep would consider everything new.
         sourceDao.upsert(
@@ -175,7 +178,7 @@ class ServerRepository @Inject constructor(
                 name = name.trim().ifEmpty { baseUrl.host },
                 baseUrl = baseUrl.toString(),
                 username = username,
-                serverCapabilities = capabilities(server),
+                serverCapabilities = capabilities,
             ),
         )
         registry.reload()
@@ -349,6 +352,15 @@ class ServerRepository @Inject constructor(
     /** OpenSubsonic extensions as a JSON list, see [DataSourceRegistry]. */
     private suspend fun capabilities(server: SubsonicServer): String =
         api.openSubsonicExtensions(server).joinToString(",", prefix = "[", postfix = "]") { "\"${it.name}\"" }
+
+    /** [capabilities]; `null` if the connection broke off. */
+    private suspend fun capabilitiesOrFailure(server: SubsonicServer): String? =
+        try {
+            capabilities(server)
+        } catch (e: IOException) {
+            Log.w(TAG, "Extensions of ${server.baseUrl.host} not readable", e)
+            null
+        }
 
     private fun SourceEntity.toServerInfo() = ServerInfo(
         sourceId = sourceId,

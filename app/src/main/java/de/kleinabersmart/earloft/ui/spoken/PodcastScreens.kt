@@ -169,13 +169,13 @@ fun PodcastHomeScreen(
                         }
                     },
                 ) {
+                    val sameDay = remember(continueRow.items) { episodesSharingDay(continueRow.items.map { it.book }) }
                     LazyRow(
                         state = continueRow.state,
                         modifier = Modifier.keepHorizontalScroll(continueRow.state),
                         contentPadding = PaddingValues(horizontal = ShelfInset),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        val sameDay = episodesSharingDay(continueRow.items.map { it.book })
                         items(continueRow.items, key = { it.book.id }) { item ->
                             BookCard(
                                 item,
@@ -572,6 +572,10 @@ fun PodcastScreen(
                 if (pinned) headerContent()
                 PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f).fillMaxWidth()) {
                     val listState = rememberLazyListState()
+                    // Several episodes on the same day: time of day next to the date.
+                    val sameDay = remember(list) { episodesSharingDay(list.map { it.book }) }
+                    // If the feed names several seasons (`itunes:season`), each gets its header and group.
+                    val seasons = remember(list) { seasonRuns(list) { it.book.season } }
                     LazyColumn(
                         Modifier.fillMaxSize(),
                         state = listState,
@@ -581,8 +585,6 @@ fun PodcastScreen(
                         if (shownEpisodes is LoadState.Ready && list.isEmpty() && episodes.valueOrNull.orEmpty().isNotEmpty()) {
                             item(key = "filter-empty") { EmptyHint(stringResource(R.string.library_filter_empty)) }
                         }
-                        // Several episodes on the same day: time of day next to the date.
-                        val sameDay = episodesSharingDay(list.map { it.book })
                         val row: @Composable (BookWithProgress) -> Unit = { item ->
                             val id = item.book.id
                             EpisodeSummaryRow(
@@ -603,8 +605,6 @@ fun PodcastScreen(
                                 swipe = swipe,
                             )
                         }
-                        // If the feed names several seasons (`itunes:season`), each gets its header and group.
-                        val seasons = seasonRuns(list) { it.book.season }
                         if (seasons == null) {
                             groupedItems(list, key = { it.book.id }) { row(it) }
                         } else {
@@ -788,11 +788,12 @@ fun PodcastSearchScreen(
                 modifier = Modifier.padding(start = 68.dp, end = 16.dp, top = 2.dp, bottom = 4.dp),
             )
         }
+        val sameDayHits = remember(hits) { episodesSharingDay(hits.map { it.book }) }
         when {
             trimmed.isEmpty() -> Unit
             hits.isEmpty() -> if (settled) EmptyHint(stringResource(R.string.search_no_results, trimmed))
             else -> FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
-                val sameDay = episodesSharingDay(hits.map { it.book })
+                val sameDay = sameDayHits
                 val speed = feed.valueOrNull?.effects?.speed ?: areaEffects.speed
                 groupedItems(hits, key = { it.book.id }) { item ->
                     val id = item.book.id

@@ -7,6 +7,7 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -44,6 +45,7 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.datasource.local.AudioPermission
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
+import de.kleinabersmart.earloft.ui.components.startOrHint
 
 /**
  * Shows [content] only once music may be read. [onGranted] is called on every change
@@ -104,16 +106,43 @@ fun AudioPermissionGate(
 @Composable
 fun rememberAudioPermissionRequester(onResult: (granted: Boolean) -> Unit): () -> Unit {
     val context = LocalContext.current
+    return rememberPermissionRequester(AudioPermission.name, { AudioPermission.isGranted(context) }, onResult)
+}
+
+/**
+ * Requests [permission]; if the system shows no dialog any more (permanently denied), the app's page in the system settings
+ * opens instead. That is the case only if the rationale flag was `false` before and after and the answer came at once: a
+ * dialog closed with Back or by tapping beside it, and a second, deliberate "Don't allow", also end with `false` and
+ * must not jump to the settings (review G21).
+ */
+@Composable
+internal fun rememberPermissionRequester(permission: String, isGranted: () -> Boolean, onResult: (granted: Boolean) -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val request = remember { RequestState() }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (!granted && context.findActivity()?.shouldShowRequestPermissionRationale(AudioPermission.name) == false) {
-            context.openAppSettings()
-        }
+        val rationaleAfter = context.findActivity()?.shouldShowRequestPermissionRationale(permission)
+        val answeredAtOnce = SystemClock.elapsedRealtime() - request.launchedAt < NO_DIALOG_MS
+        if (!granted && !request.rationaleBefore && rationaleAfter == false && answeredAtOnce) context.openAppSettings()
         onResult(granted)
     }
     return {
-        if (AudioPermission.isGranted(context)) onResult(true) else launcher.launch(AudioPermission.name)
+        if (isGranted()) {
+            onResult(true)
+        } else {
+            request.rationaleBefore = context.findActivity()?.shouldShowRequestPermissionRationale(permission) == true
+            request.launchedAt = SystemClock.elapsedRealtime()
+            launcher.launch(permission)
+        }
     }
 }
+
+private class RequestState {
+    var rationaleBefore = false
+    var launchedAt = 0L
+}
+
+/** Without a dialog the system answers within a few frames; a person needs longer. */
+private const val NO_DIALOG_MS = 500L
 
 @Composable
 private fun PermissionRationale(
@@ -170,7 +199,7 @@ private fun requestedPermissions(): Array<String> = buildList {
     if (LocalNetworkPermission.isRequired) add(LocalNetworkPermission.name)
 }.toTypedArray()
 
-internal fun Context.openAppSettings() {
+internal fun Context.openAppSettings() = startOrHint(this) {
     startActivity(
         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),

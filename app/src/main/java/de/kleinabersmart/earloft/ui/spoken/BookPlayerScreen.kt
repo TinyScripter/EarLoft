@@ -741,18 +741,21 @@ private fun BookProgress(
     // Only for books with chapters.
     val chapterRemaining = timeline?.remainingChapterMs(shown, speed)
     if (!episode && chapter != null && chapterRemaining != null) {
-        val chapterElapsed = (shown - chapter.startMs).coerceIn(0, chapter.durationMs)
+        // A broken chapter (end before start) would make coerceIn throw; one of length 0 must not jump into the previous one
+        // (review G59).
+        val chapterLength = chapter.durationMs.coerceAtLeast(1)
+        val chapterElapsed = (shown - chapter.startMs).coerceIn(0, chapterLength)
         val chapterLabel = stringResource(R.string.spoken_position_chapter)
-        val chapterState = stringResource(R.string.spoken_position_state, formatClock(chapterElapsed), formatClock(chapter.durationMs))
+        val chapterState = stringResource(R.string.spoken_position_state, formatClock(chapterElapsed), formatClock(chapterLength))
         Slider(
             value = chapterElapsed.toFloat(),
             onValueChange = { chapterDragging = it },
             onValueChangeFinished = {
                 // Stay just before the end so the jump doesn't already land in the next chapter.
-                chapterDragging?.let { onSeek(chapter.startMs + it.toLong().coerceAtMost(chapter.durationMs - 1)) }
+                chapterDragging?.let { onSeek(chapter.startMs + it.toLong().coerceAtMost(chapterLength - 1)) }
                 chapterDragging = null
             },
-            valueRange = 0f..chapter.durationMs.coerceAtLeast(1).toFloat(),
+            valueRange = 0f..chapterLength.toFloat(),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 16.dp)

@@ -1,6 +1,6 @@
 # Privacy Policy for EarLoft
 
-**Last updated:** November 17, 2026  
+**Last updated:** November 20, 2026  
 **Application ID:** de.kleinabersmart.earloft (phone and Wear OS watch)
 
 ## Overview
@@ -109,6 +109,15 @@ All permissions are asked for only when needed, and the app works with whatever 
 * **Devices on your local network** (`ACCESS_LOCAL_NETWORK`, Android 17 and newer): to reach servers in your home
   network.
 * **Internet, network state, foreground services** for playback, downloads and transfers to the watch.
+* **Keeping the device awake** (`WAKE_LOCK`): so that playback, downloads and casting continue with the screen off.
+* **Vibration** (`VIBRATE`): short feedback, e.g. when the sleep timer is extended by shaking.
+* On the watch additionally **changing the network state** (`CHANGE_NETWORK_STATE`): to request Wi-Fi for downloads.
+* **Starting after a restart** (`RECEIVE_BOOT_COMPLETED`): so that scheduled syncs and downloads continue after the device
+  restarts.
+
+The sleep timer of books and episodes can be extended by shaking the phone; for this, the motion sensor (accelerometer) is
+read only during the timer's last minute and up to two minutes after it ran out. Its values never leave the device. You can
+switch this off in the settings.
 
 EarLoft does not ask for location, microphone, camera, contacts, phone or Bluetooth access.
 

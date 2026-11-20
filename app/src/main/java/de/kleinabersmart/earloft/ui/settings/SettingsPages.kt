@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
@@ -18,6 +19,7 @@ import androidx.compose.material3.Button
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.Alignment
+import de.kleinabersmart.earloft.ui.components.launchOrHint
 import kotlin.math.roundToInt
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.material3.ListItem
@@ -163,6 +165,7 @@ fun GeneralSettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
     backupViewModel: FullBackupViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     var choosingTheme by rememberSaveable { mutableStateOf(false) }
     val backupExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
@@ -244,7 +247,7 @@ fun GeneralSettingsScreen(
                     headlineContent = { Text(stringResource(R.string.settings_backup_export)) },
                     supportingContent = { Text(stringResource(R.string.settings_backup_export_summary)) },
                     leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
-                    modifier = Modifier.clickable { backupExportLauncher.launch("earloft-backup-${LocalDate.now()}.zip") },
+                    modifier = Modifier.clickable { backupExportLauncher.launchOrHint("earloft-backup-${LocalDate.now()}.zip", context) },
                 )
             }
             row("backup-import") {
@@ -595,6 +598,7 @@ fun PodcastsSettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     var choosingRefresh by rememberSaveable { mutableStateOf(false) }
     var choosingDeleteHeard by rememberSaveable { mutableStateOf(false) }
@@ -801,7 +805,7 @@ fun PodcastsSettingsScreen(
                     headlineContent = { Text(stringResource(R.string.settings_opml_import)) },
                     supportingContent = { Text(stringResource(R.string.settings_opml_import_summary)) },
                     leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
-                    modifier = Modifier.clickable { importLauncher.launch(arrayOf("*/*")) },
+                    modifier = Modifier.clickable { importLauncher.launchOrHint(arrayOf("*/*"), context) },
                 )
             }
             row("db-import") {
@@ -809,7 +813,7 @@ fun PodcastsSettingsScreen(
                     headlineContent = { Text(stringResource(R.string.settings_db_import)) },
                     supportingContent = { Text(stringResource(R.string.settings_db_import_summary)) },
                     leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
-                    modifier = Modifier.clickable { backupLauncher.launch(arrayOf("*/*")) },
+                    modifier = Modifier.clickable { backupLauncher.launchOrHint(arrayOf("*/*"), context) },
                 )
             }
             row("db-export") {
@@ -817,7 +821,7 @@ fun PodcastsSettingsScreen(
                     headlineContent = { Text(stringResource(R.string.settings_db_export)) },
                     supportingContent = { Text(stringResource(R.string.settings_db_export_summary)) },
                     leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
-                    modifier = Modifier.clickable { databaseExportLauncher.launch("earloft-podcasts.db") },
+                    modifier = Modifier.clickable { databaseExportLauncher.launchOrHint("earloft-podcasts.db", context) },
                 )
             }
             row("opml-export") {
@@ -825,7 +829,7 @@ fun PodcastsSettingsScreen(
                     headlineContent = { Text(stringResource(R.string.settings_opml_export)) },
                     supportingContent = { Text(stringResource(R.string.settings_opml_export_summary)) },
                     leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
-                    modifier = Modifier.clickable { exportLauncher.launch("earloft-podcasts.opml") },
+                    modifier = Modifier.clickable { exportLauncher.launchOrHint("earloft-podcasts.opml", context) },
                 )
             }
             row("rss-bridge") {
@@ -1045,6 +1049,7 @@ fun AudiobookSettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     var confirmingBookStatsReset by rememberSaveable { mutableStateOf(false) }
     var choosingBookDelete by rememberSaveable { mutableStateOf(false) }
@@ -1082,7 +1087,7 @@ fun AudiobookSettingsScreen(
                         icon = DesignR.drawable.ic_folder,
                         checked = state.localBooksFolderShared,
                         onCheckedChange = { share ->
-                            if (share) pickBookFolder.launch(viewModel.localBooksFolderStart) else viewModel.unshareLocalBooksFolder()
+                            if (share) pickBookFolder.launchOrHint(viewModel.localBooksFolderStart, context) else viewModel.unshareLocalBooksFolder()
                         },
                     )
                 }

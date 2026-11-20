@@ -7,6 +7,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -48,7 +49,7 @@ fun NewEpisodes(
         val listState = rememberLazyListState()
         // When a new episode arrives, it appears at the top in view instead of above the edge.
         ShowStartOnNewFirst(list.firstOrNull()?.book?.id?.toString()) { listState.scrollToItem(0) }
-        val sameDay = episodesSharingDay(list.map { it.book })
+        val sameDay = remember(list) { episodesSharingDay(list.map { it.book }) }
         FastScrollLazyColumn(
             Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth),
             state = listState,

@@ -183,7 +183,7 @@ internal fun SpokenQueueList(
         is LoadState.Ready -> if (rows.isEmpty() && entries.valueOrNull.isNullOrEmpty()) EmptyHint(emptyText)
     }
     if (rows.isEmpty()) return
-    val sameDay = episodesSharingDay(rows.filter { it.isEpisode }.map { it.book })
+    val sameDay = remember(rows) { episodesSharingDay(rows.filter { it.isEpisode }.map { it.book }) }
     FastScrollLazyColumn(state = listState, contentPadding = contentPadding, modifier = modifier) {
         items(rows, key = { it.book.id }) { item ->
             val id = item.book.id
@@ -280,18 +280,20 @@ fun PodcastQueueSearchScreen(
         when {
             trimmed.isEmpty() -> Unit
             hits.isEmpty() -> if (settled) EmptyHint(stringResource(R.string.search_no_results, trimmed))
-            else -> FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
-                val sameDay = episodesSharingDay(hits.map { it.book })
-                items(hits, key = { it.book.id }) { item ->
-                    QueueRow(
-                        item,
-                        current = item.book.id == currentId,
-                        withTime = item.book.id in sameDay,
-                        inheritedSpeed = feedSpeeds[item.book.serverId] ?: 1f,
-                        transparent = false,
-                        onClick = { onEpisodeClick(item.book.id) },
-                        onRemove = { viewModel.remove(item.book.id) },
-                    )
+            else -> {
+                val sameDay = remember(hits) { episodesSharingDay(hits.map { it.book }) }
+                FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+                    items(hits, key = { it.book.id }) { item ->
+                        QueueRow(
+                            item,
+                            current = item.book.id == currentId,
+                            withTime = item.book.id in sameDay,
+                            inheritedSpeed = feedSpeeds[item.book.serverId] ?: 1f,
+                            transparent = false,
+                            onClick = { onEpisodeClick(item.book.id) },
+                            onRemove = { viewModel.remove(item.book.id) },
+                        )
+                    }
                 }
             }
         }

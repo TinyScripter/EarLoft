@@ -16,6 +16,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
@@ -61,7 +62,7 @@ fun StarredEpisodes(
         viewModel.messages.collect { snackbars.show(resources.getString(it), SnackbarDuration.Long) }
     }
     LoadableList(starred, stringResource(R.string.podcast_starred_empty)) { list ->
-        val sameDay = episodesSharingDay(list.map { it.book })
+        val sameDay = remember(list) { episodesSharingDay(list.map { it.book }) }
         FastScrollLazyColumn(Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
             groupedItems(list, key = { it.book.id }) { item ->
                 val id = item.book.id

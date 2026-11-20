@@ -847,13 +847,13 @@ internal fun BookRow(
     /** Volume per book at the top left of the cover ("Continue series" shelf). */
     volumes: Map<Long, String> = emptyMap(),
 ) {
+    val sameDay = remember(books) { episodesSharingDay(books.map { it.book }) }
     LazyRow(
         state = state,
         modifier = Modifier.keepHorizontalScroll(state),
         contentPadding = PaddingValues(horizontal = ShelfInset),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        val sameDay = episodesSharingDay(books.map { it.book })
         items(books, key = { it.book.id }) { item ->
             BookCard(
                 item,

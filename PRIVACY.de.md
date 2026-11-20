@@ -1,6 +1,6 @@
 # Datenschutzerklärung für EarLoft
 
-**Stand:** 17. November 2026  
+**Stand:** 20. November 2026  
 **App-ID:** de.kleinabersmart.earloft (Handy und Wear-OS-Uhr)
 
 Maßgeblich ist die englische Fassung (PRIVACY.md); dies ist eine Übersetzung.
@@ -114,6 +114,15 @@ erlaubst:
 * **Benachrichtigungen** (`POST_NOTIFICATIONS`): für neue Inhalte und den Download-Fortschritt.
 * **Geräte im lokalen Netzwerk** (`ACCESS_LOCAL_NETWORK`, ab Android 17): um Server in deinem Heimnetz zu erreichen.
 * **Internet, Netzwerkstatus, Vordergrunddienste** für Wiedergabe, Downloads und Übertragungen auf die Uhr.
+* **Gerät wach halten** (`WAKE_LOCK`): damit Wiedergabe, Downloads und Casten bei ausgeschaltetem Bildschirm weiterlaufen.
+* **Vibration** (`VIBRATE`): kurze Rückmeldung, z. B. wenn der Sleep-Timer durch Schütteln verlängert wird.
+* Auf der Uhr zusätzlich **Netzwerkstatus ändern** (`CHANGE_NETWORK_STATE`): um für Downloads WLAN anzufordern.
+* **Start nach einem Neustart** (`RECEIVE_BOOT_COMPLETED`): damit geplante Abgleiche und Downloads nach einem Neustart
+  des Geräts weiterlaufen.
+
+Der Sleep-Timer von Büchern und Folgen lässt sich durch Schütteln des Handys verlängern; dafür wird der Bewegungssensor
+(Beschleunigungssensor) nur in der letzten Minute des Timers und bis zu zwei Minuten nach seinem Ablauf gelesen. Seine
+Werte verlassen das Gerät nie. Du kannst das in den Einstellungen ausschalten.
 
 EarLoft fragt nicht nach Zugriff auf Standort, Mikrofon, Kamera, Kontakte, Telefon oder Bluetooth.
 

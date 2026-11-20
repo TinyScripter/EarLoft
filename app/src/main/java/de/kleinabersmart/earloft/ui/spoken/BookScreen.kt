@@ -58,6 +58,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.text.TextStyle
 import de.kleinabersmart.earloft.navigation.BookGroupKind
 import androidx.compose.ui.text.style.TextAlign
+import de.kleinabersmart.earloft.ui.components.EmptyHint
 import java.text.NumberFormat
 import java.util.Locale
 import de.kleinabersmart.earloft.core.model.BookChapter
@@ -164,6 +165,9 @@ fun BookScreen(
         if (book == null) {
             // Removed from the library (ARD Sounds): close the page.
             LaunchedEffect(Unit) { if (viewModel.wasLoaded) onBack() }
+            // Opened (or restored after the process ended) for an entry that is gone: say so, like the podcast pages.
+            val missing by viewModel.missing.collectAsStateWithLifecycle()
+            if (missing && !viewModel.wasLoaded) EmptyHint(stringResource(R.string.item_missing), Modifier.padding(16.dp))
             return@Column
         }
         val header = @Composable {
@@ -311,13 +315,15 @@ private fun BookHeader(
         // Books: year, publisher, language and duration; for started ones the remaining time (content time, without speed).
         val remaining = progress?.takeIf { isBook && !it.finished && it.positionMs > 0 && book.durationMs > 0 }
             ?.let { stringResource(R.string.book_remaining, formatDuration((book.durationMs - it.positionMs).coerceAtLeast(0))) }
+        // Looking the language up goes through all locales: only when it changes, not on every download progress (review G58).
+        val language = remember(book.language) { book.language?.let(::languageName) }
         val facts = listOfNotNull(
             // Episodes: type, season and number from the feed ("Season 2 · Episode 12").
             if (isBook) null else episodeLabel(book, withSeason = true),
             book.addedAt.takeIf { book.kind == BookKind.EPISODE && it > 0 }?.let { formatEpisodeDay(it, withTime = true) },
             book.publishedYear.takeIf { isBook },
             book.publisher.takeIf { isBook },
-            book.language?.takeIf { isBook }?.let(::languageName),
+            language.takeIf { isBook },
             book.durationMs.takeIf { it > 0 }?.let(::formatDuration),
             remaining,
         )

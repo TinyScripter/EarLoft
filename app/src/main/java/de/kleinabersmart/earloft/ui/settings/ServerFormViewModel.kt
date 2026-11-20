@@ -116,9 +116,10 @@ class ServerFormViewModel @AssistedInject constructor(
         }
         submit { s ->
             val result = if (sourceId == null) {
-                serverRepository.addServer(s.type, s.name, s.url, s.username, s.password)
+                // Trimmed: a keyboard often appends a space, the server then reports a wrong password (review G62).
+                serverRepository.addServer(s.type, s.name, s.url, s.username.trim(), s.password)
             } else {
-                serverRepository.updateServer(sourceId, s.name, s.url, s.username, s.newPassword)
+                serverRepository.updateServer(sourceId, s.name, s.url, s.username.trim(), s.newPassword)
             }
             if (result is ConnectionResult.Success) {
                 // Order doesn't matter: downloads start when the setting changes and after every sync.

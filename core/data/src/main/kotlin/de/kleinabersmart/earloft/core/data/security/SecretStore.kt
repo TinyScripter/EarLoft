@@ -57,6 +57,14 @@ class KeystoreSecretStore @Inject constructor(
         } catch (e: IllegalArgumentException) {
             Log.w(TAG, "Secret $key is corrupted", e)
             null
+        } catch (e: IndexOutOfBoundsException) {
+            // Shorter than its IV (review G43).
+            Log.w(TAG, "Secret $key is corrupted", e)
+            null
+        } catch (e: java.security.ProviderException) {
+            // Keystore errors after a system update or restore are not GeneralSecurityExceptions (review G43).
+            Log.w(TAG, "Secret $key cannot be decrypted", e)
+            null
         }
     }
 

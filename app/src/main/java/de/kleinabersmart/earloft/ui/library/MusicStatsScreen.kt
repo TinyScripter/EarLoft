@@ -32,9 +32,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.MusicStats
 import de.kleinabersmart.earloft.core.model.MusicTopEntry
+import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.components.AlbumArt
 import de.kleinabersmart.earloft.ui.components.ArtistAvatar
 import de.kleinabersmart.earloft.ui.components.EmptyHint
+import de.kleinabersmart.earloft.ui.components.LoadFailedHint
 import de.kleinabersmart.earloft.ui.components.SectionHeader
 import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.spoken.yearChipsHeader
@@ -69,7 +71,14 @@ fun MusicStatsScreen(
     viewModel: MusicStatsViewModel = hiltViewModel(),
 ) {
     val stats by viewModel.stats.collectAsStateWithLifecycle()
-    val current = stats ?: return
+    val current = when (val state = stats) {
+        is LoadState.Ready -> state.value
+        LoadState.Failed, LoadState.Missing -> {
+            Box(modifier.fillMaxSize()) { LoadFailedHint() }
+            return
+        }
+        LoadState.Loading -> return
+    }
     if (current.year == null && current.plays == 0) {
         Box(modifier.fillMaxSize()) { EmptyHint(stringResource(R.string.music_stats_empty), Modifier.padding(16.dp)) }
         return

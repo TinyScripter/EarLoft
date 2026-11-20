@@ -34,9 +34,12 @@ class PodcastQueueViewModel @Inject constructor(
 ) : ViewModel() {
 
     /** Speed per subscription (otherwise the podcasts default) for the remaining time of episodes without their own speed. */
-    val feedSpeeds: StateFlow<Map<String, Float>> = combine(podcasts.feeds, spokenSettings.podcastEffects) { feeds, area ->
-        feeds.associate { it.id to (it.effects.speed ?: area.speed) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+    val feedSpeeds: StateFlow<Map<String, Float>> =
+        combine(podcasts.feeds, spokenSettings.podcastEffects, continueListening.episodes) { feeds, area, episodes ->
+            val own = feeds.associate { it.id to (it.effects.speed ?: area.speed) }
+            // Episodes of trial subscriptions (not in [podcasts.feeds]) at the podcasts default, not at 1× (review G55).
+            own + episodes.map { it.book.serverId }.filter { it !in own }.associateWith { area.speed }
+        }.orOnError(emptyMap()).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     val episodes: StateFlow<LoadState<List<BookWithProgress>>> = continueListening.episodes
         .asLoadState()
