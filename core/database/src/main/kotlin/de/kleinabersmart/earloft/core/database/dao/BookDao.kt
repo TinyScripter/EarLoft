@@ -18,6 +18,8 @@ import de.kleinabersmart.earloft.core.database.entity.SpokenLibraryEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.database.model.BookCoverRow
 import de.kleinabersmart.earloft.core.database.model.BookPeopleRow
+import de.kleinabersmart.earloft.core.database.model.BookSearchRow
+import de.kleinabersmart.earloft.core.database.model.BookSeriesRow
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.ChapterSource
 import de.kleinabersmart.earloft.core.model.TrackDownload
@@ -178,27 +180,31 @@ abstract class BookDao {
     )
     abstract fun observeImageStamp(): Flow<String>
 
-    /** Title, author and – many choose audiobooks by this – narrator. */
-    @Query(
-        "SELECT * FROM books WHERE kind = :kind AND (normTitle LIKE :pattern ESCAPE '\\' OR author LIKE :pattern ESCAPE '\\' " +
-            "OR narrator LIKE :pattern ESCAPE '\\') AND $BOOK_LISTED ORDER BY normTitle LIMIT :limit",
-    )
-    abstract suspend fun search(kind: BookKind, pattern: String, limit: Int): List<BookEntity>
+    /**
+     * What the search compares for all listed entries of [kind]: title, author and – many choose audiobooks by this –
+     * narrator. Compared normalized in Kotlin (review G4): only `normTitle` is normalized in the database, a `LIKE` with the
+     * normalized search term would never find "Stephen King" or "Jörg" in `author`.
+     */
+    @Query("SELECT bookId, normTitle, author, narrator FROM books WHERE kind = :kind AND $BOOK_LISTED")
+    abstract suspend fun searchRows(kind: BookKind): List<BookSearchRow>
 
-    /** Books whose series field contains [pattern]; the caller decides which series exactly matches. */
-    @Query("SELECT * FROM books WHERE kind = 'BOOK' AND series LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE ORDER BY normTitle")
-    abstract suspend fun searchSeriesRows(pattern: String): List<BookEntity>
+    @Query("SELECT * FROM books WHERE bookId IN (:bookIds)")
+    abstract suspend fun booksByIds(bookIds: List<Long>): List<BookEntity>
+
+    /** Books in a series, with the whole series entry; the caller decides which series matches. */
+    @Query("SELECT bookId, title, series FROM books WHERE kind = 'BOOK' AND series != '' AND $BOOK_VISIBLE")
+    abstract suspend fun seriesRows(): List<BookSeriesRow>
 
     /**
-     * Books whose author entry contains [pattern], with the whole entry; the caller decides which of the names
-     * matches (a book can have several authors).
+     * Books with an author entry, with the whole entry; the caller decides which of the names matches (a book can have
+     * several authors).
      */
-    @Query("SELECT bookId, author AS names FROM books WHERE kind = 'BOOK' AND author LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE")
-    abstract suspend fun searchAuthorRows(pattern: String): List<BookPeopleRow>
+    @Query("SELECT bookId, author AS names FROM books WHERE kind = 'BOOK' AND author != '' AND $BOOK_VISIBLE")
+    abstract suspend fun authorRows(): List<BookPeopleRow>
 
-    /** Narrators like [searchAuthorRows]. */
-    @Query("SELECT bookId, narrator AS names FROM books WHERE kind = 'BOOK' AND narrator LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE")
-    abstract suspend fun searchNarratorRows(pattern: String): List<BookPeopleRow>
+    /** Narrators like [authorRows]. */
+    @Query("SELECT bookId, narrator AS names FROM books WHERE kind = 'BOOK' AND narrator != '' AND $BOOK_VISIBLE")
+    abstract suspend fun narratorRows(): List<BookPeopleRow>
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     abstract suspend fun insertBook(book: BookEntity): Long

@@ -332,17 +332,11 @@ class PodcastRepositoryTest {
         val potter = dao.insertBook(book("Harry Potter", "J. K. Rowling", narrator = "Rufus Beck"))
         dao.insertBook(book("Sophies Welt", "Jostein Gaarder", narrator = "Rufus Beck"))
 
-        assertEquals(listOf("A", "B", "C"), dao.search(BookKind.EPISODE, "%podcast%", 10).map { it.title }.sorted())
-        assertEquals(emptyList<String>(), dao.search(BookKind.BOOK, "%podcast%", 10).map { it.title })
-        assertEquals(listOf("Dune", "Dune Messiah"), dao.search(BookKind.BOOK, "%dune%", 10).map { it.title })
-        assertEquals(emptyList<String>(), dao.search(BookKind.EPISODE, "%dune%", 10).map { it.title })
-        // Narrators count too, case-insensitively.
-        assertEquals(listOf("Harry Potter", "Sophies Welt"), dao.search(BookKind.BOOK, "%rufus beck%", 10).map { it.title })
-        assertEquals(listOf(first, first + 1), dao.searchAuthorRows("%herbert%").map { it.bookId }.sorted())
-        assertEquals(emptyList<BookPeopleRow>(), dao.searchAuthorRows("%podcast%"))
+        assertEquals(listOf("A", "B", "C"), dao.searchRows(BookKind.EPISODE).map { it.normTitle.uppercase() }.sorted())
+        assertEquals(listOf("dune", "dune messiah", "harry potter", "sophies welt"), dao.searchRows(BookKind.BOOK).map { it.normTitle }.sorted())
+        assertEquals(listOf(first, first + 1, potter, potter + 1), dao.authorRows().map { it.bookId }.sorted())
         // Narrators as a separate hit group, without authors and without episodes.
-        assertEquals(listOf(BookPeopleRow(potter, "Rufus Beck"), BookPeopleRow(potter + 1, "Rufus Beck")), dao.searchNarratorRows("%beck%").sortedBy { it.bookId })
-        assertEquals(emptyList<BookPeopleRow>(), dao.searchNarratorRows("%herbert%"))
+        assertEquals(listOf(BookPeopleRow(potter, "Rufus Beck"), BookPeopleRow(potter + 1, "Rufus Beck")), dao.narratorRows().sortedBy { it.bookId })
     }
 
     @Test
@@ -886,7 +880,7 @@ class PodcastRepositoryTest {
         assertTrue(repository.continueListening(flowOf(listOf(b))) { now }.first().isEmpty())
         assertTrue(repository.subscribedByKey.first().isEmpty())
         assertTrue(repository.searchFeeds("Test").isEmpty())
-        assertTrue(db.bookDao().search(BookKind.EPISODE, "%podcast%", 10).isEmpty())
+        assertTrue(db.bookDao().searchRows(BookKind.EPISODE).isEmpty())
         assertEquals(listOf(feedId), repository.archivedFeeds.first().map { it.id })
         assertEquals(3, db.bookDao().booksOf(feedId).size)
         assertEquals(60_000L, db.bookDao().progress(b)!!.positionMs)

@@ -154,7 +154,8 @@ class Bookmarks @Inject constructor(
         val books = dao.booksOf(serverId).filter { it.kind == BookKind.BOOK }
         if (books.isEmpty()) return
         val byRemoteId = books.associateBy { it.remoteId }
-        val local = dao.bookmarksOf(books.map { it.bookId }).groupBy { it.bookId }
+        // In pieces: Android 8–11 allow at most 999 variables, a library of 1000 books would end the sync (review G17).
+        val local = books.map { it.bookId }.chunked(MAX_ARGS).flatMap { dao.bookmarksOf(it) }.groupBy { it.bookId }
         val remoteByBook = remote.mapNotNull { dto -> byRemoteId[dto.libraryItemId]?.let { it.bookId to dto } }.groupBy({ it.first }, { it.second })
         for (book in books) {
             val mine = local[book.bookId].orEmpty()
@@ -193,6 +194,7 @@ class Bookmarks @Inject constructor(
 
     private companion object {
         const val TAG = "Bookmarks"
+        const val MAX_ARGS = 500
     }
 }
 

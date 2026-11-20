@@ -77,10 +77,14 @@ abstract class StatsDao {
     )
     abstract fun observeFinishedEpisodes(): Flow<Int>
 
-    /** Like [observeFinishedEpisodes], only entries of kind [kind] whose progress was last changed between [fromMs] (inclusive) and [toMs] (exclusive). */
+    /**
+     * Like [observeFinishedEpisodes], only entries of kind [kind] finished between [fromMs] (inclusive) and [toMs] (exclusive).
+     * By `finishedAt`: removing a book from "Continue listening" later changes `updatedAt` (review G31).
+     */
     @Query(
         "SELECT COUNT(*) FROM book_progress p JOIN books b ON b.bookId = p.bookId " +
-            "WHERE b.kind = :kind AND p.finished = 1 AND p.updatedAt >= :fromMs AND p.updatedAt < :toMs",
+            "WHERE b.kind = :kind AND p.finished = 1 AND COALESCE(p.finishedAt, p.updatedAt) >= :fromMs " +
+            "AND COALESCE(p.finishedAt, p.updatedAt) < :toMs",
     )
     abstract fun observeFinishedBetween(kind: BookKind, fromMs: Long, toMs: Long): Flow<Int>
 

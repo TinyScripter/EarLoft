@@ -79,6 +79,12 @@ data class BookPeopleRow(
     val names: String,
 )
 
+/** What the book and episode search compares (`BookDao.searchRows`). */
+data class BookSearchRow(val bookId: Long, val normTitle: String, val author: String, val narrator: String)
+
+/** A book's series entry (`BookDao.seriesRows`). */
+data class BookSeriesRow(val bookId: Long, val title: String, val series: String)
+
 /** ReplayGain values of a song source. */
 data class ReplayGainRow(
     val rgTrackGainDb: Float?,

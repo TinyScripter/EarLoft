@@ -1,16 +1,13 @@
 package de.kleinabersmart.earloft.core.data.spoken
 
-import de.kleinabersmart.earloft.core.model.Book
-import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.database.model.BookSeriesRow
 import de.kleinabersmart.earloft.core.model.SeriesHit
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class SeriesSearchTest {
 
-    private fun book(id: Long, title: String, series: String) = Book(
-        id = id, serverId = "abs", kind = BookKind.BOOK, title = title, author = "A", series = series, durationMs = 1, remoteId = "r$id",
-    )
+    private fun book(id: Long, title: String, series: String) = BookSeriesRow(bookId = id, title = title, series = series)
 
     @Test
     fun `series are found by name and counted, the lowest volume gives the cover`() {

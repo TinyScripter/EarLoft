@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -76,6 +77,12 @@ class BookDownloads @Inject constructor(
 
     /** The automation's last fully enqueued selection; only a different one gets enqueued again. */
     private var handled: List<Long> = emptyList()
+
+    /**
+     * Books whose file list the server didn't deliver, with the time of the next attempt (review G36): without it every
+     * saved position (every 15 s while listening) asked an unreachable server again. In memory only.
+     */
+    private val detailsRetryAt = java.util.concurrent.ConcurrentHashMap<Long, Long>()
 
     /**
      * Enqueues all files of the book that aren't downloaded yet. The file list comes from the server, which must
@@ -150,18 +157,24 @@ class BookDownloads @Inject constructor(
                 .flatMapLatest { (started, next, expiring) ->
                     if (!started && !next && !expiring) return@flatMapLatest flowOf(emptyList())
                     // Expiring books don't change any row when their period drops below the threshold: the clock triggers it.
+                    // The selection only after [sample]: computed on every saved position, most results were discarded (review G39).
                     combine(books.continueListening(), books.books(), unmeteredNetwork(), expiryCheck()) { continueListening, all, wifi, _ ->
-                        if (!wifi) return@combine emptyList()
-                        automaticBookDownloads(continueListening, all, started, next, System.currentTimeMillis(), expiring)
+                        Triple(continueListening, all, wifi)
                     }
+                        .sample(AUTOMATIC_SAMPLE_MS)
+                        .map { (continueListening, all, wifi) ->
+                            if (!wifi) return@map emptyList()
+                            automaticBookDownloads(continueListening, all, started, next, System.currentTimeMillis(), expiring)
+                        }
                 }
-                .sample(AUTOMATIC_SAMPLE_MS)
                 .collect { bookIds ->
                     if (bookIds != handled && queueAutomatic(bookIds)) handled = bookIds
                 }
         }
         scope.launch {
-            combine(dao.observeFinishedBookDownloads(), settings.bookDeleteFinishedDays, loadedBookId, ::Triple)
+            // Distinct: the list changes on every saved position, its content only when a book is finished (review G39).
+            combine(dao.observeFinishedBookDownloads().distinctUntilChanged(), settings.bookDeleteFinishedDays, loadedBookId, ::Triple)
+                .distinctUntilChanged()
                 .collect { (finished, days, loaded) -> removeExpired(finished, days, loaded) }
         }
     }
@@ -199,12 +212,19 @@ class BookDownloads @Inject constructor(
     private suspend fun queueAutomatic(bookIds: List<Long>): Boolean {
         var queued = 0
         var complete = true
+        val now = System.currentTimeMillis()
         for (bookId in bookIds) {
-            // File list from the server, if not loaded yet; without a connection next time.
-            if (books.timeline(bookId) == null) {
+            // File list from the server, if not loaded yet; without a connection a while later.
+            if ((detailsRetryAt[bookId] ?: 0L) > now) {
                 complete = false
                 continue
             }
+            if (books.timeline(bookId) == null) {
+                detailsRetryAt[bookId] = now + DETAILS_RETRY_MS
+                complete = false
+                continue
+            }
+            detailsRetryAt.remove(bookId)
             queued += dao.queueBookDownloadAutomatic(bookId)
         }
         if (queued > 0) {
@@ -259,5 +279,6 @@ class BookDownloads @Inject constructor(
         const val TAG = "BookDownloads"
         const val AUTOMATIC_SAMPLE_MS = 5_000L
         const val EXPIRY_CHECK_MS = 6 * 60 * 60 * 1000L
+        const val DETAILS_RETRY_MS = 10 * 60 * 1000L
     }
 }

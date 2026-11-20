@@ -143,32 +143,35 @@ class BookRepository @Inject constructor(
 
     /** Searches books ([BookKind.BOOK]) or podcast episodes ([BookKind.EPISODE]) by title, author and narrator. */
     suspend fun search(query: String, kind: BookKind = BookKind.BOOK, limit: Int = 20): List<BookWithProgress> {
-        val pattern = likePattern(query) ?: return emptyList()
-        return dao.search(kind, pattern, limit).map { BookWithProgress(it.toModel(), dao.progress(it.bookId)?.toModel()) }
+        val needle = query.normalizeForMerge().ifEmpty { return emptyList() }
+        // Normalized like the search term (review G4); an episode's author is the podcast, the same for all its episodes.
+        val normalized = HashMap<String, Boolean>()
+        fun matches(text: String) = text.isNotEmpty() && normalized.getOrPut(text) { text.normalizeForMerge().contains(needle) }
+        val ids = dao.searchRows(kind)
+            .filter { it.normTitle.contains(needle) || matches(it.author) || matches(it.narrator) }
+            .sortedBy { it.normTitle }
+            .take(limit)
+            .map { it.bookId }
+        val books = dao.booksByIds(ids).associateBy { it.bookId }
+        return ids.mapNotNull { books[it] }.map { BookWithProgress(it.toModel(), dao.progress(it.bookId)?.toModel()) }
     }
 
     /** Searches book authors by name; several authors of a book count individually, translators etc. don't. */
     suspend fun searchAuthors(query: String, limit: Int = 20): List<AuthorHit> {
-        val pattern = likePattern(query) ?: return emptyList()
-        return peopleHits(dao.searchAuthorRows(pattern).map { it.bookId to it.names }, query, limit, ::bookAuthors)
+        if (query.normalizeForMerge().isEmpty()) return emptyList()
+        return peopleHits(dao.authorRows().map { it.bookId to it.names }, query, limit, ::bookAuthors)
     }
 
     /** Searches book narrators by name; several narrators of a book count individually. */
     suspend fun searchNarrators(query: String, limit: Int = 20): List<AuthorHit> {
-        val pattern = likePattern(query) ?: return emptyList()
-        return peopleHits(dao.searchNarratorRows(pattern).map { it.bookId to it.names }, query, limit, ::parsePeople)
+        if (query.normalizeForMerge().isEmpty()) return emptyList()
+        return peopleHits(dao.narratorRows().map { it.bookId to it.names }, query, limit, ::parsePeople)
     }
 
     /** Searches series by name. */
     suspend fun searchSeries(query: String, limit: Int = 20): List<SeriesHit> {
-        val pattern = likePattern(query) ?: return emptyList()
-        return seriesHits(dao.searchSeriesRows(pattern).map { it.toModel() }, query.normalizeForMerge(), limit)
-    }
-
-    private fun likePattern(query: String): String? {
-        val normalized = query.normalizeForMerge()
-        if (normalized.isEmpty()) return null
-        return "%${normalized.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")}%"
+        val needle = query.normalizeForMerge().ifEmpty { return emptyList() }
+        return seriesHits(dao.seriesRows(), needle, limit)
     }
 
     /**

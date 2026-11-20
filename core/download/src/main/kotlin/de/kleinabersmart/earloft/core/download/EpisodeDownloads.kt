@@ -190,7 +190,10 @@ class EpisodeDownloads @Inject constructor(
         // change of the progress, the setting and the loaded track is checked ("immediately" deletes at the end of the episode or
         // as soon as it's no longer in the player); expired periods are cleaned up by the daily HeardCleanupWorker.
         scope.launch {
-            combine(dao.observeFinishedDownloads(), settings.deleteHeardAfterDays, loadedBookId, ::Triple)
+            // Distinct: the list is re-read on every saved position, its content changes only when an episode is finished
+            // (review G39); otherwise every save read the file date of every finished download.
+            combine(dao.observeFinishedDownloads().distinctUntilChanged(), settings.deleteHeardAfterDays, loadedBookId, ::Triple)
+                .distinctUntilChanged()
                 .collectLatest { (finished, days, loaded) ->
                     removeExpired(finished, days, loaded)
                     // "Immediately" waits until "Undo" is no longer possible; if that brings the episode back, [finished] changes first.

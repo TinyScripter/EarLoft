@@ -80,6 +80,23 @@ class ContinueListeningShelvesTest {
         ),
     )
 
+    @Test
+    fun `search finds authors, narrators and series written with spaces, dots and umlauts`() = runTest {
+        dao.upsertBook(
+            BookEntity(
+                serverId = LOCAL_BOOK_SERVER_ID, kind = BookKind.BOOK, remoteId = "it", title = "Es", normTitle = "es",
+                author = "Stephen King", narrator = "Jörg Pohl", series = "Der dunkle Turm #1", durationMs = HOUR_MS, detailsLoaded = true,
+            ),
+        )
+
+        assertEquals(listOf("Es"), books.search("stephen king").map { it.book.title })
+        assertEquals(listOf("Es"), books.search("jorg").map { it.book.title })
+        assertEquals(listOf("Stephen King"), books.searchAuthors("Stephen K").map { it.name })
+        assertEquals(listOf("Jörg Pohl"), books.searchNarrators("jörg p").map { it.name })
+        assertEquals(listOf("Der dunkle Turm"), books.searchSeries("dunkle turm").map { it.name })
+        assertEquals(emptyList<String>(), books.search("koontz").map { it.book.title })
+    }
+
     private suspend fun continueTitles() = books.continueListening().first().map { it.book.title }
     private suspend fun recentTitles() = books.recentlyAdded().first().map { it.book.title }
 

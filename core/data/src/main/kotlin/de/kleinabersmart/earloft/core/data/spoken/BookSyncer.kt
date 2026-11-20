@@ -226,7 +226,16 @@ class BookSyncer @Inject constructor(
                 onStored(entityToStore.remoteId)
             }
             lastId = result.results.lastOrNull()?.id ?: lastId
-            if (result.results.isEmpty() || (page + 1) * PAGE_SIZE >= result.total) return true
+            // An empty page before the announced total is an incomplete answer, not the end: `deleteUnseen` would delete the
+            // rest (review G54). Without a total, as with the other servers, a short page is the last one.
+            val total = result.total.takeIf { it > 0 }
+            if (result.results.isEmpty()) {
+                if (total != null && page * PAGE_SIZE < total) {
+                    throw IOException("Audiobookshelf delivered only ${page * PAGE_SIZE} of $total books of library $libraryId")
+                }
+                return true
+            }
+            if (if (total == null) result.results.size < PAGE_SIZE else (page + 1) * PAGE_SIZE >= total) return true
             page++
         }
     }
