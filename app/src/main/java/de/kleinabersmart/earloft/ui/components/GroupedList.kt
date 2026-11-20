@@ -85,6 +85,22 @@ inline fun <T> LazyListScope.groupedItemsIndexed(
     GroupedItem(index, items.size) { scope.itemContent(index, item) }
 }
 
+/**
+ * Like `items`, but each entry is its own card (a [GroupedItem] of one) instead of part of a shared group; the gap between the
+ * cards comes from the list's `verticalArrangement` (e.g. `Arrangement.spacedBy(CardGap)`).
+ */
+inline fun <T> LazyListScope.cardItems(
+    items: List<T>,
+    noinline key: ((T) -> Any)? = null,
+    crossinline itemContent: @Composable LazyItemScope.(T) -> Unit,
+) = items(items.size, key = key?.let { k -> { index: Int -> k(items[index]) } }) { index ->
+    val scope = this
+    GroupedItem(0, 1) { scope.itemContent(items[index]) }
+}
+
+/** Gap between the cards of [cardItems]. */
+val CardGap = 6.dp
+
 /** Collects the rows of a section, see [group]. */
 class ListGroupScope @PublishedApi internal constructor() {
     @PublishedApi

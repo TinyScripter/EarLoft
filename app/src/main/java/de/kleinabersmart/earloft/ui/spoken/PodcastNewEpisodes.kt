@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -16,10 +17,11 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.TrackDownload
+import de.kleinabersmart.earloft.ui.components.CardGap
 import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import de.kleinabersmart.earloft.ui.components.LoadableList
 import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
-import de.kleinabersmart.earloft.ui.components.groupedItems
+import de.kleinabersmart.earloft.ui.components.cardItems
 import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 
@@ -54,10 +56,12 @@ fun NewEpisodes(
             Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth),
             state = listState,
             contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
+            // Each episode is its own card: the list mixes podcasts, so one shared surface would blur where an episode ends.
+            verticalArrangement = Arrangement.spacedBy(CardGap),
             // The list is sorted by date; the bubble names the position (#1 = newest).
             labelAt = { index -> "#${index + 1}" },
         ) {
-            groupedItems(list, key = { it.book.id }) { item ->
+            cardItems(list, key = { it.book.id }) { item ->
                 val id = item.book.id
                 EpisodeSummaryRow(
                     item,
