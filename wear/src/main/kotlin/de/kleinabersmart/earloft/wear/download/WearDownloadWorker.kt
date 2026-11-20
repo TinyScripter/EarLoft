@@ -113,6 +113,13 @@ class WearDownloadWorker(
      */
     private val waitingForServer = mutableListOf<String>()
 
+    /**
+     * The storage ran full during a transfer ([storageFull]): the run ends instead of starting the next transfers, which would
+     * fail the same way. The entry is back to "not queued"; `WatchStatusPublisher` has the planner queue it again once there
+     * is room.
+     */
+    private var stoppedForStorage = false
+
     override suspend fun doWork(): Result {
         downloadDao.requeueRunning()
         podcastDao.requeueRunningDownloads()
@@ -129,10 +136,12 @@ class WearDownloadWorker(
         // Songs only the phone has need no Wi-Fi. If the phone is unreachable, only they wait; whatever the server
         // delivers is downloaded anyway (Review V1).
         val phoneReachable = drainPhoneQueue()
+        if (stoppedForStorage) return finish()
 
         try {
             val profile = state.settings.value.quality.toProfile()
             while (true) {
+                if (stoppedForStorage) return finish()
                 val next = downloadDao.nextQueuedFromServers(waitingForServer) ?: break
                 val uid = next.sourceUid
                 if (state.hasServerFailedTooOften(uid)) {
@@ -155,6 +164,11 @@ class WearDownloadWorker(
                 }
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
+                        if (outcome.cause.isNoSpace()) {
+                            downloadDao.delete(listOf(uid))
+                            storageFull()
+                            continue
+                        }
                         if (wifiLost()) {
                             downloadDao.requeue(uid)
                             return waitForWifi()
@@ -197,6 +211,7 @@ class WearDownloadWorker(
                 }
             }
             while (true) {
+                if (stoppedForStorage) return finish()
                 val track = podcastDao.nextQueuedDownload() ?: break
                 val key = episodeFailureKey(track.bookId)
                 if (track.isPhoneOnly || state.hasServerFailedTooOften(key)) {
@@ -208,6 +223,11 @@ class WearDownloadWorker(
                 val outcome = downloadSpoken(track) { onProgress -> episodeDownloader.download(track, network, onProgress) }
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
+                        if (outcome.cause.isNoSpace()) {
+                            bookDao.unqueueTrack(track.bookId, 0)
+                            storageFull()
+                            continue
+                        }
                         if (wifiLost()) {
                             podcastDao.requeueDownload(track.bookId)
                             return waitForWifi()
@@ -235,6 +255,7 @@ class WearDownloadWorker(
             }
             if (bookDao.nextQueuedBookTrack() != null) renewExpiringBookKeys()
             while (true) {
+                if (stoppedForStorage) return finish()
                 val track = bookDao.nextQueuedBookTrack() ?: break
                 val key = bookFailureKey(track.bookId)
                 if (track.isPhoneOnlyBook || state.hasServerFailedTooOften(key)) {
@@ -256,6 +277,11 @@ class WearDownloadWorker(
                 val outcome = downloadSpoken(track) { onProgress -> entryPoint.bookDownloader().download(track, network, onProgress) }
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
+                        if (outcome.cause.isNoSpace()) {
+                            bookDao.unqueueTrack(track.bookId, track.trackIndex)
+                            storageFull()
+                            continue
+                        }
                         if (wifiLost()) {
                             bookDao.requeueBookTrack(track.bookId, track.trackIndex)
                             return waitForWifi()
@@ -460,7 +486,12 @@ class WearDownloadWorker(
         }
     }
 
-    private fun storageFull() = state.setStorageFullError(applicationContext.getString(R.string.download_error_storage_full))
+    private fun storageFull() {
+        Log.i(TAG, "Storage full, ending the run; the planner queues the rest again once there is room")
+        state.setStorageFullError(applicationContext.getString(R.string.download_error_storage_full))
+        stoppedForStorage = true
+        StorageRoomWorker.schedule(applicationContext)
+    }
 
     /** Whether the original of [uid] (the size the server reported for it) fits into the storage budget. Unknown size: try. */
     private suspend fun originalFits(uid: String): Boolean {
@@ -496,14 +527,16 @@ class WearDownloadWorker(
      * should be retried later.
      */
     private suspend fun drainPhoneQueue(): Boolean {
-        while (true) {
+        while (!stoppedForStorage) {
             val next = downloadDao.nextQueuedFromPhone() ?: break
             if (!viaPhone(next, serverFailed = false)) return false
         }
         for (track in podcastDao.pendingTracks().filter { it.isPhoneOnly && it.downloadState == TrackDownload.QUEUED }) {
+            if (stoppedForStorage) return true
             if (!episodeViaPhone(track)) return false
         }
         for (track in bookDao.pendingBookTracks().filter { it.isPhoneOnlyBook && it.downloadState == TrackDownload.QUEUED }) {
+            if (stoppedForStorage) return true
             if (!bookViaPhone(track)) return false
         }
         return true

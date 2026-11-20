@@ -132,6 +132,9 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         _lastError.value = message
     }
 
+    /** The last error is the full storage ([setStorageFullError]). */
+    val isStorageFull: Boolean get() = prefs.getBoolean(KEY_LAST_ERROR_STORAGE_FULL, false)
+
     /** Removes the last error if it is the full storage ([setStorageFullError]); any other error stays. */
     fun clearStorageFullError() {
         if (prefs.getBoolean(KEY_LAST_ERROR_STORAGE_FULL, false)) setLastError(null)

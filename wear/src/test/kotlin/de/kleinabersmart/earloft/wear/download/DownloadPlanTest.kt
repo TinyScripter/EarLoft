@@ -100,4 +100,25 @@ class DownloadPlanTest {
         // Two episodes of one hour each fit into 120 MB, the third no longer does.
         assertEquals(listOf(1, 2), takeWithinBudget(listOf(1, 2, 3), 120_000_000) { estimateEpisodeBytes(3_600_000) })
     }
+
+    @Test
+    fun `after a full storage the planner runs again as soon as there is room`() {
+        val step = 50L * 1024 * 1024
+        assertEquals(false, shouldReplanForRoom(budget = -1, storageFull = true, missingForStorage = 0, previousBudget = -1, growthBytes = step))
+        assertEquals(true, shouldReplanForRoom(budget = 1, storageFull = true, missingForStorage = 0, previousBudget = 0, growthBytes = step))
+    }
+
+    @Test
+    fun `titles left out are planned again once the budget has grown noticeably`() {
+        val step = 50L * 1024 * 1024
+        fun replan(budget: Long, previous: Long?, missing: Int = 3) =
+            shouldReplanForRoom(budget, storageFull = false, missingForStorage = missing, previousBudget = previous, growthBytes = step)
+
+        assertEquals("first report of the process", true, replan(10, previous = null))
+        assertEquals("shrinking while downloading", false, replan(200_000_000, previous = 210_000_000))
+        assertEquals("a little more", false, replan(200_000_000, previous = 190_000_000))
+        assertEquals("space freed", true, replan(300_000_000, previous = 200_000_000))
+        assertEquals("nothing missing", false, replan(300_000_000, previous = 200_000_000, missing = 0))
+        assertEquals("still no room", false, replan(0, previous = null))
+    }
 }

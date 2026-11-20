@@ -51,6 +51,16 @@ fun downloadBudget(settings: WearSettingsDto, freeBytes: Long, doneBytes: Long, 
 }
 
 /**
+ * Whether the planner should run again because there is room for what the storage kept out; Android reports no freed space,
+ * so every status report asks. After a transfer ran into a full storage ([storageFull]) as soon as downloads have room
+ * again; with titles the planner left out ([missingForStorage]) once the budget has grown by [growthBytes] since the previous
+ * report, or on the first report of the process ([previousBudget] `null`). The planner itself checks every title against the
+ * budget, so a title that still doesn't fit stays out.
+ */
+fun shouldReplanForRoom(budget: Long, storageFull: Boolean, missingForStorage: Int, previousBudget: Long?, growthBytes: Long): Boolean =
+    budget > 0 && (storageFull || (missingForStorage > 0 && (previousBudget == null || budget - previousBudget >= growthBytes)))
+
+/**
  * Whether at least one waiting download still fits under [budgetBytes] when the job starts. Storage may have shrunk
  * between planning and start (other apps, covers, system data); then a start with a foreground notification and
  * Wi-Fi request is not worth it. Without waiting downloads there is nothing to check.

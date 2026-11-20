@@ -607,6 +607,16 @@ abstract class BookDao {
     )
     abstract suspend fun markBookTrackFailed(bookId: Long, trackIndex: Int)
 
+    /**
+     * Watch: the storage ran full while this file (of a book or an episode) was arriving. Back to "never downloaded", so the
+     * planner queues it again within its budget once there is room, instead of it staying failed.
+     */
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'NONE', filePath = NULL, fileSize = 0 " +
+            "WHERE bookId = :bookId AND trackIndex = :trackIndex AND downloadState IN ('QUEUED', 'RUNNING')",
+    )
+    abstract suspend fun unqueueTrack(bookId: Long, trackIndex: Int)
+
     /** Watch, "Retry": releases failed files of books and episodes for downloading again. @return count. */
     @Query("UPDATE book_tracks SET downloadState = 'NONE' WHERE downloadState = 'FAILED'")
     abstract suspend fun resetFailedDownloads(): Int

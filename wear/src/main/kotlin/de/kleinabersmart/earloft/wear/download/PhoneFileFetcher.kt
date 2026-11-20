@@ -98,7 +98,8 @@ class PhoneFileFetcher @Inject constructor(
                     part.delete()
                     lengthFile.delete()
                 }
-                downloadDao.markFailed(uid)
+                // Not failed: without its entry the planner queues the song again once there is room.
+                downloadDao.delete(listOf(uid))
                 return DownloadOutcome.Failed(NO_SPACE)
             }
             Log.w(TAG, "Transfer of $requestUid aborted (${part.length()} bytes kept for the next attempt)", e)
@@ -157,7 +158,7 @@ class PhoneFileFetcher @Inject constructor(
             if (e.isNoSpace()) {
                 Log.w(TAG, "Storage full while receiving $requestUid", e)
                 withContext(NonCancellable + Dispatchers.IO) { part.delete() }
-                podcastDao.markDownloadFailed(bookId)
+                bookDao.unqueueTrack(bookId, 0)
                 return DownloadOutcome.Failed(NO_SPACE)
             }
             Log.w(TAG, "Transfer of $requestUid aborted (${part.length()} bytes kept for the next attempt)", e)
@@ -220,7 +221,7 @@ class PhoneFileFetcher @Inject constructor(
             if (e.isNoSpace()) {
                 Log.w(TAG, "Storage full while receiving $requestUid", e)
                 withContext(NonCancellable + Dispatchers.IO) { part.delete() }
-                bookDao.markBookDownloadFailed(bookId)
+                bookDao.unqueueTrack(bookId, index)
                 return DownloadOutcome.Failed(NO_SPACE)
             }
             Log.w(TAG, "Transfer of $requestUid aborted (${part.length()} bytes kept for the next attempt)", e)
@@ -281,5 +282,5 @@ class PhoneFileFetcher @Inject constructor(
 }
 
 /** The storage is full (`ENOSPC`), somewhere in the chain of causes. */
-internal fun IOException.isNoSpace(): Boolean =
+internal fun Throwable.isNoSpace(): Boolean =
     generateSequence<Throwable>(this) { it.cause }.any { it.message?.contains("ENOSPC") == true || (it is ErrnoException && it.errno == OsConstants.ENOSPC) }
