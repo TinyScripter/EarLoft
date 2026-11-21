@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.settings
 
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -204,8 +205,10 @@ private fun ServerFormContent(
                 // The whole row toggles; the checkbox itself has no click and no name of its own.
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
+                    // At least 48 dp tall, like every other row to tap.
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = 48.dp)
                         .toggleable(value = state.allowHttp, role = Role.Checkbox, onValueChange = onAllowHttpChange),
                 ) {
                     Checkbox(checked = state.allowHttp, onCheckedChange = null)

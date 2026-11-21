@@ -300,7 +300,6 @@
 
     <string name="add_server_title">Server toevoegen</string>
     <string name="add_server_name">Naam (optioneel)</string>
-    <string name="add_server_url">Adres</string>
     <string name="add_server_username">Gebruikersnaam</string>
     <string name="add_server_password">Wachtwoord</string>
     <string name="add_server_http_warning">Onversleutelde verbinding: gebruikersnaam, muziek en het inlogtoken worden leesbaar verstuurd – iedereen die meeluistert, kan het token hergebruiken om toegang te krijgen tot je server. Gebruik dit alleen in je eigen thuisnetwerk.</string>
@@ -701,7 +700,6 @@
     <string name="podcast_credentials_saved">Ingelogd, feed vernieuwd</string>
     <string name="podcast_already">Je bent al geabonneerd op deze podcast.</string>
     <string name="podcast_add_search_field">Zoeken of feedadres plakken</string>
-    <string name="podcast_directory_search">Zoeken</string>
     <string name="podcast_discover_popular">Populair in %1$s</string>
     <string name="podcast_discover_trending">Trending</string>
     <string name="podcast_discover_loading">Populaire podcasts laden…</string>

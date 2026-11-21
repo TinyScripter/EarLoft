@@ -1010,6 +1010,7 @@ fun BookCard(
         modifier
             .combinedClickable(
                 onClick = { if (selecting) selection.toggle(item.book.id) else onClick() },
+                onLongClickLabel = stringResource(R.string.action_more),
                 onLongClick = { if (selecting) selection.toggle(item.book.id) else menu = true },
             )
             .padding(contentPadding),

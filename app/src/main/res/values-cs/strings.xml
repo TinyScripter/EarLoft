@@ -332,7 +332,6 @@
 
     <string name="add_server_title">Přidat server</string>
     <string name="add_server_name">Název (volitelné)</string>
-    <string name="add_server_url">Adresa</string>
     <string name="add_server_username">Uživatelské jméno</string>
     <string name="add_server_password">Heslo</string>
     <string name="add_server_http_warning">Nešifrované spojení: uživatelské jméno, hudba a přihlašovací token se přenášejí v čitelné podobě – kdokoli, kdo spojení odposlouchává, může token použít k přístupu k vašemu serveru. Používejte to jen ve vlastní domácí síti.</string>
@@ -759,7 +758,6 @@
     <string name="podcast_credentials_saved">Přihlášeno, kanál aktualizován</string>
     <string name="podcast_already">Tento podcast už odebíráte.</string>
     <string name="podcast_add_search_field">Hledat nebo vložit adresu kanálu</string>
-    <string name="podcast_directory_search">Hledat</string>
     <string name="podcast_discover_popular">Populární: %1$s</string>
     <string name="podcast_discover_trending">Trendy</string>
     <string name="podcast_discover_loading">Načítání populárních podcastů…</string>

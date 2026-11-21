@@ -300,7 +300,6 @@
 
     <string name="add_server_title">Server hinzufügen</string>
     <string name="add_server_name">Name (optional)</string>
-    <string name="add_server_url">Adresse</string>
     <string name="add_server_username">Benutzername</string>
     <string name="add_server_password">Passwort</string>
     <string name="add_server_http_warning">Unverschlüsselte Verbindung: Benutzername, Musik und der Anmelde-Token werden lesbar übertragen – wer mitliest, kann mit dem Token auf deinen Server zugreifen. Nur im eigenen Heimnetz verwenden.</string>
@@ -701,7 +700,6 @@
     <string name="podcast_credentials_saved">Angemeldet, Feed abgeglichen</string>
     <string name="podcast_already">Dieser Podcast ist schon abonniert.</string>
     <string name="podcast_add_search_field">Suchen oder Feed-Adresse einfügen</string>
-    <string name="podcast_directory_search">Suchen</string>
     <string name="podcast_discover_popular">Beliebt in %1$s</string>
     <string name="podcast_discover_trending">Gerade gefragt</string>
     <string name="podcast_discover_loading">Beliebte Podcasts werden geladen …</string>

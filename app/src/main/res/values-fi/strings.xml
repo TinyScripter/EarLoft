@@ -300,7 +300,6 @@
 
     <string name="add_server_title">Lisää palvelin</string>
     <string name="add_server_name">Nimi (valinnainen)</string>
-    <string name="add_server_url">Osoite</string>
     <string name="add_server_username">Käyttäjänimi</string>
     <string name="add_server_password">Salasana</string>
     <string name="add_server_http_warning">Salaamaton yhteys: käyttäjänimi, musiikki ja kirjautumistunnus siirtyvät luettavassa muodossa – kuka tahansa liikennettä kuunteleva voi käyttää tunnusta päästäkseen palvelimellesi. Käytä tätä vain omassa kotiverkossasi.</string>
@@ -701,7 +700,6 @@
     <string name="podcast_credentials_saved">Kirjauduttu, syöte päivitetty</string>
     <string name="podcast_already">Olet jo tilannut tämän podcastin.</string>
     <string name="podcast_add_search_field">Hae tai liitä syötteen osoite</string>
-    <string name="podcast_directory_search">Hae</string>
     <string name="podcast_discover_popular">Suositut (%1$s)</string>
     <string name="podcast_discover_trending">Nousussa</string>
     <string name="podcast_discover_loading">Ladataan suosittuja podcasteja…</string>

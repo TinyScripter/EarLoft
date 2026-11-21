@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.ui.setup
 
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.layout.Column
 import android.os.Build
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.selection.selectable
@@ -41,9 +43,12 @@ internal fun LazyListScope.watchPage(watch: WatchSetup, settings: WatchSettings,
     }
     pageHeader(R.string.settings_watch, R.string.setup_watch_text, icon = DesignR.drawable.ic_watch)
     group("quality", R.string.watch_quality) {
-        WearQuality.entries.forEach { quality ->
-            row("quality-${quality.name}") {
-                RadioRow(stringResource(quality.label), quality == settings.quality) { actions.setWatchQuality(quality) }
+        // One row, so screen readers announce the choices as one group ("1 of 2").
+        row("quality-choices") {
+            Column(Modifier.selectableGroup()) {
+                WearQuality.entries.forEach { quality ->
+                    RadioRow(stringResource(quality.label), quality == settings.quality) { actions.setWatchQuality(quality) }
+                }
             }
         }
     }
@@ -65,9 +70,12 @@ internal fun LazyListScope.watchPage(watch: WatchSetup, settings: WatchSettings,
 internal fun LazyListScope.designPage(state: SettingsUiState, actions: SetupMoreActions) {
     pageHeader(R.string.settings_section_appearance, R.string.setup_design_text, icon = DesignR.drawable.ic_palette)
     group("theme", R.string.settings_theme) {
-        ThemeMode.entries.forEach { mode ->
-            row("theme-${mode.name}") {
-                RadioRow(stringResource(mode.label), mode == state.themeMode) { actions.setThemeMode(mode) }
+        // One row, so screen readers announce the choices as one group ("1 of 3").
+        row("theme-choices") {
+            Column(Modifier.selectableGroup()) {
+                ThemeMode.entries.forEach { mode ->
+                    RadioRow(stringResource(mode.label), mode == state.themeMode) { actions.setThemeMode(mode) }
+                }
             }
         }
     }

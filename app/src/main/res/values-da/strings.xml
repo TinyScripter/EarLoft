@@ -300,7 +300,6 @@
 
     <string name="add_server_title">Tilføj server</string>
     <string name="add_server_name">Navn (valgfrit)</string>
-    <string name="add_server_url">Adresse</string>
     <string name="add_server_username">Brugernavn</string>
     <string name="add_server_password">Adgangskode</string>
     <string name="add_server_http_warning">Ukrypteret forbindelse: Brugernavn, musik og login-tokenet overføres i læsbar form – enhver, der lytter med, kan genbruge tokenet til at få adgang til din server. Brug kun dette på dit eget hjemmenetværk.</string>
@@ -701,7 +700,6 @@
     <string name="podcast_credentials_saved">Logget ind, feed opdateret</string>
     <string name="podcast_already">Du abonnerer allerede på denne podcast.</string>
     <string name="podcast_add_search_field">Søg eller indsæt feedadresse</string>
-    <string name="podcast_directory_search">Søg</string>
     <string name="podcast_discover_popular">Populært i %1$s</string>
     <string name="podcast_discover_trending">Trender</string>
     <string name="podcast_discover_loading">Indlæser populære podcasts …</string>

@@ -316,7 +316,6 @@
 
     <string name="add_server_title">Aggiungi server</string>
     <string name="add_server_name">Nome (facoltativo)</string>
-    <string name="add_server_url">Indirizzo</string>
     <string name="add_server_username">Nome utente</string>
     <string name="add_server_password">Password</string>
     <string name="add_server_http_warning">Connessione non criptata: nome utente, musica e token di accesso vengono trasmessi in chiaro – chi intercetta il traffico può riutilizzare il token per accedere al tuo server. Usala solo sulla tua rete domestica.</string>
@@ -730,7 +729,6 @@
     <string name="podcast_credentials_saved">Accesso effettuato, feed aggiornato</string>
     <string name="podcast_already">Sei già iscritto a questo podcast.</string>
     <string name="podcast_add_search_field">Cerca o incolla l’indirizzo del feed</string>
-    <string name="podcast_directory_search">Cerca</string>
     <string name="podcast_discover_popular">Popolari in %1$s</string>
     <string name="podcast_discover_trending">Di tendenza</string>
     <string name="podcast_discover_loading">Caricamento dei podcast popolari…</string>

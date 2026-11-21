@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.foundation.text.KeyboardActions
 import de.kleinabersmart.earloft.ui.components.RemoveServerButton
@@ -224,8 +225,10 @@ fun AudiobookshelfFormScreen(
                 // The whole row toggles; the checkbox itself carries no click and no name of its own.
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
+                    // At least 48 dp tall, like every other row to tap.
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = 48.dp)
                         .toggleable(value = allowHttp, role = Role.Checkbox, onValueChange = { allowHttp = it }),
                 ) {
                     Checkbox(checked = allowHttp, onCheckedChange = null)

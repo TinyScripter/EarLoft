@@ -305,7 +305,6 @@
 
     <string name="add_server_title">Add server</string>
     <string name="add_server_name">Name (optional)</string>
-    <string name="add_server_url">Address</string>
     <string name="add_server_url_hint" translatable="false">https://music.example.com</string>
     <string name="add_server_username">Username</string>
     <string name="add_server_password">Password</string>
@@ -710,7 +709,6 @@
     <string name="podcast_credentials_saved">Signed in, feed refreshed</string>
     <string name="podcast_already">You are already subscribed to this podcast.</string>
     <string name="podcast_add_search_field">Search or paste a feed address</string>
-    <string name="podcast_directory_search">Search</string>
     <string name="podcast_discover_popular">Popular in %1$s</string>
     <string name="podcast_discover_trending">Trending</string>
     <string name="podcast_discover_loading">Loading popular podcasts …</string>

@@ -126,11 +126,11 @@ private fun PlaylistContent(
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
     onRemoveEntry: (Long) -> Unit,
-    onPlayNext: () -> Unit = {},
-    onAddToQueue: () -> Unit = {},
     onReorder: (entryIds: List<Long>) -> Unit,
     actions: SongActions,
     modifier: Modifier = Modifier,
+    onPlayNext: () -> Unit = {},
+    onAddToQueue: () -> Unit = {},
 ) {
     // While reordering a working copy; only "Save" applies it, Back discards it. Mode and order (as
     // `entryId`s) survive rotation and process death (review D28).

@@ -300,7 +300,6 @@
 
     <string name="add_server_title">Lägg till server</string>
     <string name="add_server_name">Namn (valfritt)</string>
-    <string name="add_server_url">Adress</string>
     <string name="add_server_username">Användarnamn</string>
     <string name="add_server_password">Lösenord</string>
     <string name="add_server_http_warning">Okrypterad anslutning: användarnamn, musik och inloggningstoken överförs i läsbar form – den som avlyssnar kan återanvända token för att komma åt din server. Använd bara detta i ditt eget hemnätverk.</string>
@@ -701,7 +700,6 @@
     <string name="podcast_credentials_saved">Inloggad, flödet har uppdaterats</string>
     <string name="podcast_already">Du prenumererar redan på den här podden.</string>
     <string name="podcast_add_search_field">Sök eller klistra in flödesadress</string>
-    <string name="podcast_directory_search">Sök</string>
     <string name="podcast_discover_popular">Populärt i %1$s</string>
     <string name="podcast_discover_trending">Trendar</string>
     <string name="podcast_discover_loading">Läser in populära poddar …</string>

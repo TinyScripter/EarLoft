@@ -316,7 +316,6 @@
 
     <string name="add_server_title">Ajouter un serveur</string>
     <string name="add_server_name">Nom (facultatif)</string>
-    <string name="add_server_url">Adresse</string>
     <string name="add_server_username">Nom d’utilisateur</string>
     <string name="add_server_password">Mot de passe</string>
     <string name="add_server_http_warning">Connexion non chiffrée : le nom d’utilisateur, la musique et le jeton de connexion sont transmis en clair – toute personne qui écoute le réseau peut réutiliser le jeton pour accéder à votre serveur. N’utilisez cette option que sur votre propre réseau domestique.</string>
@@ -730,7 +729,6 @@
     <string name="podcast_credentials_saved">Connecté, flux actualisé</string>
     <string name="podcast_already">Vous êtes déjà abonné à ce podcast.</string>
     <string name="podcast_add_search_field">Rechercher ou coller l’adresse du flux</string>
-    <string name="podcast_directory_search">Rechercher</string>
     <string name="podcast_discover_popular">Populaires – %1$s</string>
     <string name="podcast_discover_trending">Tendances</string>
     <string name="podcast_discover_loading">Chargement des podcasts populaires…</string>

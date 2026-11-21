@@ -316,7 +316,6 @@
 
     <string name="add_server_title">Adicionar servidor</string>
     <string name="add_server_name">Nome (opcional)</string>
-    <string name="add_server_url">Endereço</string>
     <string name="add_server_username">Nome de usuário</string>
     <string name="add_server_password">Senha</string>
     <string name="add_server_http_warning">Conexão não criptografada: o nome de usuário, as músicas e o token de login são transmitidos de forma legível – quem estiver interceptando pode reutilizar o token para acessar seu servidor. Use isso apenas na sua própria rede doméstica.</string>
@@ -730,7 +729,6 @@
     <string name="podcast_credentials_saved">Login feito, feed atualizado</string>
     <string name="podcast_already">Você já está inscrito neste podcast.</string>
     <string name="podcast_add_search_field">Pesquisar ou colar endereço do feed</string>
-    <string name="podcast_directory_search">Pesquisar</string>
     <string name="podcast_discover_popular">Populares em %1$s</string>
     <string name="podcast_discover_trending">Em alta</string>
     <string name="podcast_discover_loading">Carregando podcasts populares…</string>
