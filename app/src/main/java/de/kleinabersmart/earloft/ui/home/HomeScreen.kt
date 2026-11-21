@@ -184,10 +184,10 @@ private fun HomeContent(
         LaunchedEffect(hasQueue) { if (hasQueue && wasAtTop) listState.scrollToItem(0) }
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(vertical = 6.dp)) {
             if (hasQueue) queueSection(queue)
-            albumSection("added", R.string.home_recently_added, state.recentlyAdded, onAlbumClick, playingAlbumId, onPlayAlbum)
+            albumSection("added", R.string.home_recently_added, state.recentlyAdded, onAlbumClick, playingAlbumId, onPlayAlbum, frontRow = true)
             albumSection("rediscover", R.string.home_rediscover, state.rediscover, onAlbumClick, playingAlbumId, onPlayAlbum)
-            albumSection("played", R.string.home_recently_played, state.recentlyPlayed, onAlbumClick, playingAlbumId, onPlayAlbum)
-            albumSection("most", R.string.home_most_played, state.mostPlayed, onAlbumClick, playingAlbumId, onPlayAlbum)
+            albumSection("played", R.string.home_recently_played, state.recentlyPlayed, onAlbumClick, playingAlbumId, onPlayAlbum, frontRow = true)
+            albumSection("most", R.string.home_most_played, state.mostPlayed, onAlbumClick, playingAlbumId, onPlayAlbum, frontRow = true)
             if (state.randomArtists.isNotEmpty()) {
                 item(key = "artists") {
                     Shelf(stringResource(R.string.home_random_artists)) {
@@ -276,7 +276,11 @@ private fun QueueCard(entry: QueueEntry, onClick: () -> Unit, modifier: Modifier
     }
 }
 
-/** Section with a header and a horizontally scrolling album row; empty lists are omitted. */
+/**
+ * Section with a header and a horizontally scrolling album row; empty lists are omitted. With [frontRow] new entries
+ * appear at the front ([rememberFrontRow]): otherwise the lazy row would hold on to the previous first album, and an album
+ * found by a sync would lie invisibly outside on the left until the app is restarted.
+ */
 private fun LazyListScope.albumSection(
     key: String,
     @StringRes title: Int,
@@ -284,21 +288,27 @@ private fun LazyListScope.albumSection(
     onAlbumClick: (Long) -> Unit,
     playingAlbumId: Long?,
     onPlayAlbum: ((Long) -> Unit)?,
+    frontRow: Boolean = false,
 ) {
     if (albums.isEmpty()) return
     item(key = key) {
         Shelf(stringResource(title)) {
-            val rowState = rememberLazyListState()
+            val (rowState, shown) = if (frontRow) {
+                rememberFrontRow(albums) { it.id }.let { it.state to it.items }
+            } else {
+                rememberLazyListState() to albums
+            }
             LazyRow(
                 state = rowState,
                 modifier = Modifier.keepHorizontalScroll(rowState),
                 contentPadding = PaddingValues(horizontal = ShelfInset - CardInset),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                items(albums, key = { it.id }) { album ->
+                items(shown, key = { it.id }) { album ->
                     AlbumCard(
                         album = album,
                         onClick = { onAlbumClick(album.id) },
+                        modifier = if (frontRow) Modifier.rowItemAnimation(this) else Modifier,
                         width = 144.dp,
                         onPlay = onPlayAlbum?.let { play -> { play(album.id) } },
                         playing = album.id == playingAlbumId,
