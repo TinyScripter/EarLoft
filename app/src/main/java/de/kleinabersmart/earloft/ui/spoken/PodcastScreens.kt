@@ -13,7 +13,9 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -81,6 +83,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.lerp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -494,86 +502,68 @@ fun PodcastScreen(
             return@Column
         }
         val list = shownEpisodes.valueOrNull.orEmpty()
-        // Header, hints and filter chips stay in place, only the episodes below scroll (user, 2026-11-18). If there is
-        // too little height for that (small phone, landscape), everything scrolls together as before.
-        val headerContent: @Composable () -> Unit = {
-            Column {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    PodcastArt(current.imageUrl, Modifier.size(HEADER_ART_SIZE))
-                    // Title and author centered relative to the image height, the buttons flush with the image's bottom edge.
-                    Box(Modifier.weight(1f).height(HEADER_ART_SIZE).padding(start = 16.dp)) {
-                        Column(Modifier.align(Alignment.Center).fillMaxWidth()) {
-                            Text(current.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            if (current.author.isNotBlank()) {
-                                Text(
-                                    current.author,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                        Row(Modifier.align(Alignment.BottomStart).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = onInfo, modifier = Modifier.size(40.dp)) {
-                                Icon(painterResource(DesignR.drawable.ic_info), contentDescription = stringResource(R.string.podcast_info))
-                            }
-                            // A trial subscription has no settings; it applies only as long as its episodes are in the queue.
-                            if (current.subscribed) {
-                                IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
-                                    Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_settings))
-                                }
-                            }
-                            // If the feed names a page for support (`podcast:funding`), it is shown here.
-                            current.fundingUrl?.let { FundingButton(it, current.fundingLabel, 40.dp) }
-                        }
-                    }
-                }
-                if (!current.subscribed) {
-                    TrialNotice(
-                        text = stringResource(R.string.podcast_trial_notice),
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
-                    ) {
-                        FilledTonalButton(onClick = viewModel::subscribe) { Text(stringResource(R.string.podcast_add_confirm)) }
-                    }
-                }
-                // If syncing has failed for several attempts (concept 12.10), it is shown here with the way to another source.
-                if (current.hasProblem) {
-                    TrialNotice(
-                        text = feedProblemText(current),
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
-                        error = true,
-                        // Rejected login: more likely credentials than another source.
-                        action = when {
-                            !current.subscribed -> null
-                            current.refreshError == FeedError.DENIED && ardSoundsShowId(current.url) == null -> {
-                                { FilledTonalButton(onClick = { editingCredentials = true }) { Text(stringResource(R.string.podcast_credentials)) } }
-                            }
-                            else -> {
-                                { FilledTonalButton(onClick = { switchingSource = true }) { Text(stringResource(R.string.podcast_source_switch)) } }
-                            }
-                        },
-                    )
-                }
-                SectionHeader(stringResource(R.string.podcast_episodes))
-                when {
-                    episodes == LoadState.Failed -> LoadFailedHint()
-                    episodes is LoadState.Ready && episodes.valueOrNull.isNullOrEmpty() -> EmptyHint(stringResource(R.string.podcast_no_episodes))
-                    // The chips stay even if the filter leaves nothing, so it can be cleared.
-                    episodes is LoadState.Ready -> EpisodeFilterChips(
-                        current.episodeFilter,
-                        viewModel::setEpisodeFilter,
-                        withStarred = episodes.valueOrNull.orEmpty().any { it.book.starred },
-                    )
-                }
-            }
-        }
+        // Header and filter chips stay above the episodes (user, 2026-11-18); the header shrinks while the episodes scroll
+        // down (user, 2026-11-21). Compact, it is small enough for landscape too, so there is no scrolling-along fallback.
+        val collapse = rememberSaveable(saver = FeedHeaderCollapse.Saver) { FeedHeaderCollapse() }
+        val fraction = { collapse.fraction }
+        val density = LocalDensity.current
+        SideEffect { collapse.fixedRangePx = with(density) { (HEADER_ART_SIZE - HEADER_ART_SIZE_COMPACT).toPx() } }
         val speed = current.effects.speed ?: areaEffects.speed
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val pinned = maxHeight >= PINNED_HEADER_MIN_HEIGHT
-            Column(Modifier.fillMaxSize()) {
-                if (pinned) headerContent()
-                PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f).fillMaxWidth()) {
+        // Pull-to-refresh outside the collapse: a downward pull first grows the header, only the rest refreshes.
+        PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Column(Modifier.fillMaxSize().nestedScroll(collapse)) {
+                // Dragging the header itself shrinks and grows it too (also if it leaves the list hardly any room).
+                Column(
+                    Modifier.draggable(
+                        state = rememberDraggableState { collapse.scrollBy(it) },
+                        orientation = Orientation.Vertical,
+                        onDragStopped = { collapse.settle() },
+                    ),
+                ) {
+                    FeedHeaderRow(current, fraction, onInfo, onSettings)
+                    // Notices shrink away with the header; without any the block is empty, so its range drops back to 0.
+                    Column(Modifier.collapsingBlock(fraction, onFullHeight = { collapse.collapsibleRangePx = it.toFloat() })) {
+                        if (!current.subscribed) {
+                            TrialNotice(
+                                text = stringResource(R.string.podcast_trial_notice),
+                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                            ) {
+                                FilledTonalButton(onClick = viewModel::subscribe) { Text(stringResource(R.string.podcast_add_confirm)) }
+                            }
+                        }
+                        // If syncing has failed for several attempts (concept 12.10), it is shown here with the way to another source.
+                        if (current.hasProblem) {
+                            TrialNotice(
+                                text = feedProblemText(current),
+                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                                error = true,
+                                // Rejected login: more likely credentials than another source.
+                                action = when {
+                                    !current.subscribed -> null
+                                    current.refreshError == FeedError.DENIED && ardSoundsShowId(current.url) == null -> {
+                                        { FilledTonalButton(onClick = { editingCredentials = true }) { Text(stringResource(R.string.podcast_credentials)) } }
+                                    }
+                                    else -> {
+                                        { FilledTonalButton(onClick = { switchingSource = true }) { Text(stringResource(R.string.podcast_source_switch)) } }
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+                Box(Modifier.padding(top = 12.dp)) {
+                    when {
+                        episodes == LoadState.Failed -> LoadFailedHint()
+                        episodes is LoadState.Ready && episodes.valueOrNull.isNullOrEmpty() -> EmptyHint(stringResource(R.string.podcast_no_episodes))
+                        // The chips stay even if the filter leaves nothing, so it can be cleared.
+                        episodes is LoadState.Ready -> EpisodeFilterChips(
+                            current.episodeFilter,
+                            viewModel::setEpisodeFilter,
+                            withStarred = episodes.valueOrNull.orEmpty().any { it.book.starred },
+                        )
+                    }
+                }
+                Box(Modifier.weight(1f).fillMaxWidth()) {
                     val listState = rememberLazyListState()
                     // Several episodes on the same day: time of day next to the date.
                     val sameDay = remember(list) { episodesSharingDay(list.map { it.book }) }
@@ -582,11 +572,10 @@ fun PodcastScreen(
                     LazyColumn(
                         Modifier.fillMaxSize(),
                         state = listState,
-                        contentPadding = PaddingValues(top = if (pinned) 4.dp else 0.dp, bottom = 24.dp),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
                         // Each episode is its own card, as in the "New" tab: long descriptions make one shared surface hard to read.
                         verticalArrangement = Arrangement.spacedBy(CardGap),
                     ) {
-                        if (!pinned) item(key = "header") { headerContent() }
                         if (shownEpisodes is LoadState.Ready && list.isEmpty() && episodes.valueOrNull.orEmpty().isNotEmpty()) {
                             item(key = "filter-empty") { EmptyHint(stringResource(R.string.library_filter_empty)) }
                         }
@@ -619,7 +608,7 @@ fun PodcastScreen(
                             }
                         }
                     }
-                    // Without a marker: header, seasons and filter don't turn the index into an episode.
+                    // Without a marker: seasons and filter don't turn the index into an episode.
                     LazyListFastScroller(listState)
                 }
             }
@@ -653,8 +642,67 @@ fun PodcastScreen(
 
 private val HEADER_ART_SIZE = 144.dp
 
-/** From this height below the top bar the subscription page header stays in place; below it, it scrolls along (small phone, landscape). */
-private val PINNED_HEADER_MIN_HEIGHT = 560.dp
+/** Cover size of the compact header: two lines of the smaller title still fit next to it. */
+private val HEADER_ART_SIZE_COMPACT = 56.dp
+
+/** From this collapse fraction on, the buttons below the title are gone (they would otherwise overlap the shrinking title). */
+private const val HEADER_BUTTONS_GONE_AT = 0.25f
+
+/**
+ * Image, title, author and buttons of the subscription page, shrinking with [fraction] (0 = full size, 1 = compact, see
+ * [FeedHeaderCollapse]): the cover shrinks, the title gets smaller, author and buttons fade out. Reachable again by
+ * scrolling back up.
+ */
+@Composable
+private fun FeedHeaderRow(current: PodcastFeed, fraction: () -> Float, onInfo: () -> Unit, onSettings: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        PodcastArt(current.imageUrl, Modifier.collapsingSquare(HEADER_ART_SIZE, HEADER_ART_SIZE_COMPACT, fraction))
+        // Title and author centered relative to the image height, the buttons flush with the image's bottom edge.
+        Box(Modifier.weight(1f).collapsingHeight(HEADER_ART_SIZE, HEADER_ART_SIZE_COMPACT, fraction).padding(start = 16.dp)) {
+            Column(Modifier.align(Alignment.Center).fillMaxWidth()) {
+                FeedHeaderTitle(current.title, fraction)
+                if (current.author.isNotBlank()) {
+                    Text(
+                        current.author,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.collapsingBlock(fraction, fadeSpeed = 2f),
+                    )
+                }
+            }
+            // Only recomposes when the buttons appear or disappear, not on every scroll step.
+            val buttonsShown by remember { derivedStateOf { fraction() < HEADER_BUTTONS_GONE_AT } }
+            if (buttonsShown) {
+                Row(
+                    Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                        .graphicsLayer { alpha = (1f - fraction() / HEADER_BUTTONS_GONE_AT).coerceIn(0f, 1f) },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = onInfo, modifier = Modifier.size(40.dp)) {
+                        Icon(painterResource(DesignR.drawable.ic_info), contentDescription = stringResource(R.string.podcast_info))
+                    }
+                    // A trial subscription has no settings; it applies only as long as its episodes are in the queue.
+                    if (current.subscribed) {
+                        IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
+                            Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_settings))
+                        }
+                    }
+                    // If the feed names a page for support (`podcast:funding`), it is shown here.
+                    current.fundingUrl?.let { FundingButton(it, current.fundingLabel, 40.dp) }
+                }
+            }
+        }
+    }
+}
+
+/** Title of [FeedHeaderRow]: its own scope, so only it recomposes while the font size follows the finger. */
+@Composable
+private fun FeedHeaderTitle(title: String, fraction: () -> Float) {
+    val style = lerp(MaterialTheme.typography.titleLarge, MaterialTheme.typography.titleMedium, fraction())
+    Text(title, style = style, maxLines = 2, overflow = TextOverflow.Ellipsis)
+}
 
 /**
  * If another subscription is in front (different sorting, new episode, played), the list shows its start again: a lazy list

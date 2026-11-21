@@ -823,7 +823,6 @@
     <string name="podcast_continuous_summary">Startest du eine Folge, kommt die nächste ungehörte direkt dahinter in „Weiterhören“.</string>
     <string name="podcast_newest_first">Neueste Folge zuerst</string>
     <string name="podcast_newest_first_summary">Welche Folge als nächste eingereiht wird: die nächstneuere. Aus: die nächste ältere.</string>
-    <string name="podcast_episodes">Folgen</string>
     <string name="podcast_search_in">In %1$s suchen</string>
     <string name="podcast_queue_empty">Die Warteschlange ist leer.</string>
     <string name="podcast_queue_search">In der Warteschlange suchen</string>

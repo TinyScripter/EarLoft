@@ -823,7 +823,6 @@
     <string name="podcast_continuous_summary">Als je een aflevering start, wordt de volgende onbeluisterde direct erachter toegevoegd in Verder luisteren.</string>
     <string name="podcast_newest_first">Nieuwste aflevering eerst</string>
     <string name="podcast_newest_first_summary">Welke aflevering als volgende in de wachtrij komt: de eerstvolgende nieuwere. Uit: de eerstvolgende oudere.</string>
-    <string name="podcast_episodes">Afleveringen</string>
     <string name="podcast_search_in">Zoeken in %1$s</string>
     <string name="podcast_queue_empty">De wachtrij is leeg.</string>
     <string name="podcast_queue_search">Wachtrij doorzoeken</string>

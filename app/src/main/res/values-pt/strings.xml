@@ -855,7 +855,6 @@
     <string name="podcast_continuous_summary">Ao iniciar um episódio, o próximo não ouvido é adicionado logo depois dele em Continuar ouvindo.</string>
     <string name="podcast_newest_first">Episódio mais recente primeiro</string>
     <string name="podcast_newest_first_summary">Qual episódio entra na fila em seguida: o próximo mais recente. Desativado: o próximo mais antigo.</string>
-    <string name="podcast_episodes">Episódios</string>
     <string name="podcast_search_in">Pesquisar em %1$s</string>
     <string name="podcast_queue_empty">A fila está vazia.</string>
     <string name="podcast_queue_search">Pesquisar na fila</string>

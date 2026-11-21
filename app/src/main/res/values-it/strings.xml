@@ -855,7 +855,6 @@
     <string name="podcast_continuous_summary">Quando avvii un episodio, il successivo non ascoltato viene aggiunto subito dopo in “Continua ad ascoltare”.</string>
     <string name="podcast_newest_first">Prima l’episodio più recente</string>
     <string name="podcast_newest_first_summary">Quale episodio viene messo in coda dopo: il successivo più recente. Disattivato: il successivo più vecchio.</string>
-    <string name="podcast_episodes">Episodi</string>
     <string name="podcast_search_in">Cerca in %1$s</string>
     <string name="podcast_queue_empty">La coda è vuota.</string>
     <string name="podcast_queue_search">Cerca nella coda</string>

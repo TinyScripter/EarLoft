@@ -14,8 +14,8 @@ import androidx.compose.ui.unit.dp
 
 /**
  * From this height for header and list on, a chip bar stays pinned above the list; below it (small phone in landscape) it scrolls along.
- * Smaller than on the podcast page (560 dp), because the chips are only one or two lines high and area and tabs already sit
- * above the library lists (Pixel 10 Pro in portrait: about 475 dp).
+ * Low, because the chips are only one or two lines high and area and tabs already sit above the library lists (Pixel 10 Pro in
+ * portrait: about 475 dp).
  */
 private val PINNED_CHIPS_MIN_HEIGHT = 320.dp
 
@@ -24,8 +24,7 @@ fun gridContentPadding(pinnedHeader: Boolean): PaddingValues =
     PaddingValues(start = 12.dp, top = if (pinnedHeader) 8.dp else 12.dp, end = 12.dp, bottom = 12.dp)
 
 /**
- * Frame for a list with a header (chip bar): with [pin] and enough height, the header stays pinned above the list as on the
- * podcast page; otherwise [content] gets it back as `inlineHeader` and draws it itself as the first entry. [headerPadding]
+ * Frame for a list with a header (chip bar): with [pin] and enough height, the header stays pinned above the list; otherwise [content] gets it back as `inlineHeader` and draws it itself as the first entry. [headerPadding]
  * replaces the inner padding the header would have in the list.
  */
 @Composable

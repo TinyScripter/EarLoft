@@ -823,7 +823,6 @@
     <string name="podcast_continuous_summary">När du startar ett avsnitt läggs nästa ohörda avsnitt till direkt efter det i ”Fortsätt lyssna”.</string>
     <string name="podcast_newest_first">Nyaste avsnittet först</string>
     <string name="podcast_newest_first_summary">Vilket avsnitt som köas härnäst: det närmast nyare. Av: det närmast äldre.</string>
-    <string name="podcast_episodes">Avsnitt</string>
     <string name="podcast_search_in">Sök i %1$s</string>
     <string name="podcast_queue_empty">Kön är tom.</string>
     <string name="podcast_queue_search">Sök i kön</string>

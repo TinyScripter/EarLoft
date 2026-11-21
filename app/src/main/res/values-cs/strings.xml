@@ -887,7 +887,6 @@
     <string name="podcast_continuous_summary">Když spustíte epizodu, další neposlechnutá se přidá hned za ni do seznamu „Pokračovat v poslechu“.</string>
     <string name="podcast_newest_first">Nejnovější epizoda jako první</string>
     <string name="podcast_newest_first_summary">Která epizoda se zařadí jako další: nejbližší novější. Vypnuto: nejbližší starší.</string>
-    <string name="podcast_episodes">Epizody</string>
     <string name="podcast_search_in">Hledat v podcastu %1$s</string>
     <string name="podcast_queue_empty">Fronta je prázdná.</string>
     <string name="podcast_queue_search">Hledat ve frontě</string>

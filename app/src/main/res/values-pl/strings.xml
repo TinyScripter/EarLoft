@@ -887,7 +887,6 @@
     <string name="podcast_continuous_summary">Gdy zaczynasz odcinek, następny nieodsłuchany trafia zaraz za nim na listę „Słuchaj dalej”.</string>
     <string name="podcast_newest_first">Najpierw najnowszy odcinek</string>
     <string name="podcast_newest_first_summary">Który odcinek trafia do kolejki jako następny: kolejny nowszy. Wyłączone: kolejny starszy.</string>
-    <string name="podcast_episodes">Odcinki</string>
     <string name="podcast_search_in">Szukaj w: %1$s</string>
     <string name="podcast_queue_empty">Kolejka jest pusta.</string>
     <string name="podcast_queue_search">Szukaj w kolejce</string>

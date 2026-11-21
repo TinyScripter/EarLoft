@@ -855,7 +855,6 @@
     <string name="podcast_continuous_summary">Quand vous lancez un épisode, le prochain épisode non écouté est ajouté juste après dans « Continuer l’écoute ».</string>
     <string name="podcast_newest_first">Épisode le plus récent en premier</string>
     <string name="podcast_newest_first_summary">Épisode ajouté ensuite : l’épisode immédiatement plus récent. Désactivé : l’épisode immédiatement plus ancien.</string>
-    <string name="podcast_episodes">Épisodes</string>
     <string name="podcast_search_in">Rechercher dans %1$s</string>
     <string name="podcast_queue_empty">La file d’attente est vide.</string>
     <string name="podcast_queue_search">Rechercher dans la file d’attente</string>

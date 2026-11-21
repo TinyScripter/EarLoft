@@ -823,7 +823,6 @@
     <string name="podcast_continuous_summary">Når du starter et afsnit, tilføjes det næste uhørte lige efter det i »Fortsæt med at lytte«.</string>
     <string name="podcast_newest_first">Nyeste afsnit først</string>
     <string name="podcast_newest_first_summary">Hvilket afsnit der sættes i kø som det næste: det næste nyere. Fra: det næste ældre.</string>
-    <string name="podcast_episodes">Afsnit</string>
     <string name="podcast_search_in">Søg i %1$s</string>
     <string name="podcast_queue_empty">Køen er tom.</string>
     <string name="podcast_queue_search">Søg i køen</string>

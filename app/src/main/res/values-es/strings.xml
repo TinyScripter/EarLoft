@@ -855,7 +855,6 @@
     <string name="podcast_continuous_summary">Cuando empiezas un episodio, el siguiente sin escuchar se añade justo detrás en «Seguir escuchando».</string>
     <string name="podcast_newest_first">Episodio más reciente primero</string>
     <string name="podcast_newest_first_summary">Qué episodio se añade a continuación: el siguiente más reciente. Desactivado: el siguiente más antiguo.</string>
-    <string name="podcast_episodes">Episodios</string>
     <string name="podcast_search_in">Buscar en %1$s</string>
     <string name="podcast_queue_empty">La cola está vacía.</string>
     <string name="podcast_queue_search">Buscar en la cola</string>

@@ -823,7 +823,6 @@
     <string name="podcast_continuous_summary">Kun aloitat jakson, seuraava kuuntelematon jakso lisätään heti sen perään listaan ”Jatka kuuntelua”.</string>
     <string name="podcast_newest_first">Uusin jakso ensin</string>
     <string name="podcast_newest_first_summary">Mikä jakso lisätään jonoon seuraavaksi: seuraava uudempi. Pois: seuraava vanhempi.</string>
-    <string name="podcast_episodes">Jaksot</string>
     <string name="podcast_search_in">Hae kohteesta %1$s</string>
     <string name="podcast_queue_empty">Jono on tyhjä.</string>
     <string name="podcast_queue_search">Hae jonosta</string>

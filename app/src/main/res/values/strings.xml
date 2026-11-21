@@ -832,7 +832,6 @@
     <string name="podcast_continuous_summary">When you start an episode, the next unheard one is added right behind it in Continue listening.</string>
     <string name="podcast_newest_first">Newest episode first</string>
     <string name="podcast_newest_first_summary">Which episode is queued next: the next newer one. Off: the next older one.</string>
-    <string name="podcast_episodes">Episodes</string>
     <string name="podcast_search_in">Search in %1$s</string>
     <string name="podcast_queue_empty">The queue is empty.</string>
     <string name="podcast_queue_search">Search the queue</string>
