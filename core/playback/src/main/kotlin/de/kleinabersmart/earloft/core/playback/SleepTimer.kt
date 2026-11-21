@@ -64,13 +64,39 @@ internal fun Player.asSleepTimerTarget(spot: () -> SpokenSpot?, rewind: (Long) -
     override fun play() = this@asSleepTimerTarget.play()
     override fun spokenSpot(): SpokenSpot? = spot() ?: musicSpot()
 
-    /** The current song as one section; its key in the queue (negative, never a book) tells the next song apart. */
     private fun musicSpot(): SpokenSpot? {
         if (!hasMusic) return null
-        val length = duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: return null
-        return SpokenSpot(-(currentMediaItemIndex + 1L), currentPosition, playbackParameters.speed, listOf(length), music = true)
+        val item = currentMediaItem ?: return null
+        return musicSpot(
+            index = currentMediaItemIndex,
+            mediaId = item.mediaId,
+            positionMs = currentPosition,
+            speed = playbackParameters.speed,
+            playerDurationMs = duration,
+            metadataDurationMs = item.mediaMetadata.durationMs,
+        )
     }
     override fun rewind(heardMs: Long) = rewind.invoke(heardMs)
+}
+
+/**
+ * The current song as one section. Its key (negative, never a book) is made of the position in the queue and the song: the same
+ * song twice in a row is told apart, and so is another album started at the same position (review H8). The length comes from the
+ * player, or from the server's metadata while the player doesn't know it (transcoded streams without a length, review H18).
+ */
+internal fun musicSpot(
+    index: Int,
+    mediaId: String,
+    positionMs: Long,
+    speed: Float,
+    playerDurationMs: Long,
+    metadataDurationMs: Long?,
+): SpokenSpot? {
+    val length = playerDurationMs.takeIf { it != C.TIME_UNSET && it > 0 }
+        ?: metadataDurationMs?.takeIf { it > 0 }
+        ?: return null
+    val key = (index.toLong() shl 31) or (mediaId.hashCode().toLong() and 0x7FFF_FFFFL)
+    return SpokenSpot(-(key + 1), positionMs, speed, listOf(length), music = true)
 }
 
 /** Volume [remainingMs] before expiry: linear from 1 (start of fade-out) to 0. */
@@ -204,6 +230,9 @@ class SleepTimer internal constructor(
         firedAt = null
         this.plan = plan
         target.volume = 1f
+        // Until the first step the remaining time of the replaced timer would stay on display, for good if "until the end" can't
+        // find an end (review H18).
+        _state.value = (plan as? Plan.Duration)?.let { SleepTimerState(it.endsAt - now(), toEnd = false) }
         _shakeWindow.value = false
         job = scope.launch { run(target, plan) }
     }

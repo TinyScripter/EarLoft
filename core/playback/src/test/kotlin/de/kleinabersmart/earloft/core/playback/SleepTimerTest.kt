@@ -392,4 +392,58 @@ class SleepTimerTest {
         scope.runCurrent()
         assertEquals(SleepTimerState(30 * 60_000L, toEnd = false), timer.state.value)
     }
+
+    @Test
+    fun `a song in a new queue at the same position is another song`() {
+        fun key(index: Int, mediaId: String) = musicSpot(index, mediaId, 0, 1f, 180_000, null)!!.bookId
+        assertEquals(key(3, "song-a"), key(3, "song-a"))
+        assertTrue(key(3, "song-a") != key(3, "song-b"))
+        assertTrue(key(3, "song-a") != key(4, "song-a"))
+        assertTrue(key(0, "song-a") < 0)
+        assertTrue(key(Int.MAX_VALUE, "song-a") < 0)
+    }
+
+    @Test
+    fun `another album started at the same position counts down the new song`() {
+        target.spoken = false
+        target.music = true
+        target.bookId = musicSpot(2, "old", 0, 1f, 180_000, null)!!.bookId
+        target.ends = listOf(180_000)
+        target.position = 0
+        timer.startToEnd()
+        advance(10_000)
+        assertEquals(170_000L, timer.state.value?.remainingMs)
+        target.bookId = musicSpot(2, "new", 0, 1f, 360_000, null)!!.bookId
+        target.ends = listOf(360_000)
+        target.position = 0
+        advance(1_000)
+        assertEquals(359_000L, timer.state.value?.remainingMs)
+        advance(170_000)
+        assertEquals(0, target.pauseCount)
+    }
+
+    @Test
+    fun `without the player's length the song length comes from the metadata`() {
+        assertEquals(listOf(200_000L), musicSpot(0, "a", 0, 1f, androidx.media3.common.C.TIME_UNSET, 200_000)?.ends)
+        assertEquals(listOf(150_000L), musicSpot(0, "a", 0, 1f, 150_000, 200_000)?.ends)
+        assertNull(musicSpot(0, "a", 0, 1f, androidx.media3.common.C.TIME_UNSET, null))
+        assertNull(musicSpot(0, "a", 0, 1f, androidx.media3.common.C.TIME_UNSET, 0))
+    }
+
+    @Test
+    fun `until the end does not show the remaining time of the replaced timer while it waits`() {
+        timer.start(60_000)
+        advance(1_000)
+        assertEquals(59_000L, timer.state.value?.remainingMs)
+        target.awaitsRemoteQueue = true
+        timer.startToEnd()
+        advance(5_000)
+        assertNull(timer.state.value)
+    }
+
+    @Test
+    fun `a fixed duration shows its time right away`() {
+        timer.start(60_000)
+        assertEquals(SleepTimerState(60_000, toEnd = false), timer.state.value)
+    }
 }
