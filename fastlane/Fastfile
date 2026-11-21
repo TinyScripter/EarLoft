@@ -1,0 +1,58 @@
+# Uploads the Google Play store listing from fastlane/metadata/android: texts, icon, feature graphic and screenshots.
+# Nothing goes live unless you pass publish:true; without it Google only validates the changes.
+#
+#   bundle exec fastlane validate_key             check that the service-account key reaches the Play Console
+#   bundle exec fastlane listing                  texts + graphics + screenshots, validation only
+#   bundle exec fastlane listing publish:true     really update the listing
+#   bundle exec fastlane texts                    only the texts (title, short and full description)
+#   bundle exec fastlane screenshots              only the screenshots, phone and watch
+#
+# Supply replaces the screenshots that are already in the listing. It does not upload app bundles or release notes.
+
+opt_out_usage # no anonymous usage statistics to Google/fastlane
+default_platform(:android)
+
+platform :android do
+  desc "Check that the service-account key can reach the Play Console"
+  lane :validate_key do
+    key = File.expand_path(ENV["PLAY_JSON_KEY"] || "play-service-account.json")
+    UI.user_error!("No service-account key at #{key}. See tools/store-screenshots/README.md.") unless File.exist?(key)
+    begin
+      # The action validate_play_store_json_key only logs a failure, so the client is created here to make the lane fail.
+      config = FastlaneCore::Configuration.create(
+        Supply::Options.available_options, { json_key: key, package_name: CredentialsManager::AppfileConfig.try_fetch_value(:package_name) }
+      )
+      Supply::Client.make_from_config(params: config)
+    rescue => e
+      UI.user_error!("The key at #{key} did not work: #{e.message}")
+    end
+    UI.success("The service-account key can reach the Play Console.")
+  end
+
+  desc "Upload texts, graphics and screenshots of the store listing (add publish:true to really apply them)"
+  lane :listing do |options|
+    upload_listing(texts: true, graphics: true, screenshots: true, publish: options[:publish])
+  end
+
+  desc "Upload only the texts of the store listing"
+  lane :texts do |options|
+    upload_listing(texts: true, publish: options[:publish])
+  end
+
+  desc "Upload only the screenshots (phone and watch)"
+  lane :screenshots do |options|
+    upload_listing(screenshots: true, publish: options[:publish])
+  end
+
+  private_lane :upload_listing do |options|
+    upload_to_play_store(
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_changelogs: true,
+      skip_upload_metadata: !options[:texts],
+      skip_upload_images: !options[:graphics],
+      skip_upload_screenshots: !options[:screenshots],
+      validate_only: options[:publish].to_s != "true"
+    )
+  end
+end

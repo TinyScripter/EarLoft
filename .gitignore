@@ -19,3 +19,9 @@ keystore.properties
 # Release-Builds
 /app/release/
 /wear/release/
+
+# Fastlane (Play Store listing upload)
+/vendor/bundle
+/.bundle
+/fastlane/play-service-account.json
+/fastlane/report.xml

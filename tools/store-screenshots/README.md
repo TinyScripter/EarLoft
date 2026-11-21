@@ -44,6 +44,22 @@ graphic is centre-cropped to the 1024×500 Google Play requires.
 
 ## Upload
 
-`fastlane supply` uploads this layout (`phoneScreenshots`, `wearScreenshots`, `icon`, `featureGraphic` and the texts).
-It needs a Play Console service-account key, and the app must have had its first release uploaded by hand.
-Supply replaces the screenshots that are already in the listing.
+`fastlane supply` uploads this layout: `phoneScreenshots`, `wearScreenshots`, `icon`, `featureGraphic` and the texts.
+Setup is in `Gemfile` and `fastlane/` (`Appfile`, `Fastfile`). One-time:
+
+1. `sudo apt install ruby-dev build-essential` (fastlane compiles a few native gems), then `bundle install`
+   (gems go to `vendor/bundle`, which git ignores). If `bundle` is missing: `gem install --user-install bundler` and add
+   `$(ruby -e 'puts Gem.user_dir')/bin` to `PATH`.
+2. In Google Cloud create a service account with a JSON key; in the Play Console under **Users and permissions** invite
+   the service account's e-mail address with the permission to edit the store listing.
+3. Save the key as `fastlane/play-service-account.json` (git ignores it) or point `PLAY_JSON_KEY` at it.
+   The app must exist in the Play Console and have had its first release uploaded by hand.
+
+```sh
+bundle exec fastlane validate_key             # does the key reach the Play Console?
+bundle exec fastlane listing                  # texts + graphics + screenshots, Google only validates
+bundle exec fastlane listing publish:true     # really update the listing
+bundle exec fastlane texts | screenshots      # only the texts or only the screenshots
+```
+
+Supply replaces the screenshots that are already in the listing. It does not upload app bundles or release notes.
