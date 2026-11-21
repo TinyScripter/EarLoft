@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.platform.LocalResources
@@ -170,7 +171,9 @@ fun PodcastHomeScreen(
     val newEpisodeCounts by viewModel.newEpisodeCounts.collectAsStateWithLifecycle()
     val continueRow = rememberFrontRow(episodes) { it.book.id }
     val recentRow = rememberFrontRow(recent) { it.book.id }
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
+    val listState = rememberLazyListState()
+    ScrollToTopEffect(listState)
+    LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
         if (episodes.isNotEmpty()) {
             item(key = "continue") {
                 Shelf(
@@ -400,6 +403,7 @@ private fun FeedGrid(
     Box(Modifier.fillMaxSize()) {
         LoadableList(state, empty) { feeds ->
             val gridState = rememberLazyGridState()
+            ScrollToTopEffect(gridState)
             ShowStartOnNewFirst(feeds.firstOrNull()?.id) { gridState.scrollToItem(0) }
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),

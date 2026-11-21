@@ -188,6 +188,8 @@ import de.kleinabersmart.earloft.ui.spoken.bookFraction
 import de.kleinabersmart.earloft.ui.spoken.rememberBookDownloads
 import de.kleinabersmart.earloft.ui.spoken.rememberFeedDownloads
 import kotlinx.coroutines.launch
+import de.kleinabersmart.earloft.ui.components.LocalScrollToTop
+import de.kleinabersmart.earloft.ui.components.ScrollToTopRequests
 import de.kleinabersmart.earloft.ui.components.LocalCollectionFavorites
 import de.kleinabersmart.earloft.ui.components.rememberCollectionFavorites
 
@@ -288,73 +290,80 @@ fun EarLoftApp(
         navigator.navigate(SettingsGeneralRoute)
     }
 
+    // Reselecting a tab on its start page scrolls the lists there back to the top.
+    val scrollToTop = remember { TOP_LEVEL_ROUTES.associateWith { ScrollToTopRequests() } }
+
     val entryProvider = entryProvider {
         entry<HomeRoute> {
-            SpokenModeHost(
-                music = {
-                    HomeScreen(
-                        onAlbumClick = openAlbum,
-                        onArtistClick = openArtist,
-                        onOpenQueue = { navigator.navigate(QueueRoute(overPlayer = false)) },
-                        onAddServer = addMusicServer,
-                    )
-                },
-                podcasts = { PodcastHomeScreen(
-                        onEpisodeClick = openBook,
-                        onFeedClick = openPodcast,
-                        onFeedSettings = openPodcastSettings,
-                        onOpenQueue = { navigator.navigate(PodcastQueueRoute) },
-                        onAddPodcast = openAddPodcast,
-                    ) },
-                books = {
-                    SpokenHomeScreen(
-                        onBookClick = openBook,
-                        onOpenQueue = { navigator.navigate(BookQueueRoute) },
-                        onSetup = setupAudiobookshelf,
-                        onEditServer = editAudiobookshelf,
-                        onOpenArdSounds = openArdSounds,
-                    )
-                },
-                onModeChange = closeDetail,
-                onSearch = openSearch,
-                onOpenAreaSettings = openAreaSettings,
-            )
+            CompositionLocalProvider(LocalScrollToTop provides scrollToTop.getValue(HomeRoute).events) {
+                SpokenModeHost(
+                    music = {
+                        HomeScreen(
+                            onAlbumClick = openAlbum,
+                            onArtistClick = openArtist,
+                            onOpenQueue = { navigator.navigate(QueueRoute(overPlayer = false)) },
+                            onAddServer = addMusicServer,
+                        )
+                    },
+                    podcasts = { PodcastHomeScreen(
+                            onEpisodeClick = openBook,
+                            onFeedClick = openPodcast,
+                            onFeedSettings = openPodcastSettings,
+                            onOpenQueue = { navigator.navigate(PodcastQueueRoute) },
+                            onAddPodcast = openAddPodcast,
+                        ) },
+                    books = {
+                        SpokenHomeScreen(
+                            onBookClick = openBook,
+                            onOpenQueue = { navigator.navigate(BookQueueRoute) },
+                            onSetup = setupAudiobookshelf,
+                            onEditServer = editAudiobookshelf,
+                            onOpenArdSounds = openArdSounds,
+                        )
+                    },
+                    onModeChange = closeDetail,
+                    onSearch = openSearch,
+                    onOpenAreaSettings = openAreaSettings,
+                )
+            }
         }
         entry<LibraryRoute>(metadata = listPane()) {
-            SpokenModeHost(
-                music = {
-                    LibraryScreen(
-                        onAlbumClick = openAlbum,
-                        onArtistClick = openArtist,
-                        onGenreClick = openGenre,
-                        onFavoritesClick = { navigator.navigate(FavoritesRoute) },
-                        onPlaylistClick = { navigator.navigate(PlaylistRoute(it)) },
-                        onAddServer = addMusicServer,
-                    )
-                },
-                podcasts = {
-                    PodcastLibraryScreen(
-                        onFeedClick = openPodcast,
-                        onFeedSettings = openPodcastSettings,
-                        onEpisodeClick = openBook,
-                        onAddPodcast = openAddPodcast,
-                        onOpenHistory = { navigator.navigate(PodcastHistoryRoute) },
-                        onOpenBookmarks = { navigator.navigate(BookmarksRoute(BookKind.EPISODE)) },
-                    )
-                },
-                books = {
-                    SpokenLibraryScreen(
-                        onBookClick = openBook,
-                        onGroupClick = { kind, name -> navigator.navigate(BookGroupRoute(kind, name)) },
-                        onOpenBookmarks = { navigator.navigate(BookmarksRoute(BookKind.BOOK)) },
-                        onSetup = setupAudiobookshelf,
-                        onEditServer = editAudiobookshelf,
-                    )
-                },
-                onModeChange = closeDetail,
-                onSearch = openSearch,
-                onOpenAreaSettings = openAreaSettings,
-            )
+            CompositionLocalProvider(LocalScrollToTop provides scrollToTop.getValue(LibraryRoute).events) {
+                SpokenModeHost(
+                    music = {
+                        LibraryScreen(
+                            onAlbumClick = openAlbum,
+                            onArtistClick = openArtist,
+                            onGenreClick = openGenre,
+                            onFavoritesClick = { navigator.navigate(FavoritesRoute) },
+                            onPlaylistClick = { navigator.navigate(PlaylistRoute(it)) },
+                            onAddServer = addMusicServer,
+                        )
+                    },
+                    podcasts = {
+                        PodcastLibraryScreen(
+                            onFeedClick = openPodcast,
+                            onFeedSettings = openPodcastSettings,
+                            onEpisodeClick = openBook,
+                            onAddPodcast = openAddPodcast,
+                            onOpenHistory = { navigator.navigate(PodcastHistoryRoute) },
+                            onOpenBookmarks = { navigator.navigate(BookmarksRoute(BookKind.EPISODE)) },
+                        )
+                    },
+                    books = {
+                        SpokenLibraryScreen(
+                            onBookClick = openBook,
+                            onGroupClick = { kind, name -> navigator.navigate(BookGroupRoute(kind, name)) },
+                            onOpenBookmarks = { navigator.navigate(BookmarksRoute(BookKind.BOOK)) },
+                            onSetup = setupAudiobookshelf,
+                            onEditServer = editAudiobookshelf,
+                        )
+                    },
+                    onModeChange = closeDetail,
+                    onSearch = openSearch,
+                    onOpenAreaSettings = openAreaSettings,
+                )
+            }
         }
         entry<BookRoute> { route ->
             // "Play" starts or resumes the book and then opens the playback screen.
@@ -516,14 +525,16 @@ fun EarLoftApp(
         entry<PodcastQueueSearchRoute> { PodcastQueueSearchScreen(onBack = navigator::goBack, onEpisodeClick = openBook) }
         entry<BookQueueRoute> { BookQueueScreen(onBack = navigator::goBack, onBookClick = openBook) }
         entry<SettingsRoute>(metadata = listPane()) {
-            SettingsScreen(
-                onOpenGeneral = { navigator.navigate(SettingsGeneralRoute) },
-                onOpenMusic = { navigator.navigate(SettingsMusicRoute) },
-                onOpenPodcasts = { navigator.navigate(SettingsPodcastsRoute) },
-                onOpenAudiobooks = { navigator.navigate(SettingsAudiobooksRoute) },
-                onOpenWatch = { navigator.navigate(WatchSettingsRoute) },
-                onOpenAbout = { navigator.navigate(AboutRoute) },
-            )
+            CompositionLocalProvider(LocalScrollToTop provides scrollToTop.getValue(SettingsRoute).events) {
+                SettingsScreen(
+                    onOpenGeneral = { navigator.navigate(SettingsGeneralRoute) },
+                    onOpenMusic = { navigator.navigate(SettingsMusicRoute) },
+                    onOpenPodcasts = { navigator.navigate(SettingsPodcastsRoute) },
+                    onOpenAudiobooks = { navigator.navigate(SettingsAudiobooksRoute) },
+                    onOpenWatch = { navigator.navigate(WatchSettingsRoute) },
+                    onOpenAbout = { navigator.navigate(AboutRoute) },
+                )
+            }
         }
         entry<SettingsGeneralRoute>(metadata = detailPane()) {
             GeneralSettingsScreen(
@@ -642,7 +653,12 @@ fun EarLoftApp(
                 TopLevelDestination.entries.forEach { destination ->
                     NavigationSuiteItem(
                         selected = destination.route == navigationState.topLevelRoute,
-                        onClick = { navigator.navigate(destination.route) },
+                        onClick = {
+                            if (navigator.selectTab(destination.route)) {
+                                scrollToTop.getValue(destination.route).request()
+                                miniPlayerScrollHide.show()
+                            }
+                        },
                         icon = { Icon(painterResource(destination.icon), contentDescription = null) },
                         label = { Text(stringResource(destination.label)) },
                         navigationSuiteType = navigationSuiteType,

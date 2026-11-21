@@ -31,15 +31,33 @@ class Navigator(private val state: NavigationState) {
         while (stack.size > index) stack.removeLastOrNull()
     }
 
+    /**
+     * Programmatic navigation. A tab route shows that tab on its start page (e.g. a notification opening Home with a page on
+     * top); every other route goes on top of the current tab. For taps on the navigation bar see [selectTab].
+     */
     fun navigate(route: NavKey) {
         if (route in state.backStacks.keys) {
-            // Tapping a tab always shows its start page, even if the user navigated deeper there before.
             val stack = state.backStacks.getValue(route)
             while (stack.size > 1) stack.removeLastOrNull()
             state.topLevelRoute = route
         } else {
             currentStack().add(route)
         }
+    }
+
+    /**
+     * Tap on a navigation bar item: another tab comes back with the page the user left there. The tab that is already
+     * selected goes back to its start page; if that is already on top, returns `true` so its lists scroll to the top.
+     */
+    fun selectTab(route: NavKey): Boolean {
+        if (route != state.topLevelRoute) {
+            state.topLevelRoute = route
+            return false
+        }
+        val stack = currentStack()
+        if (stack.size == 1) return true
+        while (stack.size > 1) stack.removeLastOrNull()
+        return false
     }
 
     /**

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.settings
 
+import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -77,7 +79,9 @@ private fun SettingsContent(
         TopAppBar(title = { Text(stringResource(R.string.settings_title)) })
         if (state.isSyncing) LinearProgressIndicator(Modifier.fillMaxWidth())
 
-        LazyColumn(Modifier.navigationBarsPadding(), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
+        val listState = rememberLazyListState()
+        ScrollToTopEffect(listState)
+        LazyColumn(Modifier.navigationBarsPadding(), state = listState, contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
             group("sections") {
                 row("general") {
                     NavRow(

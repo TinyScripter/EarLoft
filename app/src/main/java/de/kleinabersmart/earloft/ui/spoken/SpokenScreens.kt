@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.lazy.grid.LazyGridItemScope
@@ -171,56 +172,60 @@ fun SpokenHomeScreen(
     Column(modifier.fillMaxSize()) {
         when {
             hasServer == false -> NoServerHint(onSetup)
-            else -> LazyColumn(contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
-                if (continueListening.isNotEmpty()) {
-                    item(key = "continue") {
-                        Shelf(
-                            stringResource(R.string.spoken_continue),
-                            action = {
-                                IconButton(onClick = onOpenQueue) {
-                                    Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.player_queue))
-                                }
-                            },
-                        ) {
-                            BookRow(continueRow.items, onBookClick, state = continueRow.state, playingId = playingId, onPlay = viewModel::playOrPause)
+            else -> {
+                val listState = rememberLazyListState()
+                ScrollToTopEffect(listState)
+                LazyColumn(state = listState, contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
+                    if (continueListening.isNotEmpty()) {
+                        item(key = "continue") {
+                            Shelf(
+                                stringResource(R.string.spoken_continue),
+                                action = {
+                                    IconButton(onClick = onOpenQueue) {
+                                        Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.player_queue))
+                                    }
+                                },
+                            ) {
+                                BookRow(continueRow.items, onBookClick, state = continueRow.state, playingId = playingId, onPlay = viewModel::playOrPause)
+                            }
                         }
                     }
-                }
-                // Next volume of series in which one was recently finished (books_improvements M2).
-                if (continueSeries.isNotEmpty()) {
-                    item(key = "series") {
-                        Shelf(stringResource(R.string.spoken_continue_series)) {
-                            BookRow(
-                                seriesRow.items.map { it.first },
-                                onBookClick,
-                                state = seriesRow.state,
-                                playingId = playingId,
-                                onPlay = viewModel::playOrPause,
-                                volumes = seriesRow.items.mapNotNull { (item, volume) -> volume?.let { item.book.id to volumeNumber(it) } }.toMap(),
-                            )
+                    // Next volume of series in which one was recently finished (books_improvements M2).
+                    if (continueSeries.isNotEmpty()) {
+                        item(key = "series") {
+                            Shelf(stringResource(R.string.spoken_continue_series)) {
+                                BookRow(
+                                    seriesRow.items.map { it.first },
+                                    onBookClick,
+                                    state = seriesRow.state,
+                                    playingId = playingId,
+                                    onPlay = viewModel::playOrPause,
+                                    volumes = seriesRow.items.mapNotNull { (item, volume) -> volume?.let { item.book.id to volumeNumber(it) } }.toMap(),
+                                )
+                            }
                         }
                     }
-                }
-                if (recent.isNotEmpty()) {
-                    item(key = "recent") {
-                        Shelf(stringResource(R.string.spoken_recent)) {
-                            BookRow(recentRow.items, onBookClick, state = recentRow.state, playingId = playingId, onPlay = viewModel::playOrPause)
+                    if (recent.isNotEmpty()) {
+                        item(key = "recent") {
+                            Shelf(stringResource(R.string.spoken_recent)) {
+                                BookRow(recentRow.items, onBookClick, state = recentRow.state, playingId = playingId, onPlay = viewModel::playOrPause)
+                            }
                         }
                     }
-                }
-                if (continueState == LoadState.Failed || recentState == LoadState.Failed) {
-                    item(key = "failed") { LoadFailedHint() }
-                } else if (continueState is LoadState.Ready && recentState is LoadState.Ready &&
-                    continueListening.isEmpty() && recent.isEmpty() && hasServer == true
-                ) {
-                    item(key = "empty") { NoBooksHint(signInNeeded, onEditServer, viewModel::syncNow) }
-                }
-                // Audiobooks and radio plays from ARD Sounds (books_improvements M9), like "Add podcast" below the shelves.
-                if (ardSounds) {
-                    item(key = "ard-sounds") {
-                        FilledTonalButton(onClick = onOpenArdSounds, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                            Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
-                            Text(stringResource(R.string.ard_books_open), modifier = Modifier.padding(start = 8.dp))
+                    if (continueState == LoadState.Failed || recentState == LoadState.Failed) {
+                        item(key = "failed") { LoadFailedHint() }
+                    } else if (continueState is LoadState.Ready && recentState is LoadState.Ready &&
+                        continueListening.isEmpty() && recent.isEmpty() && hasServer == true
+                    ) {
+                        item(key = "empty") { NoBooksHint(signInNeeded, onEditServer, viewModel::syncNow) }
+                    }
+                    // Audiobooks and radio plays from ARD Sounds (books_improvements M9), like "Add podcast" below the shelves.
+                    if (ardSounds) {
+                        item(key = "ard-sounds") {
+                            FilledTonalButton(onClick = onOpenArdSounds, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                                Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
+                                Text(stringResource(R.string.ard_books_open), modifier = Modifier.padding(start = 8.dp))
+                            }
                         }
                     }
                 }
@@ -373,6 +378,7 @@ private fun BookGrid(
     pinHeader: Boolean = false,
 ) {
     val state = rememberLazyGridState()
+    ScrollToTopEffect(state)
     var shownKey by rememberSaveable { mutableStateOf(resetKey?.toString()) }
     LaunchedEffect(resetKey) {
         if (resetKey?.toString() != shownKey) {
@@ -577,6 +583,7 @@ private fun AuthorGrid(authors: List<BookGroup>, byName: Boolean, resetKey: Any?
         return
     }
     val state = rememberLazyGridState()
+    ScrollToTopEffect(state)
     ResetScroll(resetKey) { state.scrollToItem(0) }
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -636,6 +643,7 @@ private fun SeriesList(groups: List<SeriesProgress>, byName: Boolean, resetKey: 
         return
     }
     val state = rememberLazyListState()
+    ScrollToTopEffect(state)
     ResetScroll(resetKey) { state.scrollToItem(0) }
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(vertical = 8.dp)) {

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.library
 
+import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -314,6 +315,7 @@ private fun PlaylistList(
     }
 
     val state = rememberLazyListState()
+    ScrollToTopEffect(state)
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(vertical = 8.dp)) {
             group("playlists") {
@@ -467,6 +469,7 @@ fun AlbumGrid(
     pinHeader: Boolean = false,
 ) {
     val state = rememberLazyGridState()
+    ScrollToTopEffect(state)
     val playControl: PlayControlViewModel = hiltViewModel()
     val playingAlbumId by playControl.playingAlbumId.collectAsStateWithLifecycle()
     PinnableHeaderBox(header, pinHeader, modifier.fillMaxSize()) { inlineHeader ->
@@ -562,6 +565,7 @@ internal fun ArtistGrid(
     pinHeader: Boolean = false,
 ) {
     val state = rememberLazyGridState()
+    ScrollToTopEffect(state)
     PinnableHeaderBox(header, pinHeader, Modifier.fillMaxSize()) { inlineHeader ->
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -620,6 +624,7 @@ fun SongList(
     scrollLabel: ((Song) -> String)? = null,
 ) {
     val state = rememberLazyListState()
+    ScrollToTopEffect(state)
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 16.dp)) {
             item(key = "shuffle") {

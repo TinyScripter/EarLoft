@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.home
 
+import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -175,6 +176,7 @@ private fun HomeContent(
             return@Column
         }
         val listState = rememberLazyListState()
+        ScrollToTopEffect(listState)
         val atTop by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 } }
         val hasQueue = queue != null && queue.entries.isNotEmpty()
         // If the "Queue" row is added while the list is at the top, it should be visible; otherwise the list would

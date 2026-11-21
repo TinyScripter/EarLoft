@@ -57,7 +57,7 @@ class NavigatorTest {
     }
 
     @Test
-    fun `tab shows its root again when switching away and back`() {
+    fun `programmatic tab navigation shows its root`() {
         navigator.navigate(LibraryRoute)
         navigator.navigate(AlbumDetail)
         navigator.navigate(SettingsRoute)
@@ -67,11 +67,26 @@ class NavigatorTest {
     }
 
     @Test
-    fun `tapping the selected tab returns to its root`() {
-        navigator.navigate(LibraryRoute)
+    fun `a tab keeps its page when switching away and back`() {
+        navigator.selectTab(LibraryRoute)
         navigator.navigate(AlbumDetail)
-        navigator.navigate(LibraryRoute)
+        navigator.selectTab(SettingsRoute)
+        val scroll = navigator.selectTab(LibraryRoute)
 
+        assertEquals(listOf(LibraryRoute, AlbumDetail), state.backStacks.getValue(LibraryRoute).toList())
+        assertEquals(AlbumDetail, navigator.currentRoute)
+        assertFalse(scroll)
+    }
+
+    @Test
+    fun `tapping the selected tab returns to its root, then asks to scroll up`() {
+        navigator.selectTab(LibraryRoute)
+        navigator.navigate(AlbumDetail)
+
+        assertFalse(navigator.selectTab(LibraryRoute))
+        assertEquals(listOf(LibraryRoute), state.backStacks.getValue(LibraryRoute).toList())
+
+        assertTrue(navigator.selectTab(LibraryRoute))
         assertEquals(listOf(LibraryRoute), state.backStacks.getValue(LibraryRoute).toList())
     }
 
