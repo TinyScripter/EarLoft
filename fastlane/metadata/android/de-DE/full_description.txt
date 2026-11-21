@@ -21,7 +21,7 @@ EarLoft ist ein Audioplayer für deine eigene Sammlung: Musik, Podcasts und Büc
 • Automatischer Download des nächsten Bands einer Serie
 
 <b>Überall</b>
-• Alles lässt sich für das Hören ohne Netz herunterladen
+• Musik, Podcasts und Bücher von Audiobookshelf lassen sich für das Hören ohne Netz herunterladen
 • Sleep-Timer – bei Podcasts und Hörbüchern verlängert Schütteln den Sleep-Timer
 • Wear-OS-App: Musik, Podcasts und Bücher auf der Uhr ohne Handy, mit Bluetooth-Kopfhörern
 • Android Auto, Chromecast und Widgets für den Startbildschirm
