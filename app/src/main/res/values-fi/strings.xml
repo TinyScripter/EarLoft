@@ -268,7 +268,6 @@
     <string name="about_feedback">Ilmoita virheistä ja ominaisuustoiveista vianseurannassa:</string>
     <string name="licenses_title">Lisenssit</string>
     <string name="privacy_title">Tietosuojakäytäntö</string>
-    <!-- Privacy policy asset per language, from PRIVACY*.md in the project root. -->
     <string name="server_never_synced">Ei vielä synkronoitu</string>
     <string name="server_last_sync">Synkronoitu %1$s</string>
     <string name="server_synced_just_now">Synkronoitu juuri</string>

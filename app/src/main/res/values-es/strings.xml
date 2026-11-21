@@ -281,7 +281,6 @@
     <string name="about_feedback">Informa de errores y sugerencias de funciones en el gestor de incidencias:</string>
     <string name="licenses_title">Licencias</string>
     <string name="privacy_title">Política de privacidad</string>
-    <!-- Privacy policy asset per language, from PRIVACY*.md in the project root. -->
     <string name="server_never_synced">Aún no sincronizado</string>
     <string name="server_last_sync">Sincronizado %1$s</string>
     <string name="server_synced_just_now">Sincronizado ahora mismo</string>

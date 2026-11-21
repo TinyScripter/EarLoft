@@ -294,7 +294,6 @@
     <string name="about_feedback">Chyby a návrhy na nové funkce prosím hlaste v systému hlášení problémů:</string>
     <string name="licenses_title">Licence</string>
     <string name="privacy_title">Zásady ochrany soukromí</string>
-    <!-- Privacy policy asset per language, from PRIVACY*.md in the project root. -->
     <string name="server_never_synced">Zatím nesynchronizováno</string>
     <string name="server_last_sync">Synchronizováno %1$s</string>
     <string name="server_synced_just_now">Právě synchronizováno</string>

@@ -281,7 +281,6 @@
     <string name="about_feedback">Segnala bug e richieste di funzionalità nell’issue tracker:</string>
     <string name="licenses_title">Licenze</string>
     <string name="privacy_title">Informativa sulla privacy</string>
-    <!-- Privacy policy asset per language, from PRIVACY*.md in the project root. -->
     <string name="server_never_synced">Non ancora sincronizzato</string>
     <string name="server_last_sync">Sincronizzato %1$s</string>
     <string name="server_synced_just_now">Sincronizzato ora</string>

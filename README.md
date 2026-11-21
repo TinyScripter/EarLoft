@@ -253,8 +253,13 @@ location, microphone, camera, contacts, phone or Bluetooth access.
 - *Asked:* when the watch app starts.
 - *If you don't allow it:* the watch can't download directly from servers in your home network. After a few failed
   attempts it asks the phone instead, which can only send what it stores itself (files on the phone and downloads);
-  everything else stays "failed". Podcasts and servers reached over the internet still load directly. The watch does
-  not ask for any other permission.
+  everything else stays "failed". Podcasts and servers reached over the internet still load directly.
+
+**Notifications** (`POST_NOTIFICATIONS`, watches with Android 13 / API 33 and newer)
+
+- *Asked:* when the watch app starts, after the local network permission.
+- *If you don't allow it:* running downloads show no notification and no icon on the watch face, so tapping it can't
+  open *Storage & downloads*; the downloads themselves still run. The watch does not ask for any other permission.
 
 ### Granted without asking
 

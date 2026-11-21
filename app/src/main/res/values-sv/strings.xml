@@ -268,7 +268,6 @@
     <string name="about_feedback">Rapportera buggar och önskemål om funktioner i ärendehanteringen:</string>
     <string name="licenses_title">Licenser</string>
     <string name="privacy_title">Integritetspolicy</string>
-    <!-- Privacy policy asset per language, from PRIVACY*.md in the project root. -->
     <string name="server_never_synced">Inte synkroniserad än</string>
     <string name="server_last_sync">Synkroniserad %1$s</string>
     <string name="server_synced_just_now">Nyss synkroniserad</string>

@@ -268,7 +268,6 @@
     <string name="about_feedback">Rapportér fejl og ønsker til funktioner i issue-trackeren:</string>
     <string name="licenses_title">Licenser</string>
     <string name="privacy_title">Privatlivspolitik</string>
-    <!-- Privacy policy asset per language, from PRIVACY*.md in the project root. -->
     <string name="server_never_synced">Ikke synkroniseret endnu</string>
     <string name="server_last_sync">Synkroniseret %1$s</string>
     <string name="server_synced_just_now">Netop synkroniseret</string>
