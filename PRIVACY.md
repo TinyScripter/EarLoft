@@ -1,6 +1,6 @@
 # Privacy Policy for EarLoft
 
-**Last updated:** November 20, 2026  
+**Last updated:** November 22, 2026  
 **Application ID:** de.kleinabersmart.earloft (phone and Wear OS watch)
 
 ## Overview
@@ -19,6 +19,12 @@ data and does not operate any server of their own. There is no account to create
   identifiers, library or listening history to the developer or to anyone else.
 * **No analytics, ads or trackers:** The app contains no analytics libraries, crash reporting services, tracking SDKs
   or advertising networks.
+* **Google Play services:** for Chromecast and the watch, EarLoft uses Google's libraries (the Cast SDK and the Wear OS
+  data layer of Google Play services). What they process is governed by Google's privacy policy
+  (https://policies.google.com/privacy). According to Google, the Cast SDK collects anonymous data about its use, for
+  example finding Cast devices, cast sessions and information about the phone and the app, to monitor and improve
+  casting; Google keeps it only briefly, does not share it with third parties and does not use it to build a profile
+  of you. The developer receives none of this data.
 
 ---
 
@@ -58,7 +64,7 @@ watch) to the respective service:
   Other cast apps on your network can see these addresses. While the Cast device loads from the phone, the app keeps
   the phone and its Wi-Fi awake.
 
-EarLoft does not contact any other service. Links you share point to open sources (MusicBrainz, the podcast's website
+EarLoft does not contact any other service (apart from Google Play services, see section 1). Links you share point to open sources (MusicBrainz, the podcast's website
 and feed, Open Library), never to your own servers; the app itself does not contact these sites when you share.
 
 ---
@@ -92,7 +98,8 @@ and feed, Open Library), never to your own servers; the app itself does not cont
 * **Watch:** the phone and the watch exchange data through the Wear OS data layer (Google Play services): your server
   settings including the credentials the watch needs, what you choose to load onto the watch, playback commands and
   listening progress. The watch then connects to your servers and podcast feeds itself, and loads books from ARD Sounds
-  directly from the ARD.
+  directly from the ARD. When the phone and the watch aren't connected over Bluetooth, Google Play services may pass
+  this data through Google's cloud; according to Google, it is end-to-end encrypted on the way.
 * **Android Auto:** your library is shown in the car through Android Auto on your phone.
 * **Media controls:** like every media app, EarLoft shares what is playing (title, artist, cover) with the system for
   the notification, the lock screen, the widget and connected devices. Other apps may only control playback; they

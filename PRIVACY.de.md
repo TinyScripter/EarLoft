@@ -1,6 +1,6 @@
 # Datenschutzerklärung für EarLoft
 
-**Stand:** 20. November 2026  
+**Stand:** 22. November 2026  
 **App-ID:** de.kleinabersmart.earloft (Handy und Wear-OS-Uhr)
 
 Maßgeblich ist die englische Fassung (PRIVACY.md); dies ist eine Übersetzung.
@@ -21,6 +21,12 @@ und betreibt keinen eigenen Server. Es gibt kein Konto, das du anlegen musst.
   Kontakte, Gerätekennungen, deine Bibliothek oder deinen Hörverlauf an den Entwickler oder an sonst jemanden.
 * **Keine Analyse, Werbung oder Tracker:** Die App enthält keine Analyse-Bibliotheken, keine Absturzberichts-Dienste,
   keine Tracking-SDKs und keine Werbenetzwerke.
+* **Google Play-Dienste:** Für Chromecast und die Uhr nutzt EarLoft Bibliotheken von Google (das Cast SDK und die
+  Wear-OS-Datenschicht der Google Play-Dienste). Was diese verarbeiten, regelt Googles Datenschutzerklärung
+  (https://policies.google.com/privacy). Nach Googles Angaben erhebt das Cast SDK anonyme Daten über seine Nutzung,
+  etwa das Finden von Cast-Geräten, Cast-Sitzungen sowie Angaben zum Handy und zur App, um das Casten zu überwachen und
+  zu verbessern; Google bewahrt sie nur kurz auf, gibt sie nicht an Dritte weiter und erstellt daraus kein Profil von
+  dir. Der Entwickler erhält keine dieser Daten.
 
 ---
 
@@ -62,7 +68,7 @@ Gerät (bzw. deiner Uhr) zum jeweiligen Dienst:
   das mit jeder Sitzung wechselt. Andere Cast-Apps in deinem Netzwerk können diese Adressen sehen. Solange das Cast-Gerät
   vom Handy lädt, hält die App das Handy und sein WLAN wach.
 
-EarLoft kontaktiert keine anderen Dienste. Links, die du teilst, zeigen auf offene Quellen (MusicBrainz, die Website
+EarLoft kontaktiert keine anderen Dienste (abgesehen von den Google Play-Diensten, siehe Abschnitt 1). Links, die du teilst, zeigen auf offene Quellen (MusicBrainz, die Website
 und den Feed des Podcasts, Open Library), nie auf deine eigenen Server; die App selbst ruft diese Seiten beim Teilen
 nicht auf.
 
@@ -97,7 +103,8 @@ nicht auf.
 * **Uhr:** Handy und Uhr tauschen Daten über die Wear-OS-Datenschicht (Google Play-Dienste) aus: deine
   Server-Einstellungen samt den Zugangsdaten, die die Uhr braucht, was du auf die Uhr laden willst,
   Wiedergabebefehle und den Hörfortschritt. Die Uhr verbindet sich dann selbst mit deinen Servern und Podcast-Feeds und lädt Bücher aus
-  ARD Sounds direkt von der ARD.
+  ARD Sounds direkt von der ARD. Sind Handy und Uhr nicht per Bluetooth verbunden, können die Google Play-Dienste diese
+  Daten über Googles Cloud leiten; nach Googles Angaben sind sie dabei Ende-zu-Ende-verschlüsselt.
 * **Android Auto:** Deine Bibliothek wird im Auto über Android Auto auf deinem Handy angezeigt.
 * **Mediensteuerung:** Wie jede Medien-App teilt EarLoft dem System mit, was gerade läuft (Titel, Künstler, Cover), für
   die Benachrichtigung, den Sperrbildschirm, das Widget und verbundene Geräte. Andere Apps können nur die Wiedergabe
