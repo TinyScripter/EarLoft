@@ -40,7 +40,8 @@ private const val BOOK_LISTED =
 
 private const val TRACK_TOTALS =
     "SELECT COALESCE(SUM(CASE WHEN downloadState = 'DONE' THEN fileSize ELSE 0 END), 0) AS doneBytes, " +
-        "COALESCE(SUM(downloadState IN ('QUEUED', 'RUNNING')), 0) AS pendingCount FROM book_tracks"
+        "COALESCE(SUM(downloadState IN ('QUEUED', 'RUNNING')), 0) AS pendingCount, " +
+        "COALESCE(SUM(downloadState = 'FAILED'), 0) AS failedCount FROM book_tracks"
 
 @Dao
 abstract class BookDao {
@@ -681,7 +682,7 @@ data class StoredBookRow(
 )
 
 /** [doneBytes]: fully downloaded; [pendingCount]: waiting and running files. */
-data class TrackTotalsRow(val doneBytes: Long, val pendingCount: Int)
+data class TrackTotalsRow(val doneBytes: Long, val pendingCount: Int, val failedCount: Int = 0)
 
 /** Totals over a book's files; `bytes` are those fully downloaded so far. */
 data class BookDownloadRow(

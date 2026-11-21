@@ -51,7 +51,12 @@ class EpisodeDownloader @Inject constructor(
             withContext(NonCancellable) { dao.requeueDownload(bookId) }
             throw e
         } catch (e: IOException) {
-            DownloadOutcome.Retry(e)
+            if (e.isNoSpace()) {
+                storage.deletePart(bookId, 0)
+                DownloadOutcome.NoSpace(totalBytes = null)
+            } else {
+                DownloadOutcome.Retry(e)
+            }
         }
     }
 
@@ -64,6 +69,7 @@ class EpisodeDownloader @Inject constructor(
         return when (val result = transfer.run(request, track.bookId, 0, onProgress, { stillRunning(track.bookId) })) {
             is TransferResult.Failed -> DownloadOutcome.Failed(result.reason)
             TransferResult.Cancelled -> DownloadOutcome.Cancelled
+            is TransferResult.NoSpace -> DownloadOutcome.NoSpace(result.totalBytes)
             is TransferResult.Completed -> finish(track.bookId, result.mimeType ?: track.mimeType)
         }
     }

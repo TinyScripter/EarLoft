@@ -7,6 +7,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import de.kleinabersmart.earloft.core.network.HttpStatusException
+import okhttp3.CacheControl
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -25,6 +26,9 @@ internal sealed interface TransferResult {
 
     /** No longer wanted along the way (download removed); the caller discards the partial file. */
     data object Cancelled : TransferResult
+
+    /** The file doesn't fit, before or during the transfer; the partial file has been discarded. [totalBytes] if known. */
+    data class NoSpace(val totalBytes: Long?) : TransferResult
 }
 
 /**
@@ -66,6 +70,9 @@ internal class ResumableTransfer(
         if (resume == null) storage.deletePart(bookId, trackIndex)
 
         val request = base.newBuilder().apply {
+            // Not through the HTTP cache: it wrote a second copy of the whole file next to the partial file while downloading,
+            // so a 1 GB book briefly needed 2 GB (found while checking review H4 on the watch).
+            cacheControl(NO_STORE)
             if (resume != null) {
                 header("Range", "bytes=${resume.offset}-")
                 header("If-Range", resume.validator)
@@ -122,11 +129,17 @@ internal class ResumableTransfer(
                     val missing = total?.let { it - offset }
                     if (missing != null && storage.freeBytes() < missing + FREE_SPACE_RESERVE_BYTES) {
                         storage.deletePart(bookId, trackIndex)
-                        return@withContext TransferResult.Failed("Not enough storage")
+                        return@withContext TransferResult.NoSpace(total)
                     }
-                    if (!write(part, response.body.byteStream(), append = offset > 0, offset, total, onProgress, stillWanted)) {
-                        return@withContext TransferResult.Cancelled
+                    val written = try {
+                        write(part, response.body.byteStream(), append = offset > 0, offset, total, onProgress, stillWanted)
+                    } catch (e: IOException) {
+                        if (!e.isNoSpace()) throw e
+                        // A partial file that can't grow only blocks the storage the next attempt needs (review H26).
+                        storage.deletePart(bookId, trackIndex)
+                        return@withContext TransferResult.NoSpace(total)
                     }
+                    if (!written) return@withContext TransferResult.Cancelled
                     meta.delete()
                     TransferResult.Completed(contentType.takeIf { it.startsWith("audio/") })
                 }
@@ -213,6 +226,8 @@ internal class ResumableTransfer(
 
         /** Request Timeout, Too Early, Too Many Requests: worth another try later. */
         private val TRANSIENT_CODES = setOf(408, 425, 429)
+
+        private val NO_STORE = CacheControl.Builder().noStore().build()
 
         private val CONTENT_RANGE = Regex("""bytes (\d+)-\d+/(\d+|\*)""")
 

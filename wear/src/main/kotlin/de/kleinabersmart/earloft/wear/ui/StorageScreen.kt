@@ -92,8 +92,10 @@ private fun StorageContent(
                 line(transformationSpec) { stringResource(R.string.storage_limit, Formatter.formatFileSize(context, limit)) }
             }
             val progress = overview.currentProgress
-            // "All downloaded" only if nothing has failed either; otherwise the error line is shown below.
-            if (overview.pendingSongs > 0 || overview.failedSongs == 0) {
+            // "All downloaded" only if nothing failed, nothing was left out and no error is pending (review H27: the last waiting
+            // file running into a full storage showed it); otherwise the lines below say what is wrong.
+            val complete = overview.failedSongs == 0 && state.missingForStorage == 0 && state.lastError == null
+            if (overview.pendingSongs > 0 || complete) {
                 line(transformationSpec) {
                     when {
                         overview.pendingSongs > 0 && progress != null ->
@@ -138,8 +140,8 @@ private fun StorageContent(
                         label = { Text(stringResource(R.string.storage_retry)) },
                     )
                 }
-            } else if (overview.pendingSongs > 0) {
-                // E.g. "Phone unreachable": the tracks are waiting, nothing has failed yet.
+            } else {
+                // E.g. "Phone unreachable" while the tracks are waiting, or "Storage full" after the last one did not fit.
                 state.lastError?.let { error -> line(transformationSpec, maxLines = LAST_ERROR_MAX_LINES) { stringResource(R.string.storage_last_error, error) } }
             }
             if (removeFailed) {

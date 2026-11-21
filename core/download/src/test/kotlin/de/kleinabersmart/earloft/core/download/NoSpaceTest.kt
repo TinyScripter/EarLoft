@@ -1,4 +1,4 @@
-package de.kleinabersmart.earloft.wear.download
+package de.kleinabersmart.earloft.core.download
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

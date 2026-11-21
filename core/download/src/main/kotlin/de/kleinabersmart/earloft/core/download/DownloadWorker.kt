@@ -63,6 +63,10 @@ class DownloadWorker(
                     if (outcome.isAuthRejection) downloadDao.failQueuedOfSource(next.sourceUid.substringBefore(':'))
                 }
                 is DownloadOutcome.Failed -> Log.w(TAG, "Download ${next.sourceUid} failed: ${outcome.reason}")
+                is DownloadOutcome.NoSpace -> {
+                    Log.w(TAG, "Download ${next.sourceUid}: not enough storage")
+                    downloadDao.markFailed(next.sourceUid)
+                }
                 DownloadOutcome.Done, DownloadOutcome.Cancelled -> Unit
             }
         }

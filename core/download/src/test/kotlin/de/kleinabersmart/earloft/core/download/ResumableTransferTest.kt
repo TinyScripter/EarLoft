@@ -314,6 +314,45 @@ class ResumableTransferTest {
     }
 
     @Test
+    fun `the file bypasses the http cache`() = runTest {
+        server.enqueue(full())
+
+        run()
+
+        assertEquals("no-store", server.takeRequest().headers["Cache-Control"])
+    }
+
+    @Test
+    fun `a file that does not fit reports its size instead of failing`() = runTest {
+        val tight = TightStorage(storage, free = 1)
+        server.enqueue(full())
+
+        val result = ResumableTransfer(OkHttpClient(), tight).run(server.url("/file"), bookId = 7, trackIndex = 0, onProgress = progress)
+
+        assertEquals(TransferResult.NoSpace(audio.size.toLong()), result)
+        assertFalse(storage.partFileFor(7, 0).exists())
+    }
+
+    @Test
+    fun `a partial file that can no longer be completed is discarded`() = runTest {
+        val kept = interrupt()
+        assertTrue(kept > 0)
+        server.enqueue(rest(kept))
+
+        val tight = TightStorage(storage, free = 1)
+        val result = ResumableTransfer(OkHttpClient(), tight).run(server.url("/file"), bookId = 7, trackIndex = 0, onProgress = progress)
+
+        assertEquals(TransferResult.NoSpace(audio.size.toLong()), result)
+        assertFalse(storage.partFileFor(7, 0).exists())
+        assertFalse(storage.metaFileFor(7, 0).exists())
+    }
+
+    /** The real folder, with as little free space as the test wants. */
+    private class TightStorage(inner: BookStorage, private val free: Long) : PartFiles by inner {
+        override fun freeBytes(): Long = free
+    }
+
+    @Test
     fun `content range is parsed`() {
         val range = ResumableTransfer.parseContentRange("bytes 100-999/1000")!!
         assertEquals(100L, range.start)

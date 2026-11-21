@@ -34,6 +34,28 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
      */
     private val coverMisses = context.getSharedPreferences("watch_cover_misses", Context.MODE_PRIVATE)
 
+    /**
+     * Real sizes of episode and book files that did not fit (review H4), as the server reported them. The planner counts
+     * them instead of its estimate from the duration: otherwise it would queue such a file again and again as soon as there
+     * is some room, and every run would end with "storage full".
+     */
+    private val fileSizes = context.getSharedPreferences("watch_file_sizes", Context.MODE_PRIVATE)
+
+    fun recordFileSize(bookId: Long, trackIndex: Int, bytes: Long) {
+        fileSizes.edit { putLong(fileSizeKey(bookId, trackIndex), bytes) }
+    }
+
+    /** The size noted by [recordFileSize]; `null` if the file never ran out of room. */
+    fun fileSize(bookId: Long, trackIndex: Int): Long? =
+        fileSizes.getLong(fileSizeKey(bookId, trackIndex), -1).takeIf { it > 0 }
+
+    fun clearFileSize(bookId: Long, trackIndex: Int) {
+        val key = fileSizeKey(bookId, trackIndex)
+        if (fileSizes.contains(key)) fileSizes.edit { remove(key) }
+    }
+
+    private fun fileSizeKey(bookId: Long, trackIndex: Int) = "$bookId:$trackIndex"
+
     private val _settings = MutableStateFlow(readSettings())
     val settings: StateFlow<WearSettingsDto> = _settings.asStateFlow()
 

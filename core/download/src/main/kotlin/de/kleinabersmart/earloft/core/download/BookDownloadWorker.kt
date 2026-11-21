@@ -78,6 +78,10 @@ class BookDownloadWorker(
                     }
                 }
                 is DownloadOutcome.Failed -> Log.w(TAG, "Book ${next.bookId} failed: ${outcome.reason}")
+                is DownloadOutcome.NoSpace -> {
+                    Log.w(TAG, "Book ${next.bookId} file ${next.trackIndex}: not enough storage")
+                    dao.markBookTrackFailed(next.bookId, next.trackIndex)
+                }
                 DownloadOutcome.Done, DownloadOutcome.Cancelled -> Unit
             }
         }

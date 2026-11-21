@@ -111,6 +111,10 @@ class EpisodeDownloadWorker(
                 storage.deletePart(next.bookId, 0)
             }
             is DownloadOutcome.Failed -> Log.w(TAG, "Episode ${next.bookId} failed: ${outcome.reason}")
+            is DownloadOutcome.NoSpace -> {
+                Log.w(TAG, "Episode ${next.bookId}: not enough storage")
+                dao.markDownloadFailed(next.bookId)
+            }
             // If the feed lists no chapters, they may be in the file (concept 12.5 "chapter sources").
             DownloadOutcome.Done -> {
                 podcasts.chaptersFromFile(next.bookId)

@@ -29,10 +29,17 @@ sealed interface DownloadOutcome {
     data object Done : DownloadOutcome
 
     /**
-     * Failed permanently (e.g. file gone from the server, storage full). [sourceUnavailable]: this device doesn't know the
-     * source at all, which affects all of its tracks.
+     * Failed permanently (e.g. file gone from the server). [sourceUnavailable]: this device doesn't know the source at all,
+     * which affects all of its tracks.
      */
     data class Failed(val reason: String, val sourceUnavailable: Boolean = false) : DownloadOutcome
+
+    /**
+     * The file doesn't fit into the storage, before or during the transfer (`ENOSPC`). The partial file is discarded, the
+     * entry is still `RUNNING`: the caller decides when it is tried again (review H4, H7). [totalBytes]: the file's size
+     * as the server reported it, if known.
+     */
+    data class NoSpace(val totalBytes: Long?) : DownloadOutcome
 
     /** Temporary error (network, rejected login); the entry is still `RUNNING`. */
     data class Retry(val cause: Exception) : DownloadOutcome {
@@ -85,7 +92,7 @@ class Downloader @Inject constructor(
             throw e
         } catch (e: IOException) {
             part.delete()
-            DownloadOutcome.Retry(e)
+            if (e.isNoSpace()) DownloadOutcome.NoSpace(totalBytes = null) else DownloadOutcome.Retry(e)
         }
     }
 
@@ -140,7 +147,7 @@ class Downloader @Inject constructor(
                     }
                     val total = response.body.contentLength().takeIf { it >= 0 }
                     if (total != null && storage.freeBytes() < total + FREE_SPACE_RESERVE_BYTES) {
-                        return@withContext DownloadOutcome.Failed("Not enough storage")
+                        return@withContext DownloadOutcome.NoSpace(total)
                     }
                     writeToPart(uid, response.body.byteStream(), total, onProgress)
                         ?: return@withContext DownloadOutcome.Cancelled

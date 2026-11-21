@@ -10,6 +10,7 @@ import de.kleinabersmart.earloft.core.database.dao.DownloadDao
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.dao.PlaylistDao
 import de.kleinabersmart.earloft.core.database.dao.WearDao
+import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
 import de.kleinabersmart.earloft.core.download.DownloadScheduler
 import de.kleinabersmart.earloft.core.download.DownloadStorage
@@ -74,7 +75,7 @@ class WearDownloadPlanner @Inject constructor(
             val episodeTracks = podcastDao.downloadedTracks() + podcastDao.pendingTracks()
             val bookTracks = bookDao.downloadedBookTracks() + bookDao.pendingBookTracks()
             val reserved = wearDao.getPendingCandidates().sumOf { estimateBytes(it, settings.quality) } +
-                (episodeTracks + bookTracks).filter { it.downloadState in PENDING }.sumOf { estimateEpisodeBytes(it.durationMs) }
+                (episodeTracks + bookTracks).filter { it.downloadState in PENDING }.sumOf { estimate(it) }
             val done = wearDao.getDoneBytes() +
                 (episodeTracks + bookTracks).filter { it.downloadState == TrackDownload.DONE }.sumOf { it.fileSize }
             val free = withContext(Dispatchers.IO) { storage.freeBytes() }
@@ -117,7 +118,7 @@ class WearDownloadPlanner @Inject constructor(
         if (bookDao.book(bookId)?.kind != BookKind.EPISODE) return@mapNotNull null
         if (bookDao.progress(bookId)?.finished == true) return@mapNotNull null
         val track = podcastDao.trackOf(bookId)?.takeIf { it.downloadState == TrackDownload.NONE } ?: return@mapNotNull null
-        bookId to estimateEpisodeBytes(track.durationMs)
+        bookId to estimate(track)
     }
 
     /**
@@ -131,8 +132,12 @@ class WearDownloadPlanner @Inject constructor(
         val tracks = bookDao.tracks(bookId).filter { it.unavailableSince == null }
         val missing = tracks.filter { it.downloadState == TrackDownload.NONE }
         if (missing.isEmpty() || tracks.any { it.downloadState == TrackDownload.FAILED }) return@mapNotNull null
-        bookId to missing.sumOf { estimateEpisodeBytes(it.durationMs) }
+        bookId to missing.sumOf { estimate(it) }
     }
+
+    /** The size of an episode or book file: the real one if it once did not fit, otherwise estimated from the duration. */
+    private fun estimate(track: BookTrackEntity): Long =
+        state.fileSize(track.bookId, track.trackIndex) ?: estimateEpisodeBytes(track.durationMs)
 
     /** All songs of the selections in order, each once, with the key of the first selection that contains it. */
     private suspend fun orderedSongs(): List<Pair<Long, String>> {

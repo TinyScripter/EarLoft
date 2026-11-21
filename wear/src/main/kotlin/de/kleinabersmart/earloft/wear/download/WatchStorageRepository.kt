@@ -108,10 +108,14 @@ class WatchStorageRepository @Inject constructor(
 
     /**
      * Progress of all downloads on the watch: songs as on the phone, plus the files of episodes and books (Wear concept 16.1/16.2) in
-     * the used storage and under "still to download".
+     * the used storage, under "still to download" and under "failed" (review H27: otherwise a failed episode showed "All downloaded").
      */
     fun overview(): Flow<DownloadOverview> = combine(downloads.overview(), bookDao.observeTrackTotals()) { songs, spoken ->
-        songs.copy(usedBytes = songs.usedBytes + spoken.doneBytes, pendingSongs = songs.pendingSongs + spoken.pendingCount)
+        songs.copy(
+            usedBytes = songs.usedBytes + spoken.doneBytes,
+            pendingSongs = songs.pendingSongs + spoken.pendingCount,
+            failedSongs = songs.failedSongs + spoken.failedCount,
+        )
     }
 
     /**

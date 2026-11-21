@@ -163,12 +163,13 @@ class WearDownloadWorker(
                     if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
                 }
                 when (outcome) {
+                    is DownloadOutcome.NoSpace -> {
+                        // Not failed and not via the phone (it would fail there too, review H4): without its entry the planner
+                        // queues the song again once there is room.
+                        downloadDao.delete(listOf(uid))
+                        storageFull()
+                    }
                     is DownloadOutcome.Retry -> {
-                        if (outcome.cause.isNoSpace()) {
-                            downloadDao.delete(listOf(uid))
-                            storageFull()
-                            continue
-                        }
                         if (wifiLost()) {
                             downloadDao.requeue(uid)
                             return waitForWifi()
@@ -222,12 +223,8 @@ class WearDownloadWorker(
                 state.setWaitingForWifi(false)
                 val outcome = downloadSpoken(track) { onProgress -> episodeDownloader.download(track, network, onProgress) }
                 when (outcome) {
+                    is DownloadOutcome.NoSpace -> spokenDidNotFit(track, outcome)
                     is DownloadOutcome.Retry -> {
-                        if (outcome.cause.isNoSpace()) {
-                            bookDao.unqueueTrack(track.bookId, 0)
-                            storageFull()
-                            continue
-                        }
                         if (wifiLost()) {
                             podcastDao.requeueDownload(track.bookId)
                             return waitForWifi()
@@ -247,6 +244,7 @@ class WearDownloadWorker(
                     }
                     DownloadOutcome.Done -> {
                         state.clearServerFailures(key)
+                        state.clearFileSize(track.bookId, 0)
                         // Like for songs: a download that worked ends the last error (it stayed after episodes and books).
                         state.setLastError(null)
                     }
@@ -276,12 +274,8 @@ class WearDownloadWorker(
                 state.setWaitingForWifi(false)
                 val outcome = downloadSpoken(track) { onProgress -> entryPoint.bookDownloader().download(track, network, onProgress) }
                 when (outcome) {
+                    is DownloadOutcome.NoSpace -> spokenDidNotFit(track, outcome)
                     is DownloadOutcome.Retry -> {
-                        if (outcome.cause.isNoSpace()) {
-                            bookDao.unqueueTrack(track.bookId, track.trackIndex)
-                            storageFull()
-                            continue
-                        }
                         if (wifiLost()) {
                             bookDao.requeueBookTrack(track.bookId, track.trackIndex)
                             return waitForWifi()
@@ -302,6 +296,7 @@ class WearDownloadWorker(
                     }
                     DownloadOutcome.Done -> {
                         state.clearServerFailures(key)
+                        state.clearFileSize(track.bookId, track.trackIndex)
                         state.setLastError(null)
                     }
                     DownloadOutcome.Cancelled -> Unit
@@ -424,7 +419,11 @@ class WearDownloadWorker(
             is DownloadOutcome.Failed -> {
                 state.clearPhoneUnreachable()
                 Log.w(TAG, "Episode ${track.bookId} not loaded from the phone: ${outcome.reason}")
-                if (outcome.reason == PhoneFileFetcher.NO_SPACE) storageFull()
+                true
+            }
+            is DownloadOutcome.NoSpace -> {
+                state.clearPhoneUnreachable()
+                storageFull()
                 true
             }
             is DownloadOutcome.Retry -> {
@@ -450,7 +449,11 @@ class WearDownloadWorker(
             is DownloadOutcome.Failed -> {
                 state.clearPhoneUnreachable()
                 Log.w(TAG, "Book ${track.bookId} file ${track.trackIndex} not loaded from the phone: ${outcome.reason}")
-                if (outcome.reason == PhoneFileFetcher.NO_SPACE) storageFull()
+                true
+            }
+            is DownloadOutcome.NoSpace -> {
+                state.clearPhoneUnreachable()
+                storageFull()
                 true
             }
             is DownloadOutcome.Retry -> {
@@ -484,6 +487,18 @@ class WearDownloadWorker(
         } finally {
             state.setSpokenFileProgress(null)
         }
+    }
+
+    /**
+     * An episode or book file from the server did not fit (review H4): not via the phone, the file would not fit there either.
+     * Back to "not queued", its partial file is already gone (H26); with its real size the planner only queues it again once
+     * that much room is free.
+     */
+    private suspend fun spokenDidNotFit(track: BookTrackEntity, outcome: DownloadOutcome.NoSpace) {
+        Log.i(TAG, "Book ${track.bookId} file ${track.trackIndex} does not fit (${outcome.totalBytes ?: "?"} bytes)")
+        bookDao.unqueueTrack(track.bookId, track.trackIndex)
+        outcome.totalBytes?.let { state.recordFileSize(track.bookId, track.trackIndex, it) }
+        storageFull()
     }
 
     private fun storageFull() {
@@ -590,10 +605,14 @@ class WearDownloadWorker(
                 state.clearPhoneUnreachable()
                 Log.w(TAG, "$uid not loaded from the phone: ${outcome.reason}")
                 when {
-                    outcome.reason == PhoneFileFetcher.NO_SPACE -> storageFull()
                     serverFailed -> state.setLastError(applicationContext.getString(R.string.download_error_server_no_phone_copy))
                     else -> state.setLastError(applicationContext.getString(R.string.download_error_phone_no_copy))
                 }
+                true
+            }
+            is DownloadOutcome.NoSpace -> {
+                state.clearPhoneUnreachable()
+                storageFull()
                 true
             }
             is DownloadOutcome.Retry -> {
