@@ -161,6 +161,9 @@ class AudiobookshelfViewModel @Inject constructor(
 
     fun syncNow() = refresher.refreshAll()
 
+    /** "Sync now" on a server's row: only this server, as with music servers. */
+    fun syncNow(serverId: String) = refresher.refreshServer(serverId)
+
     suspend fun editable(serverId: String) = servers.editable(serverId)
 
     /** Deselects or selects a book library; when selected again it syncs afterwards so its books are brought up to date. */
@@ -175,8 +178,17 @@ class AudiobookshelfViewModel @Inject constructor(
         }
     }
 
-    fun remove(serverId: String) {
-        viewModelScope.launch { servers.remove(serverId) }
+    /** [onRemoved] only afterwards: leaving the form ends the `viewModelScope`. */
+    fun remove(serverId: String, onRemoved: () -> Unit = {}) {
+        viewModelScope.launch {
+            servers.remove(serverId)
+            onRemoved()
+        }
+    }
+
+    /** Typing again clears the last connection error, as in the music server form. */
+    fun clearFailure() {
+        if (_connect.value is ConnectState.Failed) _connect.value = ConnectState.Idle
     }
 
     private companion object {

@@ -1,5 +1,14 @@
 package de.kleinabersmart.earloft.ui.settings
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.text.KeyboardActions
+import de.kleinabersmart.earloft.ui.components.RemoveServerButton
+import de.kleinabersmart.earloft.ui.components.passwordTransformation
+import de.kleinabersmart.earloft.ui.components.PasswordVisibilityToggle
+import de.kleinabersmart.earloft.ui.components.rememberDiscardGuard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -77,6 +86,7 @@ fun ServerFormScreen(
         onAllowHttpChange = viewModel::onAllowHttpChange,
         onAutoDownloadChange = viewModel::onAutoDownloadChange,
         onSave = rememberLocalNetworkRequester(viewModel::save),
+        onRemove = viewModel::remove,
         modifier = modifier,
     )
 }
@@ -95,13 +105,18 @@ private fun ServerFormContent(
     onAutoDownloadChange: (Boolean) -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
+    onRemove: () -> Unit = {},
 ) {
+    // What was there when the form opened; anything typed since is asked about before leaving (as in the Audiobookshelf form).
+    val initial = remember(state.isLoading) { state.takeUnless { it.isLoading }?.fields() }
+    val close = rememberDiscardGuard(dirty = initial != null && !state.done && state.fields() != initial, onClose = onBack)
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
     Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
             title = {
                 Text(stringResource(if (state.isEditing) R.string.edit_server_title else R.string.add_server_title))
             },
-            navigationIcon = { BackButton(onBack) },
+            navigationIcon = { BackButton(close) },
         )
         if (state.isLoading) {
             LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -113,8 +128,9 @@ private fun ServerFormContent(
             state.result?.let { ResultText(it, state.type) }
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                // "Connect" for a new server, "Save" for an existing one – the same words as in the Audiobookshelf form.
                 Button(onClick = onSave, enabled = state.canSubmit) {
-                    Text(stringResource(R.string.add_server_save))
+                    Text(stringResource(if (state.isEditing) R.string.add_server_save else R.string.spoken_abs_connect))
                 }
                 if (state.isBusy) CircularProgressIndicator(Modifier.size(24.dp))
             }
@@ -131,7 +147,7 @@ private fun ServerFormContent(
             OutlinedTextField(
                 value = state.url,
                 onValueChange = onUrlChange,
-                label = { Text(stringResource(R.string.add_server_url)) },
+                label = { Text(stringResource(R.string.spoken_abs_url)) },
                 placeholder = { Text(stringResource(R.string.add_server_url_hint)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
@@ -159,7 +175,8 @@ private fun ServerFormContent(
                     }
                 },
                 singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = passwordTransformation(passwordVisible),
+                trailingIcon = { PasswordVisibilityToggle(passwordVisible) { passwordVisible = !passwordVisible } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -169,6 +186,8 @@ private fun ServerFormContent(
                 label = { Text(stringResource(R.string.add_server_name)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                // Enter on the last field submits, like the button.
+                keyboardActions = KeyboardActions(onDone = { if (state.canSubmit) onSave() }),
                 modifier = Modifier.fillMaxWidth(),
             )
             // Below the text fields instead of below the address: the hint already appears while typing "http://" and would otherwise
@@ -215,6 +234,15 @@ private fun ServerFormContent(
                 actions()
                 Spacer(Modifier.size(16.dp))
             }
+            // Removing sits here, at the end of the form, instead of next to the switch in the list.
+            if (state.isEditing) {
+                RemoveServerButton(
+                    title = stringResource(R.string.server_remove_title, state.name),
+                    text = stringResource(R.string.server_remove_text),
+                    onRemove = onRemove,
+                )
+                Spacer(Modifier.size(16.dp))
+            }
         }
         if (pinned) {
             Column(
@@ -225,6 +253,9 @@ private fun ServerFormContent(
         }
     }
 }
+
+/** The values the user can change, to notice unsaved input. */
+private fun ServerFormUiState.fields() = listOf(url, username, password, name, allowHttp, autoDownload, type)
 
 /** Navidrome/Subsonic, Jellyfin or Emby; the row is a selection group for accessibility services. */
 @Composable

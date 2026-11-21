@@ -1411,4 +1411,9 @@
     <string name="action_go_to_artist">Přejít na interpreta</string>
     <string name="episode_position_reset">„%1$s“: pozice vynulována</string>
     <string name="playlist_entry_removed">„%1$s“ odebráno ze seznamu skladeb</string>
+    <string name="form_show_password">Zobrazit heslo</string>
+    <string name="form_hide_password">Skrýt heslo</string>
+    <string name="form_discard_title">Zahodit změny?</string>
+    <string name="form_discard">Zahodit</string>
+    <string name="form_keep_editing">Pokračovat v úpravách</string>
 </resources>

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.setup
 
+import de.kleinabersmart.earloft.ui.components.AddRow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Icon
@@ -231,12 +232,4 @@ internal fun ActionRow(title: String, summary: String, icon: Int, onClick: () ->
     )
 }
 
-/** Opens the form for a new source. */
-@Composable
-private fun AddRow(label: String, onClick: () -> Unit) {
-    ListItem(
-        headlineContent = { Text(label, color = MaterialTheme.colorScheme.primary) },
-        leadingContent = { Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-        modifier = Modifier.clickable(onClick = onClick),
-    )
-}
+

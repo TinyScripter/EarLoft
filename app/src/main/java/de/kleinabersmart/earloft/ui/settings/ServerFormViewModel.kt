@@ -139,6 +139,16 @@ class ServerFormViewModel @AssistedInject constructor(
         }
     }
 
+    /** "Remove server" in the edit form (moved there from the list row, away from the switch). */
+    fun remove() {
+        val id = sourceId ?: return
+        viewModelScope.launch {
+            serverRepository.removeServer(id)
+            downloadSettings.setAutoDownloadServer(id, false)
+            _state.update { it.copy(done = true) }
+        }
+    }
+
     private fun ServerFormUiState.onlyLocalOptionsDifferFrom(original: ServerInfo): Boolean =
         name == original.name && url == original.baseUrl && username == original.username.orEmpty() && password.isEmpty()
 

@@ -1,5 +1,10 @@
 package de.kleinabersmart.earloft.ui.settings
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.Checkbox
+import de.kleinabersmart.earloft.core.model.SpokenServer
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -193,33 +198,41 @@ internal fun PreAmpRow(preAmpDb: Float, enabled: Boolean, onPreAmpChange: (Float
     )
 }
 
+/**
+ * Sync and on/off of a server row (music and Audiobookshelf alike). Removing is in the server's edit form, not next to the
+ * switch where it was easy to hit by mistake. The switch carries the server's name for TalkBack.
+ */
+@Composable
+private fun ServerRowActions(name: String, enabled: Boolean, syncLabel: String, onSyncNow: () -> Unit, onEnabledChange: (Boolean) -> Unit) {
+    Row {
+        if (enabled) {
+            IconButton(onClick = onSyncNow) {
+                Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = syncLabel)
+            }
+        }
+        Switch(
+            checked = enabled,
+            onCheckedChange = onEnabledChange,
+            modifier = Modifier.align(Alignment.CenterVertically).padding(start = 4.dp).semantics { contentDescription = name },
+        )
+    }
+}
+
+/** On narrow phones the buttons sit below the text, otherwise there's hardly any width left for name and address. */
+@Composable
+private fun narrowServerRow(): Boolean = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp() } < 400.dp
+
 @Composable
 internal fun ServerRow(
     item: ServerItem,
     onEdit: () -> Unit,
     onSyncNow: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
-    onRemove: () -> Unit,
 ) {
     val server = item.server
-    // On narrow phones the buttons sit below the text, otherwise there's hardly any width left for name and address.
-    val narrow = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp() } < 400.dp
+    val narrow = narrowServerRow()
     val actions: @Composable () -> Unit = {
-        Row {
-            if (server.enabled) {
-                IconButton(onClick = onSyncNow) {
-                    Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.server_sync_now))
-                }
-            }
-            IconButton(onClick = onRemove) {
-                Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = stringResource(R.string.server_remove))
-            }
-            Switch(
-                checked = server.enabled,
-                onCheckedChange = onEnabledChange,
-                modifier = Modifier.align(Alignment.CenterVertically).padding(start = 4.dp),
-            )
-        }
+        ServerRowActions(server.name, server.enabled, stringResource(R.string.server_sync_now), onSyncNow, onEnabledChange)
     }
     ListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.server_edit), onClick = onEdit),
@@ -262,6 +275,83 @@ internal fun ServerRow(
         leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
         trailingContent = if (narrow) null else actions,
     )
+}
+
+/**
+ * An Audiobookshelf server, built like [ServerRow]: name, address, state (off, key or login lost, last sync), sync and switch;
+ * with several book libraries their checkboxes below. A tap opens the edit form.
+ */
+@Composable
+internal fun AbsServerRow(
+    server: SpokenServer,
+    keyLost: Boolean,
+    onEdit: () -> Unit,
+    onSyncNow: () -> Unit,
+    onEnabledChange: (Boolean) -> Unit,
+    onLibraryShown: (libraryId: String, shown: Boolean) -> Unit,
+) {
+    val narrow = narrowServerRow()
+    val actions: @Composable () -> Unit = {
+        ServerRowActions(server.name, server.enabled, stringResource(R.string.spoken_abs_sync), onSyncNow, onEnabledChange)
+    }
+    Column {
+        ListItem(
+            modifier = Modifier.clickable(onClickLabel = stringResource(R.string.server_edit), onClick = onEdit),
+            headlineContent = { Text(server.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            supportingContent = {
+                Column {
+                    Text(server.baseUrl, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val status = when {
+                        !server.enabled -> stringResource(R.string.server_disabled)
+                        keyLost -> stringResource(if (server.openId) R.string.spoken_abs_login_lost else R.string.spoken_abs_key_lost)
+                        server.lastFullSyncAt <= 0L -> stringResource(R.string.server_never_synced)
+                        else -> {
+                            val ageMs = System.currentTimeMillis() - server.lastFullSyncAt
+                            if (ageMs < MINUTE_MS) stringResource(R.string.server_synced_just_now) else stringResource(R.string.server_last_sync, relativeAge(ageMs))
+                        }
+                    }
+                    Text(
+                        status,
+                        color = if (keyLost && server.enabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (narrow) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { actions() }
+                }
+            },
+            leadingContent = { Icon(painterResource(DesignR.drawable.ic_book), contentDescription = null) },
+            trailingContent = if (narrow) null else actions,
+        )
+        // Several book libraries: each can be deselected (books_improvements M3); the last one shown stays.
+        if (server.libraries.size > 1) {
+            Text(
+                stringResource(R.string.spoken_abs_libraries),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 56.dp, top = 4.dp),
+            )
+            val shownCount = server.libraries.count { it.shown }
+            server.libraries.forEach { library ->
+                val locked = library.shown && shownCount == 1
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .toggleable(
+                            value = library.shown,
+                            enabled = server.enabled && !locked,
+                            role = Role.Checkbox,
+                            onValueChange = { onLibraryShown(library.libraryId, it) },
+                        )
+                        .padding(start = 44.dp, end = 16.dp),
+                ) {
+                    Checkbox(checked = library.shown, onCheckedChange = null, enabled = server.enabled && !locked)
+                    Text(library.name, modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+    }
 }
 
 private const val MINUTE_MS = 60_000L

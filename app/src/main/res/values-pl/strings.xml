@@ -1411,4 +1411,9 @@
     <string name="action_go_to_artist">Przejdź do wykonawcy</string>
     <string name="episode_position_reset">„%1$s”: pozycja zresetowana</string>
     <string name="playlist_entry_removed">„%1$s” usunięto z playlisty</string>
+    <string name="form_show_password">Pokaż hasło</string>
+    <string name="form_hide_password">Ukryj hasło</string>
+    <string name="form_discard_title">Odrzucić zmiany?</string>
+    <string name="form_discard">Odrzuć</string>
+    <string name="form_keep_editing">Kontynuuj edycję</string>
 </resources>

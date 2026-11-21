@@ -1292,4 +1292,9 @@
     <string name="action_go_to_artist">Go to artist</string>
     <string name="episode_position_reset">“%1$s”: position reset</string>
     <string name="playlist_entry_removed">“%1$s” removed from the playlist</string>
+    <string name="form_show_password">Show password</string>
+    <string name="form_hide_password">Hide password</string>
+    <string name="form_discard_title">Discard changes?</string>
+    <string name="form_discard">Discard</string>
+    <string name="form_keep_editing">Keep editing</string>
 </resources>

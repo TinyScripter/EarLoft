@@ -1347,4 +1347,9 @@
     <string name="action_go_to_artist">Ir para o artista</string>
     <string name="episode_position_reset">“%1$s”: posição reposta</string>
     <string name="playlist_entry_removed">“%1$s” removida da playlist</string>
+    <string name="form_show_password">Mostrar senha</string>
+    <string name="form_hide_password">Ocultar senha</string>
+    <string name="form_discard_title">Descartar alterações?</string>
+    <string name="form_discard">Descartar</string>
+    <string name="form_keep_editing">Continuar editando</string>
 </resources>

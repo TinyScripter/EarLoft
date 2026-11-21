@@ -1283,4 +1283,9 @@
     <string name="action_go_to_artist">Gå till artist</string>
     <string name="episode_position_reset">”%1$s”: positionen återställd</string>
     <string name="playlist_entry_removed">”%1$s” borttagen från spellistan</string>
+    <string name="form_show_password">Visa lösenord</string>
+    <string name="form_hide_password">Dölj lösenord</string>
+    <string name="form_discard_title">Kasta ändringarna?</string>
+    <string name="form_discard">Kasta</string>
+    <string name="form_keep_editing">Fortsätt redigera</string>
 </resources>

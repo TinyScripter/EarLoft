@@ -1,5 +1,9 @@
 package de.kleinabersmart.earloft.ui.settings
 
+import de.kleinabersmart.earloft.ui.valueOrNull
+import de.kleinabersmart.earloft.ui.LoadState
+import de.kleinabersmart.earloft.ui.spoken.AudiobookshelfViewModel
+import de.kleinabersmart.earloft.ui.components.AddRow
 import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import android.net.Uri
 import android.os.Build
@@ -64,7 +68,6 @@ import de.kleinabersmart.earloft.ui.components.group
 import de.kleinabersmart.earloft.ui.permission.rememberAudioPermissionRequester
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.network.podcast.directory.PodcastDirectory
-import de.kleinabersmart.earloft.ui.spoken.AudiobookshelfSection
 import de.kleinabersmart.earloft.ui.spoken.OpmlImportDialog
 import de.kleinabersmart.earloft.ui.spoken.PodcastArt
 import de.kleinabersmart.earloft.ui.spoken.feedProblemText
@@ -331,7 +334,6 @@ fun MusicSettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var serverToRemove by rememberSaveable { mutableStateOf<String?>(null) }
     var choosingReplayGain by rememberSaveable { mutableStateOf(false) }
     var choosingMobileQuality by rememberSaveable { mutableStateOf(false) }
     var choosingAutoAlbums by rememberSaveable { mutableStateOf<AutoAlbums?>(null) }
@@ -366,16 +368,11 @@ fun MusicSettingsScreen(
                         onEdit = { onEditServer(item.server.sourceId) },
                         onSyncNow = { viewModel.syncNow(item.server.sourceId) },
                         onEnabledChange = { viewModel.setServerEnabled(item.server.sourceId, it) },
-                        onRemove = { serverToRemove = item.server.sourceId },
                     )
                 }
             }
-        }
-        item(key = "add") {
-            FilledTonalButton(onClick = onAddServer, modifier = Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp)) {
-                Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
-                Text(stringResource(R.string.settings_add_server), modifier = Modifier.padding(start = 8.dp))
-            }
+            // As in the setup wizard and for Audiobookshelf: a row of the list.
+            row("add") { AddRow(stringResource(R.string.settings_add_server), onAddServer) }
         }
 
         group("refresh", R.string.settings_section_refresh) {
@@ -578,23 +575,6 @@ fun MusicSettingsScreen(
         )
     }
 
-    val removing = state.servers.firstOrNull { it.server.sourceId == serverToRemove }?.server
-    if (removing != null) {
-        AlertDialog(
-            onDismissRequest = { serverToRemove = null },
-            title = { Text(stringResource(R.string.server_remove_title, removing.name)) },
-            text = { Text(stringResource(R.string.server_remove_text)) },
-            confirmButton = {
-                DestructiveTextButton(onClick = {
-                    viewModel.remove(removing.sourceId)
-                    serverToRemove = null
-                }) { Text(stringResource(R.string.action_remove)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { serverToRemove = null }) { Text(stringResource(R.string.action_cancel)) }
-            },
-        )
-    }
 }
 
 /**
@@ -1061,6 +1041,9 @@ fun AudiobookSettingsScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val absViewModel: AudiobookshelfViewModel = hiltViewModel()
+    val absServers by absViewModel.list.collectAsStateWithLifecycle()
+    val absWithoutKey by absViewModel.withoutKey.collectAsStateWithLifecycle()
     var confirmingBookStatsReset by rememberSaveable { mutableStateOf(false) }
     var choosingBookDelete by rememberSaveable { mutableStateOf(false) }
     var choosingBookButtons by rememberSaveable { mutableStateOf(false) }
@@ -1102,7 +1085,24 @@ fun AudiobookSettingsScreen(
                     )
                 }
             }
-            row("audiobookshelf") { AudiobookshelfSection(onAdd = onAddServer, onEdit = onEditServer) }
+            // One row per server like the music servers, then "Add" as a row.
+            if (absServers == LoadState.Failed) row("abs-failed") { LoadFailedHint() }
+            if (absServers is LoadState.Ready && absServers.valueOrNull.isNullOrEmpty()) {
+                row("abs-none") { EmptyHint(stringResource(R.string.spoken_abs_none)) }
+            }
+            absServers.valueOrNull.orEmpty().forEach { server ->
+                row("abs-${server.serverId}") {
+                    AbsServerRow(
+                        server = server,
+                        keyLost = server.serverId in absWithoutKey,
+                        onEdit = { onEditServer(server.serverId) },
+                        onSyncNow = { absViewModel.syncNow(server.serverId) },
+                        onEnabledChange = { absViewModel.setEnabled(server.serverId, it) },
+                        onLibraryShown = { libraryId, shown -> absViewModel.setLibraryShown(server.serverId, libraryId, shown) },
+                    )
+                }
+            }
+            row("abs-add") { AddRow(stringResource(R.string.spoken_abs_add), onAddServer) }
             row("ard-sounds-books") {
                 SwitchRow(
                     title = stringResource(R.string.directory_ard_sounds),

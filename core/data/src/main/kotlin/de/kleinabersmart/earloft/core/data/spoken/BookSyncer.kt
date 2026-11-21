@@ -56,6 +56,10 @@ class BookSyncer @Inject constructor(
         BookSyncResult(results.all { it.ok } && local.await() && ard.ok, results.flatMap { it.newBooks } + ard.newBooks)
     }
 
+    /** Only the server [serverId] ("Sync now" on its row); not `ok` if it no longer exists. */
+    suspend fun syncServer(serverId: String): BookSyncResult =
+        servers.all().firstOrNull { it.serverId == serverId }?.let { syncSafely(it) } ?: BookSyncResult(ok = false, newBooks = emptyList())
+
     suspend fun syncSafely(server: AbsServer): BookSyncResult =
         try {
             val fresh = sync(server)

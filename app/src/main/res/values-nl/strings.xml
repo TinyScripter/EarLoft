@@ -1283,4 +1283,9 @@
     <string name="action_go_to_artist">Ga naar artiest</string>
     <string name="episode_position_reset">‘%1$s’: positie teruggezet</string>
     <string name="playlist_entry_removed">‘%1$s’ uit de afspeellijst verwijderd</string>
+    <string name="form_show_password">Wachtwoord tonen</string>
+    <string name="form_hide_password">Wachtwoord verbergen</string>
+    <string name="form_discard_title">Wijzigingen verwerpen?</string>
+    <string name="form_discard">Verwerpen</string>
+    <string name="form_keep_editing">Verder bewerken</string>
 </resources>

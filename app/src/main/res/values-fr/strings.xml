@@ -1347,4 +1347,9 @@
     <string name="action_go_to_artist">Aller à l’artiste</string>
     <string name="episode_position_reset">« %1$s » : position réinitialisée</string>
     <string name="playlist_entry_removed">« %1$s » retiré de la playlist</string>
+    <string name="form_show_password">Afficher le mot de passe</string>
+    <string name="form_hide_password">Masquer le mot de passe</string>
+    <string name="form_discard_title">Abandonner les modifications ?</string>
+    <string name="form_discard">Abandonner</string>
+    <string name="form_keep_editing">Continuer</string>
 </resources>

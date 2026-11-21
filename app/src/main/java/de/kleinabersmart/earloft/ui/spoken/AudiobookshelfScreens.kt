@@ -1,5 +1,11 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.text.KeyboardActions
+import de.kleinabersmart.earloft.ui.components.RemoveServerButton
+import de.kleinabersmart.earloft.ui.components.passwordTransformation
+import de.kleinabersmart.earloft.ui.components.PasswordVisibilityToggle
+import de.kleinabersmart.earloft.ui.components.rememberDiscardGuard
 import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import de.kleinabersmart.earloft.ui.components.readableWidth
 import android.content.Context
@@ -65,112 +71,6 @@ import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthApi
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** The Audiobookshelf servers in the books settings: list, enable/disable, edit, sync, remove, add. */
-@Composable
-fun AudiobookshelfSection(
-    onAdd: () -> Unit,
-    onEdit: (serverId: String) -> Unit,
-    modifier: Modifier = Modifier,
-    viewModel: AudiobookshelfViewModel = hiltViewModel(),
-) {
-    val state by viewModel.list.collectAsStateWithLifecycle()
-    val withoutKey by viewModel.withoutKey.collectAsStateWithLifecycle()
-    var removing by rememberSaveable { mutableStateOf<String?>(null) }
-    val servers = state.valueOrNull.orEmpty()
-
-    Column(modifier) {
-        if (state == LoadState.Failed) LoadFailedHint()
-        if (state is LoadState.Ready && servers.isEmpty()) EmptyHint(stringResource(R.string.spoken_abs_none))
-        servers.forEach { server ->
-            ListItem(
-                modifier = Modifier.clickable(onClickLabel = stringResource(R.string.server_edit)) { onEdit(server.serverId) },
-                headlineContent = { Text(server.name) },
-                supportingContent = {
-                    Column {
-                        Text(server.baseUrl)
-                        if (!server.enabled) {
-                            Text(stringResource(R.string.server_disabled), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        } else if (server.serverId in withoutKey) {
-                            Text(
-                                stringResource(if (server.openId) R.string.spoken_abs_login_lost else R.string.spoken_abs_key_lost),
-                                color = MaterialTheme.colorScheme.error,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                },
-                leadingContent = { Icon(painterResource(DesignR.drawable.ic_book), contentDescription = null) },
-                trailingContent = {
-                    Row {
-                        if (server.enabled) {
-                            IconButton(onClick = viewModel::syncNow) {
-                                Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
-                            }
-                        }
-                        Switch(
-                            checked = server.enabled,
-                            onCheckedChange = { viewModel.setEnabled(server.serverId, it) },
-                            modifier = Modifier.padding(start = 4.dp),
-                        )
-                    }
-                },
-            )
-            // Several book libraries: each can be deselected (books_improvements M3); the last one shown stays.
-            if (server.libraries.size > 1) {
-                Text(
-                    stringResource(R.string.spoken_abs_libraries),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 56.dp, top = 4.dp),
-                )
-                val shownCount = server.libraries.count { it.shown }
-                server.libraries.forEach { library ->
-                    val locked = library.shown && shownCount == 1
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .toggleable(
-                                value = library.shown,
-                                enabled = server.enabled && !locked,
-                                role = Role.Checkbox,
-                                onValueChange = { viewModel.setLibraryShown(server.serverId, library.libraryId, it) },
-                            )
-                            .padding(start = 44.dp, end = 16.dp),
-                    ) {
-                        Checkbox(checked = library.shown, onCheckedChange = null, enabled = server.enabled && !locked)
-                        Text(library.name, modifier = Modifier.padding(start = 8.dp))
-                    }
-                }
-            }
-            TextButton(onClick = { removing = server.serverId }, modifier = Modifier.padding(start = 56.dp)) {
-                Text(stringResource(R.string.spoken_abs_remove))
-            }
-        }
-        FilledTonalButton(onClick = onAdd, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
-            Text(stringResource(R.string.spoken_abs_add), modifier = Modifier.padding(start = 8.dp))
-        }
-    }
-
-    val toRemove = servers.firstOrNull { it.serverId == removing }
-    if (toRemove != null) {
-        AlertDialog(
-            onDismissRequest = { removing = null },
-            title = { Text(stringResource(R.string.spoken_abs_remove)) },
-            text = { Text(stringResource(R.string.spoken_abs_remove_message, toRemove.name)) },
-            confirmButton = {
-                DestructiveTextButton(onClick = {
-                    viewModel.remove(toRemove.serverId)
-                    removing = null
-                }) { Text(stringResource(R.string.action_remove)) }
-            },
-            dismissButton = { TextButton(onClick = { removing = null }) { Text(stringResource(R.string.action_cancel)) } },
-        )
-    }
-}
-
 /** The app's own redirect for browsers without Auth Tab; must be registered in Audiobookshelf (concept 12.11). */
 private const val OWN_REDIRECT_URI = "earloft://oauth"
 
@@ -222,6 +122,16 @@ fun AudiobookshelfFormScreen(
     var usesOpenId by rememberSaveable { mutableStateOf(false) }
     // HTTP only after explicit confirmation (concept 10), as in the music server form.
     var allowHttp by rememberSaveable { mutableStateOf(false) }
+    var keyVisible by rememberSaveable { mutableStateOf(false) }
+    // Editing: the fields are empty until the server is read; a bar shows that, as in the music server form.
+    var loaded by rememberSaveable { mutableStateOf(serverId == null) }
+    // The values when the form was ready; anything typed since is asked about before leaving.
+    var initial by rememberSaveable { mutableStateOf<List<String>?>(if (serverId == null) listOf("", "", "", "false") else null) }
+    val fields = listOf(name, url, key, allowHttp.toString())
+    val close = rememberDiscardGuard(
+        dirty = initial != null && fields != initial && connectState != ConnectState.Connected,
+        onClose = onDone,
+    )
     val isHttp = url.trim().startsWith("http://", ignoreCase = true)
     LaunchedEffect(serverId) {
         if (serverId == null) return@LaunchedEffect
@@ -235,8 +145,12 @@ fun AudiobookshelfFormScreen(
             usesOpenId = server.openId
             // A server already set up via HTTP was confirmed.
             allowHttp = server.baseUrl.startsWith("http://", ignoreCase = true)
+            initial = listOf(name, url, key, allowHttp.toString())
         }
+        loaded = true
     }
+    // Typing clears the last error, as in the music server form.
+    LaunchedEffect(fields) { viewModel.clearFailure() }
     LaunchedEffect(connectState) { if (connectState == ConnectState.Connected) onDone() }
     LaunchedEffect(url) { viewModel.onUrlChanged(url) }
 
@@ -244,8 +158,16 @@ fun AudiobookshelfFormScreen(
     Column(modifier.fillMaxSize().readableWidth().imePadding()) {
         TopAppBar(
             title = { Text(stringResource(if (serverId == null) R.string.spoken_abs_add else R.string.spoken_abs_edit)) },
-            navigationIcon = { BackButton(onDone) },
+            navigationIcon = { BackButton(close) },
         )
+        if (!loaded) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+            return@Column
+        }
+        val canConnect = url.isNotBlank() && (key.isNotBlank() || hasStoredKey) && (!isHttp || allowHttp) &&
+            connectState != ConnectState.Connecting
+        // From Android 17 the app reaches servers on the home network only with this permission (as in the music form).
+        val connect = rememberLocalNetworkRequester { viewModel.connect(serverId, name, url, key) }
         Column(
             Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(16.dp),
         ) {
@@ -274,7 +196,8 @@ fun AudiobookshelfFormScreen(
                     )
                 },
                 singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = passwordTransformation(keyVisible),
+                trailingIcon = { PasswordVisibilityToggle(keyVisible) { keyVisible = !keyVisible } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
@@ -285,6 +208,8 @@ fun AudiobookshelfFormScreen(
                 label = { Text(stringResource(R.string.add_server_name)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                // Enter on the last field connects, like the button.
+                keyboardActions = KeyboardActions(onDone = { if (canConnect) connect() }),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
             // Below the key instead of below the address: the hint appears as soon as "http://" is typed and would otherwise push
@@ -316,10 +241,8 @@ fun AudiobookshelfFormScreen(
                 )
             }
             Button(
-                // From Android 17 the app reaches servers on the home network only with this permission (as in the music form).
-                onClick = rememberLocalNetworkRequester { viewModel.connect(serverId, name, url, key) },
-                enabled = url.isNotBlank() && (key.isNotBlank() || hasStoredKey) && (!isHttp || allowHttp) &&
-                    connectState != ConnectState.Connecting,
+                onClick = connect,
+                enabled = canConnect,
                 modifier = Modifier.padding(top = 16.dp),
             ) {
                 Text(
@@ -351,6 +274,15 @@ fun AudiobookshelfFormScreen(
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
+            }
+            // Removing sits here, at the end of the form, as for music servers (no longer in the list next to the switch).
+            if (serverId != null) {
+                RemoveServerButton(
+                    title = stringResource(R.string.spoken_abs_remove),
+                    text = stringResource(R.string.spoken_abs_remove_message, name),
+                    onRemove = { viewModel.remove(serverId, onRemoved = onDone) },
+                    modifier = Modifier.padding(top = 24.dp),
+                )
             }
         }
     }

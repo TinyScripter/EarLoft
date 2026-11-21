@@ -1283,4 +1283,9 @@
     <string name="action_go_to_artist">Siirry esittäjään</string>
     <string name="episode_position_reset">”%1$s”: kohta palautettu alkuun</string>
     <string name="playlist_entry_removed">”%1$s” poistettu soittolistalta</string>
+    <string name="form_show_password">Näytä salasana</string>
+    <string name="form_hide_password">Piilota salasana</string>
+    <string name="form_discard_title">Hylätäänkö muutokset?</string>
+    <string name="form_discard">Hylkää</string>
+    <string name="form_keep_editing">Jatka muokkausta</string>
 </resources>

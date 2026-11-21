@@ -1347,4 +1347,9 @@
     <string name="action_go_to_artist">Ir al artista</string>
     <string name="episode_position_reset">«%1$s»: posición restablecida</string>
     <string name="playlist_entry_removed">«%1$s» eliminada de la lista</string>
+    <string name="form_show_password">Mostrar contraseña</string>
+    <string name="form_hide_password">Ocultar contraseña</string>
+    <string name="form_discard_title">¿Descartar los cambios?</string>
+    <string name="form_discard">Descartar</string>
+    <string name="form_keep_editing">Seguir editando</string>
 </resources>

@@ -152,6 +152,20 @@ class SpokenRefresher @Inject constructor(
         }
     }
 
+    /** "Sync now" on one server's row: only that server, reported like [refreshAll]. */
+    fun refreshServer(serverId: String) {
+        scope.launch {
+            _refreshing.value = true
+            try {
+                events.emit(RefreshEvent.Started(RefreshKind.BOOKS))
+                val result = syncer.syncServer(serverId)
+                events.emit(RefreshEvent.Finished(RefreshKind.BOOKS, result.newBooks.size, failed = !result.ok))
+            } finally {
+                _refreshing.value = false
+            }
+        }
+    }
+
     private companion object {
         const val TAG = "SpokenRefresher"
         const val WORK_NAME = "book-refresh"
