@@ -118,13 +118,19 @@ class PodcastFeedApi @Inject constructor(
                 .build()
         }
 
-    /** Image bytes; `null` if the image doesn't exist (anymore). */
+    /**
+     * Image bytes; `null` if the image doesn't exist (anymore). An image larger than [MAX_IMAGE_BYTES] is refused instead
+     * of cut off: the cut-off rest was stored as a half grey cover and never loaded again (review H14).
+     */
     suspend fun image(url: String): ByteArray? = withContext(Dispatchers.IO) {
         val httpUrl = url.toHttpUrlOrNull() ?: return@withContext null
         client.newCall(Request.Builder().url(httpUrl).header("User-Agent", USER_AGENT).build()).await().use { response ->
             if (response.code == 404 || response.code == 410) return@use null
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
-            response.peekBody(MAX_IMAGE_BYTES).bytes()
+            if (response.body.contentLength() > MAX_IMAGE_BYTES) throw IOException("Image larger than $MAX_IMAGE_BYTES bytes")
+            val bytes = response.peekBody(MAX_IMAGE_BYTES + 1).bytes()
+            if (bytes.size > MAX_IMAGE_BYTES) throw IOException("Image larger than $MAX_IMAGE_BYTES bytes")
+            bytes
         }
     }
 
@@ -132,7 +138,8 @@ class PodcastFeedApi @Inject constructor(
         const val USER_AGENT = PODCAST_USER_AGENT
         const val MAX_FEED_BYTES = 20L * 1024 * 1024
         const val MAX_CHAPTERS_BYTES = 1L * 1024 * 1024
-        const val MAX_IMAGE_BYTES = 10L * 1024 * 1024
+        /** Feeds offer 3000 px PNGs of well over 10 MB; they are scaled down before storing. */
+        const val MAX_IMAGE_BYTES = 40L * 1024 * 1024
         const val MAX_TRANSCRIPT_BYTES = 5L * 1024 * 1024
     }
 }

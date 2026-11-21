@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsException
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServer
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsUpload
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsUploadExists
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsUploadUnconfirmed
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsUploadFile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -146,6 +147,10 @@ class ArdBookUploader @Inject constructor(
                 )
             } catch (e: AbsUploadExists) {
                 return UploadResult.Exists
+            } catch (e: AbsUploadUnconfirmed) {
+                // Treated as arrived (review H15): otherwise the carry-over never happened and a new attempt reported "exists".
+                // If the book does not show up after all, the remembered carry-over expires by itself.
+                Log.w(TAG, "No answer after uploading ${book.title}, assuming it arrived", e)
             } catch (e: AbsException) {
                 Log.w(TAG, "Upload of ${book.title} rejected", e)
                 return when {

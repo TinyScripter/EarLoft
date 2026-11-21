@@ -171,16 +171,28 @@ class AbsApi @Inject constructor(
                 }
             }
             .build()
-        // Large files over a slow network: limit neither the total nor the write time as long as data is flowing.
-        val patient = client.newBuilder().callTimeout(0, TimeUnit.MILLISECONDS).writeTimeout(60, TimeUnit.SECONDS).build()
+        // Large files over a slow network: limit neither the total nor the write time as long as data is flowing. The server
+        // answers only after moving the files into the library (in Docker often a copy): 30 s were too short for a large book
+        // (review H15).
+        val patient = client.newBuilder()
+            .callTimeout(0, TimeUnit.MILLISECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(UPLOAD_ANSWER_MINUTES, TimeUnit.MINUTES)
+            .build()
         val request = authorized(server, server.endpoint("api/upload").build()) { post(body) }
         withContext(Dispatchers.IO) {
-            patient.newCall(request).await().use { response ->
-                if (response.isSuccessful) return@use
-                val text = response.body.string()
-                // The server reports an existing folder as 500 with a hint in the text.
-                if (response.code == 500 && text.contains("exist", ignoreCase = true)) throw AbsUploadExists()
-                throw AbsException(response.code, "HTTP ${response.code}: ${text.take(200)}")
+            try {
+                patient.newCall(request).await().use { response ->
+                    if (response.isSuccessful) return@use
+                    val text = response.body.string()
+                    // The server reports an existing folder as 500 with a hint in the text.
+                    if (response.code == 500 && text.contains("exist", ignoreCase = true)) throw AbsUploadExists()
+                    throw AbsException(response.code, "HTTP ${response.code}: ${text.take(200)}")
+                }
+            } catch (e: IOException) {
+                // Everything was sent, only the answer is missing: the book is most likely on the server.
+                if (e is AbsException || e is AbsUploadExists || total == 0L || sent < total) throw e
+                throw AbsUploadUnconfirmed(e)
             }
         }
     }
@@ -204,6 +216,9 @@ class AbsApi @Inject constructor(
         }
 
     private companion object {
+        /** How long the server may take to answer an upload after receiving it. */
+        const val UPLOAD_ANSWER_MINUTES = 15L
+
         val JSON = Json {
             ignoreUnknownKeys = true
             coerceInputValues = true
@@ -215,6 +230,9 @@ class AbsApi @Inject constructor(
 
 /** The book already exists on the server (the target folder exists). */
 class AbsUploadExists : IOException("The book already exists on the server")
+
+/** All files were sent, but the server's answer did not arrive (timeout, connection lost): the book most likely arrived. */
+class AbsUploadUnconfirmed(cause: IOException) : IOException("Upload sent, no answer from the server", cause)
 
 /** A book to upload: [title] and [author] determine the folder, [files] the files in this order. */
 data class AbsUpload(

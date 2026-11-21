@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.data.repository.PART_SUFFIX
 import de.kleinabersmart.earloft.core.data.repository.adoptingLegacy
 import de.kleinabersmart.earloft.core.data.repository.decodeScaled
 import de.kleinabersmart.earloft.core.data.repository.hashedName
+import de.kleinabersmart.earloft.core.data.repository.isImage
 import de.kleinabersmart.earloft.core.data.repository.offlineImageDirectory
 import de.kleinabersmart.earloft.core.data.repository.shrinkImage
 import de.kleinabersmart.earloft.core.data.repository.writeAtomically
@@ -157,8 +158,7 @@ class BookCovers @Inject constructor(
         if (file.exists()) return file
         if (!load) return null
         val bytes = fetch(label) { podcastApi.image(image) } ?: return null
-        write(file, bytes)
-        return file
+        return file.takeIf { write(it, bytes) }
     }
 
     /** The image of an episode's subscription, if it isn't already the episode's own. */
@@ -170,8 +170,7 @@ class BookCovers @Inject constructor(
     /** Downloads the own image of [book] to [file]. @return `false` if there is none or it couldn't be loaded. */
     private suspend fun fetchOwn(book: BookEntity, file: File): Boolean {
         val bytes = fetch(book.title) { loadOwn(book) } ?: return false
-        write(file, bytes)
-        return true
+        return write(file, bytes)
     }
 
     /** The own image of [book]; `null` if there is none. @throws IOException if it couldn't be loaded. */
@@ -211,7 +210,18 @@ class BookCovers @Inject constructor(
 
     private val directory by lazy { offlineImageDirectory(context, DIRECTORY) }
 
-    private fun write(file: File, bytes: ByteArray) = writeAtomically(file, shrinkImage(bytes, MAX_STORED_PX))
+    /**
+     * Stores [bytes] only if they are an image: an error page or a broken answer would otherwise stay as the cover for good,
+     * since an existing file is never loaded again (review H14). @return whether it was stored.
+     */
+    private fun write(file: File, bytes: ByteArray): Boolean {
+        if (!isImage(bytes)) {
+            Log.w(TAG, "Not an image (${bytes.size} bytes), not stored as ${file.name}")
+            return false
+        }
+        writeAtomically(file, shrinkImage(bytes, MAX_STORED_PX))
+        return true
+    }
 
     private val BookEntity.episodeUrl: String? get() = episodeUrl(kind, serverId, coverUrl)
 

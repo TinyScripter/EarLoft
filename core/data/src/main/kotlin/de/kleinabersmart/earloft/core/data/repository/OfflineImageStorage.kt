@@ -17,6 +17,13 @@ internal fun offlineImageDirectory(context: Context, name: String): File {
     return directory
 }
 
+/** Whether [bytes] are an image Android can decode (only the header is read). */
+internal fun isImage(bytes: ByteArray): Boolean {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    return bounds.outWidth > 0 && bounds.outHeight > 0
+}
+
 /**
  * A downloaded image for storing: if it is larger than [maxPx] (longest side), it is scaled down, otherwise unchanged. Feeds often deliver
  * images with 3000 px and several MB; at most 800 px are displayed. Bytes that are not an image stay as they are.
