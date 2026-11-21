@@ -220,6 +220,16 @@ private fun MutableList<NavKey>.openOnce(route: NavKey) {
 
 private fun MutableList<NavKey>.openNowPlaying(remote: Boolean = false) = openOnce(NowPlayingRoute(remote))
 
+/**
+ * Closes [route] and then every screen of [alsoClose] directly below it, but only while [route] is still on top: a
+ * second tap during the fade-out would otherwise close further screens and could empty the stack. The start screen stays.
+ */
+private fun MutableList<NavKey>.close(route: NavKey, alsoClose: (NavKey) -> Boolean = { false }) {
+    if (lastOrNull() != route) return
+    removeAt(lastIndex)
+    while (size > 1 && alsoClose(last())) removeAt(lastIndex)
+}
+
 @Composable
 fun WearApp(openRoute: NavKey? = null, onRouteOpened: () -> Unit = {}) {
     WearTheme {
@@ -339,16 +349,16 @@ fun WearApp(openRoute: NavKey? = null, onRouteOpened: () -> Unit = {}) {
                     }
                     entry<SleepTimerRoute> { route ->
                         val onCustom: () -> Unit = { backStack.add(SleepTimerCustomRoute(route.remote)) }
-                        val onDone: () -> Unit = { backStack.removeLastOrNull() }
+                        val onDone: () -> Unit = { backStack.close(route) }
                         if (route.remote) RemoteSleepTimerScreen(onCustom, onDone) else SleepTimerScreen(onCustom, onDone)
                     }
                     entry<SleepTimerCustomRoute> { route ->
                         // Back to playback: close the custom duration first, then the selection before it.
-                        val onDone: () -> Unit = { repeat(2) { backStack.removeLastOrNull() } }
+                        val onDone: () -> Unit = { backStack.close(route) { it is SleepTimerRoute } }
                         if (route.remote) RemoteSleepTimerCustomScreen(onDone) else SleepTimerCustomScreen(onDone)
                     }
                     entry<ChaptersRoute> { route ->
-                        val onDone: () -> Unit = { backStack.removeLastOrNull() }
+                        val onDone: () -> Unit = { backStack.close(route) }
                         if (route.remote) RemoteChaptersScreen(onDone) else ChaptersScreen(onDone)
                     }
                     entry<StorageRoute> { StorageScreen() }

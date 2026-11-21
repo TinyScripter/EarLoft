@@ -106,6 +106,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        intent.dropUnreadableExtras()
         if (intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)) openNowPlaying = true
         playFromSearch(intent)
         playNewEpisode(intent)
@@ -187,6 +188,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        intent.dropUnreadableExtras()
         // Only on a fresh start: after recreation (rotation, process death) the intent is still on the activity. Whatever the
         // UI hasn't picked up by then (e.g. while asking for the permission) comes from the saved state.
         // From "Recents" the system redelivers the intent of the first start (play, voice search, shared

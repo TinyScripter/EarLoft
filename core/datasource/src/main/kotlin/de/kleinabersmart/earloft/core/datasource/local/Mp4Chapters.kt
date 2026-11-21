@@ -58,10 +58,16 @@ internal object Mp4Chapters {
     } catch (_: RuntimeException) {
         // Truncated or garbled atoms (index out of range, size 0): then simply without chapters.
         emptyList()
+    } catch (_: OutOfMemoryError) {
+        // Safety net: a large moov on a device with little heap. The sizes below are capped, so this is rare.
+        emptyList()
     }
 
     private const val MAX_MOOV_BYTES = 64L * 1024 * 1024
     private const val MAX_CHAPTERS = 10_000
+
+    /** A text sample is a 16-bit length plus the text; anything behind it (e.g. an `encd` atom) is not needed. */
+    private const val MAX_SAMPLE_BYTES = 2 + 0xFFFF
 
     private class Box(val type: String, val start: Int, val end: Int)
 
@@ -131,16 +137,18 @@ internal object Mp4Chapters {
         val chunkOffsets = (moov.find(stbl, "stco") ?: moov.find(stbl, "co64")) ?: return emptyList()
         val wide = chunkOffsets.type == "co64"
 
-        // Size per sample.
+        // Size per sample. Every count is capped by what its atom can hold, so garbled counts cannot run long loops.
         val fixedSize = moov.u32(stsz.start + 4)
-        val sampleCount = minOf(moov.u32(stsz.start + 8), MAX_CHAPTERS.toLong()).toInt()
+        val sizeEntries = if (fixedSize != 0L) Long.MAX_VALUE else entries(stsz, 12, 4)
+        val sampleCount = minOf(moov.u32(stsz.start + 8), MAX_CHAPTERS.toLong(), sizeEntries).toInt()
         val sizes = LongArray(sampleCount) { if (fixedSize != 0L) fixedSize else moov.u32(stsz.start + 12 + it * 4) }
 
         // Start per sample in time units (stts: count, duration).
         val starts = LongArray(sampleCount)
         var sample = 0
         var time = 0L
-        for (entry in 0 until moov.u32(stts.start + 4).toInt()) {
+        for (entry in 0 until minOf(moov.u32(stts.start + 4), entries(stts, 8, 8)).toInt()) {
+            if (sample >= sampleCount) break
             val count = moov.u32(stts.start + 8 + entry * 8)
             val delta = moov.u32(stts.start + 12 + entry * 8)
             var n = 0L
@@ -152,26 +160,37 @@ internal object Mp4Chapters {
         }
 
         // Position per sample: chunk start from stco/co64 plus the sizes of the preceding samples in the same chunk.
-        val chunkCount = moov.u32(chunkOffsets.start + 4).toInt()
-        val runs = (0 until moov.u32(stsc.start + 4).toInt()).map { entry ->
+        val chunkCount = minOf(moov.u32(chunkOffsets.start + 4), entries(chunkOffsets, 8, if (wide) 8 else 4)).toInt()
+        val runs = (0 until minOf(moov.u32(stsc.start + 4), entries(stsc, 8, 12)).toInt()).map { entry ->
             moov.u32(stsc.start + 8 + entry * 12) to moov.u32(stsc.start + 12 + entry * 12)
         }
         val marks = mutableListOf<Mp4ChapterMark>()
         var next = 0
+        var run = -1
         for (chunk in 1..chunkCount) {
             if (next >= sampleCount) break
-            val perChunk = runs.lastOrNull { it.first <= chunk }?.second?.toInt() ?: break
+            // Runs are sorted by their first chunk; walk them along instead of searching per chunk.
+            while (run + 1 < runs.size && runs[run + 1].first <= chunk) run++
+            if (run < 0) break
+            val perChunk = runs[run].second
             var offset = if (wide) moov.u64(chunkOffsets.start + 8 + (chunk - 1) * 8) else moov.u32(chunkOffsets.start + 8 + (chunk - 1) * 4)
-            repeat(perChunk) {
-                if (next >= sampleCount) return@repeat
-                val size = sizes[next].toInt()
-                marks += Mp4ChapterMark(starts[next] * 1000 / timescale, sampleText(source.read(offset, size)))
+            var inChunk = 0L
+            while (inChunk < perChunk && next < sampleCount) {
+                val size = sizes[next]
+                // Only the text is read, never more than the file still holds behind the offset.
+                val length = minOf(size, MAX_SAMPLE_BYTES.toLong(), (source.length - offset).coerceAtLeast(0)).toInt()
+                marks += Mp4ChapterMark(starts[next] * 1000 / timescale, sampleText(source.read(offset, length)))
                 offset += size
                 next++
+                inChunk++
             }
         }
         return marks
     }
+
+    /** How many entries of [entrySize] bytes fit into [box] behind a header of [headerSize] bytes. */
+    private fun entries(box: Box, headerSize: Int, entrySize: Int): Long =
+        ((box.end - box.start - headerSize) / entrySize).coerceAtLeast(0).toLong()
 
     private fun trackId(moov: Buffer, trak: Box): Long? {
         val tkhd = moov.find(trak, "tkhd") ?: return null

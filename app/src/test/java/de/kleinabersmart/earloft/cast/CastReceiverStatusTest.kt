@@ -2,7 +2,9 @@ package de.kleinabersmart.earloft.cast
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
+import java.io.IOException
 
 class CastReceiverStatusTest {
 
@@ -37,5 +39,20 @@ class CastReceiverStatusTest {
         assertNull(receiverSessionIds("""{"type":"PING"}"""))
         assertNull(receiverSessionIds("not json"))
         assertNull(receiverSessionIds(null))
+    }
+
+    @Test(timeout = 2_000)
+    fun `a length that overflows the position is rejected instead of looping`() {
+        // Field 1, length-delimited, length 2^63 - 10: position (10) + length overflows to a negative number.
+        val bytes = mutableListOf<Byte>(0x0A).apply {
+            var rest = Long.MAX_VALUE - 9
+            while (rest and 0x7FL.inv() != 0L) {
+                add(((rest and 0x7F) or 0x80).toByte())
+                rest = rest ushr 7
+            }
+            add(rest.toByte())
+        }.toByteArray()
+
+        assertThrows(IOException::class.java) { decodeCastMessage(bytes) }
     }
 }

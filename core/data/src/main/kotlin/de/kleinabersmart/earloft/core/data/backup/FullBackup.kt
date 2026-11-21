@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONException
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -118,7 +119,10 @@ class FullBackup @Inject constructor(
         FullBackupResult(imported.counts, restored.stores, restored.localSourcesSkipped).also { restoreNotice.backupRestored(it) }
     }
 
-    /** Places `user.db` at [db] and returns manifest and settings; unknown entries are skipped. */
+    /**
+     * Places `user.db` at [db] and returns manifest and settings; unknown entries are skipped. Every entry has an upper
+     * limit: a prepared file (a few kilobytes that unpack to gigabytes) must neither exhaust the memory nor fill the storage.
+     */
     private fun unpack(input: InputStream, db: File): Pair<JSONObject?, JSONObject?> {
         var manifest: JSONObject? = null
         var settingsJson: JSONObject? = null
@@ -126,15 +130,30 @@ class FullBackup @Inject constructor(
         try {
             generateSequence { zip.nextEntry }.forEach { entry ->
                 when (entry.name) {
-                    MANIFEST -> manifest = JSONObject(zip.readBytes().decodeToString())
-                    SETTINGS -> settingsJson = JSONObject(zip.readBytes().decodeToString())
-                    USER_DB -> db.outputStream().use { zip.copyTo(it) }
+                    MANIFEST -> manifest = JSONObject(zip.readAtMost(MAX_MANIFEST_BYTES, entry.name).decodeToString())
+                    SETTINGS -> settingsJson = JSONObject(zip.readAtMost(MAX_SETTINGS_BYTES, entry.name).decodeToString())
+                    USER_DB -> db.outputStream().use { zip.copyAtMost(it, MAX_USER_DB_BYTES, entry.name) }
                 }
             }
         } catch (e: JSONException) {
             throw FullBackupException(false, "Corrupted full backup", e)
         }
         return manifest to settingsJson
+    }
+
+    private fun InputStream.readAtMost(limit: Int, name: String): ByteArray =
+        ByteArrayOutputStream().also { copyAtMost(it, limit.toLong(), name) }.toByteArray()
+
+    private fun InputStream.copyAtMost(output: OutputStream, limit: Long, name: String) {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0L
+        while (true) {
+            val read = read(buffer)
+            if (read < 0) return
+            total += read
+            if (total > limit) throw FullBackupException(false, "$name larger than $limit bytes")
+            output.write(buffer, 0, read)
+        }
     }
 
     /** A separate directory per job, removed afterwards. */
@@ -156,5 +175,10 @@ class FullBackup @Inject constructor(
         const val CREATED_AT = "createdAt"
         const val USER_DB_VERSION = "userDatabaseVersion"
         const val CURRENT_FORMAT = 1
+
+        // Far above real backups (manifest a few hundred bytes, settings a few kilobytes, user.db a few megabytes).
+        const val MAX_MANIFEST_BYTES = 64 * 1024
+        const val MAX_SETTINGS_BYTES = 16 * 1024 * 1024
+        const val MAX_USER_DB_BYTES = 512L * 1024 * 1024
     }
 }

@@ -373,6 +373,26 @@ class FullBackupTest {
     }
 
     @Test
+    fun `an entry that unpacks to far more than a backup holds is refused before it is in memory`() = runTest {
+        val device = Device(backgroundScope)
+        val bomb = ByteArrayOutputStream()
+        ZipOutputStream(bomb).use { zip ->
+            // A few kilobytes in the file, 8 MB unpacked: far beyond any real manifest.
+            zip.putNextEntry(ZipEntry("earloft-backup.json"))
+            zip.write("{\"format\":1,\"padding\":\"".toByteArray())
+            repeat(8) { zip.write(ByteArray(1024 * 1024) { 'x'.code.toByte() }) }
+            zip.write("\"}".toByteArray())
+        }
+        assertTrue(bomb.size() < 64 * 1024)
+        try {
+            device.backup.import(ByteArrayInputStream(bomb.toByteArray()))
+            fail("oversized manifest accepted")
+        } catch (e: FullBackupException) {
+            assertFalse(e.newerVersion)
+        }
+    }
+
+    @Test
     fun `a value this version does not know is refused as a backup of a newer version`() = runTest {
         val old = Device(backgroundScope)
         old.main.addNavidrome()

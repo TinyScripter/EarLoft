@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.util.Log
 import com.google.android.gms.cast.CastDevice
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -22,6 +24,7 @@ import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.X509TrustManager
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Asks a cast receiver directly which sessions are running on it – read-only, via the Cast protocol (TLS on the
@@ -38,7 +41,20 @@ internal object CastReceiverStatus {
     /** IO. The IDs of the sessions running on [device]; `null` if it doesn't answer. */
     suspend fun sessionIds(device: CastDevice): Set<String>? = withContext(Dispatchers.IO) {
         try {
-            query(device)
+            val tls = SSLContext.getInstance("TLS").apply { init(null, arrayOf(DeviceCertificate(device.deviceId)), null) }
+            (tls.socketFactory.createSocket() as SSLSocket).use { socket ->
+                // The read timeout applies per read, so a sender that trickles bytes could hold the thread for hours;
+                // closing the socket after an overall deadline ends every blocking call with an IOException.
+                val deadline = launch {
+                    delay(TOTAL_TIMEOUT)
+                    socket.close()
+                }
+                try {
+                    query(device, socket)
+                } finally {
+                    deadline.cancel()
+                }
+            }
         } catch (e: IOException) {
             Log.w(TAG, "Status of ${device.friendlyName} not readable", e)
             null
@@ -48,31 +64,28 @@ internal object CastReceiverStatus {
         }
     }
 
-    private fun query(device: CastDevice): Set<String> {
-        val tls = SSLContext.getInstance("TLS").apply { init(null, arrayOf(DeviceCertificate(device.deviceId)), null) }
-        (tls.socketFactory.createSocket() as SSLSocket).use { socket ->
-            socket.connect(InetSocketAddress(device.inetAddress, device.servicePort), TIMEOUT_MS)
-            socket.soTimeout = TIMEOUT_MS
-            socket.startHandshake()
-            val output = DataOutputStream(socket.outputStream.buffered())
-            output.writeMessage(NAMESPACE_CONNECTION, """{"type":"CONNECT"}""")
-            output.writeMessage(NAMESPACE_RECEIVER, """{"type":"GET_STATUS","requestId":1}""")
-            output.flush()
-            val input = DataInputStream(socket.inputStream.buffered())
-            // Other messages (such as PING) can arrive in between.
-            repeat(MAX_MESSAGES) {
-                val length = input.readInt()
-                if (length !in 0..MAX_MESSAGE_BYTES) throw IOException("Message with $length bytes")
-                val message = decodeCastMessage(ByteArray(length).also(input::readFully))
-                if (message.namespace != NAMESPACE_RECEIVER) return@repeat
-                receiverSessionIds(message.payload)?.let { ids ->
-                    output.writeMessage(NAMESPACE_CONNECTION, """{"type":"CLOSE"}""")
-                    output.flush()
-                    return ids
-                }
+    private fun query(device: CastDevice, socket: SSLSocket): Set<String> {
+        socket.connect(InetSocketAddress(device.inetAddress, device.servicePort), TIMEOUT_MS)
+        socket.soTimeout = TIMEOUT_MS
+        socket.startHandshake()
+        val output = DataOutputStream(socket.outputStream.buffered())
+        output.writeMessage(NAMESPACE_CONNECTION, """{"type":"CONNECT"}""")
+        output.writeMessage(NAMESPACE_RECEIVER, """{"type":"GET_STATUS","requestId":1}""")
+        output.flush()
+        val input = DataInputStream(socket.inputStream.buffered())
+        // Other messages (such as PING) can arrive in between.
+        repeat(MAX_MESSAGES) {
+            val length = input.readInt()
+            if (length !in 0..MAX_MESSAGE_BYTES) throw IOException("Message with $length bytes")
+            val message = decodeCastMessage(ByteArray(length).also(input::readFully))
+            if (message.namespace != NAMESPACE_RECEIVER) return@repeat
+            receiverSessionIds(message.payload)?.let { ids ->
+                output.writeMessage(NAMESPACE_CONNECTION, """{"type":"CLOSE"}""")
+                output.flush()
+                return ids
             }
-            throw IOException("No status received")
         }
+        throw IOException("No status received")
     }
 
     private fun DataOutputStream.writeMessage(namespace: String, payload: String) {
@@ -84,6 +97,7 @@ internal object CastReceiverStatus {
     private const val NAMESPACE_CONNECTION = "urn:x-cast:com.google.cast.tp.connection"
     private const val NAMESPACE_RECEIVER = "urn:x-cast:com.google.cast.receiver"
     private const val TIMEOUT_MS = 3_000
+    private val TOTAL_TIMEOUT = 10.seconds
     private const val MAX_MESSAGES = 10
     private const val MAX_MESSAGE_BYTES = 64 * 1024
     private const val TAG = "CastReceiverStatus"
@@ -163,7 +177,8 @@ internal fun decodeCastMessage(bytes: ByteArray): CastMessage {
         }
     }
     fun skip(count: Long) {
-        if (count < 0 || position + count > bytes.size) throw IOException("Invalid message")
+        // Compared as "remaining bytes": position + count could overflow for a huge count and pass the check.
+        if (count < 0 || count > bytes.size - position) throw IOException("Invalid message")
         position += count.toInt()
     }
     var namespace: String? = null
