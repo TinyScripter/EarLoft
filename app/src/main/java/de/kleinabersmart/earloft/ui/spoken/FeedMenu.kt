@@ -31,7 +31,7 @@ import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Context menu of a subscription (long press), built like the one for albums: the title at the top, below it play next episode,
+ * Context menu of a subscription (long press, and ⋮ on its page), built like the one for albums: the title at the top, below it play next episode,
  * add next episode to the queue, refresh, mark all as played (with confirmation), delete downloads of played episodes,
  * share and the subscription's settings. "Unsubscribe" is deliberately only in the settings. Podcasts from the device have
  * no feed and no downloads; those entries are missing there. Only include it when it is open.
@@ -41,6 +41,9 @@ fun FeedMenu(
     feed: PodcastFeed,
     onSettings: () -> Unit,
     onDismiss: () -> Unit,
+    /** Off on the subscription's own page: its title is right there, and refreshing has its own button. */
+    withTitle: Boolean = true,
+    withRefresh: Boolean = true,
     viewModel: FeedMenuViewModel = hiltViewModel(),
 ) {
     val state by remember(feed.id) { viewModel.state(feed.id) }.collectAsStateWithLifecycle(null)
@@ -51,13 +54,15 @@ fun FeedMenu(
     val current = state
 
     DropdownMenu(expanded = menuOpen, onDismissRequest = onDismiss) {
-        DropdownMenuItem(
-            text = { Text(feed.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            onClick = {},
-            enabled = false,
-            colors = MenuDefaults.itemColors(disabledTextColor = MaterialTheme.colorScheme.primary),
-        )
-        HorizontalDivider()
+        if (withTitle) {
+            DropdownMenuItem(
+                text = { Text(feed.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                onClick = {},
+                enabled = false,
+                colors = MenuDefaults.itemColors(disabledTextColor = MaterialTheme.colorScheme.primary),
+            )
+            HorizontalDivider()
+        }
         current?.next?.let { next ->
             DropdownMenuItem(
                 text = {
@@ -90,7 +95,7 @@ fun FeedMenu(
                 },
             )
         }
-        if (!feed.isLocal) {
+        if (!feed.isLocal && withRefresh) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.podcast_refresh_feed)) },
                 leadingIcon = { Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = null) },

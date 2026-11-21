@@ -493,12 +493,21 @@ fun PodcastScreen(
                         viewModel::setListOldestFirst,
                     )
                 }
-                if (current != null && !current.isLocal) ShareButton(ShareTarget.Feed(current.id))
                 IconButton(onClick = onSearch, enabled = current != null) {
                     Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(R.string.podcast_search))
                 }
                 IconButton(onClick = viewModel::refresh, enabled = current != null) {
                     Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.podcast_refresh_feed))
+                }
+                // The same menu as the long press on the subscription (play next, mark all as played, share, …).
+                if (current != null) {
+                    Box {
+                        var menuOpen by rememberSaveable { mutableStateOf(false) }
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
+                        }
+                        if (menuOpen) FeedMenu(current, onSettings = onSettings, onDismiss = { menuOpen = false }, withTitle = false, withRefresh = false)
+                    }
                 }
             },
         )
