@@ -343,7 +343,7 @@ private fun QueueRow(
             .combinedClickable(
                 onClick = onClick,
                 onLongClickLabel = stringResource(R.string.action_more),
-                onLongClick = { if (selecting) selection?.toggle(item.book.id) else menu = true },
+                onLongClick = { if (selecting) selection.toggle(item.book.id) else menu = true },
             )
             .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
     ) {
