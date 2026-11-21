@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -29,7 +30,6 @@ fun BookQueueScreen(
 ) {
     val books by viewModel.books.collectAsStateWithLifecycle()
     val currentId by viewModel.currentBookId.collectAsStateWithLifecycle()
-    val bookSpeed by viewModel.bookSpeed.collectAsStateWithLifecycle()
     val summary by viewModel.summary.collectAsStateWithLifecycle()
     Column(modifier.fillMaxSize()) {
         TopAppBar(
@@ -48,15 +48,32 @@ fun BookQueueScreen(
                 )
             },
         )
-        SpokenQueueList(
-            entries = books,
-            currentId = currentId,
-            emptyText = stringResource(R.string.book_queue_empty),
-            inheritedSpeed = { bookSpeed },
-            onClick = onBookClick,
-            onRemove = viewModel::remove,
-            onReorder = viewModel::reorder,
-            modifier = Modifier.navigationBarsPadding(),
-        )
+        BookQueueList(onBookClick, Modifier.navigationBarsPadding(), viewModel = viewModel)
     }
+}
+
+/** The books queue as a list, on its page and in the book player (sheet or right pane), like [PodcastQueueList]. */
+@Composable
+fun BookQueueList(
+    onBookClick: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
+    transparent: Boolean = false,
+    viewModel: BookQueueViewModel = hiltViewModel(),
+) {
+    val books by viewModel.books.collectAsStateWithLifecycle()
+    val currentId by viewModel.currentBookId.collectAsStateWithLifecycle()
+    val bookSpeed by viewModel.bookSpeed.collectAsStateWithLifecycle()
+    SpokenQueueList(
+        entries = books,
+        currentId = currentId,
+        emptyText = stringResource(R.string.book_queue_empty),
+        inheritedSpeed = { bookSpeed },
+        onClick = onBookClick,
+        onRemove = viewModel::remove,
+        onReorder = viewModel::reorder,
+        modifier = modifier,
+        contentPadding = contentPadding,
+        transparent = transparent,
+    )
 }

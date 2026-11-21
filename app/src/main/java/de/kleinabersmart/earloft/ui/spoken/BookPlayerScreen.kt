@@ -215,7 +215,7 @@ private fun BookPlayerContent(
     val shownPane = when {
         pane == SidePane.CHAPTERS && hasChapters -> SidePane.CHAPTERS
         pane == SidePane.BOOKMARKS -> SidePane.BOOKMARKS
-        pane == SidePane.QUEUE && episode -> SidePane.QUEUE
+        pane == SidePane.QUEUE -> SidePane.QUEUE
         else -> SidePane.DESCRIPTION
     }
     // Phone in landscape (little height): smaller play button, so the bar below stays visible without scrolling.
@@ -338,14 +338,13 @@ private fun BookPlayerContent(
                     label = stringResource(R.string.spoken_bookmarks),
                     onClick = { if (wide) togglePane(SidePane.BOOKMARKS) else showBookmarks = true },
                 )
-                if (episode) {
-                    ToggleIconButton(
-                        icon = DesignR.drawable.ic_queue_music,
-                        active = wide && shownPane == SidePane.QUEUE,
-                        label = stringResource(R.string.player_open_queue),
-                        onClick = { if (wide) togglePane(SidePane.QUEUE) else showQueue = true },
-                    )
-                }
+                // The podcast queue for episodes, "Continue listening" of the books for books.
+                ToggleIconButton(
+                    icon = DesignR.drawable.ic_queue_music,
+                    active = wide && shownPane == SidePane.QUEUE,
+                    label = stringResource(R.string.player_open_queue),
+                    onClick = { if (wide) togglePane(SidePane.QUEUE) else showQueue = true },
+                )
                 if (wide) {
                     // The description is already on the right; the button only brings it back from behind chapters or queue.
                     ToggleIconButton(
@@ -434,6 +433,8 @@ private fun BookPlayerContent(
                 closeLabel = stringResource(R.string.player_close),
                 onClose = onClose,
             ) {
+                // Star of an episode as on its page (nothing for books and trial subscriptions).
+                bookWithProgress?.let { EpisodeStarButton(it) }
                 bookWithProgress?.book?.let { book ->
                     // As in the menu: episodes from the device have no public address.
                     if (book.kind == BookKind.BOOK || !book.isLocal) {
@@ -524,13 +525,21 @@ private fun BookPlayerContent(
                                     modifier = Modifier.fillMaxSize().padding(vertical = 8.dp),
                                     viewModel = bookmarksViewModel,
                                 )
-                            shownPane == SidePane.QUEUE ->
+                            shownPane == SidePane.QUEUE -> if (episode) {
                                 PodcastQueueList(
                                     onEpisodeClick,
                                     Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(vertical = 8.dp),
                                     transparent = true,
                                 )
+                            } else {
+                                BookQueueList(
+                                    onEpisodeClick,
+                                    Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(vertical = 8.dp),
+                                    transparent = true,
+                                )
+                            }
                             else -> notes(Modifier.fillMaxSize())
                         }
                     }
@@ -613,16 +622,17 @@ private fun BookPlayerContent(
             )
         }
     }
-    if (showQueue && episode) {
+    if (showQueue) {
         ModalBottomSheet(onDismissRequest = { showQueue = false }) {
-            PodcastQueueList(
-                onEpisodeClick = {
-                    showQueue = false
-                    onEpisodeClick(it)
-                },
-                modifier = Modifier.navigationBarsPadding(),
-                transparent = true,
-            )
+            val open: (Long) -> Unit = {
+                showQueue = false
+                onEpisodeClick(it)
+            }
+            if (episode) {
+                PodcastQueueList(onEpisodeClick = open, modifier = Modifier.navigationBarsPadding(), transparent = true)
+            } else {
+                BookQueueList(onBookClick = open, modifier = Modifier.navigationBarsPadding(), transparent = true)
+            }
         }
     }
 }

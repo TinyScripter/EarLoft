@@ -208,7 +208,6 @@ private fun NowPlayingContent(
                         label = stringResource(if (sleepActive) R.string.sleep_timer_off else R.string.sleep_timer_title),
                         onClick = { if (sleepActive) onCancelSleepTimer() else sleepSheetVisible = true },
                     )
-                    PlayerMoreMenu(state, links)
                 }
             }
         }
@@ -229,8 +228,10 @@ private fun NowPlayingContent(
         }
 
         Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // Share and ⋮ at the top right, as in the book and episode player.
             PlayerTopBar(stringResource(R.string.player_close), onClose) {
                 state.current?.let { ShareButton(ShareTarget.Song(it.songId)) }
+                PlayerMoreMenu(state, links)
             }
             val current = state.current
             if (current == null) {
@@ -530,7 +531,7 @@ private fun SeekBar(durationMs: Long, positionMs: () -> Long, onSeek: (Long) -> 
 }
 
 /**
- * ⋮ at the end of the action row: mix from the current song (it keeps playing, the mix replaces what comes after it), current
+ * ⋮ at the top right next to share: go to album/artist, mix from the current song (it keeps playing, the mix replaces what comes after it), current
  * song to a playlist, save queue as playlist, equalizer (only if there is one), track info.
  */
 @Composable
@@ -542,10 +543,7 @@ private fun PlayerMoreMenu(state: PlayerState, links: PlayerLinks) {
     val openEqualizer = rememberEqualizerLauncher(state.isRemote)
     ArtistPicker(lookup = { links.artistsOf(current) }, onArtistClick = links.onOpenArtist) { openArtist ->
     Box {
-        IconButton(
-            onClick = { open = true },
-            colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
-        ) {
+        IconButton(onClick = { open = true }) {
             Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
