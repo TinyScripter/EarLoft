@@ -1,5 +1,8 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.cardItems
+import de.kleinabersmart.earloft.ui.components.CardGap
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -63,8 +66,13 @@ fun StarredEpisodes(
     }
     LoadableList(starred, stringResource(R.string.podcast_starred_empty)) { list ->
         val sameDay = remember(list) { episodesSharingDay(list.map { it.book }) }
-        FastScrollLazyColumn(Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
-            groupedItems(list, key = { it.book.id }) { item ->
+        // Each episode its own card, as in the "New" tab.
+        FastScrollLazyColumn(
+            Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(CardGap),
+        ) {
+            cardItems(list, key = { it.book.id }) { item ->
                 val id = item.book.id
                 EpisodeSummaryRow(
                     item,
@@ -136,8 +144,12 @@ fun PodcastHistoryScreen(
     Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         TopAppBar(title = { Text(stringResource(R.string.podcast_history)) }, navigationIcon = { BackButton(onBack) })
         LoadableList(history, stringResource(R.string.podcast_history_empty)) { list ->
-            FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                groupedItems(list, key = { it.key }) { entry ->
+            FastScrollLazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(CardGap),
+            ) {
+                cardItems(list, key = { it.key }) { entry ->
                     HistoryRow(entry, onEpisodeClick, onFeedClick)
                 }
             }

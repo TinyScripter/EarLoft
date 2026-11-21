@@ -132,7 +132,6 @@ import de.kleinabersmart.earloft.ui.components.GridTilePadding
 import de.kleinabersmart.earloft.ui.components.group
 import de.kleinabersmart.earloft.ui.components.CardGap
 import de.kleinabersmart.earloft.ui.components.cardItems
-import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.components.Shelf
 import de.kleinabersmart.earloft.ui.components.coverOutlineColor
 import de.kleinabersmart.earloft.ui.components.gridTile
@@ -860,10 +859,15 @@ fun PodcastSearchScreen(
         when {
             trimmed.isEmpty() -> Unit
             hits.isEmpty() -> if (settled) EmptyHint(stringResource(R.string.search_no_results, trimmed))
-            else -> FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+            // Each hit its own card, as on the subscription page.
+            else -> FastScrollLazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(CardGap),
+            ) {
                 val sameDay = sameDayHits
                 val speed = feed.valueOrNull?.effects?.speed ?: areaEffects.speed
-                groupedItems(hits, key = { it.book.id }) { item ->
+                cardItems(hits, key = { it.book.id }) { item ->
                     val id = item.book.id
                     EpisodeSummaryRow(
                         item,
