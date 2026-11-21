@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthInterceptor
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsSentTokenInterceptor
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServerRegistry
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsTokenAuthenticator
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,7 @@ import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -47,6 +49,7 @@ class AbsOpenIdTest {
     private lateinit var servers: AudiobookshelfServers
     private lateinit var renewal: AbsTokenRenewal
     private lateinit var api: AbsApi
+    private lateinit var client: OkHttpClient
     private val registry = AbsServerRegistry()
     private val secrets = MemorySecrets()
 
@@ -70,7 +73,8 @@ class AbsOpenIdTest {
         server.start()
         val context = ApplicationProvider.getApplicationContext<Context>()
         db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
-        val client = OkHttpClient.Builder()
+        client = OkHttpClient.Builder()
+            .addInterceptor(AbsSentTokenInterceptor(registry))
             .addNetworkInterceptor(AbsAuthInterceptor(registry))
             .authenticator(AbsTokenAuthenticator(registry) { renewal })
             .build()
@@ -139,6 +143,32 @@ class AbsOpenIdTest {
         assertEquals(jwt("access-2"), secrets.values[AbsSecrets.token(id)])
         assertEquals("refresh-2", secrets.values[AbsSecrets.refresh(id)])
         assertEquals(jwt("access-2"), registry[id]!!.token)
+    }
+
+    @Test
+    fun `streams, downloads and covers without their own header renew the token too`() = runTest {
+        val id = signIn()
+        servers.server(id)
+        validAccess.clear() // The access token has expired, and no API call renewed it beforehand (review H3).
+
+        val response = client.newCall(Request.Builder().url(server.url("/api/items/book/file/1")).build()).execute()
+
+        response.use { assertEquals(200, it.code) }
+        assertEquals(1, refreshCalls.get())
+        assertEquals(jwt("access-2"), registry[id]!!.token)
+    }
+
+    @Test(timeout = 10_000)
+    fun `an expired refresh token on a stream ends with 401 instead of hanging`() = runTest {
+        val id = signIn()
+        servers.server(id)
+        validAccess.clear()
+        currentRefresh = "revoked"
+
+        val response = client.newCall(Request.Builder().url(server.url("/api/items/book/file/1")).build()).execute()
+
+        response.use { assertEquals(401, it.code) }
+        assertNull(registry[id])
     }
 
     @Test
@@ -332,6 +362,7 @@ class AbsOpenIdTest {
                 else -> when {
                     bearer == null || bearer !in validAccess -> MockResponse.Builder().code(401).body("Unauthorized").build()
                     url.encodedPath == "/api/me" -> json("""{"id":"user-1","mediaProgress":[]}""")
+                    url.encodedPath.startsWith("/api/items/") -> MockResponse.Builder().addHeader("Content-Type", "audio/mpeg").body("audio").build()
                     url.encodedPath == "/api/libraries" -> json("""{"libraries":[{"id":"lib","name":"Books","mediaType":"book"}]}""")
                     else -> MockResponse.Builder().code(404).build()
                 }

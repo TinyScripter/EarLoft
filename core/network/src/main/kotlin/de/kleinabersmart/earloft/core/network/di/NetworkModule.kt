@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthInterceptor
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsSentTokenInterceptor
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsTokenAuthenticator
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinAuthInterceptor
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinClientInfo
@@ -31,6 +32,7 @@ internal object NetworkModule {
         @ApplicationContext context: Context,
         authInterceptor: SubsonicAuthInterceptor,
         absAuthInterceptor: AbsAuthInterceptor,
+        absSentTokenInterceptor: AbsSentTokenInterceptor,
         absTokenAuthenticator: AbsTokenAuthenticator,
         jellyfinAuthInterceptor: JellyfinAuthInterceptor,
         coverArtCacheInterceptor: CoverArtCacheInterceptor,
@@ -38,6 +40,8 @@ internal object NetworkModule {
     ): OkHttpClient =
         OkHttpClient.Builder()
             .cache(Cache(File(context.cacheDir, "http"), HTTP_CACHE_BYTES))
+            // Before the network interceptors: lets the authenticator know which Audiobookshelf token a stream sent.
+            .addInterceptor(absSentTokenInterceptor)
             .addNetworkInterceptor(authInterceptor)
             .addNetworkInterceptor(absAuthInterceptor)
             .addNetworkInterceptor(jellyfinAuthInterceptor)

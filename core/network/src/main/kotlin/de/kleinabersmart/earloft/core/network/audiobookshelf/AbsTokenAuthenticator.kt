@@ -31,6 +31,7 @@ class AbsTokenAuthenticator @Inject constructor(
         val request = response.request
         val server = registry.forUrl(request.url) ?: return null
         val rejected = request.header("Authorization")?.removePrefix("Bearer ")
+            // Streams, downloads and covers: the token [AbsAuthInterceptor] sent (review H3).
             ?: request.tag(AbsSentToken::class.java)?.token
             ?: return null
         val token = refresher.get().renewBlocking(server.serverId, rejected) ?: return null

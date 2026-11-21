@@ -9,6 +9,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
+import okhttp3.Authenticator
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
@@ -112,11 +113,18 @@ class AbsAuthApi @Inject constructor(
         return noRedirectClient.newCall(request).execute().use { it.tokensOrThrow() }
     }
 
-    private val noRedirectClient by lazy { client.newBuilder().followRedirects(false).followSslRedirects(false).build() }
+    /**
+     * Without the shared authenticator: a 401 from `/auth/refresh` would otherwise start another renewal, which waits for the
+     * lock the running one holds (review H3).
+     */
+    private val noRedirectClient by lazy {
+        client.newBuilder().followRedirects(false).followSslRedirects(false).authenticator(Authenticator.NONE).build()
+    }
 
     /** Without redirects (the `Location` is the result), without cache and with the login's cookies. */
     private fun loginClient(cookies: CookieJar): OkHttpClient =
-        client.newBuilder().followRedirects(false).followSslRedirects(false).cache(null).cookieJar(cookies).build()
+        client.newBuilder().followRedirects(false).followSslRedirects(false).cache(null).cookieJar(cookies)
+            .authenticator(Authenticator.NONE).build()
 
     private fun Response.tokensOrThrow(): AbsTokens {
         val user = decode<AbsLoginResponse>(textOrThrow()).user
