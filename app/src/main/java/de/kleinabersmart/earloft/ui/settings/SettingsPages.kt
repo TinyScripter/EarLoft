@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.settings
 
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -584,7 +585,7 @@ fun MusicSettingsScreen(
             title = { Text(stringResource(R.string.server_remove_title, removing.name)) },
             text = { Text(stringResource(R.string.server_remove_text)) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     viewModel.remove(removing.sourceId)
                     serverToRemove = null
                 }) { Text(stringResource(R.string.action_remove)) }
@@ -911,10 +912,10 @@ fun PodcastsSettingsScreen(
             title = { Text(stringResource(R.string.podcast_delete_archived_title)) },
             text = { Text(stringResource(R.string.podcast_delete_archived_message, feed.title)) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     viewModel.deleteArchivedPodcast(feed.id)
                     feedToDelete = null
-                }) { Text(stringResource(R.string.podcast_unsubscribe), color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.podcast_unsubscribe)) }
             },
             dismissButton = {
                 TextButton(onClick = { feedToDelete = null }) { Text(stringResource(R.string.action_cancel)) }
@@ -928,7 +929,7 @@ fun PodcastsSettingsScreen(
             title = { Text(stringResource(R.string.settings_stats_reset_title)) },
             text = { Text(stringResource(R.string.settings_stats_reset_message)) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     viewModel.resetPodcastStats()
                     confirmingStatsReset = false
                 }) { Text(stringResource(R.string.settings_stats_reset_confirm)) }
@@ -1276,7 +1277,7 @@ fun AudiobookSettingsScreen(
             title = { Text(stringResource(R.string.settings_stats_reset_title)) },
             text = { Text(stringResource(R.string.settings_book_stats_reset_message)) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     viewModel.resetBookStats()
                     confirmingBookStatsReset = false
                 }) { Text(stringResource(R.string.settings_stats_reset_confirm)) }

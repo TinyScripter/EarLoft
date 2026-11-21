@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.library
 
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -126,7 +127,7 @@ fun AlbumMenu(
             title = { Text(stringResource(R.string.download_album_remove_title)) },
             text = { Text(stringResource(R.string.download_album_remove_text, album.title)) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     viewModel.removeDownload(album.id)
                     onDismiss()
                 }) { Text(stringResource(R.string.action_remove)) }

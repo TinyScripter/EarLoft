@@ -1345,4 +1345,6 @@
     <string name="action_ok">Aceptar</string>
     <string name="action_go_to_album">Ir al álbum</string>
     <string name="action_go_to_artist">Ir al artista</string>
+    <string name="episode_position_reset">«%1$s»: posición restablecida</string>
+    <string name="playlist_entry_removed">«%1$s» eliminada de la lista</string>
 </resources>

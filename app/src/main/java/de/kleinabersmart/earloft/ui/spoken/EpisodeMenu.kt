@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
@@ -112,6 +113,13 @@ fun EpisodeMenu(
     val id = item.book.id
     val inQueue = id in queued
     val played = item.progress?.finished == true
+    val undoLabel = stringResource(R.string.action_undo)
+    // Single changes happen right away and can be undone from the snackbar (as when swiping); only "all" asks first.
+    val offerUndo: (Int) -> (suspend () -> Unit) -> Unit = { text ->
+        { restore ->
+            snackbars.show(resources.getString(text, item.book.title), SnackbarDuration.Long, undoLabel) { viewModel.undo(restore) }
+        }
+    }
 
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         DropdownMenuItem(
@@ -131,7 +139,7 @@ fun EpisodeMenu(
         if (item.isEpisode) DropdownMenuItem(
             text = { Text(stringResource(if (inQueue) R.string.episode_queue_remove else R.string.episode_queue_add)) },
             onClick = {
-                viewModel.setQueued(id, !inQueue)
+                viewModel.setQueued(id, !inQueue, offerUndo(R.string.queue_removed))
                 // Appended at the end; with a long queue you wouldn't see it otherwise.
                 if (!inQueue) snackbars.show(resources.getString(R.string.queue_added_at_end, item.book.title))
                 onDismiss()
@@ -164,7 +172,7 @@ fun EpisodeMenu(
         DropdownMenuItem(
             text = { Text(stringResource(if (played) R.string.episode_mark_unplayed else R.string.episode_mark_played)) },
             onClick = {
-                viewModel.setPlayed(item, !played)
+                viewModel.setPlayed(item, !played, offerUndo(if (played) R.string.episode_marked_unplayed else R.string.episode_marked_played))
                 onDismiss()
             },
         )
@@ -179,7 +187,7 @@ fun EpisodeMenu(
         DropdownMenuItem(
             text = { Text(stringResource(R.string.episode_reset_position)) },
             onClick = {
-                viewModel.resetPosition(item)
+                viewModel.resetPosition(item, offerUndo(R.string.episode_position_reset))
                 onDismiss()
             },
         )
@@ -228,7 +236,7 @@ fun EpisodeMenu(
             title = { Text(stringResource(R.string.book_download_delete_title)) },
             text = { Text(stringResource(R.string.book_download_delete_message, formatBytes(download?.bytes ?: 0))) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     confirmDeleteDownload = false
                     viewModel.removeDownload(item)
                 }) { Text(stringResource(R.string.book_download_delete_confirm)) }
@@ -242,7 +250,7 @@ fun EpisodeMenu(
             title = { Text(stringResource(R.string.ard_books_remove_title, item.book.title)) },
             text = { Text(stringResource(R.string.ard_books_remove_message)) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     confirmRemove = false
                     viewModel.removeFromLibrary(item)
                 }) { Text(stringResource(R.string.ard_books_remove)) }

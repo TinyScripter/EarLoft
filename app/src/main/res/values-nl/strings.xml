@@ -1281,4 +1281,6 @@
     <string name="action_ok">OK</string>
     <string name="action_go_to_album">Ga naar album</string>
     <string name="action_go_to_artist">Ga naar artiest</string>
+    <string name="episode_position_reset">‘%1$s’: positie teruggezet</string>
+    <string name="playlist_entry_removed">‘%1$s’ uit de afspeellijst verwijderd</string>
 </resources>

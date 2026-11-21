@@ -1409,4 +1409,6 @@
     <string name="action_ok">OK</string>
     <string name="action_go_to_album">Przejdź do albumu</string>
     <string name="action_go_to_artist">Przejdź do wykonawcy</string>
+    <string name="episode_position_reset">„%1$s”: pozycja zresetowana</string>
+    <string name="playlist_entry_removed">„%1$s” usunięto z playlisty</string>
 </resources>

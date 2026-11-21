@@ -1,7 +1,7 @@
 package de.kleinabersmart.earloft.ui.playlists
 
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -153,10 +153,7 @@ internal fun PlaylistDeleteDialog(playlist: Playlist, onConfirm: () -> Unit, onD
             )
         },
         confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            ) { Text(stringResource(R.string.playlist_delete)) }
+            DestructiveTextButton(onClick = onConfirm) { Text(stringResource(R.string.playlist_delete)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )

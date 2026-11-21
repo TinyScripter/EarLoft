@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.FilledTonalIconButton
 import de.kleinabersmart.earloft.ui.library.BackButton
@@ -139,7 +140,7 @@ fun BookScreen(
             title = { Text(stringResource(R.string.book_download_delete_title)) },
             text = { Text(stringResource(R.string.book_download_delete_message, formatBytes(download.bytes))) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     viewModel.removeDownload()
                     confirmDelete = false
                 }) { Text(stringResource(R.string.book_download_delete_confirm)) }

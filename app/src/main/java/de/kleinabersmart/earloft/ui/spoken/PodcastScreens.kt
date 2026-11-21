@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.text.KeyboardActions
 import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
@@ -1060,12 +1061,22 @@ fun PodcastSettingsScreen(
                 }
                 if (downloadStates.values.any { it == TrackDownload.DONE }) {
                     row("remove-heard") {
+                        var confirm by rememberSaveable { mutableStateOf(false) }
                         ActionRow(
                             title = stringResource(R.string.podcast_remove_heard_downloads),
                             summary = stringResource(R.string.podcast_remove_heard_downloads_summary),
                             icon = DesignR.drawable.ic_delete,
-                            onClick = viewModel::removeHeardDownloads,
+                            onClick = { confirm = true },
                         )
+                        if (confirm) {
+                            RemoveHeardDownloadsDialog(
+                                onConfirm = {
+                                    confirm = false
+                                    viewModel.removeHeardDownloads()
+                                },
+                                onDismiss = { confirm = false },
+                            )
+                        }
                     }
                 }
             }
@@ -1175,11 +1186,11 @@ fun PodcastSettingsScreen(
             title = { Text(stringResource(R.string.podcast_unsubscribe_title)) },
             text = { Text(stringResource(R.string.podcast_unsubscribe_message, current.title)) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     confirmUnsubscribe = false
                     viewModel.unsubscribe()
                     onUnsubscribed()
-                }) { Text(stringResource(R.string.podcast_unsubscribe), color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.podcast_unsubscribe)) }
             },
             dismissButton = {
                 Row {

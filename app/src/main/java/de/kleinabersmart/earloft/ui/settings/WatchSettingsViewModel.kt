@@ -74,7 +74,13 @@ class WatchSettingsViewModel @Inject constructor(
 
     fun remove(item: WatchSelectionItem) = launch { selections.setSelected(item.kind, item.refId, selected = false) }
 
+    /** "Undo" after [remove]: selected again (the watch loads it again if it already deleted it). */
+    fun restore(item: WatchSelectionItem) = launch { selections.setSelected(item.kind, item.refId, selected = true) }
+
     fun removeEpisode(item: WatchEpisodeItem) = launch { episodes.setSelected(item.bookId, selected = false) }
+
+    /** "Undo" after [removeEpisode]. */
+    fun restoreEpisode(item: WatchEpisodeItem) = launch { episodes.setSelected(item.bookId, selected = true) }
 
     fun clear() = launch {
         selections.clear()

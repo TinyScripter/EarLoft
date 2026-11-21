@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import kotlinx.coroutines.flow.first
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -117,28 +118,54 @@ class EpisodeMenuViewModel @Inject constructor(
         act { podcasts.setStarred(items.filter { it.isEpisode }.map { it.book.id }, starred) }
     }
 
-    fun setQueued(bookId: Long, queued: Boolean) {
-        act { if (queued) continueListening.append(bookId) else continueListening.remove(bookId) }
+    /** Into the queue or out of it; taking it out offers [onUndo], which puts it back at its old place. */
+    fun setQueued(bookId: Long, queued: Boolean, onUndo: (suspend () -> Unit) -> Unit = {}) {
+        act {
+            if (queued) {
+                continueListening.append(bookId)
+            } else {
+                val before = continueListening.episodes.first().map { it.book.id }
+                continueListening.remove(bookId)
+                onUndo {
+                    continueListening.append(bookId)
+                    if (before.size > 1) continueListening.reorder(before, bookId)
+                }
+            }
+        }
     }
 
     /**
      * Books also report the progress to Audiobookshelf, episodes only have the local progress. A book marked "unplayed" moves from
      * "Continue listening" back to "Recently added".
      */
-    fun setPlayed(item: BookWithProgress, played: Boolean) {
+    fun setPlayed(item: BookWithProgress, played: Boolean, onUndo: (suspend () -> Unit) -> Unit = {}) {
         val id = item.book.id
         // Loaded in the player: it pauses and writes the progress itself, otherwise it would overwrite it on the next save.
         if (played && servicePlayer.markFinished(id, playNext = false)) return
         act {
             if (item.isEpisode) {
-                podcasts.setPlayed(id, played)
+                onUndo(podcasts.setPlayed(listOf(id), played))
             } else {
                 val duration = item.book.durationMs
                 progressSync.record(id, if (played) duration else 0, duration, finished = played, force = true, hidden = !played)
+                onUndo { restoreBookProgress(item) }
             }
             // "Unplayed" on the loaded entry: the player would otherwise write its position back on the next save.
             if (!played) seekLoadedToStart(item)
         }
+    }
+
+    /** "Undo" for a book: its progress as it was before (with Audiobookshelf reported like any other change). */
+    private suspend fun restoreBookProgress(item: BookWithProgress) {
+        val before = item.progress
+        progressSync.record(
+            item.book.id,
+            before?.positionMs ?: 0,
+            item.book.durationMs,
+            finished = before?.finished == true,
+            force = true,
+            hidden = before?.hidden ?: true,
+        )
     }
 
     /**
@@ -160,15 +187,17 @@ class EpisodeMenuViewModel @Inject constructor(
         }
     }
 
-    fun resetPosition(item: BookWithProgress) {
+    fun resetPosition(item: BookWithProgress, onUndo: (suspend () -> Unit) -> Unit = {}) {
         val bookId = item.book.id
         // A book that was never started has nothing to reset. A reset one leaves "Continue listening" like "unplayed".
         if (!item.isEpisode && item.progress == null) return
         act {
             if (item.isEpisode) {
-                podcasts.resetPosition(bookId)
+                // The same as "unplayed" (`PodcastRepository.resetPosition`), but with the way back.
+                onUndo(podcasts.setPlayed(listOf(bookId), false))
             } else {
                 progressSync.record(bookId, 0, item.book.durationMs, finished = false, force = true, hidden = true)
+                onUndo { restoreBookProgress(item) }
             }
             // If the episode is currently playing, playback also jumps to the start.
             seekLoadedToStart(item)

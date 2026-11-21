@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.playlists
 
+import kotlinx.coroutines.flow.first
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
@@ -77,8 +78,27 @@ class PlaylistViewModel @AssistedInject constructor(
         }
     }
 
-    fun removeEntry(entryId: Long) {
-        viewModelScope.launch { playlistRepository.removeEntry(playlistId, entryId) }
+    /**
+     * Removes an entry right away; [onUndo] gets the way back (the song again at its old place), as everywhere single entries are
+     * removed. On a server playlist both steps reach the server like any other change.
+     */
+    fun removeEntry(entryId: Long, onUndo: (suspend () -> Unit) -> Unit = {}) {
+        viewModelScope.launch {
+            val before = playlistRepository.playlist(playlistId).first()?.entries ?: return@launch
+            val removed = before.firstOrNull { it.entryId == entryId } ?: return@launch
+            playlistRepository.removeEntry(playlistId, entryId)
+            onUndo {
+                val known = before.mapTo(HashSet()) { it.entryId }
+                playlistRepository.addSongs(playlistId, listOf(removed.song.id))
+                val added = playlistRepository.playlist(playlistId).first()?.entries?.map { it.entryId }?.firstOrNull { it !in known }
+                    ?: return@onUndo
+                playlistRepository.reorder(playlistId, before.map { if (it.entryId == entryId) added else it.entryId })
+            }
+        }
+    }
+
+    fun undo(restore: suspend () -> Unit) {
+        viewModelScope.launch { restore() }
     }
 
     /** Saves the entry order chosen while reordering. */

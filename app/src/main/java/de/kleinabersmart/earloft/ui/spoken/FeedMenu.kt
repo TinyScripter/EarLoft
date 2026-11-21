@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -30,6 +31,18 @@ import de.kleinabersmart.earloft.ui.components.ShareMenuItem
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
+/** Asks before deleting the downloads of all heard episodes of a subscription (menu and subscription settings). */
+@Composable
+internal fun RemoveHeardDownloadsDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.podcast_remove_heard_downloads)) },
+        text = { Text(stringResource(R.string.podcast_remove_heard_downloads_summary)) },
+        confirmButton = { DestructiveTextButton(onClick = onConfirm) { Text(stringResource(R.string.book_download_delete_confirm)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
 /**
  * Context menu of a subscription (long press, and ⋮ on its page), built like the one for albums: the title at the top, below it play next episode,
  * add next episode to the queue, refresh, mark all as played (with confirmation), delete downloads of played episodes,
@@ -51,6 +64,7 @@ fun FeedMenu(
     val resources = LocalResources.current
     var menuOpen by rememberSaveable { mutableStateOf(true) }
     var confirmAllPlayed by rememberSaveable { mutableStateOf(false) }
+    var confirmRemoveHeard by rememberSaveable { mutableStateOf(false) }
     val current = state
 
     DropdownMenu(expanded = menuOpen, onDismissRequest = onDismiss) {
@@ -119,9 +133,10 @@ fun FeedMenu(
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.podcast_remove_heard_downloads)) },
                 leadingIcon = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
+                // Touches several episodes at once: asks first (single changes have "Undo" instead).
                 onClick = {
-                    viewModel.removeHeardDownloads(feed.id)
-                    onDismiss()
+                    menuOpen = false
+                    confirmRemoveHeard = true
                 },
             )
         }
@@ -136,6 +151,15 @@ fun FeedMenu(
         )
     }
 
+    if (confirmRemoveHeard) {
+        RemoveHeardDownloadsDialog(
+            onConfirm = {
+                viewModel.removeHeardDownloads(feed.id)
+                onDismiss()
+            },
+            onDismiss = onDismiss,
+        )
+    }
     if (confirmAllPlayed && current != null) {
         AlertDialog(
             onDismissRequest = onDismiss,

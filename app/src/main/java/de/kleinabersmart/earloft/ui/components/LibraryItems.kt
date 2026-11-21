@@ -643,3 +643,16 @@ fun ArtistAvatar(
         )
     }
 }
+
+/**
+ * Confirm button of a dialog whose action deletes, removes or resets something: in the error color, the same in every such
+ * dialog of the app.
+ */
+@Composable
+fun DestructiveTextButton(onClick: () -> Unit, content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
+    androidx.compose.material3.TextButton(
+        onClick = onClick,
+        colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+        content = content,
+    )
+}

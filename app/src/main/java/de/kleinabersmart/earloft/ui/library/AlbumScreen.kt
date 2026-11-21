@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.library
 
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.derivedStateOf
@@ -397,7 +398,7 @@ fun DownloadButton(
             title = { Text(removeTitle) },
             text = { Text(removeText) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     confirmRemove = false
                     onRemoveDownload()
                 }) { Text(stringResource(R.string.action_remove)) }

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.downloads
 
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import de.kleinabersmart.earloft.ui.library.AlbumMenu
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
@@ -456,7 +457,7 @@ private fun ConfirmDialog(title: String, text: String, onConfirm: () -> Unit, on
         title = { Text(title) },
         text = { Text(text) },
         confirmButton = {
-            TextButton(onClick = {
+            DestructiveTextButton(onClick = {
                 onConfirm()
                 onDismiss()
             }) { Text(stringResource(R.string.action_remove)) }

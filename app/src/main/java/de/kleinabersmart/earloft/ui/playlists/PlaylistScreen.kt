@@ -1,5 +1,8 @@
 package de.kleinabersmart.earloft.ui.playlists
 
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.ui.platform.LocalResources
+import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -81,6 +84,9 @@ fun PlaylistScreen(
 ) {
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
     val offline by viewModel.offline.collectAsStateWithLifecycle()
+    val snackbars = LocalSnackbars.current
+    val resources = LocalResources.current
+    val undoLabel = stringResource(R.string.action_undo)
     PlaylistContent(
         state = playlist,
         offline = offline,
@@ -93,7 +99,14 @@ fun PlaylistScreen(
         onAddToQueue = viewModel::addToQueue,
         onRename = viewModel::rename,
         onDelete = { viewModel.delete(onDeleted = onBack) },
-        onRemoveEntry = viewModel::removeEntry,
+        onRemoveEntry = { entryId ->
+            val title = (playlist as? LoadState.Ready)?.value?.entries?.firstOrNull { it.entryId == entryId }?.song?.title.orEmpty()
+            viewModel.removeEntry(entryId) { restore ->
+                snackbars.show(resources.getString(R.string.playlist_entry_removed, title), SnackbarDuration.Long, undoLabel) {
+                    viewModel.undo(restore)
+                }
+            }
+        },
         onReorder = viewModel::reorder,
         actions = viewModel,
         modifier = modifier,

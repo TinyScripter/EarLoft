@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.library
 
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import de.kleinabersmart.earloft.ui.playlists.AddToPlaylistDialog
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -118,7 +119,7 @@ fun ArtistMenu(
             title = { Text(stringResource(R.string.download_artist_remove_title)) },
             text = { Text(stringResource(R.string.download_artist_remove_text, name)) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     viewModel.removeDownload(artistId)
                     onDismiss()
                 }) { Text(stringResource(R.string.action_remove)) }

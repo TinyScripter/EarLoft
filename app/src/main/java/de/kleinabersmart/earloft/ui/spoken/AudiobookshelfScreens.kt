@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import de.kleinabersmart.earloft.ui.components.readableWidth
 import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -160,7 +161,7 @@ fun AudiobookshelfSection(
             title = { Text(stringResource(R.string.spoken_abs_remove)) },
             text = { Text(stringResource(R.string.spoken_abs_remove_message, toRemove.name)) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     viewModel.remove(toRemove.serverId)
                     removing = null
                 }) { Text(stringResource(R.string.action_remove)) }

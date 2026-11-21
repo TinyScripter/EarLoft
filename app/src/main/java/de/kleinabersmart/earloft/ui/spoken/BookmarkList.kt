@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import de.kleinabersmart.earloft.ui.components.GroupMargin
 import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import android.content.res.Resources
@@ -278,15 +279,21 @@ private fun BookmarkEditDialog(
                     minLines = 3,
                     modifier = Modifier.fillMaxWidth().height(140.dp),
                 )
+                // Deleting is apart from the dialog's buttons, in red; "Undo" in the snackbar brings it back.
+                DestructiveTextButton(onClick = onDelete) {
+                    Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null)
+                    Text(stringResource(R.string.spoken_bookmark_delete), modifier = Modifier.padding(start = 8.dp))
+                }
             }
         },
+        // As in every other dialog: "Cancel" next to the confirming button.
         confirmButton = {
             TextButton(onClick = { onSave(title.trim(), note.trim()) }, enabled = title.isNotBlank()) {
                 Text(stringResource(R.string.spoken_bookmark_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDelete) { Text(stringResource(R.string.spoken_bookmark_delete)) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         },
     )
 }

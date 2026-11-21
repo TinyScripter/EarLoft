@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.earloft.ui.components.readableWidth
 import androidx.compose.foundation.background
@@ -114,7 +115,7 @@ fun ArdSoundsScreen(
             title = { Text(stringResource(R.string.ard_books_unsubscribe)) },
             text = { Text(stringResource(R.string.ard_books_unsubscribe_confirm, subscription.title)) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     viewModel.unsubscribe(subscription.showId)
                     unsubscribing = null
                 }) { Text(stringResource(R.string.ard_books_unsubscribe)) }
@@ -238,6 +239,21 @@ fun ArdShowScreen(
     val books by viewModel.books.collectAsStateWithLifecycle()
     val subscribed by viewModel.subscribed.collectAsStateWithLifecycle()
     val noBooks = stringResource(R.string.ard_books_none)
+    var confirmUnsubscribe by rememberSaveable { mutableStateOf(false) }
+    if (confirmUnsubscribe) {
+        AlertDialog(
+            onDismissRequest = { confirmUnsubscribe = false },
+            title = { Text(stringResource(R.string.ard_books_unsubscribe)) },
+            text = { Text(stringResource(R.string.ard_books_unsubscribe_confirm, title)) },
+            confirmButton = {
+                DestructiveTextButton(onClick = {
+                    confirmUnsubscribe = false
+                    viewModel.toggleSubscription(title)
+                }) { Text(stringResource(R.string.ard_books_unsubscribe)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmUnsubscribe = false }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     LaunchedEffect(viewModel) {
@@ -256,7 +272,8 @@ fun ArdShowScreen(
             navigationIcon = { BackButton(onBack) },
             actions = {
                 if (subscribed) {
-                    FilledTonalButton(onClick = { viewModel.toggleSubscription(title) }) {
+                    // Asks first, like ending it in the list on the ARD page (subscribing again needs the network).
+                    FilledTonalButton(onClick = { confirmUnsubscribe = true }) {
                         Icon(painterResource(DesignR.drawable.ic_notifications), contentDescription = null, modifier = Modifier.size(18.dp))
                         Text(stringResource(R.string.ard_books_subscribed), modifier = Modifier.padding(start = 8.dp))
                     }

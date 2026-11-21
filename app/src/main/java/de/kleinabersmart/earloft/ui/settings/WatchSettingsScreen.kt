@@ -1,5 +1,8 @@
 package de.kleinabersmart.earloft.ui.settings
 
+import androidx.compose.material3.SnackbarDuration
+import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,14 +58,24 @@ fun WatchSettingsScreen(
     viewModel: WatchSettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val snackbars = LocalSnackbars.current
+    val removed = stringResource(R.string.watch_removed)
+    val undo = stringResource(R.string.action_undo)
     WatchSettingsContent(
         state = state,
         onBack = onBack,
         onQualityChange = viewModel::setQuality,
         onStorageLimitChange = viewModel::setStorageLimitGb,
         onRequireChargingChange = viewModel::setRequireCharging,
-        onRemove = viewModel::remove,
-        onRemoveEpisode = viewModel::removeEpisode,
+        // A single entry goes right away, with "Undo" like everywhere else; only "Remove everything" asks first.
+        onRemove = { item ->
+            viewModel.remove(item)
+            snackbars.show(removed, SnackbarDuration.Long, undo) { viewModel.restore(item) }
+        },
+        onRemoveEpisode = { item ->
+            viewModel.removeEpisode(item)
+            snackbars.show(removed, SnackbarDuration.Long, undo) { viewModel.restoreEpisode(item) }
+        },
         onClear = viewModel::clear,
         modifier = modifier,
     )
@@ -215,7 +228,7 @@ private fun WatchSettingsContent(
             title = { Text(stringResource(R.string.watch_clear)) },
             text = { Text(stringResource(R.string.watch_clear_text)) },
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     onClear()
                     confirmClear = false
                 }) { Text(stringResource(R.string.action_remove)) }

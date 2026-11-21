@@ -1281,4 +1281,6 @@
     <string name="action_ok">OK</string>
     <string name="action_go_to_album">Siirry albumiin</string>
     <string name="action_go_to_artist">Siirry esittäjään</string>
+    <string name="episode_position_reset">”%1$s”: kohta palautettu alkuun</string>
+    <string name="playlist_entry_removed">”%1$s” poistettu soittolistalta</string>
 </resources>
