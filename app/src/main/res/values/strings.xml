@@ -235,6 +235,8 @@
     <string name="settings_player_cover_colors_summary">Mini player and player take their colors from the cover. Off: app colors.</string>
     <string name="settings_always_navigation_bar">Always show navigation bar</string>
     <string name="settings_always_navigation_bar_summary">Only affects the playback screens. Off hides the bar there.</string>
+    <string name="settings_hide_mini_player_on_scroll">Hide mini player while scrolling</string>
+    <string name="settings_hide_mini_player_on_scroll_summary">Slides away while scrolling down a list and comes back at the top.</string>
     <string name="theme_system">Follow system setting</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>

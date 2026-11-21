@@ -260,6 +260,8 @@
     <string name="settings_player_cover_colors_summary">Miniodtwarzacz i odtwarzacz przejmują kolory z okładki. Wyłączone: kolory aplikacji.</string>
     <string name="settings_always_navigation_bar">Zawsze pokazuj pasek nawigacji</string>
     <string name="settings_always_navigation_bar_summary">Dotyczy tylko ekranów odtwarzania. Wyłączenie ukrywa tam pasek.</string>
+    <string name="settings_hide_mini_player_on_scroll">Ukrywaj miniodtwarzacz podczas przewijania</string>
+    <string name="settings_hide_mini_player_on_scroll_summary">Znika podczas przewijania listy w dół i wraca na górze.</string>
     <string name="theme_system">Zgodnie z ustawieniem systemu</string>
     <string name="theme_light">Jasny</string>
     <string name="theme_dark">Ciemny</string>

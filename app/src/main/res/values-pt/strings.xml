@@ -247,6 +247,8 @@
     <string name="settings_player_cover_colors_summary">O miniplayer e o player usam as cores da capa. Desativado: cores do app.</string>
     <string name="settings_always_navigation_bar">Sempre mostrar a barra de navegação</string>
     <string name="settings_always_navigation_bar_summary">Afeta apenas as telas de reprodução. Desativado: a barra fica oculta nelas.</string>
+    <string name="settings_hide_mini_player_on_scroll">Ocultar miniplayer ao rolar</string>
+    <string name="settings_hide_mini_player_on_scroll_summary">Some ao rolar uma lista para baixo e volta no topo.</string>
     <string name="theme_system">Seguir configuração do sistema</string>
     <string name="theme_light">Claro</string>
     <string name="theme_dark">Escuro</string>

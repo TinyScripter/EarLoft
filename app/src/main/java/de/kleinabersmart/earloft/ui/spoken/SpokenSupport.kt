@@ -79,6 +79,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import de.kleinabersmart.earloft.ui.player.LocalMiniPlayerScrollHide
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
@@ -311,7 +312,8 @@ private fun SpokenModeScaffold(
                 // The last enabled area can't be hidden; then an empty area doesn't offer it.
                 CompositionLocalProvider(LocalOpenAreaSettings provides onOpenAreaSettings.takeIf { pages.size > 1 }) {
                     HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize(), key = { pages[it].ordinal }) { page ->
-                        Box(Modifier.fillMaxSize().nestedScroll(handoff)) {
+                        // Inside pull-to-refresh: the mini player sees a list pushed against its start before the refresh takes it.
+                        Box(Modifier.fillMaxSize().nestedScroll(handoff).nestedScroll(LocalMiniPlayerScrollHide.current)) {
                             CompositionLocalProvider(LocalHeaderActions provides headerActions.getValue(pages[page])) {
                                 content(pages[page])
                             }

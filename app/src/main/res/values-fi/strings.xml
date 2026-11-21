@@ -234,6 +234,8 @@
     <string name="settings_player_cover_colors_summary">Minisoitin ja soitin saavat värinsä kansikuvasta. Pois: sovelluksen värit.</string>
     <string name="settings_always_navigation_bar">Näytä navigointipalkki aina</string>
     <string name="settings_always_navigation_bar_summary">Koskee vain toistonäkymiä. Pois päältä palkki piilotetaan niissä.</string>
+    <string name="settings_hide_mini_player_on_scroll">Piilota minisoitin vieritettäessä</string>
+    <string name="settings_hide_mini_player_on_scroll_summary">Katoaa, kun luetteloa vieritetään alas, ja palaa ylhäällä.</string>
     <string name="theme_system">Järjestelmän mukaan</string>
     <string name="theme_light">Vaalea</string>
     <string name="theme_dark">Tumma</string>

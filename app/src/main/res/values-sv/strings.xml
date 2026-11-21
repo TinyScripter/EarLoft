@@ -234,6 +234,8 @@
     <string name="settings_player_cover_colors_summary">Minispelaren och spelaren tar sina färger från omslaget. Av: appens färger.</string>
     <string name="settings_always_navigation_bar">Visa alltid navigeringsfältet</string>
     <string name="settings_always_navigation_bar_summary">Gäller bara uppspelningsvyerna. Av döljer fältet där.</string>
+    <string name="settings_hide_mini_player_on_scroll">Dölj minispelaren vid rullning</string>
+    <string name="settings_hide_mini_player_on_scroll_summary">Försvinner när du rullar nedåt i en lista och kommer tillbaka högst upp.</string>
     <string name="theme_system">Följ systeminställningen</string>
     <string name="theme_light">Ljust</string>
     <string name="theme_dark">Mörkt</string>

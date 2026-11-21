@@ -260,6 +260,8 @@
     <string name="settings_player_cover_colors_summary">Minipřehrávač a přehrávač přebírají barvy z obalu. Vypnuto: barvy aplikace.</string>
     <string name="settings_always_navigation_bar">Vždy zobrazovat navigační panel</string>
     <string name="settings_always_navigation_bar_summary">Týká se jen obrazovek přehrávání. Vypnuto: panel je tam skrytý.</string>
+    <string name="settings_hide_mini_player_on_scroll">Skrývat minipřehrávač při posouvání</string>
+    <string name="settings_hide_mini_player_on_scroll_summary">Při posouvání seznamu dolů zmizí a nahoře se znovu objeví.</string>
     <string name="theme_system">Podle nastavení systému</string>
     <string name="theme_light">Světlý</string>
     <string name="theme_dark">Tmavý</string>

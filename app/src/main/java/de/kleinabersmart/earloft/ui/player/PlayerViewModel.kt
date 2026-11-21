@@ -137,6 +137,6 @@ class PlayerViewModel @Inject constructor(
     }
 }
 
-/** Identifies the loaded title for [MiniPlayerVisibility]. */
-private val PlayerState.itemKey: String?
+/** Identifies the loaded title for [MiniPlayerVisibility] and [MiniPlayerScrollHide]. */
+internal val PlayerState.itemKey: String?
     get() = spoken?.let { "book:${it.bookId}" } ?: current?.let { "song:${it.songId}" }

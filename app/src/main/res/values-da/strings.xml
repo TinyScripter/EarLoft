@@ -234,6 +234,8 @@
     <string name="settings_player_cover_colors_summary">Miniafspiller og afspiller får deres farver fra coveret. Fra: appens farver.</string>
     <string name="settings_always_navigation_bar">Vis altid navigationslinjen</string>
     <string name="settings_always_navigation_bar_summary">Gælder kun afspilningsskærmene. Fra skjuler linjen der.</string>
+    <string name="settings_hide_mini_player_on_scroll">Skjul miniafspiller ved rulning</string>
+    <string name="settings_hide_mini_player_on_scroll_summary">Forsvinder, når du ruller ned i en liste, og kommer igen øverst.</string>
     <string name="theme_system">Følg systemindstilling</string>
     <string name="theme_light">Lyst</string>
     <string name="theme_dark">Mørkt</string>

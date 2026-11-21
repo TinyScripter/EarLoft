@@ -247,6 +247,8 @@
     <string name="settings_player_cover_colors_summary">El minirreproductor y el reproductor toman sus colores de la portada. Desactivado: colores de la app.</string>
     <string name="settings_always_navigation_bar">Mostrar siempre la barra de navegación</string>
     <string name="settings_always_navigation_bar_summary">Solo afecta a las pantallas de reproducción. Si está desactivado, la barra se oculta allí.</string>
+    <string name="settings_hide_mini_player_on_scroll">Ocultar minirreproductor al desplazarse</string>
+    <string name="settings_hide_mini_player_on_scroll_summary">Desaparece al desplazarse hacia abajo en una lista y vuelve al llegar arriba.</string>
     <string name="theme_system">Usar ajuste del sistema</string>
     <string name="theme_light">Claro</string>
     <string name="theme_dark">Oscuro</string>

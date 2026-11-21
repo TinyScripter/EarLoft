@@ -247,6 +247,8 @@
     <string name="settings_player_cover_colors_summary">Mini player e player prendono i colori dalla copertina. Disattivato: colori dell’app.</string>
     <string name="settings_always_navigation_bar">Mostra sempre la barra di navigazione</string>
     <string name="settings_always_navigation_bar_summary">Vale solo per le schermate di riproduzione. Disattivato: lì la barra viene nascosta.</string>
+    <string name="settings_hide_mini_player_on_scroll">Nascondi mini player durante lo scorrimento</string>
+    <string name="settings_hide_mini_player_on_scroll_summary">Scompare scorrendo un elenco verso il basso e ricompare in cima.</string>
     <string name="theme_system">Usa impostazione di sistema</string>
     <string name="theme_light">Chiaro</string>
     <string name="theme_dark">Scuro</string>

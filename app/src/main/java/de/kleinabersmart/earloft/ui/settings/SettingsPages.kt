@@ -235,6 +235,15 @@ fun GeneralSettingsScreen(
                     onCheckedChange = viewModel::setAlwaysShowNavigationBar,
                 )
             }
+            row("hide-mini-player") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_hide_mini_player_on_scroll),
+                    summary = stringResource(R.string.settings_hide_mini_player_on_scroll_summary),
+                    icon = DesignR.drawable.ic_expand_more,
+                    checked = state.hideMiniPlayerOnScroll,
+                    onCheckedChange = viewModel::setHideMiniPlayerOnScroll,
+                )
+            }
         }
 
         group("refresh", R.string.settings_section_refresh) {

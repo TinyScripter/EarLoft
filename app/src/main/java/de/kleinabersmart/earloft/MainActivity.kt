@@ -214,6 +214,7 @@ class MainActivity : ComponentActivity() {
             val localMedia = useLocalMedia ?: return@setContent
             val showSetup = setupPending ?: return@setContent
             val alwaysNavigationBar by themeSettings.alwaysShowNavigationBar.collectAsStateWithLifecycle(initialValue = true)
+            val hideMiniPlayerOnScroll by themeSettings.hideMiniPlayerOnScroll.collectAsStateWithLifecycle(initialValue = true)
             val playerCoverColors by themeSettings.playerCoverColors.collectAsStateWithLifecycle(initialValue = true)
 
             val darkTheme = when (mode) {
@@ -246,6 +247,7 @@ class MainActivity : ComponentActivity() {
                                 newContentTarget = newContentTarget,
                                 onNewContentOpened = { newContentTarget = null },
                                 alwaysShowNavigationBar = alwaysNavigationBar,
+                                hideMiniPlayerOnScroll = hideMiniPlayerOnScroll,
                                 showSetup = showSetup,
                                 onSetupFinished = { lifecycleScope.launch { setupState.finish() } },
                             )

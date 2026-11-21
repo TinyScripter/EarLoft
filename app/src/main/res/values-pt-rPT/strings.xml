@@ -247,6 +247,8 @@
     <string name="settings_player_cover_colors_summary">O minileitor e o leitor usam as cores da capa. Desativado: cores da app.</string>
     <string name="settings_always_navigation_bar">Mostrar sempre a barra de navegação</string>
     <string name="settings_always_navigation_bar_summary">Afeta apenas os ecrãs de reprodução. Desativado: a barra fica oculta nesses ecrãs.</string>
+    <string name="settings_hide_mini_player_on_scroll">Ocultar minileitor ao deslocar</string>
+    <string name="settings_hide_mini_player_on_scroll_summary">Desaparece ao deslocar uma lista para baixo e volta no topo.</string>
     <string name="theme_system">Seguir a definição do sistema</string>
     <string name="theme_light">Claro</string>
     <string name="theme_dark">Escuro</string>

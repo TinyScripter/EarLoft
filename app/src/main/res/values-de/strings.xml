@@ -234,6 +234,8 @@
     <string name="settings_player_cover_colors_summary">Mini-Player und Player nehmen die Farben des Covers an. Aus: App-Farben.</string>
     <string name="settings_always_navigation_bar">Navigationsleiste immer anzeigen</string>
     <string name="settings_always_navigation_bar_summary">Betrifft nur die Wiedergabefenster. Aus blendet die Leiste dort aus.</string>
+    <string name="settings_hide_mini_player_on_scroll">Mini-Player beim Scrollen ausblenden</string>
+    <string name="settings_hide_mini_player_on_scroll_summary">Verschwindet beim Runterscrollen einer Liste und kommt oben wieder.</string>
     <string name="theme_system">Systemeinstellung folgen</string>
     <string name="theme_light">Hell</string>
     <string name="theme_dark">Dunkel</string>

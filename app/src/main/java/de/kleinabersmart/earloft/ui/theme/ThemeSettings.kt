@@ -64,9 +64,17 @@ class ThemeSettings @Inject constructor(
         context.themeSettingsDataStore.edit { it[KEY_ALWAYS_NAV] = enabled }
     }
 
+    /** Slide the mini player out of the way while scrolling down a list (`MiniPlayerScrollHide`). Default: yes. */
+    val hideMiniPlayerOnScroll: Flow<Boolean> = context.themeSettingsDataStore.data.map { it[KEY_HIDE_MINI_PLAYER_ON_SCROLL] ?: true }
+
+    suspend fun setHideMiniPlayerOnScroll(enabled: Boolean) {
+        context.themeSettingsDataStore.edit { it[KEY_HIDE_MINI_PLAYER_ON_SCROLL] = enabled }
+    }
+
     private companion object {
         val KEY_MODE = stringPreferencesKey("mode")
         val KEY_ALWAYS_NAV = booleanPreferencesKey("always_show_navigation_bar")
+        val KEY_HIDE_MINI_PLAYER_ON_SCROLL = booleanPreferencesKey("hide_mini_player_on_scroll")
         val KEY_SYSTEM_COLORS = booleanPreferencesKey("system_colors")
         val KEY_PLAYER_COVER_COLORS = booleanPreferencesKey("player_cover_colors")
         val KEY_WIDGET_COVER_COLORS = booleanPreferencesKey("widget_cover_colors")

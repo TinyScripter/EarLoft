@@ -141,6 +141,7 @@ import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.ui.library.BackButton
+import de.kleinabersmart.earloft.ui.player.LocalMiniPlayerScrollHide
 import de.kleinabersmart.earloft.ui.library.TabLabel
 import de.kleinabersmart.earloft.ui.settings.SwitchRow
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
@@ -563,7 +564,8 @@ fun PodcastScreen(
                         )
                     }
                 }
-                Box(Modifier.weight(1f).fillMaxWidth()) {
+                // The mini player sees the list's push against its start before the header and pull-to-refresh take it.
+                Box(Modifier.weight(1f).fillMaxWidth().nestedScroll(LocalMiniPlayerScrollHide.current)) {
                     val listState = rememberLazyListState()
                     // Several episodes on the same day: time of day next to the date.
                     val sameDay = remember(list) { episodesSharingDay(list.map { it.book }) }

@@ -1,6 +1,17 @@
 package de.kleinabersmart.earloft.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import de.kleinabersmart.earloft.ui.player.LocalMiniPlayerScrollHide
+import de.kleinabersmart.earloft.ui.player.MiniPlayerScrollHide
+import de.kleinabersmart.earloft.ui.player.itemKey
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -189,6 +200,7 @@ fun EarLoftApp(
     newContentTarget: NewContentTarget? = null,
     onNewContentOpened: () -> Unit = {},
     alwaysShowNavigationBar: Boolean = true,
+    hideMiniPlayerOnScroll: Boolean = true,
     showSetup: Boolean = false,
     onSetupFinished: () -> Unit = {},
     playerViewModel: PlayerViewModel = hiltViewModel(),
@@ -573,6 +585,16 @@ fun EarLoftApp(
     LaunchedEffect(showNavigation) {
         if (showNavigation) navigationSuiteState.show() else navigationSuiteState.hide()
     }
+    // Scrolled out of the way only for the current page: another page, area or tab brings it back.
+    val miniPlayerScrollHide = remember { MiniPlayerScrollHide() }
+    LaunchedEffect(navigator.currentRoute, navigationState.topLevelRoute) { miniPlayerScrollHide.show() }
+    // Something starts playing (also another title): the mini player shows what it is. Read here via snapshotFlow, so the app
+    // doesn't recompose on every player state change.
+    LaunchedEffect(playerState) {
+        snapshotFlow { playerState.value.let { it.itemKey to it.isPlaying } }.collect { (_, playing) ->
+            if (playing) miniPlayerScrollHide.show()
+        }
+    }
 
     val snackbars = hiltViewModel<SnackbarViewModel>().snackbars
     val snackbarHost = remember { SnackbarHostState() }
@@ -598,6 +620,7 @@ fun EarLoftApp(
         LocalCollectionFavorites provides rememberCollectionFavorites(),
         LocalBookDownloads provides rememberBookDownloads(),
         LocalFeedDownloads provides rememberFeedDownloads(),
+        LocalMiniPlayerScrollHide provides miniPlayerScrollHide,
     ) {
         SyncNoticeEffect()
         QueuedForMusicEffect()
@@ -641,6 +664,8 @@ fun EarLoftApp(
                 SharedTransitionLayout(
                     Modifier
                         .weight(1f)
+                        // Sees the scrolling of every page; lists below pull-to-refresh report to it themselves.
+                        .nestedScroll(miniPlayerScrollHide)
                         .onGloballyPositioned { coordinates ->
                             val bottom = coordinates.positionInRoot().y + coordinates.size.height
                             val gap = coordinates.findRootCoordinates().size.height - bottom
@@ -662,7 +687,12 @@ fun EarLoftApp(
                     }
                 }
                 SnackbarHost(snackbarHost)
-                if (showMiniPlayer) {
+                // Slides down out of the way and back up; the pages above grow and shrink with it.
+                AnimatedVisibility(
+                    visible = showMiniPlayer && !(hideMiniPlayerOnScroll && miniPlayerScrollHide.hidden),
+                    enter = expandVertically(expandFrom = Alignment.Top) + slideInVertically { it },
+                    exit = shrinkVertically(shrinkTowards = Alignment.Top) + slideOutVertically { it },
+                ) {
                     MiniPlayerHost(playerViewModel, playerState, onOpen = { navigator.navigate(NowPlayingRoute) })
                 }
             }

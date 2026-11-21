@@ -234,6 +234,8 @@
     <string name="settings_player_cover_colors_summary">Minispeler en speler nemen hun kleuren over van de cover. Uit: app-kleuren.</string>
     <string name="settings_always_navigation_bar">Navigatiebalk altijd tonen</string>
     <string name="settings_always_navigation_bar_summary">Geldt alleen voor de afspeelschermen. Uit verbergt de balk daar.</string>
+    <string name="settings_hide_mini_player_on_scroll">Minispeler verbergen bij scrollen</string>
+    <string name="settings_hide_mini_player_on_scroll_summary">Verdwijnt als je een lijst omlaag scrolt en komt bovenaan terug.</string>
     <string name="theme_system">Systeeminstelling volgen</string>
     <string name="theme_light">Licht</string>
     <string name="theme_dark">Donker</string>

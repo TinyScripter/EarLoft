@@ -247,6 +247,8 @@
     <string name="settings_player_cover_colors_summary">Le mini-lecteur et le lecteur prennent les couleurs de la pochette. Désactivé : couleurs de l’application.</string>
     <string name="settings_always_navigation_bar">Toujours afficher la barre de navigation</string>
     <string name="settings_always_navigation_bar_summary">Concerne uniquement les écrans de lecture. Désactivé : la barre y est masquée.</string>
+    <string name="settings_hide_mini_player_on_scroll">Masquer le mini-lecteur lors du défilement</string>
+    <string name="settings_hide_mini_player_on_scroll_summary">Disparaît quand une liste défile vers le bas et revient en haut.</string>
     <string name="theme_system">Paramètre du système</string>
     <string name="theme_light">Clair</string>
     <string name="theme_dark">Sombre</string>
