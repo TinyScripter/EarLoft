@@ -259,6 +259,8 @@ private fun QueueEntryMenu(entry: QueueEntry, onDismiss: () -> Unit) {
             onDismiss()
             links?.openArtist?.invoke(it)
         },
+        // The menu is already closed: without this the row would keep it "open" and ignore the next long press (review H17).
+        onCancel = onDismiss,
     ) { openArtist ->
         DropdownMenu(expanded = menuOpen, onDismissRequest = onDismiss) {
             DropdownMenuItem(

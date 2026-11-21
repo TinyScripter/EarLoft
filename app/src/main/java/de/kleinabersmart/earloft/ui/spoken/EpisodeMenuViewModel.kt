@@ -146,15 +146,20 @@ class EpisodeMenuViewModel @Inject constructor(
         // Loaded in the player: it pauses and writes the progress itself, otherwise it would overwrite it on the next save.
         if (played && servicePlayer.markFinished(id, playNext = false)) return
         act {
-            if (item.isEpisode) {
-                onUndo(podcasts.setPlayed(listOf(id), played))
+            val spot = if (played) null else loadedSpot(item)
+            val restore: suspend () -> Unit = if (item.isEpisode) {
+                podcasts.setPlayed(listOf(id), played)
             } else {
                 val duration = item.book.durationMs
                 progressSync.record(id, if (played) duration else 0, duration, finished = played, force = true, hidden = !played)
-                onUndo { restoreBookProgress(item) }
+                ({ restoreBookProgress(item) })
             }
             // "Unplayed" on the loaded entry: the player would otherwise write its position back on the next save.
             if (!played) seekLoadedToStart(item)
+            onUndo {
+                restore()
+                spot?.let { returnLoaded(item, it) }
+            }
         }
     }
 
@@ -180,6 +185,32 @@ class EpisodeMenuViewModel @Inject constructor(
         if (item.isEpisode) playback.seekTo(0) else playback.seekToTrack(0, 0)
     }
 
+    /** Where the player stands in [item] (file, position in it and in the whole book), if it is loaded. */
+    private suspend fun loadedSpot(item: BookWithProgress): LoadedSpot? {
+        val spoken = playback.state.value.spoken?.takeIf { it.bookId == item.book.id } ?: return null
+        val offset = playback.currentPositionMs
+        val bookPosition = if (item.isEpisode) {
+            offset
+        } else {
+            books.timeline(item.book.id, fetch = false)?.toBookPosition(spoken.trackIndex, offset) ?: return null
+        }
+        return LoadedSpot(spoken.trackIndex, offset, bookPosition)
+    }
+
+    /**
+     * "Undo" after [seekLoadedToStart]: the player goes back to where it was, a book into the right file (review H16). Its
+     * place also becomes the stored state: the list's state can be older (seeking while paused saves nothing), and a paused
+     * player follows the stored state (`BookPlaybackListener.followStoredProgress`), it would be pulled back there.
+     */
+    private suspend fun returnLoaded(item: BookWithProgress, spot: LoadedSpot) {
+        if (playback.state.value.spoken?.bookId != item.book.id) return
+        val duration = item.book.durationMs.takeIf { it > 0 } ?: item.progress?.durationMs ?: 0
+        progressSync.record(item.book.id, spot.bookPositionMs, duration, finished = false, force = true)
+        if (item.isEpisode) playback.seekTo(spot.positionMs) else playback.seekToTrack(spot.trackIndex, spot.positionMs)
+    }
+
+    private class LoadedSpot(val trackIndex: Int, val positionMs: Long, val bookPositionMs: Long)
+
     /** "Mark as played and play next" (episodes only): afterwards the next episode of the queue. */
     fun setPlayedAndPlayNext(item: BookWithProgress) {
         val id = item.book.id
@@ -195,15 +226,20 @@ class EpisodeMenuViewModel @Inject constructor(
         // A book that was never started has nothing to reset. A reset one leaves "Continue listening" like "unplayed".
         if (!item.isEpisode && item.progress == null) return
         act {
-            if (item.isEpisode) {
+            val spot = loadedSpot(item)
+            val restore: suspend () -> Unit = if (item.isEpisode) {
                 // The same as "unplayed" (`PodcastRepository.resetPosition`), but with the way back.
-                onUndo(podcasts.setPlayed(listOf(bookId), false))
+                podcasts.setPlayed(listOf(bookId), false)
             } else {
                 progressSync.record(bookId, 0, item.book.durationMs, finished = false, force = true, hidden = true)
-                onUndo { restoreBookProgress(item) }
+                ({ restoreBookProgress(item) })
             }
             // If the episode is currently playing, playback also jumps to the start.
             seekLoadedToStart(item)
+            onUndo {
+                restore()
+                spot?.let { returnLoaded(item, it) }
+            }
         }
     }
 

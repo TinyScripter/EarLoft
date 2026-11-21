@@ -47,7 +47,10 @@ internal fun RemoveHeardDownloadsDialog(onConfirm: () -> Unit, onDismiss: () -> 
  * Context menu of a subscription (long press, and ⋮ on its page), built like the one for albums: the title at the top, below it play next episode,
  * add next episode to the queue, refresh, mark all as played (with confirmation), delete downloads of played episodes,
  * share and the subscription's settings. "Unsubscribe" is deliberately only in the settings. Podcasts from the device have
- * no feed and no downloads; those entries are missing there. Only include it when it is open.
+ * no feed and no downloads; those entries are missing there. A trial subscription (only its own page has the ⋮) offers
+ * subscribing instead of playing the next episode, "mark all as played" and the settings: its progress is tidied away when the
+ * page closes, and the settings belong to a subscription (concept 12.10, review H10). Queueing the next episode and sharing stay,
+ * like the queue button on its episodes. Only include it when it is open.
  */
 @Composable
 fun FeedMenu(
@@ -57,6 +60,8 @@ fun FeedMenu(
     /** Off on the subscription's own page: its title is right there, and refreshing has its own button. */
     withTitle: Boolean = true,
     withRefresh: Boolean = true,
+    /** Offered while [feed] is a trial subscription. */
+    onSubscribe: () -> Unit = {},
     viewModel: FeedMenuViewModel = hiltViewModel(),
 ) {
     val state by remember(feed.id) { viewModel.state(feed.id) }.collectAsStateWithLifecycle(null)
@@ -66,6 +71,7 @@ fun FeedMenu(
     var confirmAllPlayed by rememberSaveable { mutableStateOf(false) }
     var confirmRemoveHeard by rememberSaveable { mutableStateOf(false) }
     val current = state
+    val trial = !feed.subscribed
 
     DropdownMenu(expanded = menuOpen, onDismissRequest = onDismiss) {
         if (withTitle) {
@@ -77,8 +83,18 @@ fun FeedMenu(
             )
             HorizontalDivider()
         }
-        current?.next?.let { next ->
+        if (trial) {
             DropdownMenuItem(
+                text = { Text(stringResource(R.string.podcast_add_confirm)) },
+                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null) },
+                onClick = {
+                    onDismiss()
+                    onSubscribe()
+                },
+            )
+        }
+        current?.next?.let { next ->
+            if (!trial) DropdownMenuItem(
                 text = {
                     // Which episode it will be is shown below.
                     Column {
@@ -119,7 +135,7 @@ fun FeedMenu(
                 },
             )
         }
-        if (current != null && current.unheard > 0) {
+        if (!trial && current != null && current.unheard > 0) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.feed_menu_mark_all_played)) },
                 leadingIcon = { Icon(painterResource(DesignR.drawable.ic_done_all), contentDescription = null) },
@@ -141,14 +157,16 @@ fun FeedMenu(
             )
         }
         if (!feed.isLocal) ShareMenuItem(ShareTarget.Feed(feed.id), onDismiss)
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.podcast_settings)) },
-            leadingIcon = { Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = null) },
-            onClick = {
-                onDismiss()
-                onSettings()
-            },
-        )
+        if (!trial) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.podcast_settings)) },
+                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = null) },
+                onClick = {
+                    onDismiss()
+                    onSettings()
+                },
+            )
+        }
     }
 
     if (confirmRemoveHeard) {

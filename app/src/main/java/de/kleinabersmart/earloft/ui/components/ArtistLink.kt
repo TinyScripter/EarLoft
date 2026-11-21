@@ -46,11 +46,13 @@ class ArtistLink(val lookup: suspend () -> List<Artist>, val onArtistClick: (Lon
 /**
  * "Go to artist" from a name (player, album page, menus): [lookup] gives the artists with a page; one opens directly, several
  * are offered in a menu below [content]. [content] receives the click; without an artist page the tap does nothing.
+ * [onCancel] follows when nothing is opened: no artist has a page, or the choice was closed without picking one.
  */
 @Composable
 fun ArtistPicker(
     lookup: suspend () -> List<Artist>,
     onArtistClick: (Long) -> Unit,
+    onCancel: () -> Unit = {},
     content: @Composable (onClick: () -> Unit) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -59,10 +61,20 @@ fun ArtistPicker(
         content {
             scope.launch {
                 val artists = lookup()
-                if (artists.size == 1) onArtistClick(artists.single().id) else choices = artists
+                when (artists.size) {
+                    0 -> onCancel()
+                    1 -> onArtistClick(artists.single().id)
+                    else -> choices = artists
+                }
             }
         }
-        DropdownMenu(expanded = choices.isNotEmpty(), onDismissRequest = { choices = emptyList() }) {
+        DropdownMenu(
+            expanded = choices.isNotEmpty(),
+            onDismissRequest = {
+                choices = emptyList()
+                onCancel()
+            },
+        ) {
             choices.forEach { artist ->
                 DropdownMenuItem(
                     text = { Text(artist.name) },

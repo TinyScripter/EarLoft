@@ -510,7 +510,19 @@ fun PodcastScreen(
                         IconButton(onClick = { menuOpen = true }) {
                             Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
                         }
-                        if (menuOpen) FeedMenu(current, onSettings = onSettings, onDismiss = { menuOpen = false }, withTitle = false, withRefresh = false)
+                        if (menuOpen) {
+                            FeedMenu(
+                                current,
+                                onSettings = onSettings,
+                                onDismiss = { menuOpen = false },
+                                withTitle = false,
+                                withRefresh = false,
+                                onSubscribe = {
+                                    viewModel.subscribe()
+                                    onSubscribed()
+                                },
+                            )
+                        }
                     }
                 }
             },
