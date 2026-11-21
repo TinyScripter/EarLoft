@@ -1,5 +1,10 @@
 package de.kleinabersmart.earloft.ui.library
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -70,17 +75,13 @@ import de.kleinabersmart.earloft.ui.components.PreviewAlbum
 import de.kleinabersmart.earloft.ui.components.PreviewSong
 import de.kleinabersmart.earloft.ui.components.GroupedItem
 import de.kleinabersmart.earloft.ui.components.SectionHeader
-import de.kleinabersmart.earloft.ui.components.MixButton
 import de.kleinabersmart.earloft.ui.components.ShareButton
-import de.kleinabersmart.earloft.core.data.mix.MixSeed
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
 import de.kleinabersmart.earloft.ui.components.SongActions
 import de.kleinabersmart.earloft.ui.components.SongListItem
 import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.earloft.ui.components.WatchStatusText
-import de.kleinabersmart.earloft.ui.components.WatchToggleButton
 import de.kleinabersmart.earloft.ui.components.formatDuration
-import de.kleinabersmart.earloft.ui.playlists.AddToPlaylistDialog
 import de.kleinabersmart.earloft.ui.components.CollectionFavoriteButton
 import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
@@ -127,17 +128,33 @@ private fun AlbumContent(
     modifier: Modifier = Modifier,
     artistLink: ArtistLink = ArtistLink.None,
 ) {
+    val listState = rememberLazyListState()
+    // Once the header with the title has scrolled away, the title moves into the bar (as on artist and playlist pages).
+    val headerGone by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
     Column(modifier.fillMaxSize()) {
         TopAppBar(
-            title = { if (state is LoadState.Ready) WatchStatusText(WearSelectionKind.ALBUM, state.value.album.id) },
+            title = {
+                if (state is LoadState.Ready) {
+                    Column {
+                        if (headerGone) Text(state.value.album.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        WatchStatusText(WearSelectionKind.ALBUM, state.value.album.id)
+                    }
+                }
+            },
             navigationIcon = { BackButton(onBack) },
+            // Like the artist page: favorite, share and the album menu (the same as the long press on the album).
             actions = {
                 if (state is LoadState.Ready) {
-                    CollectionFavoriteButton(FavoriteKind.ALBUM, state.value.album.id)
-                    MixButton(MixSeed.Album(state.value.album.id))
-                    AddAlbumToPlaylistButton(state.value.songs.map { it.id })
-                    ShareButton(ShareTarget.Album(state.value.album.id))
-                    WatchToggleButton(WearSelectionKind.ALBUM, state.value.album.id)
+                    val album = state.value.album
+                    CollectionFavoriteButton(FavoriteKind.ALBUM, album.id)
+                    ShareButton(ShareTarget.Album(album.id))
+                    Box {
+                        var menu by rememberSaveable { mutableStateOf(false) }
+                        IconButton(onClick = { menu = true }) {
+                            Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
+                        }
+                        if (menu) AlbumMenu(album, onDismiss = { menu = false })
+                    }
                 }
             },
         )
@@ -145,7 +162,7 @@ private fun AlbumContent(
             LoadState.Loading -> LoadingIndicator()
             LoadState.Missing -> EmptyHint(stringResource(R.string.item_missing))
             LoadState.Failed -> LoadFailedHint()
-            is LoadState.Ready -> AlbumSongs(state.value, offline, onPlay, onShuffle, onDownload, onRemoveDownload, actions, artistLink)
+            is LoadState.Ready -> AlbumSongs(state.value, offline, onPlay, onShuffle, onDownload, onRemoveDownload, actions, artistLink, listState)
         }
     }
 }
@@ -160,6 +177,7 @@ private fun AlbumSongs(
     onRemoveDownload: () -> Unit,
     actions: SongActions,
     artistLink: ArtistLink,
+    listState: LazyListState,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // Phone in landscape: too low for a header above the songs, hence side by side as on wide windows.
@@ -199,7 +217,7 @@ private fun AlbumSongs(
                 }
             }
         } else {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
                 item(key = "header") { header() }
                 albumSongItems(details, onPlay, actions)
             }
@@ -408,15 +426,6 @@ fun DownloadStatusLine(offline: AlbumOfflineStatus) {
         color = if (offline.pendingCount == 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 8.dp),
     )
-}
-
-@Composable
-private fun AddAlbumToPlaylistButton(songIds: List<Long>) {
-    var choosing by rememberSaveable { mutableStateOf(false) }
-    IconButton(onClick = { choosing = true }) {
-        Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = stringResource(R.string.action_add_to_playlist))
-    }
-    if (choosing) AddToPlaylistDialog(songIds = songIds, onDismiss = { choosing = false })
 }
 
 @Composable

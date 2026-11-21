@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.player
 
+import kotlinx.coroutines.flow.mapLatest
 import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
 import de.kleinabersmart.earloft.core.model.Artist
 import de.kleinabersmart.earloft.core.playback.QueueEntry
@@ -50,6 +51,21 @@ class PlayerViewModel @Inject constructor(
     suspend fun artistsOfSong(songId: Long, albumId: Long?): List<Artist> = libraryRepository.artistsOfSong(songId, albumId)
 
     val state: StateFlow<PlayerState> = playbackConnection.state
+
+    /**
+     * Length of the songs after the current one in the music queue, for its title (with the rest of the current song: time
+     * left); `null` while unknown.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val queueLaterMs: StateFlow<Long?> = state
+        .map { it.queue.map { entry -> entry.songId } to it.currentIndex }
+        .distinctUntilChanged()
+        .mapLatest { (ids, index) ->
+            val later = ids.drop(index + 1)
+            val durations = libraryRepository.songs(later.distinct()).associate { it.id to it.durationMs }
+            later.sumOf { durations[it] ?: 0L }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** The user has swiped the mini player away; applies until the next playback. */
     val miniPlayerHidden: StateFlow<Boolean> = miniPlayerVisibility.hidden

@@ -24,14 +24,15 @@ import de.kleinabersmart.earloft.ui.components.WatchStatusText
 import de.kleinabersmart.earloft.ui.components.WatchToggleButton
 import kotlinx.coroutines.launch
 
+/** In the order of the library's tabs. */
 private enum class FavoritesTab(val label: Int) {
-    SONGS(R.string.library_songs),
     ALBUMS(R.string.library_albums),
     ARTISTS(R.string.library_artists),
+    SONGS(R.string.library_songs),
 }
 
 /**
- * Favorites in three tabs, most recently favorited first. "Onto the watch" applies to the songs and the entire favorited albums
+ * Favorites in three tabs (as in the library: albums, artists, songs), most recently favorited first. "Onto the watch" applies to the songs and the entire favorited albums
  * (Wear concept 5) and is therefore shown for both, not for the artists.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,8 +66,7 @@ fun FavoritesScreen(
                 Tab(
                     selected = pagerState.currentPage == index,
                     onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                    text = { Text(stringResource(tab.label), maxLines = 1) },
-                )
+                ) { TabLabel(stringResource(tab.label)) }
             }
         }
         HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth(), key = { it }) { page ->

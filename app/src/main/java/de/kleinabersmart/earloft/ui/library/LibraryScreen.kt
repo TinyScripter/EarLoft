@@ -128,6 +128,7 @@ fun LibraryScreen(
     val favoriteArtistIds by viewModel.favoriteArtistIds.collectAsStateWithLifecycle()
     val favoritesOnly by viewModel.favoritesOnly.collectAsStateWithLifecycle()
     val songs by viewModel.songs.collectAsStateWithLifecycle()
+    val songsShown by viewModel.songsShown.collectAsStateWithLifecycle()
     val genres by viewModel.genres.collectAsStateWithLifecycle()
     val decades by viewModel.decades.collectAsStateWithLifecycle()
     val albumSort by viewModel.albumSort.collectAsStateWithLifecycle()
@@ -226,13 +227,20 @@ fun LibraryScreen(
                         },
                     )
                 }
-                LibraryTab.SONGS -> LoadableList(songs, empty) {
+                LibraryTab.SONGS -> LoadableList(songs, empty) { all ->
+                    // The "Favorites" chip as on albums and artists (the song itself carries whether it is a favorite).
+                    val favorites = favoritesChip(FavoritesChip.SONGS, if (favoriteCount > 0) setOf(0L) else emptySet())
                     SongList(
-                        songs = it,
+                        songs = songsShown.valueOrNull ?: all,
                         onSongClick = viewModel::playSongs,
                         onShuffle = viewModel::shuffleSongs,
                         actions = viewModel,
                         scrollLabel = songSort.scrollLabel(),
+                        // Always there (empty without favorites), like the albums' header: if it only appeared with the first
+                        // favorite, the list would keep its first row anchored and the chip would sit out of view above.
+                        header = {
+                            favorites?.let { chip -> ToggleChips(emptyList<Unit>(), { false }, { "" }, onToggle = {}, favorites = chip) }
+                        },
                     )
                 }
                 LibraryTab.GENRES -> LoadableList(
@@ -623,7 +631,10 @@ internal fun ArtistGrid(
     }
 }
 
-/** Songs with a "Shuffle" button at the top; also for favorites and playlists. */
+/**
+ * Songs with "Play" and "Shuffle" at the top like album, playlist and artist; also for favorites. [header] (chips) above the
+ * buttons; if it leaves no songs, a hint instead of the buttons.
+ */
 @Composable
 fun SongList(
     songs: List<Song>,
@@ -632,27 +643,37 @@ fun SongList(
     actions: SongActions,
     /** Fast scroller label for each song (e.g. the initial letter); `null`: thumb only. */
     scrollLabel: ((Song) -> String)? = null,
+    header: (@Composable () -> Unit)? = null,
 ) {
     val state = rememberLazyListState()
     ScrollToTopEffect(state)
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 16.dp)) {
-            item(key = "shuffle") {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    FilledTonalButton(onClick = onShuffle) {
-                        Icon(painterResource(DesignR.drawable.ic_shuffle), contentDescription = null)
-                        Text(stringResource(R.string.action_shuffle), modifier = Modifier.padding(start = 8.dp))
-                    }
+            if (header != null) {
+                item(key = "header") { Box(Modifier.padding(start = GroupMargin + 4.dp, end = GroupMargin, top = 8.dp)) { header() } }
+            }
+            item(key = "play") {
+                if (songs.isEmpty()) {
+                    Text(
+                        stringResource(R.string.library_filter_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 16.dp),
+                    )
+                } else {
+                    PlayShuffleRow(
+                        onPlay = { onSongClick(0) },
+                        onShuffle = onShuffle,
+                        modifier = Modifier.padding(horizontal = GroupMargin + 12.dp, vertical = 4.dp),
+                    )
                 }
             }
             groupedItemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
                 SongListItem(song = song, onClick = { onSongClick(index) }, actions = actions)
             }
         }
-        // Index 0 is the "Shuffle" button.
-        LazyListFastScroller(state, labelAt = scrollLabel?.let { label -> { index -> songs.getOrNull((index - 1).coerceAtLeast(0))?.let(label).orEmpty() } })
+        // Before the songs: the buttons and possibly the header.
+        val offset = if (header != null) 2 else 1
+        LazyListFastScroller(state, labelAt = scrollLabel?.let { label -> { index -> songs.getOrNull((index - offset).coerceAtLeast(0))?.let(label).orEmpty() } })
     }
 }

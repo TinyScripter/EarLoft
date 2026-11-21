@@ -39,7 +39,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /** Where the "Favorites" chip is; each tab remembers it for itself. */
-enum class FavoritesChip { ALBUMS, GENRES, ARTISTS }
+enum class FavoritesChip { ALBUMS, GENRES, ARTISTS, SONGS }
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -112,6 +112,16 @@ class LibraryViewModel @Inject constructor(
             }
         }.stateInViewModel(LoadState.Loading)
 
+    /** The songs (in their sort order), with the "Favorites" chip only the favorited ones. */
+    val songsShown: StateFlow<LoadState<List<Song>>> =
+        combine(songs, favoritesOnly) { state, favoritesOnly ->
+            if (FavoritesChip.SONGS in favoritesOnly && state is LoadState.Ready) {
+                LoadState.Ready(state.value.filter { it.isFavorite })
+            } else {
+                state
+            }
+        }.stateInViewModel(LoadState.Loading)
+
     fun toggleFavoritesOnly(chip: FavoritesChip) = chosenFavorites.update { if (chip in it) it - chip else it + chip }
 
     /** All songs of the shown [artists], artist by artist (each song once) or shuffled. */
@@ -159,11 +169,11 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun playSongs(startIndex: Int) {
-        songs.value.valueOrNull?.let { playbackConnection.play(it, startIndex) }
+        songsShown.value.valueOrNull?.takeIf { it.isNotEmpty() }?.let { playbackConnection.play(it, startIndex) }
     }
 
     fun shuffleSongs() {
-        songs.value.valueOrNull?.let { playbackConnection.play(it, shuffle = true) }
+        songsShown.value.valueOrNull?.takeIf { it.isNotEmpty() }?.let { playbackConnection.play(it, shuffle = true) }
     }
 
     override fun playNext(song: Song) = playbackConnection.playNext(listOf(song))
