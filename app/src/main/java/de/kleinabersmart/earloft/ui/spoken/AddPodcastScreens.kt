@@ -75,7 +75,8 @@ import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.GroupMargin
 import de.kleinabersmart.earloft.ui.components.SectionHeader
 import de.kleinabersmart.earloft.ui.components.group
-import de.kleinabersmart.earloft.ui.components.groupedItems
+import de.kleinabersmart.earloft.ui.components.CardGap
+import de.kleinabersmart.earloft.ui.components.cardItems
 import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
@@ -164,15 +165,19 @@ fun AddPodcastScreen(
                 }
             }
 
+            val enabled = directories
+            val chooseDirectories: @Composable () -> Unit = {
+                IconButton(onClick = { choosingDirectories = true }) {
+                    Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_directories_choose))
+                }
+            }
             item(key = "search-header") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     SectionHeader(stringResource(R.string.podcast_add_search), Modifier.weight(1f))
-                    IconButton(onClick = { choosingDirectories = true }, modifier = Modifier.padding(end = GroupMargin)) {
-                        Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_directories_choose))
-                    }
+                    // Without a search field the gear stays next to the heading (the hint below points there).
+                    if (enabled?.isEmpty() == true) Box(Modifier.padding(end = GroupMargin)) { chooseDirectories() }
                 }
             }
-            val enabled = directories
             when {
                 enabled == null -> Unit
                 // Enabling happens via the gear next to the heading, which the hint points to.
@@ -185,38 +190,58 @@ fun AddPodcastScreen(
                     )
                 }
                 else -> {
-                    item(key = "search") {
-                        OutlinedTextField(
-                            value = term,
-                            onValueChange = { term = it },
-                            label = { Text(stringResource(R.string.podcast_directory_search_label)) },
-                            supportingText = {
-                                Text(enabled.joinToString(" · ") { resources.getString(it.label) }, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            },
-                            trailingIcon = {
-                                IconButton(onClick = startSearch, enabled = term.isNotBlank()) {
-                                    Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(R.string.podcast_directory_search))
-                                }
-                            },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = { if (term.isNotBlank()) startSearch() }),
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = GroupMargin),
-                        )
+                    val discovering = discoverable?.takeIf { it.isNotEmpty() && search == DirectorySearchState.Idle }
+                    // With search results, the search field (and the gear next to it) stays pinned at the top while scrolling
+                    // (user, 2026-11-21); while discovering, only the categories are pinned ([DiscoverHeader]). Same key in both
+                    // cases, so the field keeps its state when it becomes pinned.
+                    val searchField: @Composable () -> Unit = {
+                        // Own background, so the results below scroll underneath instead of showing through.
+                        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
+                            Row(Modifier.padding(start = GroupMargin, end = GroupMargin / 2), verticalAlignment = Alignment.Top) {
+                                OutlinedTextField(
+                                    value = term,
+                                    onValueChange = { term = it },
+                                    label = { Text(stringResource(R.string.podcast_directory_search_label)) },
+                                    supportingText = {
+                                        Text(enabled.joinToString(" · ") { resources.getString(it.label) }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    },
+                                    trailingIcon = {
+                                        Row {
+                                            // Clearing the term also brings back "Discover" (see clearSearch above).
+                                            if (term.isNotEmpty()) {
+                                                IconButton(onClick = { term = "" }) {
+                                                    Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_clear_search))
+                                                }
+                                            }
+                                            IconButton(onClick = startSearch, enabled = term.isNotBlank()) {
+                                                Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(R.string.podcast_directory_search))
+                                            }
+                                        }
+                                    },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                    keyboardActions = KeyboardActions(onSearch = { if (term.isNotBlank()) startSearch() }),
+                                    modifier = Modifier.weight(1f),
+                                )
+                                // Centered on the field (56 dp, the supporting text hangs below it).
+                                Box(Modifier.padding(top = 4.dp)) { chooseDirectories() }
+                            }
+                        }
+                    }
+                    if (search == DirectorySearchState.Idle) {
+                        item(key = SearchFieldKey) { searchField() }
+                    } else {
+                        stickyHeader(key = SearchFieldKey) { searchField() }
                     }
                     when (val state = search) {
-                        DirectorySearchState.Idle -> discoverable?.takeIf { it.isNotEmpty() }?.let { directories ->
-                            discoverSection(
-                                directories,
-                                country,
-                                discover,
-                                subscribed,
-                                onCategory = {
+                        DirectorySearchState.Idle -> discovering?.let { directories ->
+                            stickyHeader(key = DiscoverHeaderKey) {
+                                DiscoverHeader(directories, country, discover?.category) {
                                     viewModel.discover(it, directories)
                                     scope.launch { listState.showDiscoverStart() }
-                                },
-                                onHit = openHit,
-                            )
+                                }
+                            }
+                            discoverSection(directories, discover, subscribed, onHit = openHit)
                         }
                         DirectorySearchState.Searching -> item(key = "searching") {
                             Row(Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -241,7 +266,7 @@ fun AddPodcastScreen(
                             if (state.hits.isEmpty() && state.failed.size < enabled.size) {
                                 item(key = "empty") { EmptyHint(stringResource(R.string.search_no_results, state.term)) }
                             }
-                            groupedItems(state.hits, key = { "hit-${feedKey(it.feedUrl)}" }) { hit ->
+                            cardItems(state.hits, key = { "hit-${feedKey(it.feedUrl)}" }, gap = CardGap) { hit ->
                                 DirectoryHitRow(hit, subscribed = hit.isSubscribed(subscribed)) { openHit(hit) }
                             }
                         }
@@ -303,6 +328,9 @@ fun AddPodcastScreen(
 private fun DirectoryPodcast.isSubscribed(subscribed: Map<String, String>): Boolean =
     feedKey(feedUrl) in subscribed || ardSoundsUrl?.let { feedKey(it) in subscribed } == true
 
+/** Search field of the directory search; pinned at the top once something has been searched. */
+private const val SearchFieldKey = "search"
+
 private const val DiscoverHeaderKey = "discover-header"
 
 /**
@@ -316,40 +344,45 @@ private suspend fun LazyListState.showDiscoverStart() {
 }
 
 /**
- * "Discover" below the empty search field (concept 12.10): heading "Popular in <country>" (with Apple, otherwise
- * "Trending" from Podcast Index), categories as chips and the results as in the search. Heading and chips stay
- * pinned at the top while scrolling, so the category can be changed at any time.
+ * Heading and categories of "Discover" below the empty search field (concept 12.10): "Popular in <country>" (with Apple,
+ * otherwise "Trending" from Podcast Index) and the categories as chips. Pinned at the top while scrolling, so the category
+ * can be changed at any time.
  */
-private fun LazyListScope.discoverSection(
+@Composable
+private fun DiscoverHeader(
     directories: List<PodcastDirectory>,
     country: String?,
-    state: DiscoverState?,
-    subscribed: Map<String, String>,
+    selected: PodcastCategory?,
     onCategory: (PodcastCategory?) -> Unit,
-    onHit: (DirectoryPodcast) -> Unit,
 ) {
-    stickyHeader(key = DiscoverHeaderKey) {
-        val title = if (PodcastDirectory.APPLE in directories && country != null) {
-            stringResource(R.string.podcast_discover_popular, Locale.Builder().setRegion(country).build().displayCountry)
-        } else {
-            stringResource(R.string.podcast_discover_trending)
-        }
-        // Own background, so the results below scroll underneath instead of showing through.
-        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(bottom = 8.dp)) {
-            SectionHeader(title)
-            val scroll = rememberScrollState()
-            val selected = state?.category
-            Row(
-                Modifier.keepHorizontalScroll(scroll).horizontalScroll(scroll).padding(horizontal = GroupMargin + 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChip(selected = selected == null, onClick = { onCategory(null) }, label = { Text(stringResource(R.string.podcast_category_all)) })
-                PodcastCategory.entries.forEach { category ->
-                    FilterChip(selected = selected == category, onClick = { onCategory(category) }, label = { Text(stringResource(category.label)) })
-                }
+    val title = if (PodcastDirectory.APPLE in directories && country != null) {
+        stringResource(R.string.podcast_discover_popular, Locale.Builder().setRegion(country).build().displayCountry)
+    } else {
+        stringResource(R.string.podcast_discover_trending)
+    }
+    // Own background, so the results below scroll underneath instead of showing through.
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(bottom = 8.dp)) {
+        SectionHeader(title)
+        val scroll = rememberScrollState()
+        Row(
+            Modifier.keepHorizontalScroll(scroll).horizontalScroll(scroll).padding(horizontal = GroupMargin + 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(selected = selected == null, onClick = { onCategory(null) }, label = { Text(stringResource(R.string.podcast_category_all)) })
+            PodcastCategory.entries.forEach { category ->
+                FilterChip(selected = selected == category, onClick = { onCategory(category) }, label = { Text(stringResource(category.label)) })
             }
         }
     }
+}
+
+/** Results of "Discover" (the popular podcasts of the selected category) as in the search; the header is [DiscoverHeader]. */
+private fun LazyListScope.discoverSection(
+    directories: List<PodcastDirectory>,
+    state: DiscoverState?,
+    subscribed: Map<String, String>,
+    onHit: (DirectoryPodcast) -> Unit,
+) {
     when (state) {
         // As tall as the list: after a category change the chips stay at the top instead of the short list
         // jumping back to the top of the page while loading.
@@ -376,7 +409,7 @@ private fun LazyListScope.discoverSection(
             if (state.hits.isEmpty() && state.failed.size < directories.size) {
                 item(key = "discover-empty") { EmptyHint(stringResource(R.string.podcast_discover_empty)) }
             }
-            groupedItems(state.hits, key = { "popular-${feedKey(it.feedUrl)}" }) { hit ->
+            cardItems(state.hits, key = { "popular-${feedKey(it.feedUrl)}" }, gap = CardGap) { hit ->
                 DirectoryHitRow(hit, subscribed = hit.isSubscribed(subscribed)) { onHit(hit) }
             }
         }

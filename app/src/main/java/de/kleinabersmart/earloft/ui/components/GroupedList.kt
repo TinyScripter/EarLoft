@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** Distance of a group from the screen edge; headers ([SectionHeader]) align with the group's content. */
@@ -86,16 +87,18 @@ inline fun <T> LazyListScope.groupedItemsIndexed(
 }
 
 /**
- * Like `items`, but each entry is its own card (a [GroupedItem] of one) instead of part of a shared group; the gap between the
- * cards comes from the list's `verticalArrangement` (e.g. `Arrangement.spacedBy(CardGap)`).
+ * Like `items`, but each entry is its own card (a [GroupedItem] of one) instead of part of a shared group. The gap between the
+ * cards comes from the list's `verticalArrangement` (e.g. `Arrangement.spacedBy(CardGap)`), or from [gap] in lists whose other
+ * entries shouldn't be spaced.
  */
 inline fun <T> LazyListScope.cardItems(
     items: List<T>,
     noinline key: ((T) -> Any)? = null,
+    gap: Dp = 0.dp,
     crossinline itemContent: @Composable LazyItemScope.(T) -> Unit,
 ) = items(items.size, key = key?.let { k -> { index: Int -> k(items[index]) } }) { index ->
     val scope = this
-    GroupedItem(0, 1) { scope.itemContent(items[index]) }
+    GroupedItem(0, 1, Modifier.padding(top = if (index > 0) gap else 0.dp)) { scope.itemContent(items[index]) }
 }
 
 /** Gap between the cards of [cardItems]. */
