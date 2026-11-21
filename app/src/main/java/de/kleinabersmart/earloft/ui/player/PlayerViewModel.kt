@@ -1,5 +1,8 @@
 package de.kleinabersmart.earloft.ui.player
 
+import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
+import de.kleinabersmart.earloft.core.model.Artist
+import de.kleinabersmart.earloft.core.playback.QueueEntry
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -37,7 +40,11 @@ class PlayerViewModel @Inject constructor(
     private val lyricsRepository: LyricsRepository,
     private val albumColorRepository: AlbumColorRepository,
     private val miniPlayerVisibility: MiniPlayerVisibility,
+    private val libraryRepository: LibraryRepository,
 ) : ViewModel() {
+
+    /** Where "go to artist" leads from [entry]. */
+    suspend fun artistsOf(entry: QueueEntry): List<Artist> = libraryRepository.artistsOfSong(entry.songId, entry.albumId)
 
     val state: StateFlow<PlayerState> = playbackConnection.state
 

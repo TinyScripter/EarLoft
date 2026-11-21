@@ -1343,4 +1343,6 @@
     <string name="ard_upload_kept_playing">Subido. Esta copia de ARD Sounds se está reproduciendo ahora mismo y se queda; quítala más tarde con «Quitar de la biblioteca».</string>
     <string name="ard_upload_done">Subido a Audiobookshelf</string>
     <string name="action_ok">Aceptar</string>
+    <string name="action_go_to_album">Ir al álbum</string>
+    <string name="action_go_to_artist">Ir al artista</string>
 </resources>

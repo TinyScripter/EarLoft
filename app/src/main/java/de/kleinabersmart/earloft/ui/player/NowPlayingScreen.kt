@@ -57,6 +57,9 @@ import de.kleinabersmart.earloft.core.data.repository.SongLyrics
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.QueueEntry
 import de.kleinabersmart.earloft.ui.components.AlbumArt
+import de.kleinabersmart.earloft.ui.components.ArtistPicker
+import de.kleinabersmart.earloft.ui.components.linkClick
+import de.kleinabersmart.earloft.core.model.Artist
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.FitSquare
 import de.kleinabersmart.earloft.ui.components.MixMenuItem
@@ -71,6 +74,8 @@ import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 fun NowPlayingScreen(
     onClose: () -> Unit,
     onOpenQueue: () -> Unit,
+    onOpenAlbum: (Long) -> Unit,
+    onOpenArtist: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -106,6 +111,7 @@ fun NowPlayingScreen(
                 onCancelSleepTimer = viewModel::cancelSleepTimer,
                 castDeviceName = rememberCastDeviceName(state.isRemote),
                 castButton = { CastButton(active = state.isRemote) },
+                links = PlayerLinks(onOpenAlbum = onOpenAlbum, onOpenArtist = onOpenArtist, artistsOf = viewModel::artistsOf),
                 queuePane = { paneModifier ->
                     QueueList(
                         state = state,
@@ -144,6 +150,7 @@ private fun NowPlayingContent(
     modifier: Modifier = Modifier,
     castDeviceName: String? = null,
     castButton: @Composable () -> Unit = {},
+    links: PlayerLinks = PlayerLinks.None,
     /** Queue to the right of playback on wide windows; when narrow, [onOpenQueue] opens a separate page. */
     queuePane: @Composable (Modifier) -> Unit = {},
 ) {
@@ -201,7 +208,7 @@ private fun NowPlayingContent(
                         label = stringResource(if (sleepActive) R.string.sleep_timer_off else R.string.sleep_timer_title),
                         onClick = { if (sleepActive) onCancelSleepTimer() else sleepSheetVisible = true },
                     )
-                    PlayerMoreMenu(state)
+                    PlayerMoreMenu(state, links)
                 }
             }
         }
@@ -211,6 +218,7 @@ private fun NowPlayingContent(
                 state = state,
                 positionMs = positionMs,
                 castDeviceName = castDeviceName,
+                links = links,
                 onSeek = onSeek,
                 onToggleShuffle = onToggleShuffle,
                 onPrevious = onPrevious,
@@ -376,6 +384,7 @@ private fun TrackInfoAndControls(
     state: PlayerState,
     positionMs: () -> Long,
     castDeviceName: String?,
+    links: PlayerLinks,
     onSeek: (Long) -> Unit,
     onToggleShuffle: () -> Unit,
     onPrevious: () -> Unit,
@@ -391,20 +400,30 @@ private fun TrackInfoAndControls(
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
         )
-        Text(
-            current.artist,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        // Artist and album lead to their pages, like the names on the album page.
+        ArtistPicker(lookup = { links.artistsOf(current) }, onArtistClick = links.onOpenArtist) { openArtist ->
+            Text(
+                current.artist,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.linkClick(stringResource(R.string.action_go_to_artist), openArtist),
+            )
+        }
         if (current.albumTitle.isNotEmpty()) {
+            val albumId = current.albumId
             Text(
                 current.albumTitle,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = if (albumId != null) {
+                    Modifier.linkClick(stringResource(R.string.action_go_to_album)) { links.onOpenAlbum(albumId) }
+                } else {
+                    Modifier
+                },
             )
         }
         if (castDeviceName != null) {
@@ -515,12 +534,13 @@ private fun SeekBar(durationMs: Long, positionMs: () -> Long, onSeek: (Long) -> 
  * song to a playlist, save queue as playlist, equalizer (only if there is one), track info.
  */
 @Composable
-private fun PlayerMoreMenu(state: PlayerState) {
+private fun PlayerMoreMenu(state: PlayerState, links: PlayerLinks) {
     val current = state.current ?: return
     var open by remember { mutableStateOf(false) }
     var playlistSongs by remember { mutableStateOf<List<Long>?>(null) }
     var infoVisible by remember { mutableStateOf(false) }
     val openEqualizer = rememberEqualizerLauncher(state.isRemote)
+    ArtistPicker(lookup = { links.artistsOf(current) }, onArtistClick = links.onOpenArtist) { openArtist ->
     Box {
         IconButton(
             onClick = { open = true },
@@ -529,6 +549,24 @@ private fun PlayerMoreMenu(state: PlayerState) {
             Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            current.albumId?.let { albumId ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.action_go_to_album)) },
+                    leadingIcon = { Icon(painterResource(DesignR.drawable.ic_album), contentDescription = null) },
+                    onClick = {
+                        open = false
+                        links.onOpenAlbum(albumId)
+                    },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.action_go_to_artist)) },
+                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_person), contentDescription = null) },
+                onClick = {
+                    open = false
+                    openArtist()
+                },
+            )
             MixMenuItem(MixSeed.Song(current.songId), onDismiss = { open = false }, afterCurrent = true)
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.action_add_to_playlist)) },
@@ -568,9 +606,21 @@ private fun PlayerMoreMenu(state: PlayerState) {
             )
         }
     }
+    }
     playlistSongs?.let { AddToPlaylistDialog(songIds = it, onDismiss = { playlistSongs = null }) }
     // Follows the current title, even if it changes while being shown.
     if (infoVisible) TrackInfoSheet(songId = current.songId, title = current.title, onDismiss = { infoVisible = false })
+}
+
+/** Where the names in the player lead; [None] in previews. */
+internal class PlayerLinks(
+    val onOpenAlbum: (Long) -> Unit,
+    val onOpenArtist: (Long) -> Unit,
+    val artistsOf: suspend (QueueEntry) -> List<Artist>,
+) {
+    companion object {
+        val None = PlayerLinks(onOpenAlbum = {}, onOpenArtist = {}, artistsOf = { emptyList() })
+    }
 }
 
 @Composable

@@ -1279,4 +1279,6 @@
     <string name="ard_upload_kept_playing">Hochgeladen. Diese Fassung aus ARD Sounds läuft gerade und bleibt; entferne sie später mit „Aus der Bibliothek entfernen“.</string>
     <string name="ard_upload_done">Zu Audiobookshelf hochgeladen</string>
     <string name="action_ok">OK</string>
+    <string name="action_go_to_album">Zum Album</string>
+    <string name="action_go_to_artist">Zum Künstler</string>
 </resources>

@@ -1279,4 +1279,6 @@
     <string name="ard_upload_kept_playing">Lähetetty. Tämä ARD Soundsin kopio soi juuri nyt ja säilyy; poista se myöhemmin toiminnolla ”Poista kirjastosta”.</string>
     <string name="ard_upload_done">Lähetetty Audiobookshelfiin</string>
     <string name="action_ok">OK</string>
+    <string name="action_go_to_album">Siirry albumiin</string>
+    <string name="action_go_to_artist">Siirry esittäjään</string>
 </resources>

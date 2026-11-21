@@ -1279,4 +1279,6 @@
     <string name="ard_upload_kept_playing">Uppladdad. Den här kopian från ARD Sounds spelas just nu och finns kvar. Ta bort den senare med ”Ta bort från biblioteket”.</string>
     <string name="ard_upload_done">Uppladdad till Audiobookshelf</string>
     <string name="action_ok">OK</string>
+    <string name="action_go_to_album">Gå till album</string>
+    <string name="action_go_to_artist">Gå till artist</string>
 </resources>

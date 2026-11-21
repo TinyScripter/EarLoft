@@ -498,7 +498,7 @@ fun EarLoftApp(
                 onPodcastClick = openPodcast,
             ) }
         entry<AlbumRoute>(metadata = nestedDetailPane()) { route ->
-            AlbumScreen(albumId = route.albumId, onBack = navigator::goBack)
+            AlbumScreen(albumId = route.albumId, onBack = navigator::goBack, onArtistClick = openArtist)
         }
         entry<GenreRoute>(metadata = detailPane()) { route ->
             GenreScreen(genre = route.name, onBack = navigator::goBack, onAlbumClick = openAlbum)
@@ -511,7 +511,19 @@ fun EarLoftApp(
             if (playsSpoken) {
                 BookPlayerScreen(onClose = navigator::goBack, onEpisodeClick = openBook)
             } else {
-                NowPlayingScreen(onClose = navigator::goBack, onOpenQueue = { navigator.navigate(QueueRoute(overPlayer = true)) })
+                // Album and artist close the player and open on the page beneath it.
+                NowPlayingScreen(
+                    onClose = navigator::goBack,
+                    onOpenQueue = { navigator.navigate(QueueRoute(overPlayer = true)) },
+                    onOpenAlbum = {
+                        navigator.goBack()
+                        openAlbum(it)
+                    },
+                    onOpenArtist = {
+                        navigator.goBack()
+                        openArtist(it)
+                    },
+                )
             }
         }
         entry<QueueRoute> { QueueScreen(onBack = navigator::goBack) }

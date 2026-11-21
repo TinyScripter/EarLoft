@@ -59,6 +59,9 @@ import de.kleinabersmart.earloft.core.model.SongOfflineStatus
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.components.AlbumArt
+import de.kleinabersmart.earloft.ui.components.ArtistLink
+import de.kleinabersmart.earloft.ui.components.ArtistPicker
+import de.kleinabersmart.earloft.ui.components.linkClick
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.LoadFailedHint
 import de.kleinabersmart.earloft.ui.components.LoadingIndicator
@@ -86,6 +89,7 @@ import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 fun AlbumScreen(
     albumId: Long,
     onBack: () -> Unit,
+    onArtistClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AlbumViewModel = hiltViewModel<AlbumViewModel, AlbumViewModel.Factory> { it.create(albumId) },
 ) {
@@ -103,6 +107,7 @@ fun AlbumScreen(
                 onDownload = viewModel::downloadAlbum,
                 onRemoveDownload = viewModel::removeAlbumDownload,
                 actions = viewModel,
+                artistLink = ArtistLink(viewModel::artists, onArtistClick),
             )
         }
     }
@@ -120,6 +125,7 @@ private fun AlbumContent(
     onRemoveDownload: () -> Unit,
     actions: SongActions,
     modifier: Modifier = Modifier,
+    artistLink: ArtistLink = ArtistLink.None,
 ) {
     Column(modifier.fillMaxSize()) {
         TopAppBar(
@@ -139,7 +145,7 @@ private fun AlbumContent(
             LoadState.Loading -> LoadingIndicator()
             LoadState.Missing -> EmptyHint(stringResource(R.string.item_missing))
             LoadState.Failed -> LoadFailedHint()
-            is LoadState.Ready -> AlbumSongs(state.value, offline, onPlay, onShuffle, onDownload, onRemoveDownload, actions)
+            is LoadState.Ready -> AlbumSongs(state.value, offline, onPlay, onShuffle, onDownload, onRemoveDownload, actions, artistLink)
         }
     }
 }
@@ -153,6 +159,7 @@ private fun AlbumSongs(
     onDownload: () -> Unit,
     onRemoveDownload: () -> Unit,
     actions: SongActions,
+    artistLink: ArtistLink,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // Phone in landscape: too low for a header above the songs, hence side by side as on wide windows.
@@ -173,6 +180,7 @@ private fun AlbumSongs(
                 onShuffle = onShuffle,
                 onDownload = onDownload,
                 onRemoveDownload = onRemoveDownload,
+                artistLink = artistLink,
             )
         }
         if (maxWidth >= TwoColumnMinWidth || short) {
@@ -244,8 +252,10 @@ private fun AlbumHeader(
     onShuffle: () -> Unit,
     onDownload: () -> Unit,
     onRemoveDownload: () -> Unit,
+    artistLink: ArtistLink,
 ) {
     val album = details.album
+    val goToArtist = stringResource(R.string.action_go_to_artist)
     val totalMs = details.songs.sumOf { it.durationMs }
     val meta = listOfNotNull(
         album.year?.toString(),
@@ -264,13 +274,16 @@ private fun AlbumHeader(
                 AlbumArt(albumId = album.id, modifier = Modifier.size(coverMax), shape = MaterialTheme.shapes.medium)
                 Column(Modifier.weight(1f)) {
                     Text(album.title, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        album.artist,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    ArtistPicker(artistLink.lookup, artistLink.onArtistClick) { openArtist ->
+                        Text(
+                            album.artist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.linkClick(goToArtist, openArtist),
+                        )
+                    }
                     Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -279,12 +292,16 @@ private fun AlbumHeader(
             AlbumArt(albumId = album.id, modifier = Modifier.widthIn(max = coverMax).fillMaxWidth(), shape = MaterialTheme.shapes.large)
             Spacer(Modifier.height(16.dp))
             Text(album.title, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
-            Text(
-                album.artist,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.Center,
-            )
+            // In the link color: leads to the artist page (one artist directly, several to choose).
+            ArtistPicker(artistLink.lookup, artistLink.onArtistClick) { openArtist ->
+                Text(
+                    album.artist,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.linkClick(goToArtist, openArtist),
+                )
+            }
             Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(16.dp))
         }

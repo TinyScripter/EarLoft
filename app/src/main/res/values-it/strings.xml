@@ -1343,4 +1343,6 @@
     <string name="ard_upload_kept_playing">Caricato. Questa copia di ARD Sounds è in riproduzione e resta; rimuovila in seguito con “Rimuovi dalla libreria”.</string>
     <string name="ard_upload_done">Caricato su Audiobookshelf</string>
     <string name="action_ok">OK</string>
+    <string name="action_go_to_album">Vai all’album</string>
+    <string name="action_go_to_artist">Vai all’artista</string>
 </resources>

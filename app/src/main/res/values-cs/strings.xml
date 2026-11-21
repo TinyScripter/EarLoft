@@ -1407,4 +1407,6 @@
     <string name="ard_upload_kept_playing">Nahráno. Tato kopie z ARD Sounds se právě přehrává a zůstane; později ji odstraňte pomocí „Odstranit z knihovny“.</string>
     <string name="ard_upload_done">Nahráno do Audiobookshelf</string>
     <string name="action_ok">OK</string>
+    <string name="action_go_to_album">Přejít na album</string>
+    <string name="action_go_to_artist">Přejít na interpreta</string>
 </resources>

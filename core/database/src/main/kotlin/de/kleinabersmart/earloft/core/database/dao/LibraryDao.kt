@@ -609,6 +609,30 @@ abstract class LibraryDao {
     )
     abstract suspend fun getPlayableSourcesOfSongs(songIds: List<Long>): List<PlayableSourceRow>
 
+    /** The artists of an album in their order (for "go to artist"); album count 0, not needed there. */
+    @Query(
+        """
+        SELECT ar.artistId, ar.name, 0 AS albumCount FROM album_artists aa
+        JOIN artists ar ON ar.artistId = aa.artistId
+        WHERE aa.albumId = :albumId ORDER BY aa.position
+        """,
+    )
+    abstract suspend fun getArtistRowsOfAlbum(albumId: Long): List<ArtistRow>
+
+    /**
+     * The artists of a song that have an artist page (are album artists somewhere), in their order. A guest on a compilation
+     * without an own album has none.
+     */
+    @Query(
+        """
+        SELECT ar.artistId, ar.name, 0 AS albumCount FROM song_artists sa
+        JOIN artists ar ON ar.artistId = sa.artistId
+        WHERE sa.songId = :songId AND EXISTS (SELECT 1 FROM album_artists aa WHERE aa.artistId = sa.artistId)
+        ORDER BY sa.position
+        """,
+    )
+    abstract suspend fun getPageArtistRowsOfSong(songId: Long): List<ArtistRow>
+
     @Query("SELECT songId, albumId FROM songs WHERE songId IN (:songIds)")
     abstract suspend fun getAlbumIdsOfSongs(songIds: List<Long>): List<SongAlbumRow>
 

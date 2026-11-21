@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.library
 
+import de.kleinabersmart.earloft.core.model.Artist
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
@@ -25,7 +26,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel(assistedFactory = AlbumViewModel.Factory::class)
 class AlbumViewModel @AssistedInject constructor(
     @Assisted private val albumId: Long,
-    libraryRepository: LibraryRepository,
+    private val libraryRepository: LibraryRepository,
     private val downloadRepository: DownloadRepository,
     private val playbackConnection: PlaybackConnection,
     private val favoritesRepository: FavoritesRepository,
@@ -42,6 +43,9 @@ class AlbumViewModel @AssistedInject constructor(
 
     val offline: StateFlow<AlbumOfflineStatus> = downloadRepository.albumStatus(albumId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AlbumOfflineStatus.EMPTY)
+
+    /** Where the artist name leads. */
+    suspend fun artists(): List<Artist> = libraryRepository.artistsOfAlbum(albumId)
 
     fun play(startIndex: Int = 0) {
         songs()?.let { playbackConnection.play(it, startIndex) }

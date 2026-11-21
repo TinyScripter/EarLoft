@@ -1407,4 +1407,6 @@
     <string name="ard_upload_kept_playing">Przesłano. Ta kopia z ARD Sounds jest teraz odtwarzana i zostaje; usuń ją później opcją „Usuń z biblioteki”.</string>
     <string name="ard_upload_done">Przesłano do Audiobookshelf</string>
     <string name="action_ok">OK</string>
+    <string name="action_go_to_album">Przejdź do albumu</string>
+    <string name="action_go_to_artist">Przejdź do wykonawcy</string>
 </resources>

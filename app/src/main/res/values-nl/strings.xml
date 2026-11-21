@@ -1279,4 +1279,6 @@
     <string name="ard_upload_kept_playing">Geüpload. Deze kopie van ARD Sounds wordt nu afgespeeld en blijft; verwijder haar later met ‘Verwijderen uit bibliotheek’.</string>
     <string name="ard_upload_done">Geüpload naar Audiobookshelf</string>
     <string name="action_ok">OK</string>
+    <string name="action_go_to_album">Ga naar album</string>
+    <string name="action_go_to_artist">Ga naar artiest</string>
 </resources>

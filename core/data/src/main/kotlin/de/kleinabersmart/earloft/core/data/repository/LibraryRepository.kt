@@ -89,6 +89,17 @@ class LibraryRepository @Inject constructor(
         libraryDao.observeAppearsOnAlbumRows(artistId).map { rows -> rows.map { it.toAlbum() } }
 
     /** All songs of the artist: their albums and their songs on other albums, by year. */
+    /** The artists of an album, for "go to artist". */
+    suspend fun artistsOfAlbum(albumId: Long): List<Artist> = libraryDao.getArtistRowsOfAlbum(albumId).map { it.toArtist() }
+
+    /**
+     * Where "go to artist" leads from a song: its own artists that have a page, otherwise the artists of its album (a
+     * compilation guest leads to the album artist).
+     */
+    suspend fun artistsOfSong(songId: Long, albumId: Long?): List<Artist> =
+        libraryDao.getPageArtistRowsOfSong(songId).ifEmpty { albumId?.let { libraryDao.getArtistRowsOfAlbum(it) }.orEmpty() }
+            .map { it.toArtist() }
+
     suspend fun songsOfArtist(artistId: Long): List<Song> = libraryDao.getSongRowsOfArtist(artistId).map { it.toSong() }
 
     fun topSongsOfArtist(artistId: Long, limit: Int = 5): Flow<List<Song>> =

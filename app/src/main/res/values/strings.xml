@@ -1288,4 +1288,6 @@
     <string name="ard_upload_kept_playing">Uploaded. This copy from ARD Sounds is playing right now and stays; remove it later with “Remove from library”.</string>
     <string name="ard_upload_done">Uploaded to Audiobookshelf</string>
     <string name="action_ok">OK</string>
+    <string name="action_go_to_album">Go to album</string>
+    <string name="action_go_to_artist">Go to artist</string>
 </resources>
