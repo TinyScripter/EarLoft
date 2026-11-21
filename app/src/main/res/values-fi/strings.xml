@@ -388,6 +388,8 @@
         <item quantity="other">%1$d raitaa jäljellä</item>
     </plurals>
     <string name="downloads_waiting_hint">Lataukset alkavat heti, kun sopiva verkko on käytettävissä.</string>
+    <string name="downloads_no_room">Tallennustilaa ei ole tarpeeksi</string>
+    <string name="downloads_no_room_hint">Lataukset jatkuvat itsestään heti, kun tilaa vapautuu.</string>
     <string name="downloads_retry">Yritä uudelleen</string>
     <string name="downloads_remove_all">Poista kaikki lataukset</string>
     <string name="downloads_remove_all_title">Poistetaanko kaikki lataukset?</string>

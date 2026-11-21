@@ -388,6 +388,8 @@
         <item quantity="other">Nog %1$d tracks</item>
     </plurals>
     <string name="downloads_waiting_hint">Downloads starten zodra er een geschikt netwerk beschikbaar is.</string>
+    <string name="downloads_no_room">Onvoldoende opslagruimte</string>
+    <string name="downloads_no_room_hint">Downloads gaan vanzelf verder zodra er weer ruimte is.</string>
     <string name="downloads_retry">Opnieuw proberen</string>
     <string name="downloads_remove_all">Alle downloads verwijderen</string>
     <string name="downloads_remove_all_title">Alle downloads verwijderen?</string>

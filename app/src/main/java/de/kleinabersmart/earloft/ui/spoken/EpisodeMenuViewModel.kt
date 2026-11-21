@@ -85,7 +85,10 @@ class EpisodeMenuViewModel @Inject constructor(
     val downloaded: StateFlow<Set<Long>> = combine(
         podcasts.downloadedIds(),
         books.downloads().map { map ->
-            map.filterValues { it.state != TrackDownload.NONE && (it.state != TrackDownload.FAILED || it.partial) }.keys
+            // A removed download has nothing left to delete: the menu offers "Download" again, as the book page does.
+            map.filterValues {
+                it.state != TrackDownload.NONE && it.state != TrackDownload.REMOVED && (it.state != TrackDownload.FAILED || it.partial)
+            }.keys
         },
     ) { episodes, bookIds -> episodes + bookIds }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())

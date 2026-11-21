@@ -388,6 +388,8 @@
         <item quantity="other">%1$d numre tilbage</item>
     </plurals>
     <string name="downloads_waiting_hint">Downloads starter, så snart et egnet netværk er tilgængeligt.</string>
+    <string name="downloads_no_room">Ikke nok lagerplads</string>
+    <string name="downloads_no_room_hint">Downloads fortsætter af sig selv, så snart der er plads igen.</string>
     <string name="downloads_retry">Prøv igen</string>
     <string name="downloads_remove_all">Fjern alle downloads</string>
     <string name="downloads_remove_all_title">Vil du fjerne alle downloads?</string>

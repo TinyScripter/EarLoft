@@ -126,18 +126,26 @@ internal class ResumableTransfer(
                         rememberValidator(response.header("ETag"), response.header("Last-Modified"), total, meta)
                     }
 
+                    // What Android lets the download use and what the parallel downloads still need (review H7).
                     val missing = total?.let { it - offset }
-                    if (missing != null && storage.freeBytes() < missing + FREE_SPACE_RESERVE_BYTES) {
+                    val key = "${storage.javaClass.simpleName}:$bookId:$trackIndex"
+                    if (missing != null && !RunningDownloads.claim(key, missing, storage.allocatableBytes(), FREE_SPACE_RESERVE_BYTES)) {
                         storage.deletePart(bookId, trackIndex)
                         return@withContext TransferResult.NoSpace(total)
                     }
+                    val claimingProgress: suspend (Long, Long?) -> Unit = { done, size ->
+                        if (size != null) RunningDownloads.update(key, size - done)
+                        onProgress(done, size)
+                    }
                     val written = try {
-                        write(part, response.body.byteStream(), append = offset > 0, offset, total, onProgress, stillWanted)
+                        write(part, response.body.byteStream(), append = offset > 0, offset, total, claimingProgress, stillWanted)
                     } catch (e: IOException) {
                         if (!e.isNoSpace()) throw e
                         // A partial file that can't grow only blocks the storage the next attempt needs (review H26).
                         storage.deletePart(bookId, trackIndex)
                         return@withContext TransferResult.NoSpace(total)
+                    } finally {
+                        RunningDownloads.release(key)
                     }
                     if (!written) return@withContext TransferResult.Cancelled
                     meta.delete()

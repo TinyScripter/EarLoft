@@ -397,6 +397,8 @@
         <item quantity="other">%1$d tracks left</item>
     </plurals>
     <string name="downloads_waiting_hint">Downloads start as soon as a suitable network is available.</string>
+    <string name="downloads_no_room">Not enough storage</string>
+    <string name="downloads_no_room_hint">Downloads continue on their own as soon as there is room again.</string>
     <string name="downloads_retry">Try again</string>
     <string name="downloads_remove_all">Remove all downloads</string>
     <string name="downloads_remove_all_title">Remove all downloads?</string>

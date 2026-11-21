@@ -19,6 +19,8 @@ import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.podcast.PodcastTranscripts
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -45,6 +47,7 @@ class EpisodeDownloadWorker(
     private val podcasts = entryPoint.podcastRepository()
     private val episodeDownloads = entryPoint.episodeDownloads()
     private val transcripts = entryPoint.podcastTranscripts()
+    private val space = entryPoint.space()
 
     /** Episodes one of the parallel runs has just taken (until the downloader sets them to `RUNNING`, they are still `QUEUED`). */
     private val active = HashSet<Long>()
@@ -61,27 +64,44 @@ class EpisodeDownloadWorker(
 
     override suspend fun doWork(): Result {
         dao.requeueRunningDownloads()
+        // The job only starts while the storage is not low: whatever waited for room may try again.
+        space.enough(DownloadKind.EPISODES)
         if (dao.countPendingDownloads() == 0) return finish()
         startForeground(progress = null)
 
         // A network error ends the run: nobody takes a new episode afterwards, the worker retries with backoff.
         val retry = AtomicBoolean(false)
-        coroutineScope {
-            repeat(PARALLEL) {
-                launch {
-                    while (!retry.get()) {
-                        val next = takeNext() ?: break
-                        try {
-                            if (!load(next)) retry.set(true)
-                        } finally {
-                            pick.withLock { active -= next.bookId }
+        try {
+            coroutineScope {
+                repeat(PARALLEL) {
+                    launch {
+                        while (!retry.get() && !noRoom.get()) {
+                            val next = takeNext() ?: break
+                            try {
+                                if (!load(next)) retry.set(true)
+                            } finally {
+                                pick.withLock { active -= next.bookId }
+                            }
                         }
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            if (stoppedForLowStorage) {
+                // Android stopped the job for low storage: a partial file would only keep it low (review H7). The episodes
+                // stay queued and start over once there is room; the downloads page says why nothing happens meanwhile.
+                withContext(NonCancellable) {
+                    storage.deleteOrphans(dao.downloadedTracks().mapNotNull { it.filePath }, emptyList())
+                    space.short(DownloadKind.EPISODES)
+                }
+            }
+            throw e
         }
         return if (retry.get()) Result.retry() else finish()
     }
+
+    /** An episode did not fit: no new ones in this run, the next starts once there is room ([DownloadSpace.retryLater]). */
+    private val noRoom = AtomicBoolean(false)
 
     private suspend fun takeNext(): BookTrackEntity? = pick.withLock {
         dao.nextQueuedDownloads(PARALLEL + 1).firstOrNull { it.bookId !in active }?.also { active += it.bookId }
@@ -112,8 +132,13 @@ class EpisodeDownloadWorker(
             }
             is DownloadOutcome.Failed -> Log.w(TAG, "Episode ${next.bookId} failed: ${outcome.reason}")
             is DownloadOutcome.NoSpace -> {
-                Log.w(TAG, "Episode ${next.bookId}: not enough storage")
-                dao.markDownloadFailed(next.bookId)
+                // Stays queued; the other episodes wait too instead of trying one after another (review H7).
+                Log.w(TAG, "Episode ${next.bookId}: not enough storage (${outcome.totalBytes ?: "?"} bytes), waiting for room")
+                dao.requeueDownload(next.bookId)
+                if (!noRoom.getAndSet(true)) {
+                    space.short(DownloadKind.EPISODES)
+                    space.retryLater(DownloadKind.EPISODES)
+                }
             }
             // If the feed lists no chapters, they may be in the file (concept 12.5 "chapter sources").
             DownloadOutcome.Done -> {
@@ -207,6 +232,7 @@ class EpisodeDownloadWorker(
         fun podcastRepository(): PodcastRepository
         fun episodeDownloads(): EpisodeDownloads
         fun podcastTranscripts(): PodcastTranscripts
+        fun space(): DownloadSpace
     }
 
     private companion object {

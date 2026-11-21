@@ -12,6 +12,7 @@ import de.kleinabersmart.earloft.core.download.BookDownloadProgress
 import de.kleinabersmart.earloft.core.download.BookDownloads
 import de.kleinabersmart.earloft.core.download.BookTransfer
 import de.kleinabersmart.earloft.core.download.DownloadRepository
+import de.kleinabersmart.earloft.core.download.DownloadSpace
 import de.kleinabersmart.earloft.core.download.EpisodeDownloads
 import de.kleinabersmart.earloft.core.model.Book
 import de.kleinabersmart.earloft.core.model.DownloadOverview
@@ -40,6 +41,8 @@ data class DownloadsUiState(
     val podcasts: List<FeedDownload> = emptyList(),
     val isLoading: Boolean = true,
     val isFailed: Boolean = false,
+    /** Downloads wait because there is not enough storage (review H7). */
+    val storageShort: Boolean = false,
 )
 
 @HiltViewModel
@@ -51,6 +54,7 @@ class DownloadsViewModel @Inject constructor(
     private val episodeDownloads: EpisodeDownloads,
     bookProgress: BookDownloadProgress,
     spokenSettings: SpokenSettings,
+    space: DownloadSpace,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -86,7 +90,7 @@ class DownloadsViewModel @Inject constructor(
             books = state.books.takeIf { SpokenMode.BOOKS in areas }.orEmpty(),
             podcasts = state.podcasts.takeIf { SpokenMode.PODCASTS in areas }.orEmpty(),
         )
-    }
+    }.combine(space.isShort) { state, short -> state.copy(storageShort = short) }
         .orOnError(DownloadsUiState(isLoading = false, isFailed = true))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DownloadsUiState())
 

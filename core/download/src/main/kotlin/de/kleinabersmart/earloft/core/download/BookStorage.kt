@@ -14,10 +14,14 @@ import javax.inject.Singleton
  * `.part.meta` with the server file's fingerprint (see [ResumableTransfer]).
  */
 @Singleton
-class BookStorage internal constructor(val directory: File) : PartFiles {
+class BookStorage internal constructor(
+    val directory: File,
+    private val allocatable: (File) -> Long = { it.usableSpace },
+) : PartFiles {
 
     @Inject
-    constructor(@ApplicationContext context: Context) : this(File(context.noBackupFilesDir, "books"))
+    constructor(@ApplicationContext context: Context) :
+        this(File(context.noBackupFilesDir, "books"), { directory -> systemAllocatableBytes(context, directory) })
 
     fun fileFor(bookId: Long, trackIndex: Int, mimeType: String?): File =
         File(directory, "${prefix(bookId)}$trackIndex.${DownloadStorage.extensionFor(mimeType)}")
@@ -55,6 +59,8 @@ class BookStorage internal constructor(val directory: File) : PartFiles {
     override fun ensureDirectory(): File = directory.apply { mkdirs() }
 
     override fun freeBytes(): Long = ensureDirectory().usableSpace
+
+    override fun allocatableBytes(): Long = allocatable(ensureDirectory())
 
     /** Deletes all files and partial files of the book. */
     fun delete(bookId: Long) {

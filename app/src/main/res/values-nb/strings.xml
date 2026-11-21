@@ -388,6 +388,8 @@
         <item quantity="other">%1$d spor gjenstår</item>
     </plurals>
     <string name="downloads_waiting_hint">Nedlastingene starter så snart et egnet nettverk er tilgjengelig.</string>
+    <string name="downloads_no_room">Ikke nok lagringsplass</string>
+    <string name="downloads_no_room_hint">Nedlastingene fortsetter av seg selv så snart det er plass igjen.</string>
     <string name="downloads_retry">Prøv igjen</string>
     <string name="downloads_remove_all">Fjern alle nedlastinger</string>
     <string name="downloads_remove_all_title">Vil du fjerne alle nedlastinger?</string>

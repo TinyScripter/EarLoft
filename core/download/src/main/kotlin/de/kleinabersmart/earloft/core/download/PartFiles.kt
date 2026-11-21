@@ -12,6 +12,9 @@ interface PartFiles {
     fun ensureDirectory(): File
     fun freeBytes(): Long
 
+    /** What a new download may use; see [systemAllocatableBytes]. */
+    fun allocatableBytes(): Long = freeBytes()
+
     /** Discards the partial file including its fingerprint; the next attempt starts from scratch. */
     fun deletePart(bookId: Long, trackIndex: Int) {
         partFileFor(bookId, trackIndex).delete()

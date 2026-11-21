@@ -35,13 +35,26 @@ class DownloadWorker(
     private val downloader = entryPoint.downloader()
     private val storage = entryPoint.storage()
     private val artwork = entryPoint.artwork()
+    private val space = entryPoint.space()
 
     override suspend fun doWork(): Result {
         downloadDao.requeueRunning()
+        // The job only starts while the storage is not low: whatever waited for room may try again.
+        space.enough(DownloadKind.MUSIC)
         if (downloadDao.countPending() == 0) return finish()
         startForeground(progress = null)
         val budget = RetryBudget(runAttemptCount, MAX_ATTEMPTS)
 
+        try {
+            return downloadQueue(budget)
+        } catch (e: CancellationException) {
+            // The partial file is already gone; the downloads page says why nothing happens until there is room (review H7).
+            if (stoppedForLowStorage) space.short(DownloadKind.MUSIC)
+            throw e
+        }
+    }
+
+    private suspend fun downloadQueue(budget: RetryBudget): Result {
         while (true) {
             val next = downloadDao.nextQueued() ?: break
             val throttle = ProgressThrottle()
@@ -64,8 +77,12 @@ class DownloadWorker(
                 }
                 is DownloadOutcome.Failed -> Log.w(TAG, "Download ${next.sourceUid} failed: ${outcome.reason}")
                 is DownloadOutcome.NoSpace -> {
-                    Log.w(TAG, "Download ${next.sourceUid}: not enough storage")
-                    downloadDao.markFailed(next.sourceUid)
+                    // Stays queued; the rest of the queue waits too, its songs need room just the same (review H7).
+                    Log.w(TAG, "Download ${next.sourceUid}: not enough storage (${outcome.totalBytes ?: "?"} bytes), waiting for room")
+                    downloadDao.requeue(next.sourceUid)
+                    space.short(DownloadKind.MUSIC)
+                    space.retryLater(DownloadKind.MUSIC)
+                    return finish()
                 }
                 DownloadOutcome.Done, DownloadOutcome.Cancelled -> Unit
             }
@@ -156,6 +173,7 @@ class DownloadWorker(
         fun downloader(): Downloader
         fun storage(): DownloadStorage
         fun artwork(): ArtworkRepository
+        fun space(): DownloadSpace
     }
 
     private companion object {

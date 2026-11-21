@@ -430,6 +430,8 @@
         <item quantity="other">Pozostało %1$d utworów</item>
     </plurals>
     <string name="downloads_waiting_hint">Pobieranie rozpocznie się, gdy tylko będzie dostępna odpowiednia sieć.</string>
+    <string name="downloads_no_room">Za mało miejsca</string>
+    <string name="downloads_no_room_hint">Pobieranie wznowi się samo, gdy tylko znowu będzie miejsce.</string>
     <string name="downloads_retry">Spróbuj ponownie</string>
     <string name="downloads_remove_all">Usuń wszystkie pobrane</string>
     <string name="downloads_remove_all_title">Usunąć wszystkie pobrane?</string>

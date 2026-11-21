@@ -162,6 +162,7 @@ private fun DownloadsContent(
                 LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
                     item(key = "storage") { StorageLine(overview) }
                     group("status") {
+                        if (state.storageShort) row("no-room") { NoRoomRow() }
                         if (overview.pendingSongs > 0) row("pending") { PendingRow(overview) }
                         if (overview.failedSongs > 0) row("failed") { FailedRow(overview.failedSongs, onRetryFailed) }
                     }
@@ -307,6 +308,18 @@ private fun PendingRow(overview: DownloadOverview) {
             }
         },
         leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+    )
+}
+
+/** Downloads wait for storage (review H7): they continue by themselves, nothing to retry. */
+@Composable
+private fun NoRoomRow() {
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.downloads_no_room)) },
+        supportingContent = { Text(stringResource(R.string.downloads_no_room_hint)) },
+        leadingContent = {
+            Icon(painterResource(DesignR.drawable.ic_error), contentDescription = null, tint = MaterialTheme.colorScheme.error)
+        },
     )
 }
 

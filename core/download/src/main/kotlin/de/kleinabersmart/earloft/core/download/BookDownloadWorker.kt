@@ -17,6 +17,8 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.model.TrackDownload
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -36,15 +38,34 @@ class BookDownloadWorker(
     private val downloader = entryPoint.bookDownloader()
     private val storage = entryPoint.bookStorage()
     private val progress = entryPoint.bookProgress()
+    private val space = entryPoint.space()
     private val manualOnly = inputData.getBoolean(KEY_MANUAL_ONLY, false)
 
     override suspend fun doWork(): Result {
         dao.requeueRunningBookDownloads()
+        // The job only starts while the storage is not low: whatever waited for room may try again.
+        space.enough(DownloadKind.BOOKS)
         if (dao.countPendingBookDownloads() == 0) return finish()
         // Partial files from an earlier, aborted run are kept: the downloader resumes there.
         startForeground(progress = null)
         val budget = RetryBudget(runAttemptCount, MAX_ATTEMPTS)
 
+        try {
+            return downloadQueue(budget)
+        } catch (e: CancellationException) {
+            if (stoppedForLowStorage) {
+                // Android stopped the job for low storage: a partial file would only keep it low (review H7). The files
+                // stay queued and start over once there is room; the downloads page says why nothing happens meanwhile.
+                withContext(NonCancellable) {
+                    storage.deleteParts()
+                    space.short(DownloadKind.BOOKS)
+                }
+            }
+            throw e
+        }
+    }
+
+    private suspend fun downloadQueue(budget: RetryBudget): Result {
         while (true) {
             val next = (if (manualOnly) dao.nextQueuedManualBookTrack() else dao.nextQueuedBookTrack()) ?: break
             val files = dao.tracks(next.bookId)
@@ -79,8 +100,12 @@ class BookDownloadWorker(
                 }
                 is DownloadOutcome.Failed -> Log.w(TAG, "Book ${next.bookId} failed: ${outcome.reason}")
                 is DownloadOutcome.NoSpace -> {
-                    Log.w(TAG, "Book ${next.bookId} file ${next.trackIndex}: not enough storage")
-                    dao.markBookTrackFailed(next.bookId, next.trackIndex)
+                    // Stays queued, as do the other files: they need room just the same (review H7).
+                    Log.w(TAG, "Book ${next.bookId} file ${next.trackIndex}: not enough storage (${outcome.totalBytes ?: "?"} bytes), waiting for room")
+                    dao.requeueBookTrack(next.bookId, next.trackIndex)
+                    space.short(DownloadKind.BOOKS)
+                    space.retryLater(DownloadKind.BOOKS)
+                    return finish()
                 }
                 DownloadOutcome.Done, DownloadOutcome.Cancelled -> Unit
             }
@@ -162,6 +187,7 @@ class BookDownloadWorker(
         fun bookStorage(): BookStorage
         fun bookProgress(): BookDownloadProgress
         fun bookDownloads(): BookDownloads
+        fun space(): DownloadSpace
     }
 
     internal companion object {

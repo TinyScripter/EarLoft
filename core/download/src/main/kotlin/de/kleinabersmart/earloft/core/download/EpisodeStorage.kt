@@ -14,10 +14,14 @@ import javax.inject.Singleton
  * (`.part.meta`, see [ResumableTransfer]).
  */
 @Singleton
-class EpisodeStorage internal constructor(val directory: File) : PartFiles {
+class EpisodeStorage internal constructor(
+    val directory: File,
+    private val allocatable: (File) -> Long = { it.usableSpace },
+) : PartFiles {
 
     @Inject
-    constructor(@ApplicationContext context: Context) : this(File(context.noBackupFilesDir, "episodes"))
+    constructor(@ApplicationContext context: Context) :
+        this(File(context.noBackupFilesDir, "episodes"), { directory -> systemAllocatableBytes(context, directory) })
 
     fun fileFor(bookId: Long, mimeType: String?): File =
         File(directory, "episode-$bookId.${DownloadStorage.extensionFor(mimeType)}")
@@ -41,6 +45,8 @@ class EpisodeStorage internal constructor(val directory: File) : PartFiles {
     override fun ensureDirectory(): File = directory.apply { mkdirs() }
 
     override fun freeBytes(): Long = ensureDirectory().usableSpace
+
+    override fun allocatableBytes(): Long = allocatable(ensureDirectory())
 
     /** Deletes the episode's file and partial file. */
     fun delete(bookId: Long, filePath: String?) {

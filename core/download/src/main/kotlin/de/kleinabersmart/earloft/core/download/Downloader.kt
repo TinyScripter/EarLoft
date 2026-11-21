@@ -145,12 +145,21 @@ class Downloader @Inject constructor(
                             return@withContext DownloadOutcome.Failed(error?.message ?: "Server error instead of audio file")
                         }
                     }
+                    // What Android lets the download use and what the parallel downloads still need (review H7).
                     val total = response.body.contentLength().takeIf { it >= 0 }
-                    if (total != null && storage.freeBytes() < total + FREE_SPACE_RESERVE_BYTES) {
+                    val key = "song:$uid"
+                    if (total != null && !RunningDownloads.claim(key, total, storage.allocatableBytes(), FREE_SPACE_RESERVE_BYTES)) {
                         return@withContext DownloadOutcome.NoSpace(total)
                     }
-                    writeToPart(uid, response.body.byteStream(), total, onProgress)
-                        ?: return@withContext DownloadOutcome.Cancelled
+                    val claimingProgress: suspend (Long, Long?) -> Unit = { done, size ->
+                        if (size != null) RunningDownloads.update(key, size - done)
+                        onProgress(done, size)
+                    }
+                    try {
+                        writeToPart(uid, response.body.byteStream(), total, claimingProgress)
+                    } finally {
+                        RunningDownloads.release(key)
+                    } ?: return@withContext DownloadOutcome.Cancelled
                     // The extension follows the response: a transcoded file has a different type than the source.
                     val responseType = contentType.substringBefore(';').trim().lowercase()
                     val mimeType = responseType.takeIf { it.startsWith("audio/") }

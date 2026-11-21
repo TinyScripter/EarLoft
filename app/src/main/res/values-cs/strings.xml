@@ -430,6 +430,8 @@
         <item quantity="other">Zbývá %1$d skladeb</item>
     </plurals>
     <string name="downloads_waiting_hint">Stahování začne, jakmile bude k dispozici vhodná síť.</string>
+    <string name="downloads_no_room">Nedostatek úložiště</string>
+    <string name="downloads_no_room_hint">Stahování bude automaticky pokračovat, jakmile bude opět dost místa.</string>
     <string name="downloads_retry">Zkusit znovu</string>
     <string name="downloads_remove_all">Odstranit všechny stažené soubory</string>
     <string name="downloads_remove_all_title">Odstranit všechny stažené soubory?</string>

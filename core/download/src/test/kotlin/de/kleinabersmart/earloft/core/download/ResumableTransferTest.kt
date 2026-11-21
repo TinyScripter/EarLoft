@@ -350,6 +350,25 @@ class ResumableTransferTest {
     /** The real folder, with as little free space as the test wants. */
     private class TightStorage(inner: BookStorage, private val free: Long) : PartFiles by inner {
         override fun freeBytes(): Long = free
+        override fun allocatableBytes(): Long = free
+    }
+
+    @Test
+    fun `a download only starts if it fits after the ones still running`() = runTest {
+        val roomy = TightStorage(storage, free = audio.size + 150L * 1024 * 1024)
+        // Another download still has to write 100 MB: together with the reserve this one no longer fits.
+        assertTrue(RunningDownloads.claim("other", 100L * 1024 * 1024, available = Long.MAX_VALUE, reserve = 0))
+        try {
+            server.enqueue(full())
+            val result = ResumableTransfer(OkHttpClient(), roomy).run(server.url("/file"), bookId = 7, trackIndex = 0, onProgress = progress)
+            assertEquals(TransferResult.NoSpace(audio.size.toLong()), result)
+        } finally {
+            RunningDownloads.release("other")
+        }
+
+        server.enqueue(full())
+        val result = ResumableTransfer(OkHttpClient(), roomy).run(server.url("/file"), bookId = 7, trackIndex = 0, onProgress = progress)
+        assertEquals(TransferResult.Completed("audio/mp4"), result)
     }
 
     @Test

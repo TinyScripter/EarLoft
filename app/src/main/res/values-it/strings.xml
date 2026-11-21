@@ -409,6 +409,8 @@
         <item quantity="other">%1$d brani rimanenti</item>
     </plurals>
     <string name="downloads_waiting_hint">I download iniziano non appena è disponibile una rete adatta.</string>
+    <string name="downloads_no_room">Spazio di archiviazione insufficiente</string>
+    <string name="downloads_no_room_hint">I download riprendono da soli non appena c’è di nuovo spazio.</string>
     <string name="downloads_retry">Riprova</string>
     <string name="downloads_remove_all">Rimuovi tutti i download</string>
     <string name="downloads_remove_all_title">Rimuovere tutti i download?</string>

@@ -388,6 +388,8 @@
         <item quantity="other">%1$d spår kvar</item>
     </plurals>
     <string name="downloads_waiting_hint">Nedladdningarna startar så snart ett lämpligt nätverk är tillgängligt.</string>
+    <string name="downloads_no_room">Inte tillräckligt med lagringsutrymme</string>
+    <string name="downloads_no_room_hint">Nedladdningarna fortsätter av sig själva så snart det finns plats igen.</string>
     <string name="downloads_retry">Försök igen</string>
     <string name="downloads_remove_all">Ta bort alla nedladdningar</string>
     <string name="downloads_remove_all_title">Vill du ta bort alla nedladdningar?</string>

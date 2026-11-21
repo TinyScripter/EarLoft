@@ -76,6 +76,11 @@ class EpisodeDownloads @Inject constructor(
         return connectionState(mobileAllowed)
     }
 
+    /** Another run for what is waiting, e.g. after it did not fit ([SpaceRetryWorker]). */
+    internal suspend fun resume() {
+        if (dao.countPendingDownloads() > 0) enqueueWorker()
+    }
+
     private fun connectionState(mobileAllowed: Boolean): DownloadStart {
         val manager = context.getSystemService(ConnectivityManager::class.java)
         val capabilities = manager?.getNetworkCapabilities(manager.activeNetwork)

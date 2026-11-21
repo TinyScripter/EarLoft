@@ -409,6 +409,8 @@
         <item quantity="other">Faltam %1$d faixas</item>
     </plurals>
     <string name="downloads_waiting_hint">As transferências começam assim que estiver disponível uma rede adequada.</string>
+    <string name="downloads_no_room">Armazenamento insuficiente</string>
+    <string name="downloads_no_room_hint">As transferências continuam sozinhas assim que voltar a haver espaço.</string>
     <string name="downloads_retry">Tentar novamente</string>
     <string name="downloads_remove_all">Remover todas as transferências</string>
     <string name="downloads_remove_all_title">Remover todas as transferências?</string>

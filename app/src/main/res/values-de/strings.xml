@@ -388,6 +388,8 @@
         <item quantity="other">Noch %1$d Titel</item>
     </plurals>
     <string name="downloads_waiting_hint">Downloads starten, sobald ein passendes Netz verfügbar ist.</string>
+    <string name="downloads_no_room">Nicht genug Speicher</string>
+    <string name="downloads_no_room_hint">Die Downloads laufen von selbst weiter, sobald wieder Platz frei ist.</string>
     <string name="downloads_retry">Erneut versuchen</string>
     <string name="downloads_remove_all">Alle Downloads entfernen</string>
     <string name="downloads_remove_all_title">Alle Downloads entfernen?</string>

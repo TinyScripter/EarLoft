@@ -409,6 +409,8 @@
         <item quantity="other">%1$d morceaux restants</item>
     </plurals>
     <string name="downloads_waiting_hint">Les téléchargements démarrent dès qu’un réseau adapté est disponible.</string>
+    <string name="downloads_no_room">Espace de stockage insuffisant</string>
+    <string name="downloads_no_room_hint">Les téléchargements reprennent d’eux-mêmes dès qu’il y a de nouveau de la place.</string>
     <string name="downloads_retry">Réessayer</string>
     <string name="downloads_remove_all">Supprimer tous les téléchargements</string>
     <string name="downloads_remove_all_title">Supprimer tous les téléchargements ?</string>

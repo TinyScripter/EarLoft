@@ -409,6 +409,8 @@
         <item quantity="other">Faltan %1$d pistas</item>
     </plurals>
     <string name="downloads_waiting_hint">Las descargas empiezan en cuanto haya una red adecuada.</string>
+    <string name="downloads_no_room">No hay suficiente almacenamiento</string>
+    <string name="downloads_no_room_hint">Las descargas continuarán solas en cuanto vuelva a haber espacio.</string>
     <string name="downloads_retry">Reintentar</string>
     <string name="downloads_remove_all">Quitar todas las descargas</string>
     <string name="downloads_remove_all_title">¿Quitar todas las descargas?</string>

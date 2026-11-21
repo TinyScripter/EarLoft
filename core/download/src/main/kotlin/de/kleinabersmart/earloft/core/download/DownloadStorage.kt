@@ -12,10 +12,14 @@ import javax.inject.Singleton
  * backed up nor copied by device transfer (concept 10, security).
  */
 @Singleton
-class DownloadStorage internal constructor(val directory: File) {
+class DownloadStorage internal constructor(
+    val directory: File,
+    private val allocatable: (File) -> Long = { it.usableSpace },
+) {
 
     @Inject
-    constructor(@ApplicationContext context: Context) : this(File(context.noBackupFilesDir, "downloads"))
+    constructor(@ApplicationContext context: Context) :
+        this(File(context.noBackupFilesDir, "downloads"), { directory -> systemAllocatableBytes(context, directory) })
 
     fun fileFor(sourceUid: String, mimeType: String?): File =
         File(directory, "${safeName(sourceUid)}.${extensionFor(mimeType)}")
@@ -35,6 +39,9 @@ class DownloadStorage internal constructor(val directory: File) {
     fun ensureDirectory(): File = directory.apply { mkdirs() }
 
     fun freeBytes(): Long = ensureDirectory().usableSpace
+
+    /** What a new download may use; see [systemAllocatableBytes]. */
+    fun allocatableBytes(): Long = allocatable(ensureDirectory())
 
     fun delete(download: DownloadEntity) {
         download.filePath?.let { File(it).delete() }
