@@ -121,6 +121,8 @@ import de.kleinabersmart.earloft.ui.components.SectionHeader
 import de.kleinabersmart.earloft.ui.components.CoverOutlineWidth
 import de.kleinabersmart.earloft.ui.components.GridTilePadding
 import de.kleinabersmart.earloft.ui.components.group
+import de.kleinabersmart.earloft.ui.components.CardGap
+import de.kleinabersmart.earloft.ui.components.cardItems
 import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.components.Shelf
 import de.kleinabersmart.earloft.ui.components.coverOutlineColor
@@ -581,6 +583,8 @@ fun PodcastScreen(
                         Modifier.fillMaxSize(),
                         state = listState,
                         contentPadding = PaddingValues(top = if (pinned) 4.dp else 0.dp, bottom = 24.dp),
+                        // Each episode is its own card, as in the "New" tab: long descriptions make one shared surface hard to read.
+                        verticalArrangement = Arrangement.spacedBy(CardGap),
                     ) {
                         if (!pinned) item(key = "header") { headerContent() }
                         if (shownEpisodes is LoadState.Ready && list.isEmpty() && episodes.valueOrNull.orEmpty().isNotEmpty()) {
@@ -607,11 +611,11 @@ fun PodcastScreen(
                             )
                         }
                         if (seasons == null) {
-                            groupedItems(list, key = { it.book.id }) { row(it) }
+                            cardItems(list, key = { it.book.id }) { row(it) }
                         } else {
                             seasons.forEachIndexed { index, (season, items) ->
                                 item(key = "season-$index") { SectionHeader(seasonTitle(season)) }
-                                groupedItems(items, key = { it.book.id }) { row(it) }
+                                cardItems(items, key = { it.book.id }) { row(it) }
                             }
                         }
                     }
