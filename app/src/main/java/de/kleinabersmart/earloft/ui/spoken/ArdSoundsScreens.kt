@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
+import de.kleinabersmart.earloft.ui.components.readableWidth
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -121,7 +123,7 @@ fun ArdSoundsScreen(
         )
     }
 
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         TopAppBar(
             title = { Text(stringResource(R.string.directory_ard_sounds), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
@@ -248,7 +250,7 @@ fun ArdShowScreen(
             snackbars.show(message, SnackbarDuration.Long)
         }
     }
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         TopAppBar(
             title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
@@ -311,7 +313,7 @@ fun ArdBookPreviewScreen(
         viewModel.failed.collect { snackbars.show(resources.getString(R.string.ard_books_add_failed), SnackbarDuration.Long) }
     }
 
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         TopAppBar(
             title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },

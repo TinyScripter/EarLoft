@@ -1,5 +1,8 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
+import de.kleinabersmart.earloft.ui.components.readableWidth
+import de.kleinabersmart.earloft.ui.components.LoadingIndicator
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -90,12 +93,15 @@ fun PodcastStatsScreen(
 ) {
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val history by historyViewModel.history.collectAsStateWithLifecycle()
-    val current = stats ?: return
+    val current = stats ?: run {
+        LoadingIndicator(modifier)
+        return
+    }
     if (current.year == null && current.totalMs == 0L && current.finishedEpisodes == 0) {
         Box(modifier.fillMaxSize()) { EmptyHint(stringResource(R.string.podcast_stats_empty), Modifier.padding(16.dp)) }
         return
     }
-    LazyColumn(modifier.fillMaxSize()) {
+    LazyColumn(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         yearChipsHeader(current.years, current.year, viewModel::selectYear)
         current.year?.let { year ->
             if (current.totalMs == 0L && current.finishedEpisodes == 0) {

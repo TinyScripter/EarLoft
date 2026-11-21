@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
+import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -645,7 +647,7 @@ private fun SeriesList(groups: List<SeriesProgress>, byName: Boolean, resetKey: 
     val state = rememberLazyListState()
     ScrollToTopEffect(state)
     ResetScroll(resetKey) { state.scrollToItem(0) }
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(vertical = 8.dp)) {
             groupedItems(groups, key = { it.name }) { group ->
                 ListItem(

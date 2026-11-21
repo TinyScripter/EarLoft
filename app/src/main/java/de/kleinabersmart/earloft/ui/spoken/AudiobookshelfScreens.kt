@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.readableWidth
 import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.browser.auth.AuthTabIntent
@@ -238,7 +239,8 @@ fun AudiobookshelfFormScreen(
     LaunchedEffect(connectState) { if (connectState == ConnectState.Connected) onDone() }
     LaunchedEffect(url) { viewModel.onUrlChanged(url) }
 
-    Column(modifier.fillMaxSize().imePadding()) {
+    // As narrow as the music server form on wide windows.
+    Column(modifier.fillMaxSize().readableWidth().imePadding()) {
         TopAppBar(
             title = { Text(stringResource(if (serverId == null) R.string.spoken_abs_add else R.string.spoken_abs_edit)) },
             navigationIcon = { BackButton(onDone) },

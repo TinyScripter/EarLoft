@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.ui.search
 
+import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
+import de.kleinabersmart.earloft.ui.components.readableWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -130,7 +132,8 @@ fun SearchScreen(
     // Only on first open; coming back from a hit, the keyboard stays closed.
     LaunchedEffect(Unit) { if (query.isEmpty()) focus.requestFocus() }
 
-    Column(modifier.fillMaxSize()) {
+    // Not across the full width of a tablet, like the other lists.
+    Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         Row(Modifier.statusBarsPadding().padding(end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             BackButton(onBack)
             OutlinedTextField(

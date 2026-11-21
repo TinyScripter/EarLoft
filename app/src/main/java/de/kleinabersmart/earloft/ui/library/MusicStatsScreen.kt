@@ -1,5 +1,8 @@
 package de.kleinabersmart.earloft.ui.library
 
+import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
+import de.kleinabersmart.earloft.ui.components.readableWidth
+import de.kleinabersmart.earloft.ui.components.LoadingIndicator
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -77,7 +80,11 @@ fun MusicStatsScreen(
             Box(modifier.fillMaxSize()) { LoadFailedHint() }
             return
         }
-        LoadState.Loading -> return
+        // A spinner like every other list while loading, not an empty page.
+        LoadState.Loading -> {
+            LoadingIndicator(modifier)
+            return
+        }
     }
     if (current.year == null && current.plays == 0) {
         Box(modifier.fillMaxSize()) { EmptyHint(stringResource(R.string.music_stats_empty), Modifier.padding(16.dp)) }
@@ -92,7 +99,7 @@ fun MusicStatsScreen(
             TopKind.GENRES -> onGenreClick(entry.title)
         }
     }
-    LazyColumn(modifier.fillMaxSize()) {
+    LazyColumn(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         yearChipsHeader(current.years, current.year, viewModel::selectYear)
         current.year?.let { year ->
             if (current.plays == 0) {

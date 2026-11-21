@@ -585,6 +585,7 @@ fun PodcastScreen(
                 }
                 // The mini player sees the list's push against its start before the header and pull-to-refresh take it.
                 Box(Modifier.weight(1f).fillMaxWidth().nestedScroll(LocalMiniPlayerScrollHide.current)) {
+                    if (episodes == LoadState.Loading) LoadingIndicator()
                     val listState = rememberLazyListState()
                     // Several episodes on the same day: time of day next to the date.
                     val sameDay = remember(list) { episodesSharingDay(list.map { it.book }) }

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.home
 
+import de.kleinabersmart.earloft.ui.components.LoadingIndicator
 import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
@@ -165,6 +166,11 @@ private fun HomeContent(
         }
         if (state.isFailed) {
             LoadFailedHint()
+            return@Column
+        }
+        // A spinner like every other list while loading, not an empty page (the bar above only shows a sync).
+        if (state.isLoading && !state.isSyncing) {
+            LoadingIndicator()
             return@Column
         }
         if (state.isEmpty) {

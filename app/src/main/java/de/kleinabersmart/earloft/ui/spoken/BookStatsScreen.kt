@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
+import de.kleinabersmart.earloft.ui.components.readableWidth
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -62,7 +64,7 @@ fun BookStatsScreen(
     val year = device?.year ?: server?.year
     val years = (device?.years.orEmpty() + server?.years.orEmpty() + listOfNotNull(year)).distinct().sortedDescending()
 
-    LazyColumn(modifier.fillMaxSize()) {
+    LazyColumn(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         yearChipsHeader(years, year, viewModel::selectYear)
         if (year != null) {
             item(key = "year-note") {
