@@ -1269,6 +1269,8 @@
     <string name="settings_backup_local_skipped">As fontes deste dispositivo ficam desativadas até as ativar nas definições.</string>
     <string name="settings_backup_import_failed">O ficheiro não é uma cópia de segurança desta app.</string>
     <string name="settings_backup_import_newer">Esta cópia de segurança provém de uma versão mais recente da app. Atualize primeiro a app.</string>
+    <string name="settings_backup_import_unreadable">Não foi possível ler a cópia de segurança. Verifique se o ficheiro está disponível e se há espaço livre suficiente e tente novamente.</string>
+    <string name="settings_backup_import_interrupted">O restauro foi interrompido; parte da cópia de segurança já foi aplicada. Restaurar novamente acrescenta o resto.</string>
     <plurals name="count_playlists">
         <item quantity="one">%d lista de reprodução</item>
         <item quantity="many">%d listas de reprodução</item>

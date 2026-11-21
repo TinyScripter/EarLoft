@@ -1209,6 +1209,8 @@
     <string name="settings_backup_local_skipped">Tämän laitteen lähteet pysyvät pois käytöstä, kunnes otat ne käyttöön asetuksissa.</string>
     <string name="settings_backup_import_failed">Tiedosto ei ole tämän sovelluksen varmuuskopio.</string>
     <string name="settings_backup_import_newer">Varmuuskopio on sovelluksen uudemmasta versiosta. Päivitä sovellus ensin.</string>
+    <string name="settings_backup_import_unreadable">Varmuuskopiota ei voitu lukea. Tarkista, että tiedosto on saatavilla ja tilaa on riittävästi, ja yritä uudelleen.</string>
+    <string name="settings_backup_import_interrupted">Palautus keskeytyi; osa varmuuskopiosta on jo otettu käyttöön. Palauta uudelleen, niin loput lisätään.</string>
     <plurals name="count_playlists">
         <item quantity="one">%d soittolista</item>
         <item quantity="other">%d soittolistaa</item>

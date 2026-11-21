@@ -34,6 +34,12 @@ data class FullBackupResult(
 class FullBackupException(val newerVersion: Boolean, message: String, cause: Throwable? = null) : IOException(message, cause)
 
 /**
+ * Restoring failed after it had started writing (several transactions, then the settings): part of the backup is already in
+ * place. Restoring again only adds what is missing (review H22).
+ */
+class FullBackupInterruptedException(cause: Throwable) : IOException("Restore interrupted", cause)
+
+/**
  * Full backup as a file (Settings → General → Backup, concept 10 "Security"): the user data as in
  * `user.db` and the settings, **without** passwords, API keys and logins – the `secrets` DataStore is never included.
  * Feed addresses come along unchanged, even if a provider writes a personal key into them (review D34).
@@ -114,8 +120,17 @@ class FullBackup @Inject constructor(
             // `SQLException`; Room: schema doesn't match, no migration (`IllegalStateException`); otherwise unreadable.
             throw FullBackupException(false, "user.db not readable", e)
         }
-        val imported = userData.import(snapshot)
-        val restored = settingsJson?.let { settings.write(it, imported.ids) } ?: SettingsRestore(0, localSourcesSkipped = false)
+        val (imported, restored) = try {
+            val imported = userData.import(snapshot)
+            imported to (settingsJson?.let { settings.write(it, imported.ids) } ?: SettingsRestore(0, localSourcesSkipped = false))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IOException) {
+            throw FullBackupInterruptedException(e)
+        } catch (e: RuntimeException) {
+            // `SQLException` (storage full, among others).
+            throw FullBackupInterruptedException(e)
+        }
         FullBackupResult(imported.counts, restored.stores, restored.localSourcesSkipped).also { restoreNotice.backupRestored(it) }
     }
 

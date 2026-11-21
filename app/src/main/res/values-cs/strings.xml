@@ -1329,6 +1329,8 @@
     <string name="settings_backup_local_skipped">Zdroje v tomto zařízení zůstanou vypnuté, dokud je nezapnete v nastavení.</string>
     <string name="settings_backup_import_failed">Soubor není zálohou této aplikace.</string>
     <string name="settings_backup_import_newer">Tato záloha pochází z novější verze aplikace. Nejprve aplikaci aktualizujte.</string>
+    <string name="settings_backup_import_unreadable">Zálohu se nepodařilo přečíst. Zkontrolujte, zda je soubor dostupný a je dost volného místa, a zkuste to znovu.</string>
+    <string name="settings_backup_import_interrupted">Obnovení bylo přerušeno; část zálohy už byla převzata. Opakované obnovení doplní zbytek.</string>
     <plurals name="count_playlists">
         <item quantity="one">%d playlist</item>
         <item quantity="few">%d playlisty</item>

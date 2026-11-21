@@ -1209,6 +1209,8 @@
     <string name="settings_backup_local_skipped">Källor på den här enheten förblir avstängda tills du aktiverar dem i inställningarna.</string>
     <string name="settings_backup_import_failed">Filen är inte en säkerhetskopia från den här appen.</string>
     <string name="settings_backup_import_newer">Den här säkerhetskopian kommer från en nyare version av appen. Uppdatera appen först.</string>
+    <string name="settings_backup_import_unreadable">Säkerhetskopian kunde inte läsas. Kontrollera att filen är tillgänglig och att det finns tillräckligt med ledigt utrymme, och försök igen.</string>
+    <string name="settings_backup_import_interrupted">Återställningen avbröts; en del av säkerhetskopian har redan tagits över. Återställ igen för att lägga till resten.</string>
     <plurals name="count_playlists">
         <item quantity="one">%d spellista</item>
         <item quantity="other">%d spellistor</item>

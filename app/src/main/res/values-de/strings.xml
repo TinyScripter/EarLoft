@@ -1209,6 +1209,8 @@
     <string name="settings_backup_local_skipped">Quellen auf diesem Gerät bleiben aus, bis du sie in den Einstellungen einschaltest.</string>
     <string name="settings_backup_import_failed">Die Datei ist keine Sicherung dieser App.</string>
     <string name="settings_backup_import_newer">Diese Sicherung stammt aus einer neueren Version der App. Aktualisiere die App zuerst.</string>
+    <string name="settings_backup_import_unreadable">Die Sicherung konnte nicht gelesen werden. Prüfe, ob die Datei erreichbar und genug Speicher frei ist, und versuche es erneut.</string>
+    <string name="settings_backup_import_interrupted">Die Wiederherstellung wurde unterbrochen; ein Teil der Sicherung ist schon übernommen. Erneut wiederherstellen ergänzt den Rest.</string>
     <plurals name="count_playlists">
         <item quantity="one">%d Playlist</item>
         <item quantity="other">%d Playlists</item>

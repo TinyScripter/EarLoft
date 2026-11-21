@@ -6,7 +6,10 @@
     - ExoPlayer's database – a cache of this device;
     - the encrypted credentials – the key lives in this device's keystore;
     - the MediaStore state of the last local scan – it belongs to the database;
-    - the last widget state – it names IDs of the main database.
+    - the last widget state – it names IDs of the main database;
+    - what belongs to this device's hardware and state (review H24): its storage volumes (an SD card's ID is missing on the new
+      device, every local scan would count as incomplete), the guard of the last full sync, the cast session to rejoin and
+      the cast debug address, and whether downloads wait for storage.
     Downloads live in noBackupFilesDir and are excluded anyway.
     "Continue listening" and the playback state store keys instead of main database IDs and are backed up.
 -->
@@ -20,4 +23,9 @@
     <exclude domain="file" path="datastore/secrets.preferences_pb" />
     <exclude domain="file" path="datastore/local_scan.preferences_pb" />
     <exclude domain="file" path="datastore/widget_state.preferences_pb" />
+    <exclude domain="sharedpref" path="local_volumes.xml" />
+    <exclude domain="sharedpref" path="sweep_guard.xml" />
+    <exclude domain="sharedpref" path="cast_rejoin.xml" />
+    <exclude domain="sharedpref" path="cast_debug.xml" />
+    <exclude domain="sharedpref" path="download_space.xml" />
 </full-backup-content>

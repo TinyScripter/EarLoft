@@ -13,6 +13,7 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.backup.BackupCounts
 import de.kleinabersmart.earloft.core.data.backup.FullBackup
 import de.kleinabersmart.earloft.core.data.backup.FullBackupException
+import de.kleinabersmart.earloft.core.data.backup.FullBackupInterruptedException
 import de.kleinabersmart.earloft.core.data.backup.FullBackupResult
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRefresher
@@ -36,8 +37,14 @@ sealed interface FullBackupMessage {
     data class Exported(val counts: BackupCounts) : FullBackupMessage
     data object ExportFailed : FullBackupMessage
 
-    /** [newerVersion]: the backup comes from a newer version of the app; otherwise it isn't a (readable) backup. */
+    /** [newerVersion]: the backup comes from a newer version of the app; otherwise it isn't a backup of this app. */
     data class ImportFailed(val newerVersion: Boolean) : FullBackupMessage
+
+    /** Reading the file failed before anything was restored (cloud file not available, storage full, …). */
+    data object ImportUnreadable : FullBackupMessage
+
+    /** Restoring stopped midway: part of the backup is already in place, restoring again adds the rest. */
+    data object ImportInterrupted : FullBackupMessage
 }
 
 /** Settings → General → Backup ([FullBackup]). Both run to completion in the app scope, even if the page goes away first. */
@@ -66,7 +73,7 @@ class FullBackupViewModel @Inject constructor(
         FullBackupMessage.Exported(counts)
     }
 
-    fun import(uri: Uri) = run(failed = FullBackupMessage.ImportFailed(newerVersion = false)) {
+    fun import(uri: Uri) = run(failed = FullBackupMessage.ImportUnreadable) {
         applicationScope.async {
             withContext(Dispatchers.IO) {
                 context.contentResolver.openInputStream(uri)?.use { fullBackup.import(it) }
@@ -91,6 +98,9 @@ class FullBackupViewModel @Inject constructor(
             } catch (e: FullBackupException) {
                 Log.w(TAG, "Backup not restored", e)
                 FullBackupMessage.ImportFailed(e.newerVersion)
+            } catch (e: FullBackupInterruptedException) {
+                Log.w(TAG, "Backup restored only in part", e)
+                FullBackupMessage.ImportInterrupted
             } catch (e: IOException) {
                 Log.w(TAG, "Backup failed", e)
                 failed
@@ -116,6 +126,8 @@ fun fullBackupMessage(resources: Resources, message: FullBackupMessage): String 
     is FullBackupMessage.ImportFailed -> resources.getString(
         if (message.newerVersion) R.string.settings_backup_import_newer else R.string.settings_backup_import_failed,
     )
+    FullBackupMessage.ImportUnreadable -> resources.getString(R.string.settings_backup_import_unreadable)
+    FullBackupMessage.ImportInterrupted -> resources.getString(R.string.settings_backup_import_interrupted)
 }
 
 /** Result of a restored full backup, without the hint about missing passwords. */

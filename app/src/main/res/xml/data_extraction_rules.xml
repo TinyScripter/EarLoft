@@ -11,6 +11,11 @@
         <exclude domain="file" path="datastore/secrets.preferences_pb" />
         <exclude domain="file" path="datastore/local_scan.preferences_pb" />
         <exclude domain="file" path="datastore/widget_state.preferences_pb" />
+        <exclude domain="sharedpref" path="local_volumes.xml" />
+        <exclude domain="sharedpref" path="sweep_guard.xml" />
+        <exclude domain="sharedpref" path="cast_rejoin.xml" />
+        <exclude domain="sharedpref" path="cast_debug.xml" />
+        <exclude domain="sharedpref" path="download_space.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="database" path="earloft.db" />
@@ -22,5 +27,10 @@
         <exclude domain="file" path="datastore/secrets.preferences_pb" />
         <exclude domain="file" path="datastore/local_scan.preferences_pb" />
         <exclude domain="file" path="datastore/widget_state.preferences_pb" />
+        <exclude domain="sharedpref" path="local_volumes.xml" />
+        <exclude domain="sharedpref" path="sweep_guard.xml" />
+        <exclude domain="sharedpref" path="cast_rejoin.xml" />
+        <exclude domain="sharedpref" path="cast_debug.xml" />
+        <exclude domain="sharedpref" path="download_space.xml" />
     </device-transfer>
 </data-extraction-rules>

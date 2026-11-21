@@ -1269,6 +1269,8 @@
     <string name="settings_backup_local_skipped">Les sources de cet appareil restent désactivées jusqu’à ce que vous les activiez dans les paramètres.</string>
     <string name="settings_backup_import_failed">Ce fichier n’est pas une sauvegarde de cette application.</string>
     <string name="settings_backup_import_newer">Cette sauvegarde provient d’une version plus récente de l’application. Mettez d’abord l’application à jour.</string>
+    <string name="settings_backup_import_unreadable">Impossible de lire la sauvegarde. Vérifiez que le fichier est accessible et qu’il reste assez d’espace libre, puis réessayez.</string>
+    <string name="settings_backup_import_interrupted">La restauration a été interrompue ; une partie de la sauvegarde a déjà été appliquée. Restaurer à nouveau ajoute le reste.</string>
     <plurals name="count_playlists">
         <item quantity="one">%d playlist</item>
         <item quantity="many">%d playlists</item>

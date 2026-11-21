@@ -1209,6 +1209,8 @@
     <string name="settings_backup_local_skipped">Bronnen op dit apparaat blijven uit tot je ze aanzet in de instellingen.</string>
     <string name="settings_backup_import_failed">Het bestand is geen back-up van deze app.</string>
     <string name="settings_backup_import_newer">Deze back-up komt uit een nieuwere versie van de app. Update eerst de app.</string>
+    <string name="settings_backup_import_unreadable">De back-up kon niet worden gelezen. Controleer of het bestand beschikbaar is en er genoeg vrije ruimte is, en probeer het opnieuw.</string>
+    <string name="settings_backup_import_interrupted">Het herstellen is onderbroken; een deel van de back-up is al overgenomen. Opnieuw herstellen voegt de rest toe.</string>
     <plurals name="count_playlists">
         <item quantity="one">%d playlist</item>
         <item quantity="other">%d playlists</item>

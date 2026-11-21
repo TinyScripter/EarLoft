@@ -61,6 +61,8 @@ import org.robolectric.Shadows.shadowOf
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
+import java.io.InputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -83,7 +85,8 @@ class FullBackupTest {
     private inner class Device(scope: CoroutineScope) {
         val main = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build().also(opened::add)
         val user = Room.inMemoryDatabaseBuilder(context, UserDatabase::class.java).allowMainThreadQueries().build().also(opened::add)
-        private val dir = folder.newFolder()
+        /** Where the settings live. */
+        val dir: File = folder.newFolder()
         val theme = store(scope, "theme_settings")
         val library = store(scope, "library_settings")
         val downloads = store(scope, "download_settings")
@@ -370,6 +373,55 @@ class FullBackupTest {
         } catch (e: FullBackupException) {
             assertTrue(e.newerVersion)
         }
+    }
+
+    @Test
+    fun `a file that breaks off while reading is unreadable, not a foreign file`() = runTest {
+        val old = Device(backgroundScope)
+        old.main.addNavidrome()
+        val file = ByteArrayOutputStream().also { old.backup.export(it) }.toByteArray()
+        // A cloud file whose download stops halfway.
+        val breaking = object : InputStream() {
+            private val data = ByteArrayInputStream(file, 0, file.size / 2)
+            override fun read(): Int = data.read().takeIf { it >= 0 } ?: throw IOException("connection lost")
+            override fun read(b: ByteArray, off: Int, len: Int): Int =
+                data.read(b, off, len).takeIf { it >= 0 } ?: throw IOException("connection lost")
+        }
+        val fresh = Device(backgroundScope)
+        try {
+            fresh.backup.import(breaking)
+            fail("broken file restored")
+        } catch (_: FullBackupException) {
+            fail("read error reported as a foreign file")
+        } catch (_: FullBackupInterruptedException) {
+            fail("read error reported as interrupted")
+        } catch (_: IOException) {
+            // The view model reports this as unreadable.
+        }
+        assertTrue(fresh.main.sourceDao().getServers().isEmpty())
+    }
+
+    @Test
+    fun `a restore that fails after it began says so, and what it restored stays`() = runTest {
+        val old = Device(backgroundScope)
+        old.main.addNavidrome()
+        old.theme.edit { it[MODE] = "DARK" }
+        val file = ByteArrayOutputStream().also { old.backup.export(it) }.toByteArray()
+        val fresh = Device(backgroundScope)
+        // The settings can't be written (storage full): the user data before them is already in.
+        fresh.dir.setWritable(false)
+        try {
+            fresh.backup.import(ByteArrayInputStream(file))
+            fail("failed settings not reported")
+        } catch (_: FullBackupInterruptedException) {
+        } finally {
+            fresh.dir.setWritable(true)
+        }
+        assertEquals(listOf("nav"), fresh.main.sourceDao().getServers().map { it.sourceId })
+        // Restoring again adds the rest and creates nothing twice.
+        fresh.backup.import(ByteArrayInputStream(file))
+        assertEquals(listOf("nav"), fresh.main.sourceDao().getServers().map { it.sourceId })
+        assertEquals("DARK", fresh.theme.data.first()[MODE])
     }
 
     @Test

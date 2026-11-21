@@ -1269,6 +1269,8 @@
     <string name="settings_backup_local_skipped">As fontes deste dispositivo ficam desativadas até você ativá-las nas configurações.</string>
     <string name="settings_backup_import_failed">O arquivo não é um backup deste app.</string>
     <string name="settings_backup_import_newer">Este backup é de uma versão mais recente do app. Atualize o app primeiro.</string>
+    <string name="settings_backup_import_unreadable">Não foi possível ler o backup. Verifique se o arquivo está disponível e se há espaço livre suficiente e tente novamente.</string>
+    <string name="settings_backup_import_interrupted">A restauração foi interrompida; parte do backup já foi aplicada. Restaurar novamente adiciona o restante.</string>
     <plurals name="count_playlists">
         <item quantity="one">%d playlist</item>
         <item quantity="many">%d playlists</item>

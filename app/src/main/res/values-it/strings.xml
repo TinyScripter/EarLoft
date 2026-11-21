@@ -1269,6 +1269,8 @@
     <string name="settings_backup_local_skipped">Le fonti su questo dispositivo restano disattivate finché non le attivi nelle impostazioni.</string>
     <string name="settings_backup_import_failed">Il file non è un backup di questa app.</string>
     <string name="settings_backup_import_newer">Questo backup proviene da una versione più recente dell’app. Aggiorna prima l’app.</string>
+    <string name="settings_backup_import_unreadable">Impossibile leggere il backup. Verifica che il file sia disponibile e che ci sia abbastanza spazio libero, poi riprova.</string>
+    <string name="settings_backup_import_interrupted">Il ripristino è stato interrotto; una parte del backup è già stata applicata. Ripristinando di nuovo si aggiunge il resto.</string>
     <plurals name="count_playlists">
         <item quantity="one">%d playlist</item>
         <item quantity="many">%d playlist</item>

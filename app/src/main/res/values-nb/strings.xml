@@ -1209,6 +1209,8 @@
     <string name="settings_backup_local_skipped">Kilder på denne enheten forblir slått av til du slår dem på i innstillingene.</string>
     <string name="settings_backup_import_failed">Filen er ikke en sikkerhetskopi fra denne appen.</string>
     <string name="settings_backup_import_newer">Denne sikkerhetskopien kommer fra en nyere versjon av appen. Oppdater appen først.</string>
+    <string name="settings_backup_import_unreadable">Sikkerhetskopien kunne ikke leses. Sjekk at filen er tilgjengelig og at det er nok ledig plass, og prøv igjen.</string>
+    <string name="settings_backup_import_interrupted">Gjenopprettingen ble avbrutt; en del av sikkerhetskopien er allerede tatt i bruk. Gjenopprett på nytt for å legge til resten.</string>
     <plurals name="count_playlists">
         <item quantity="one">%d spilleliste</item>
         <item quantity="other">%d spillelister</item>

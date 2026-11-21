@@ -1209,6 +1209,8 @@
     <string name="settings_backup_local_skipped">Kilder på denne enhed forbliver slået fra, indtil du slår dem til i indstillingerne.</string>
     <string name="settings_backup_import_failed">Filen er ikke en backup fra denne app.</string>
     <string name="settings_backup_import_newer">Denne backup stammer fra en nyere version af appen. Opdater appen først.</string>
+    <string name="settings_backup_import_unreadable">Backuppen kunne ikke læses. Tjek, at filen er tilgængelig, og at der er nok ledig plads, og prøv igen.</string>
+    <string name="settings_backup_import_interrupted">Gendannelsen blev afbrudt; en del af backuppen er allerede overført. Gendan igen for at tilføje resten.</string>
     <plurals name="count_playlists">
         <item quantity="one">%d playliste</item>
         <item quantity="other">%d playlister</item>

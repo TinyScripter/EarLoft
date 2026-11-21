@@ -1218,6 +1218,8 @@
     <string name="settings_backup_local_skipped">Sources on this device stay off until you turn them on in the settings.</string>
     <string name="settings_backup_import_failed">The file is not a backup of this app.</string>
     <string name="settings_backup_import_newer">This backup comes from a newer version of the app. Update the app first.</string>
+    <string name="settings_backup_import_unreadable">The backup could not be read. Check that the file is available and there is enough free storage, then try again.</string>
+    <string name="settings_backup_import_interrupted">Restoring was interrupted; part of the backup has already been applied. Restoring again adds the rest.</string>
     <plurals name="count_playlists">
         <item quantity="one">%d playlist</item>
         <item quantity="other">%d playlists</item>

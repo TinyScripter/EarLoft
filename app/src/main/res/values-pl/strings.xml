@@ -1329,6 +1329,8 @@
     <string name="settings_backup_local_skipped">Źródła na tym urządzeniu pozostają wyłączone, dopóki nie włączysz ich w ustawieniach.</string>
     <string name="settings_backup_import_failed">Ten plik nie jest kopią zapasową tej aplikacji.</string>
     <string name="settings_backup_import_newer">Ta kopia zapasowa pochodzi z nowszej wersji aplikacji. Najpierw zaktualizuj aplikację.</string>
+    <string name="settings_backup_import_unreadable">Nie udało się odczytać kopii zapasowej. Sprawdź, czy plik jest dostępny i czy jest wystarczająco dużo wolnego miejsca, a następnie spróbuj ponownie.</string>
+    <string name="settings_backup_import_interrupted">Przywracanie zostało przerwane; część kopii zapasowej została już przejęta. Ponowne przywrócenie uzupełni resztę.</string>
     <plurals name="count_playlists">
         <item quantity="one">%d playlista</item>
         <item quantity="few">%d playlisty</item>
