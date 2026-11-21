@@ -1,5 +1,9 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.core.model.filterEpisodes
+import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -61,6 +65,25 @@ class PodcastNewViewModel @Inject constructor(
         .map { list -> list.mapTo(HashSet()) { it.book.id } }
         .orOnError(emptySet())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    private val _filter = MutableStateFlow(EpisodeFilter.ALL)
+
+    /** The chip above the list, as on the subscription page; only for this screen, not saved. */
+    val filter: StateFlow<EpisodeFilter> = _filter.asStateFlow()
+
+    fun setFilter(filter: EpisodeFilter) {
+        _filter.value = filter
+    }
+
+    /** [episodes] after [filter] (what the list and "Select all" show). */
+    val shown: StateFlow<LoadState<List<BookWithProgress>>> = combine(episodes, filter, downloadStates) { state, filter, downloads ->
+        if (state is LoadState.Ready) {
+            val downloaded = downloads.filterValues { it == TrackDownload.DONE }.keys
+            LoadState.Ready(state.value.filterEpisodes(filter, oldestFirst = false, downloaded = downloaded))
+        } else {
+            state
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     /** The episode currently playing (not: paused). */
     val playingBookId: StateFlow<Long?> = playback.state

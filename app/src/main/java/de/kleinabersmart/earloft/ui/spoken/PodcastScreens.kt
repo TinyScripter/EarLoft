@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.foundation.text.KeyboardActions
 import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -320,7 +322,7 @@ fun PodcastLibraryScreen(
     newViewModel: PodcastNewViewModel = hiltViewModel(),
 ) {
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
-    val latest by newViewModel.episodes.collectAsStateWithLifecycle()
+    val latestShown by newViewModel.shown.collectAsStateWithLifecycle()
     val feedSort by viewModel.feedSort.collectAsStateWithLifecycle()
     val newEpisodeCounts by viewModel.newEpisodeCounts.collectAsStateWithLifecycle()
     val starred by starredViewModel.starred.collectAsStateWithLifecycle()
@@ -348,8 +350,9 @@ fun PodcastLibraryScreen(
         // During the selection its bar takes the place of the tabs, and the pager stays still.
         if (selection.active) {
             val starredTab = PodcastTab.entries[pagerState.currentPage] == PodcastTab.STARRED
-            val shown = (if (starredTab) starred else latest).valueOrNull.orEmpty()
-            val loaded = (if (starredTab) starred else latest) is LoadState.Ready
+            // "Select all" takes what the tab shows, in "New" after its filter.
+            val shown = (if (starredTab) starred else latestShown).valueOrNull.orEmpty()
+            val loaded = (if (starredTab) starred else latestShown) is LoadState.Ready
             EpisodeSelectionBar(selection, shown, loaded = loaded, windowInsets = WindowInsets(0))
         } else PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
             PodcastTab.entries.forEachIndexed { index, tab ->
@@ -756,10 +759,15 @@ private val FeedSort.label: Int
  * "Starred" is only shown if the subscription has starred episodes ([withStarred]) or it is selected (like the music "Favorites").
  */
 @Composable
-private fun EpisodeFilterChips(selected: EpisodeFilter, onSelect: (EpisodeFilter) -> Unit, withStarred: Boolean) {
+internal fun EpisodeFilterChips(
+    selected: EpisodeFilter,
+    onSelect: (EpisodeFilter) -> Unit,
+    withStarred: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val scroll = rememberScrollState()
     Row(
-        Modifier.keepHorizontalScroll(scroll).horizontalScroll(scroll).padding(horizontal = 16.dp),
+        modifier.keepHorizontalScroll(scroll).horizontalScroll(scroll).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         EpisodeFilter.entries.filter { it != EpisodeFilter.STARRED || withStarred || selected == it }.forEach { filter ->
@@ -817,6 +825,7 @@ fun PodcastSearchScreen(
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { focus.requestFocus() }
     LaunchedEffect(query) { viewModel.search(query) }
     val swipe by viewModel.swipeActions.collectAsStateWithLifecycle()
@@ -846,6 +855,8 @@ fun PodcastSearchScreen(
                 singleLine = true,
                 shape = MaterialTheme.shapes.extraLarge,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                // The hits follow the typing; the search key only closes the keyboard, as in the global search.
+                keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
                 modifier = Modifier.weight(1f).focusRequester(focus),
             )
         }

@@ -128,25 +128,37 @@ fun ArdSoundsScreen(
         )
         FastScrollLazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "search") {
+                // Built like the search on "Add podcast": magnifier in front, ✕ to clear, the keyboard's search key starts it.
                 OutlinedTextField(
                     value = term,
                     onValueChange = { term = it },
-                    label = { Text(stringResource(R.string.ard_books_search_label)) },
+                    placeholder = { Text(stringResource(R.string.ard_books_search_label)) },
+                    leadingIcon = { Icon(painterResource(R.drawable.ic_nav_search), contentDescription = null) },
                     trailingIcon = {
-                        IconButton(onClick = startSearch, enabled = term.isNotBlank()) {
-                            Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(R.string.podcast_directory_search))
+                        if (term.isNotEmpty()) {
+                            IconButton(onClick = { term = "" }) {
+                                Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_clear_search))
+                            }
                         }
                     },
                     singleLine = true,
+                    shape = MaterialTheme.shapes.extraLarge,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { if (term.isNotBlank()) startSearch() }),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = GroupMargin),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = GroupMargin, vertical = 8.dp),
                 )
             }
             val current = search
             if (current != null) {
                 item(key = "results-header") { SectionHeader(stringResource(R.string.ard_books_results)) }
-                ardBookList(current.second, library, empty = noResults, onBook = openBook, keyPrefix = "hit")
+                ardBookList(
+                    current.second,
+                    library,
+                    empty = noResults,
+                    onBook = openBook,
+                    keyPrefix = "hit",
+                    onRetry = { viewModel.search(current.first) },
+                )
             } else {
                 if (subscriptions.isNotEmpty()) {
                     item(key = "mine-header") { SectionHeader(stringResource(R.string.ard_books_my_series)) }
@@ -409,10 +421,11 @@ private fun LazyListScope.ardBookList(
     onBook: (ArdBookSummary) -> Unit,
     keyPrefix: String,
     withShow: Boolean = true,
+    onRetry: (() -> Unit)? = null,
 ) {
     when (state) {
         ArdLoad.Loading -> item(key = "$keyPrefix-loading") { ArdLoading() }
-        ArdLoad.Failed -> item(key = "$keyPrefix-failed") { ArdFailed(null) }
+        ArdLoad.Failed -> item(key = "$keyPrefix-failed") { ArdFailed(onRetry) }
         is ArdLoad.Done -> {
             if (state.value.isEmpty()) item(key = "$keyPrefix-empty") { EmptyHint(empty) }
             groupedItems(state.value, key = { "$keyPrefix-${it.key}" }) { book -> ArdBookRow(book, inLibrary = book.key in library, withShow) { onBook(book) } }

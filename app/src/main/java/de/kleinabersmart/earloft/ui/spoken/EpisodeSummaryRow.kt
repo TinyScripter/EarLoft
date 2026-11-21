@@ -76,6 +76,7 @@ internal fun EpisodeSummaryRow(
                 .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
                 .combinedClickable(
                     onClick = { if (selecting) selection.toggle(book.id) else onClick() },
+                    onLongClickLabel = stringResource(R.string.action_more),
                     onLongClick = { if (selecting) selection.toggle(book.id) else menu = true },
                 )
                 .semantics { if (selecting) selectedSemantics = selected }
@@ -87,17 +88,24 @@ internal fun EpisodeSummaryRow(
                     Text(book.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (book.starred) StarredMark(Modifier.padding(end = 4.dp))
-                        val source = listOfNotNull(
-                            if (withPodcast) book.author.takeIf { it.isNotBlank() } else episodeLabel(book, withSeason = false),
-                            book.addedAt.takeIf { it > 0 }?.let { formatEpisodeDay(it, withTime) },
-                        ).joinToString(" · ")
-                        Text(
-                            source,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        val source = if (withPodcast) book.author.takeIf { it.isNotBlank() } else episodeLabel(book, withSeason = false)
+                        val day = book.addedAt.takeIf { it > 0 }?.let { formatEpisodeDay(it, withTime) }
+                        val style = MaterialTheme.typography.bodySmall
+                        val color = MaterialTheme.colorScheme.onSurfaceVariant
+                        // A long podcast name is shortened, the date always stays whole.
+                        if (source != null) {
+                            Text(
+                                source,
+                                style = style,
+                                color = color,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                        }
+                        if (day != null) {
+                            Text(if (source != null) " · $day" else day, style = style, color = color, maxLines = 1, softWrap = false)
+                        }
                     }
                 }
             }

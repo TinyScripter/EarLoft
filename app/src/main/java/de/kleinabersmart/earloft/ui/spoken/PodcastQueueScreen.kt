@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.background
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.clickable
@@ -242,6 +244,7 @@ fun PodcastQueueSearchScreen(
     val feedSpeeds by viewModel.feedSpeeds.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { focus.requestFocus() }
     LaunchedEffect(query) { viewModel.search(query) }
 
@@ -266,6 +269,8 @@ fun PodcastQueueSearchScreen(
                 singleLine = true,
                 shape = MaterialTheme.shapes.extraLarge,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                // The hits follow the typing; the search key only closes the keyboard, as in the global search.
+                keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
                 modifier = Modifier.weight(1f).focusRequester(focus),
             )
         }
