@@ -98,6 +98,7 @@ fun AudiobookshelfFormScreen(
     val connectState by viewModel.connect.collectAsStateWithLifecycle()
     val loginOptions by viewModel.loginOptions.collectAsStateWithLifecycle()
     val browserUrl by viewModel.browser.collectAsStateWithLifecycle()
+    val removing by viewModel.removing.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val authTab = remember { authTabBrowser(context) }
     val authTabLauncher = rememberLauncherForActivityResult(AuthTabIntent.AuthenticateUserResultContract()) { result ->
@@ -161,7 +162,8 @@ fun AudiobookshelfFormScreen(
             title = { Text(stringResource(if (serverId == null) R.string.spoken_abs_add else R.string.spoken_abs_edit)) },
             navigationIcon = { BackButton(close) },
         )
-        if (!loaded) {
+        // While removing, the form is gone: neither "Save" nor a second "Remove" may run against the half-removed server.
+        if (!loaded || removing) {
             LinearProgressIndicator(Modifier.fillMaxWidth())
             return@Column
         }

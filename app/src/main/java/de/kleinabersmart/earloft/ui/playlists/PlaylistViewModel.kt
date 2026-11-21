@@ -7,6 +7,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.repository.FavoritesRepository
 import de.kleinabersmart.earloft.core.data.repository.PlaylistRepository
 import de.kleinabersmart.earloft.core.download.DownloadRepository
@@ -17,6 +18,8 @@ import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.components.SongActions
 import de.kleinabersmart.earloft.ui.asLoadStateOrMissing
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -30,7 +33,13 @@ class PlaylistViewModel @AssistedInject constructor(
     private val favoritesRepository: FavoritesRepository,
     private val playbackConnection: PlaybackConnection,
     private val downloadRepository: DownloadRepository,
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel(), SongActions {
+
+    /** Removing, undoing and reordering finish in the app scope: the undo snackbar outlives the page (review D13, H12). */
+    private fun act(block: suspend CoroutineScope.() -> Unit) {
+        applicationScope.launch(Dispatchers.Main.immediate, block = block)
+    }
 
     val playlist: StateFlow<LoadState<PlaylistDetails>> = playlistRepository.playlist(playlistId)
         .asLoadStateOrMissing()
@@ -83,9 +92,9 @@ class PlaylistViewModel @AssistedInject constructor(
      * removed. On a server playlist both steps reach the server like any other change.
      */
     fun removeEntry(entryId: Long, onUndo: (suspend () -> Unit) -> Unit = {}) {
-        viewModelScope.launch {
-            val before = playlistRepository.playlist(playlistId).first()?.entries ?: return@launch
-            val removed = before.firstOrNull { it.entryId == entryId } ?: return@launch
+        act {
+            val before = playlistRepository.playlist(playlistId).first()?.entries ?: return@act
+            val removed = before.firstOrNull { it.entryId == entryId } ?: return@act
             playlistRepository.removeEntry(playlistId, entryId)
             onUndo {
                 val known = before.mapTo(HashSet()) { it.entryId }
@@ -98,12 +107,12 @@ class PlaylistViewModel @AssistedInject constructor(
     }
 
     fun undo(restore: suspend () -> Unit) {
-        viewModelScope.launch { restore() }
+        act { restore() }
     }
 
     /** Saves the entry order chosen while reordering. */
     fun reorder(entryIds: List<Long>) {
-        viewModelScope.launch { playlistRepository.reorder(playlistId, entryIds) }
+        act { playlistRepository.reorder(playlistId, entryIds) }
     }
 
     override fun playNext(song: Song) = playbackConnection.playNext(listOf(song))

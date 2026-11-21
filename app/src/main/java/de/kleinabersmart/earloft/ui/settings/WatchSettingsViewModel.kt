@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.wear.WatchSpoken
 import de.kleinabersmart.earloft.core.data.wear.WearSelectionRepository
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
@@ -11,6 +12,8 @@ import de.kleinabersmart.earloft.core.wearsync.WearStatusDto
 import de.kleinabersmart.earloft.wear.WatchSettings
 import de.kleinabersmart.earloft.wear.WatchSettingsRepository
 import de.kleinabersmart.earloft.wear.WatchStatusRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -48,6 +51,7 @@ class WatchSettingsViewModel @Inject constructor(
     private val selections: WearSelectionRepository,
     private val episodes: WatchSpoken,
     watchStatus: WatchStatusRepository,
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
     val state: StateFlow<WatchSettingsUiState> = combine(
@@ -87,7 +91,8 @@ class WatchSettingsViewModel @Inject constructor(
         episodes.clear()
     }
 
+    /** Changes finish in the app scope: "Undo" in the snackbar still works after leaving the page (review D13, H12). */
     private fun launch(block: suspend () -> Unit) {
-        viewModelScope.launch { block() }
+        applicationScope.launch(Dispatchers.Main.immediate) { block() }
     }
 }

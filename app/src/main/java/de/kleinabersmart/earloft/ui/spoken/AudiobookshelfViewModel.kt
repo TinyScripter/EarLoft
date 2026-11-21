@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.R
+import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.spoken.AddServerResult
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.data.spoken.BeginOpenIdResult
@@ -17,6 +18,8 @@ import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsOpenIdLogin
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.asLoadState
 import de.kleinabersmart.earloft.ui.orOnError
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,6 +60,7 @@ object OpenIdRedirects {
 class AudiobookshelfViewModel @Inject constructor(
     private val servers: AudiobookshelfServers,
     private val refresher: SpokenRefresher,
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
     /** Entered API key: only in memory here, not in the activity's saved state (like the password in the music form). */
@@ -178,10 +182,21 @@ class AudiobookshelfViewModel @Inject constructor(
         }
     }
 
-    /** [onRemoved] only afterwards: leaving the form ends the `viewModelScope`. */
+    private val _removing = MutableStateFlow(false)
+
+    /** A server is being removed; the form shows only the loading bar meanwhile. */
+    val removing: StateFlow<Boolean> = _removing.asStateFlow()
+
+    /**
+     * Removing finishes in the app scope even if the form is left meanwhile, so no tokens stay behind in the secret store
+     * (review H12). [onRemoved] only afterwards and only while the form is still open: it navigates.
+     */
     fun remove(serverId: String, onRemoved: () -> Unit = {}) {
+        if (_removing.value) return
+        _removing.value = true
+        val removal = applicationScope.launch(Dispatchers.Main.immediate) { servers.remove(serverId) }
         viewModelScope.launch {
-            servers.remove(serverId)
+            removal.join()
             onRemoved()
         }
     }

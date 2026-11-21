@@ -1,8 +1,8 @@
 package de.kleinabersmart.earloft.ui.spoken
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRefresher
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
@@ -11,6 +11,8 @@ import de.kleinabersmart.earloft.core.download.EpisodeDownloads
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
@@ -37,7 +39,13 @@ class FeedMenuViewModel @Inject constructor(
     private val refresher: PodcastRefresher,
     private val launcher: BookLauncher,
     private val playback: PlaybackConnection,
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
+
+    /** The menu closes at once; the action over many episodes must still finish (review D13, H12). */
+    private fun act(block: suspend CoroutineScope.() -> Unit) {
+        applicationScope.launch(Dispatchers.Main.immediate, block = block)
+    }
 
     fun state(feedId: String): Flow<FeedMenuState> = combine(
         podcasts.feed(feedId),
@@ -65,16 +73,16 @@ class FeedMenuViewModel @Inject constructor(
 
     /** Appends the episode to the end of "Continue listening". */
     fun queue(bookId: Long) {
-        viewModelScope.launch { continueListening.append(bookId) }
+        act { continueListening.append(bookId) }
     }
 
     fun refresh(feedId: String) = refresher.refreshFeed(feedId)
 
     fun markAllPlayed(feedId: String) {
-        viewModelScope.launch { podcasts.setAllPlayed(feedId) }
+        act { podcasts.setAllPlayed(feedId) }
     }
 
     fun removeHeardDownloads(feedId: String) {
-        viewModelScope.launch { downloads.removeHeard(feedId) }
+        act { downloads.removeHeard(feedId) }
     }
 }

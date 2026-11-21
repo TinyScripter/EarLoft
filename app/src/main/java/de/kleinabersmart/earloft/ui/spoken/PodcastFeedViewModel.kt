@@ -270,9 +270,20 @@ class PodcastFeedViewModel @AssistedInject constructor(
         }
     }
 
-    /** The trial subscription becomes a subscription; episodes, positions and downloads stay. */
+    /**
+     * The trial subscription becomes a subscription; episodes, positions and downloads stay. The setup wizard closes the page
+     * right away, so this runs in the app scope and counts as an open page until stored: otherwise the trial cleanup could
+     * remove the feed first (review H12).
+     */
     fun subscribe() {
-        viewModelScope.launch { podcasts.subscribeTrial(feedId) }
+        trialPages.opened(feedId)
+        applicationScope.launch {
+            try {
+                podcasts.subscribeTrial(feedId)
+            } finally {
+                trialPages.closed(feedId)
+            }
+        }
     }
 
     /** Like [PodcastViewModel.playOrPause]. */

@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.ui.downloads
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.podcast.FeedDownload
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.spoken.BookDownload
@@ -19,6 +20,8 @@ import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.ui.orOnError
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -48,7 +51,13 @@ class DownloadsViewModel @Inject constructor(
     private val episodeDownloads: EpisodeDownloads,
     bookProgress: BookDownloadProgress,
     spokenSettings: SpokenSettings,
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
+
+    /** Deleting finishes in the app scope: "Back" right after "Delete all" must not stop it midway (review D13, H12). */
+    private fun act(block: suspend CoroutineScope.() -> Unit) {
+        applicationScope.launch(Dispatchers.Main.immediate, block = block)
+    }
 
     val state: StateFlow<DownloadsUiState> = combine(
         downloadRepository.overview(),
@@ -85,34 +94,34 @@ class DownloadsViewModel @Inject constructor(
     val transfers: StateFlow<Map<Long, BookTransfer>> = bookProgress.transfers
 
     fun retryFailed() {
-        viewModelScope.launch { downloadRepository.retryFailed() }
+        act { downloadRepository.retryFailed() }
     }
 
     fun removeAlbum(albumId: Long) {
-        viewModelScope.launch { downloadRepository.removeAlbum(albumId) }
+        act { downloadRepository.removeAlbum(albumId) }
     }
 
     fun removeBook(bookId: Long) {
-        viewModelScope.launch { bookDownloads.remove(bookId) }
+        act { bookDownloads.remove(bookId) }
     }
 
     fun removeFeed(feedId: String) {
-        viewModelScope.launch { episodeDownloads.removeFeed(feedId) }
+        act { episodeDownloads.removeFeed(feedId) }
     }
 
     /** All music downloads (albums, playlists, favorites). */
     fun removeAllMusic() {
-        viewModelScope.launch { downloadRepository.removeAll() }
+        act { downloadRepository.removeAll() }
     }
 
     fun removeAllBooks() {
-        viewModelScope.launch {
+        act {
             books.downloads().first().filterValues { it.state != TrackDownload.NONE }.keys.forEach { bookDownloads.remove(it) }
         }
     }
 
     fun removeAllPodcasts() {
-        viewModelScope.launch { episodeDownloads.removeAll() }
+        act { episodeDownloads.removeAll() }
     }
 
     fun removeAll() {

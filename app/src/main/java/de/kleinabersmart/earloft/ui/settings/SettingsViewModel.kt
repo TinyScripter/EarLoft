@@ -617,21 +617,23 @@ class SettingsViewModel @Inject constructor(
     /** Writes subscriptions, listening progress and listening time as a database file to [uri]. */
     fun exportDatabase(uri: Uri) {
         viewModelScope.launch {
-            val result = databaseExport.export(uri)
+            val result = applicationScope.async { databaseExport.export(uri) }.await()
             _transferMessages.send(if (result != null) TransferMessage.DatabaseExported(result) else TransferMessage.DatabaseExportFailed)
         }
     }
 
-    /** Writes the subscriptions as OPML to [uri]. */
+    /** Writes the subscriptions as OPML to [uri]; in the app scope, so leaving the page doesn't leave an empty file (review H12). */
     fun exportOpml(uri: Uri, title: String) {
         viewModelScope.launch {
             val message = try {
-                val created = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now())
-                val text = podcastRepository.exportOpml(title, created, podcastSettings.rssBridge.first().ifBlank { null })
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) }
-                        ?: throw IOException("File not writable")
-                }
+                applicationScope.async {
+                    val created = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now())
+                    val text = podcastRepository.exportOpml(title, created, podcastSettings.rssBridge.first().ifBlank { null })
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) }
+                            ?: throw IOException("File not writable")
+                    }
+                }.await()
                 TransferMessage.Exported
             } catch (e: CancellationException) {
                 throw e
