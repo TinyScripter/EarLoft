@@ -451,6 +451,7 @@ fun PodcastScreen(
     onSettings: () -> Unit,
     onSearch: () -> Unit,
     modifier: Modifier = Modifier,
+    onSubscribed: () -> Unit = {},
     viewModel: PodcastFeedViewModel = hiltViewModel<PodcastFeedViewModel, PodcastFeedViewModel.Factory> { it.create(feedId) },
 ) {
     val feed by viewModel.feed.collectAsStateWithLifecycle()
@@ -541,7 +542,10 @@ fun PodcastScreen(
                                 text = stringResource(R.string.podcast_trial_notice),
                                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
                             ) {
-                                FilledTonalButton(onClick = viewModel::subscribe) { Text(stringResource(R.string.podcast_add_confirm)) }
+                                FilledTonalButton(onClick = {
+                                    viewModel.subscribe()
+                                    onSubscribed()
+                                }) { Text(stringResource(R.string.podcast_add_confirm)) }
                             }
                         }
                         // If syncing has failed for several attempts (concept 12.10), it is shown here with the way to another source.

@@ -416,13 +416,16 @@ fun EarLoftApp(
                 onInfo = { navigator.navigate(PodcastInfoRoute(route.feedId)) },
                 onSettings = { navigator.navigate(PodcastSettingsRoute(route.feedId)) },
                 onSearch = { navigator.navigate(PodcastSearchRoute(route.feedId)) },
+                // Subscribed to a trial from the wizard: back to the wizard.
+                onSubscribed = { if (navigator.inSetup) navigator.returnToSetup() },
             )
         }
         entry<AddPodcastRoute>(metadata = detailPane()) {
             AddPodcastScreen(
                 onBack = navigator::goBack,
-                // The new subscription takes the place of the page, as after the dialog previously.
-                onFeedAdded = { navigator.replaceTop(PodcastRoute(it)) },
+                // The new subscription takes the place of the page, as after the dialog previously. In the wizard it goes back to
+                // its podcast page instead, which counts the subscriptions.
+                onFeedAdded = { if (navigator.inSetup) navigator.returnToSetup() else navigator.replaceTop(PodcastRoute(it)) },
                 onOpenFeed = openPodcast,
                 onPreview = { navigator.navigate(PodcastPreviewRoute(it.feedUrl, it.title, it.author, it.imageUrl)) },
                 onOpenSettings = { navigator.navigate(SettingsPodcastsRoute) },

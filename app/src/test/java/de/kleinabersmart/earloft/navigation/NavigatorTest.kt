@@ -236,6 +236,27 @@ class NavigatorTest {
     }
 
     @Test
+    fun `returning to setup closes the forms above the wizard page`() {
+        navigator.showSetup()
+        navigator.navigate(SetupRoute(SetupPage.PODCASTS))
+        navigator.navigate(AddPodcastRoute())
+        navigator.navigate(PodcastRoute("trial"))
+
+        navigator.returnToSetup()
+
+        assertEquals(SetupRoute(SetupPage.PODCASTS), navigator.currentRoute)
+    }
+
+    @Test
+    fun `returning to setup outside the wizard changes nothing`() {
+        navigator.navigate(AlbumDetail)
+
+        navigator.returnToSetup()
+
+        assertEquals(AlbumDetail, navigator.currentRoute)
+    }
+
+    @Test
     fun `closing setup removes it with everything above and keeps what was below`() {
         navigator.navigate(SettingsRoute)
         navigator.navigate(SettingsGeneralRoute)

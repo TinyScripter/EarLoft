@@ -31,6 +31,13 @@ class Navigator(private val state: NavigationState) {
         while (stack.size > index) stack.removeLastOrNull()
     }
 
+    /** Back to the wizard page beneath the forms opened from it (e.g. after subscribing to a podcast there). */
+    fun returnToSetup() {
+        val stack = currentStack()
+        if (!inSetup) return
+        while (stack.last() !is SetupRoute) stack.removeLastOrNull()
+    }
+
     /**
      * Programmatic navigation. A tab route shows that tab on its start page (e.g. a notification opening Home with a page on
      * top); every other route goes on top of the current tab. For taps on the navigation bar see [selectTab].
