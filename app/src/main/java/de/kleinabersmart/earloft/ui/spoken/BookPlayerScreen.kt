@@ -1011,7 +1011,7 @@ private fun ChapterList(
                 supportingContent = if (chapter.unavailable) ({ Text(stringResource(R.string.ard_books_part_gone)) }) else null,
                 leadingContent = if (withImages) ({ ChapterImage(chapter.imageUrl) }) else null,
                 trailingContent = {
-                    ChapterTrailing(chapter.url) { Text(formatClock(chapter.startMs), style = MaterialTheme.typography.bodySmall) }
+                    ChapterTrailing(chapter.url) { ChapterTimes(chapter.startMs, chapter.durationMs) }
                 },
                 colors = unavailableChapterColors(
                     chapter,

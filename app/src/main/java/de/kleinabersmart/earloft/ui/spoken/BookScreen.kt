@@ -1,5 +1,8 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.FilledTonalIconButton
+import de.kleinabersmart.earloft.ui.library.BackButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -114,6 +117,7 @@ fun BookScreen(
     val progress = item?.progress
     val download by viewModel.download.collectAsStateWithLifecycle()
     val transfer by viewModel.transfer.collectAsStateWithLifecycle()
+    val queued by viewModel.queued.collectAsStateWithLifecycle()
     val episodeFraction by viewModel.episodeFraction.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
     val snackbars = LocalSnackbars.current
@@ -147,11 +151,7 @@ fun BookScreen(
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = {},
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(painterResource(DesignR.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
-                }
-            },
+            navigationIcon = { BackButton(onBack) },
             // Episodes and books individually to the watch (Wear concept 16.1/16.2); ⋮ with played/unplayed, queue etc.
             // Episodes first with the star ("Starred").
             actions = {
@@ -174,6 +174,9 @@ fun BookScreen(
         val header = @Composable {
             BookHeader(
                 book, progress,
+                // Episodes: into the queue or out of it, as on the episode cards.
+                queued = queued.takeIf { book.kind == BookKind.EPISODE },
+                onToggleQueue = viewModel::toggleQueued,
                 download = download.state,
                 partial = download.takeIf { it.partial }?.let { it.doneFiles to it.totalFiles },
                 transfer = transfer,
@@ -231,6 +234,8 @@ fun BookScreen(
 private fun BookHeader(
     book: Book,
     progress: BookProgress?,
+    queued: Boolean?,
+    onToggleQueue: () -> Unit,
     download: TrackDownload,
     /** Partially downloaded: finished and all files. */
     partial: Pair<Int, Int>?,
@@ -349,9 +354,10 @@ private fun BookHeader(
         }
         // Episode of a podcast that isn't subscribed (concept 12.10): directly above play, a tap leads to the podcast.
         trialNotice?.invoke()
-        // Play takes two thirds of the row, download one third (books and episodes); books from the device have no download.
+        // Play takes two thirds of the row, download one third; books from the device have no download.
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(onClick = onPlay, modifier = Modifier.weight(if (book.isLocal) 1f else 2f)) {
+            // With the queue button next to them (episodes), play and download share the rest equally, so both labels fit.
+            FilledTonalButton(onClick = onPlay, modifier = Modifier.weight(if (book.isLocal || queued != null) 1f else 2f)) {
                 Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null)
                 val label = when {
                     progress?.finished == true -> R.string.spoken_play_again
@@ -361,6 +367,15 @@ private fun BookHeader(
                 Text(stringResource(label), modifier = Modifier.padding(start = 8.dp), maxLines = 1)
             }
             if (!book.isLocal) DownloadButton(download, onDownload, onCancelDownload, onDeleteDownload, Modifier.weight(1f))
+            if (queued != null) {
+                FilledTonalIconButton(onClick = onToggleQueue) {
+                    Icon(
+                        painterResource(if (queued) DesignR.drawable.ic_playlist_add_check else DesignR.drawable.ic_playlist_add),
+                        contentDescription = stringResource(if (queued) R.string.episode_queue_remove else R.string.episode_queue_add),
+                        tint = if (queued) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
+                }
+            }
         }
         if (onUpload != null) {
             TextButton(onClick = onUpload) {
@@ -458,7 +473,7 @@ private fun LazyListScope.bookDetailItems(book: Book, chapters: List<BookChapter
                 supportingContent = if (chapter.unavailable) ({ Text(stringResource(R.string.ard_books_part_gone)) }) else null,
                 leadingContent = if (withImages) ({ ChapterImage(chapter.imageUrl) }) else null,
                 trailingContent = {
-                    ChapterTrailing(chapter.url) { Text(formatDuration(chapter.durationMs), style = MaterialTheme.typography.bodySmall) }
+                    ChapterTrailing(chapter.url) { ChapterTimes(chapter.startMs, chapter.durationMs) }
                 },
                 colors = unavailableChapterColors(chapter),
                 modifier = Modifier.clickable(enabled = !chapter.unavailable) { onChapter(chapter.startMs) },
@@ -561,6 +576,18 @@ internal fun ChapterTrailing(url: String?, time: @Composable () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (url != null) ChapterLinkButton(url)
         time()
+    }
+}
+
+/**
+ * Where a chapter starts and, below it smaller, how long it is: the same on the book page and in the player (before, one showed
+ * the length and the other the start).
+ */
+@Composable
+internal fun ChapterTimes(startMs: Long, durationMs: Long) {
+    Column(horizontalAlignment = Alignment.End) {
+        Text(formatClock(startMs), style = MaterialTheme.typography.bodySmall)
+        Text(formatDuration(durationMs), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

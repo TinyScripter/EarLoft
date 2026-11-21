@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.GroupMargin
 import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import android.content.res.Resources
 import androidx.compose.foundation.background
@@ -129,7 +130,8 @@ internal fun LazyListScope.bookmarkItems(bookmarks: List<Bookmark>, actions: Boo
         Text(
             stringResource(R.string.spoken_bookmarks),
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(start = 32.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
+            // Indented like the section headers of the other lists (SectionHeader).
+            modifier = Modifier.padding(start = GroupMargin + 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
         )
     }
     items(bookmarks, key = { "bookmark-${it.id}" }) { bookmark ->

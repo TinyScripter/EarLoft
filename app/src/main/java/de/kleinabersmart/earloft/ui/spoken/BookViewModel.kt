@@ -106,6 +106,18 @@ class BookViewModel @AssistedInject constructor(
 
     private val isEpisode: Boolean get() = book.value?.book?.kind == BookKind.EPISODE
 
+    /** The episode is in the podcast queue ("Continue listening"); for the queue button as on the episode cards. */
+    val queued: StateFlow<Boolean> = continueListening.episodes.map { list -> list.any { it.book.id == bookId } }
+        .distinctUntilChanged()
+        .orOnError(false)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** To the end of the queue or out of it, as on the episode cards. */
+    fun toggleQueued() {
+        val inQueue = queued.value
+        viewModelScope.launch { if (inQueue) continueListening.remove(bookId) else continueListening.append(bookId) }
+    }
+
     /** Download state of the book or episode (episodes download individually, nobody here knows their size: `bytes` is 0). */
     val download: StateFlow<BookDownload> = book
         .map { it?.book?.takeIf { book -> book.kind == BookKind.EPISODE }?.serverId }

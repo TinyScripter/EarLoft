@@ -1,5 +1,8 @@
 package de.kleinabersmart.earloft.ui.playlists
 
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -134,6 +137,7 @@ fun PlaylistNameDialog(
     var serverSourceId by rememberSaveable { mutableStateOf(servers?.firstOrNull()?.sourceId) }
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    val confirm = { if (name.text.isNotBlank()) onConfirm(name.text.trim(), serverSourceId) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -145,6 +149,9 @@ fun PlaylistNameDialog(
                     onValueChange = { name = it },
                     label = { Text(stringResource(R.string.playlist_name)) },
                     singleLine = true,
+                    // Enter confirms, like the button.
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { confirm() }),
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(focusRequester),
@@ -164,7 +171,7 @@ fun PlaylistNameDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(name.text.trim(), serverSourceId) }, enabled = name.text.isNotBlank()) {
+            TextButton(onClick = confirm, enabled = name.text.isNotBlank()) {
                 Text(confirmLabel)
             }
         },

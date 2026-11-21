@@ -67,11 +67,19 @@ class BookStatsViewModel @Inject constructor(
     init {
         // On opening and on every server change, fetch the state if it is older than an hour.
         viewModelScope.launch {
-            selectedServerId.filterNotNull().collect { id ->
-                _refresh.value = StatsRefresh.RUNNING
-                _refresh.value = if (serverStats.refresh(id)) StatsRefresh.IDLE else StatsRefresh.FAILED
-            }
+            selectedServerId.filterNotNull().collect { id -> refresh(id) }
         }
+    }
+
+    /** "Try again" after a failed fetch. */
+    fun retry() {
+        val id = selectedServerId.value ?: return
+        viewModelScope.launch { refresh(id) }
+    }
+
+    private suspend fun refresh(serverId: String) {
+        _refresh.value = StatsRefresh.RUNNING
+        _refresh.value = if (serverStats.refresh(serverId)) StatsRefresh.IDLE else StatsRefresh.FAILED
     }
 
     fun select(serverId: String) {

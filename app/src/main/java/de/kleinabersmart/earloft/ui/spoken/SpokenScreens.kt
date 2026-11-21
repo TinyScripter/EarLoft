@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.library.TabLabel
 import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
@@ -299,11 +300,11 @@ fun SpokenLibraryScreen(
                 val authors = remember(all, authorSort) { all.authorGroups().sortedAuthors(authorSort) }
                 PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
                     BookTab.entries.forEachIndexed { index, tab ->
+                        // As in the music and podcast libraries: smaller font instead of wrapping.
                         Tab(
                             selected = pagerState.currentPage == index,
                             onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            text = { Text(stringResource(tab.label)) },
-                        )
+                        ) { TabLabel(stringResource(tab.label)) }
                     }
                 }
                 HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth(), key = { it }) { page ->

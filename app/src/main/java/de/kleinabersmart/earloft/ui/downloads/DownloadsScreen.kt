@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.ui.downloads
 
+import de.kleinabersmart.earloft.ui.library.AlbumMenu
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -320,6 +322,10 @@ private fun FailedRow(count: Int, onRetry: () -> Unit) {
 
 @Composable
 private fun DownloadedAlbumRow(album: DownloadedAlbum, onClick: () -> Unit, onRemove: () -> Unit) {
+    // Long press: the album menu, as everywhere else an album appears.
+    var menu by remember { mutableStateOf(false) }
+    Box {
+    if (menu) AlbumMenu(album.album, onDismiss = { menu = false })
     ListItem(
         headlineContent = { Text(album.album.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
@@ -345,8 +351,13 @@ private fun DownloadedAlbumRow(album: DownloadedAlbum, onClick: () -> Unit, onRe
                 Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = stringResource(R.string.action_remove_download))
             }
         },
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier.combinedClickable(
+            onClick = onClick,
+            onLongClickLabel = stringResource(R.string.action_more),
+            onLongClick = { menu = true },
+        ),
     )
+    }
 }
 
 /**
@@ -360,12 +371,8 @@ private fun CategoryHeader(text: String, onRemoveAll: () -> Unit) {
         Modifier.fillMaxWidth().padding(start = GroupMargin + 16.dp, end = GroupMargin + 16.dp, top = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(1f),
-        )
+        // Styled like the section headers of the other lists (SectionHeader).
+        Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
         IconButton(onClick = onRemoveAll) {
             Icon(
                 painterResource(DesignR.drawable.ic_delete),

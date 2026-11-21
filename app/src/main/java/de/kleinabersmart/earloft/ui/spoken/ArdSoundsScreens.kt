@@ -380,8 +380,15 @@ private fun ArdBookHeader(book: ArdBook, working: Boolean, onAction: (ArdBookAct
                 Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null)
                 Text(stringResource(R.string.spoken_play), modifier = Modifier.padding(start = 8.dp), maxLines = 1)
             }
-            OutlinedButton(onClick = { onAction(ArdBookAction.DOWNLOAD) }, enabled = !working, modifier = Modifier.weight(1f)) {
-                Icon(painterResource(DesignR.drawable.ic_download), contentDescription = stringResource(R.string.action_download))
+            // Built like the download button on the book page: tonal, with its label.
+            FilledTonalButton(
+                onClick = { onAction(ArdBookAction.DOWNLOAD) },
+                enabled = !working,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null)
+                Text(stringResource(R.string.book_download), modifier = Modifier.padding(start = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         TextButton(onClick = { onAction(ArdBookAction.ADD) }, enabled = !working) {

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import androidx.compose.material3.TextButton
 import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.earloft.ui.components.readableWidth
 import androidx.compose.foundation.clickable
@@ -102,6 +103,14 @@ fun BookStatsScreen(
             } else {
                 serverSection(current, refresh == StatsRefresh.FAILED, onBookClick)
             }
+            // A failed fetch can be repeated, as in the other places that load from a server.
+            if (refresh == StatsRefresh.FAILED) {
+                item(key = "server-retry") {
+                    TextButton(onClick = viewModel::retry, modifier = Modifier.padding(horizontal = GroupMargin + 4.dp)) {
+                        Text(stringResource(R.string.lyrics_retry))
+                    }
+                }
+            }
         }
 
         item(key = "device-header") { SectionHeader(stringResource(R.string.book_stats_device_title)) }
@@ -143,6 +152,13 @@ private fun LazyListScope.serverSection(stats: ServerBookStats, stale: Boolean, 
             }
         }
     }
+    if (stats.books.isNotEmpty()) {
+        item(key = "server-top") { SectionHeader(stringResource(R.string.book_stats_top)) }
+        groupedItems(stats.books, key = { "server-" + it.key }) { BookListeningRow(it, onBookClick) }
+    }
+    if (stats.hasHistory || stats.weekdays.any { it.listenedMs > 0 }) {
+        item(key = "server-history") { SectionHeader(stringResource(R.string.podcast_stats_history)) }
+    }
     if (stats.hasHistory) {
         item(key = "server-months") {
             StatCard {
@@ -161,10 +177,6 @@ private fun LazyListScope.serverSection(stats: ServerBookStats, stale: Boolean, 
                 )
             }
         }
-    }
-    if (stats.books.isNotEmpty()) {
-        item(key = "server-top") { SectionHeader(stringResource(R.string.book_stats_top)) }
-        groupedItems(stats.books, key = { "server-" + it.key }) { BookListeningRow(it, onBookClick) }
     }
     item(key = "server-updated") {
         val time = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(stats.fetchedAt))
@@ -196,8 +208,9 @@ private fun LazyListScope.deviceSection(stats: DeviceBookStats, onBookClick: (Lo
         groupedItems(stats.books, key = { "device-" + it.key }) { BookListeningRow(it, onBookClick) }
     }
     if (stats.hasHistory) {
+        item(key = "device-history") { SectionHeader(stringResource(R.string.podcast_stats_history)) }
         item(key = "device-months") {
-            StatCard(Modifier.padding(top = 8.dp)) {
+            StatCard {
                 BarChart(stats.months.toBars(LocalConfiguration.current.locales[0]), stringResource(R.string.podcast_stats_hours_per_month), Modifier.padding(16.dp))
             }
         }

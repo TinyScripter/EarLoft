@@ -216,9 +216,16 @@ fun SongListItem(
                                         offlineController?.download?.invoke(song.id)
                                     },
                                 )
+                                // A download that is still waiting or running is cancelled, not "removed".
                                 SongOfflineState.DOWNLOADED, SongOfflineState.QUEUED, SongOfflineState.DOWNLOADING -> DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.action_remove_download)) },
-                                    leadingIcon = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
+                                    text = {
+                                        val done = status.state == SongOfflineState.DOWNLOADED
+                                        Text(stringResource(if (done) R.string.action_remove_download else R.string.action_cancel_download))
+                                    },
+                                    leadingIcon = {
+                                        val done = status.state == SongOfflineState.DOWNLOADED
+                                        Icon(painterResource(if (done) DesignR.drawable.ic_delete else DesignR.drawable.ic_close), contentDescription = null)
+                                    },
                                     onClick = {
                                         menuOpen = false
                                         offlineController?.removeDownload?.invoke(song.id)
