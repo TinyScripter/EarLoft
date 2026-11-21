@@ -280,7 +280,6 @@
     <string name="licenses_title">Licences</string>
     <string name="privacy_title">Règles de confidentialité</string>
     <!-- Privacy policy asset per language, from PRIVACY*.md in the project root. -->
-    <string name="privacy_asset">PRIVACY.fr.md</string>
     <string name="server_never_synced">Pas encore synchronisé</string>
     <string name="server_last_sync">Synchronisé %1$s</string>
     <string name="server_synced_just_now">Synchronisé à l’instant</string>

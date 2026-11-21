@@ -194,8 +194,7 @@ Android Auto support is included and works fine with my car. So far this is the 
 
 ## Privacy
 
-The full privacy policy is in [PRIVACY.md](PRIVACY.md) (translations: `PRIVACY.<language>.md`, e.g.
-[PRIVACY.de.md](PRIVACY.de.md)) and in the app under
+The full privacy policy is in [PRIVACY.md](PRIVACY.md) (German: [PRIVACY.de.md](PRIVACY.de.md)) and in the app under
 **Settings → About → Privacy policy**. In short:
 
 - Your library, listening history and settings stay on your device and on your own server.

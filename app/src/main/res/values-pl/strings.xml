@@ -293,7 +293,6 @@
     <string name="licenses_title">Licencje</string>
     <string name="privacy_title">Polityka prywatności</string>
     <!-- Privacy policy asset per language, from PRIVACY*.md in the project root. -->
-    <string name="privacy_asset">PRIVACY.pl.md</string>
     <string name="server_never_synced">Jeszcze nie zsynchronizowano</string>
     <string name="server_last_sync">Zsynchronizowano %1$s</string>
     <string name="server_synced_just_now">Zsynchronizowano przed chwilą</string>

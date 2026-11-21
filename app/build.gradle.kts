@@ -49,9 +49,8 @@ aboutLibraries {
 }
 
 /**
- * Puts `PRIVACY.md` and its translations `PRIVACY.<language>.md` from the project root into the app as assets
- * (About → Privacy policy), so they exist only once. Which file is shown is defined by the string resource
- * `privacy_asset`.
+ * Puts `PRIVACY.md` and `PRIVACY.de.md` from the project root into the app as assets (About → Privacy policy),
+ * so they exist only once. Which file is shown is defined by the string resource `privacy_asset`.
  */
 abstract class PrivacyPolicyAsset : DefaultTask() {
     @get:InputFiles
@@ -69,8 +68,7 @@ abstract class PrivacyPolicyAsset : DefaultTask() {
 }
 
 val privacyPolicyAsset = tasks.register<PrivacyPolicyAsset>("privacyPolicyAsset") {
-    val privacyFile = Regex("""PRIVACY(\.[\w-]+)?\.md""")
-    sources.from(rootProject.layout.projectDirectory.asFile.listFiles { file -> privacyFile.matches(file.name) }.orEmpty())
+    sources.from(rootProject.layout.projectDirectory.files("PRIVACY.md", "PRIVACY.de.md"))
 }
 
 androidComponents {

@@ -267,7 +267,6 @@
     <string name="licenses_title">Lisenser</string>
     <string name="privacy_title">Personvernerklæring</string>
     <!-- Privacy policy asset per language, from PRIVACY*.md in the project root. -->
-    <string name="privacy_asset">PRIVACY.nb.md</string>
     <string name="server_never_synced">Ikke synkronisert ennå</string>
     <string name="server_last_sync">Synkronisert %1$s</string>
     <string name="server_synced_just_now">Akkurat synkronisert</string>

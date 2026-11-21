@@ -269,8 +269,9 @@
     <string name="about_issues_url" translatable="false">https://github.com/TinyScripter/EarLoft/issues</string>
     <string name="licenses_title">Licenses</string>
     <string name="privacy_title">Privacy policy</string>
-    <!-- Privacy policy asset per language, from PRIVACY*.md in the project root. -->
-    <string name="privacy_asset">PRIVACY.md</string>
+    <!-- Privacy policy asset, from PRIVACY*.md in the project root. Only English and German (values-de) exist; every other
+         language falls back to the English file. -->
+    <string name="privacy_asset" tools:ignore="MissingTranslation">PRIVACY.md</string>
     <string name="server_never_synced">Not synced yet</string>
     <string name="server_last_sync">Synced %1$s</string>
     <string name="server_synced_just_now">Just synced</string>

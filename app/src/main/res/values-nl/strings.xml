@@ -267,7 +267,6 @@
     <string name="licenses_title">Licenties</string>
     <string name="privacy_title">Privacybeleid</string>
     <!-- Privacy policy asset per language, from PRIVACY*.md in the project root. -->
-    <string name="privacy_asset">PRIVACY.nl.md</string>
     <string name="server_never_synced">Nog niet gesynchroniseerd</string>
     <string name="server_last_sync">Gesynchroniseerd: %1$s</string>
     <string name="server_synced_just_now">Zojuist gesynchroniseerd</string>

@@ -267,7 +267,6 @@
     <string name="licenses_title">Licenser</string>
     <string name="privacy_title">Privatlivspolitik</string>
     <!-- Privacy policy asset per language, from PRIVACY*.md in the project root. -->
-    <string name="privacy_asset">PRIVACY.da.md</string>
     <string name="server_never_synced">Ikke synkroniseret endnu</string>
     <string name="server_last_sync">Synkroniseret %1$s</string>
     <string name="server_synced_just_now">Netop synkroniseret</string>
