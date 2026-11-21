@@ -1288,4 +1288,6 @@
     <string name="form_discard_title">Änderungen verwerfen?</string>
     <string name="form_discard">Verwerfen</string>
     <string name="form_keep_editing">Weiter bearbeiten</string>
+    <string name="sleep_timer_song_end">Ende des Songs</string>
+    <string name="sleep_timer_until_song_end">Pause am Songende: %1$s</string>
 </resources>

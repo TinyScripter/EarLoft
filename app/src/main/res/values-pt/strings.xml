@@ -1352,4 +1352,6 @@
     <string name="form_discard_title">Descartar alterações?</string>
     <string name="form_discard">Descartar</string>
     <string name="form_keep_editing">Continuar editando</string>
+    <string name="sleep_timer_song_end">Fim da música</string>
+    <string name="sleep_timer_until_song_end">Pausa no fim da música: %1$s</string>
 </resources>

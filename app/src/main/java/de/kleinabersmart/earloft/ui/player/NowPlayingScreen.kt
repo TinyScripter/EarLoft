@@ -87,6 +87,7 @@ fun NowPlayingScreen(
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val seedColor by viewModel.seedColor.collectAsStateWithLifecycle()
     val sleepTimerRemainingMs by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
+    val sleepTimerToEnd by viewModel.sleepTimerToEnd.collectAsStateWithLifecycle()
     PlayerColorTheme(seedColor) {
         Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             NowPlayingContent(
@@ -107,7 +108,9 @@ fun NowPlayingScreen(
                 onCycleRepeat = viewModel::cycleRepeatMode,
                 onToggleFavorite = viewModel::toggleFavorite,
                 sleepTimerRemainingMs = sleepTimerRemainingMs,
+                sleepTimerToEnd = sleepTimerToEnd,
                 onStartSleepTimer = viewModel::startSleepTimer,
+                onStartSleepTimerToEnd = viewModel::startSleepTimerToEnd,
                 onCancelSleepTimer = viewModel::cancelSleepTimer,
                 castDeviceName = rememberCastDeviceName(state.isRemote),
                 castButton = { CastButton(active = state.isRemote) },
@@ -146,6 +149,8 @@ private fun NowPlayingContent(
     onToggleFavorite: () -> Unit,
     sleepTimerRemainingMs: Long?,
     onStartSleepTimer: (minutes: Int) -> Unit,
+    sleepTimerToEnd: Boolean = false,
+    onStartSleepTimerToEnd: () -> Unit = {},
     onCancelSleepTimer: () -> Unit,
     modifier: Modifier = Modifier,
     castDeviceName: String? = null,
@@ -156,9 +161,12 @@ private fun NowPlayingContent(
 ) {
     var sleepSheetVisible by remember { mutableStateOf(false) }
     if (sleepSheetVisible) {
+        // "End of song" first, as books offer "End of chapter".
         SleepTimerSheet(
             onStart = onStartSleepTimer,
             onDismiss = { sleepSheetVisible = false },
+            toEnd = SleepTimerEnd.SONG,
+            onStartToEnd = onStartSleepTimerToEnd,
         )
     }
     BoxWithConstraints(modifier.fillMaxSize().safeDrawingPadding()) {
@@ -259,7 +267,7 @@ private fun NowPlayingContent(
                             }
                         }
                         actionRow()
-                        SleepTimerLine(sleepTimerRemainingMs)
+                        SleepTimerLine(sleepTimerRemainingMs, toEnd = SleepTimerEnd.SONG.takeIf { sleepTimerToEnd })
                     }
                     Column(
                         Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
@@ -285,7 +293,7 @@ private fun NowPlayingContent(
                             shape = MaterialTheme.shapes.extraLarge,
                         )
                         actionRow()
-                        SleepTimerLine(sleepTimerRemainingMs)
+                        SleepTimerLine(sleepTimerRemainingMs, toEnd = SleepTimerEnd.SONG.takeIf { sleepTimerToEnd })
                         Spacer(Modifier.height(8.dp))
                         trackInfoAndControls(current)
                     }
@@ -328,7 +336,7 @@ private fun NowPlayingContent(
                             }
                         }
                         actionRow()
-                        SleepTimerLine(sleepTimerRemainingMs)
+                        SleepTimerLine(sleepTimerRemainingMs, toEnd = SleepTimerEnd.SONG.takeIf { sleepTimerToEnd })
                     }
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         if (lyricsVisible) Spacer(Modifier.height(24.dp))
@@ -366,6 +374,7 @@ internal fun SleepTimerLine(remainingMs: Long?, toEnd: SleepTimerEnd? = null) {
         SleepTimerEnd.CHAPTER -> R.string.sleep_timer_until_chapter_end
         SleepTimerEnd.EPISODE -> R.string.sleep_timer_until_episode_end
         SleepTimerEnd.BOOK -> R.string.sleep_timer_until_book_end
+        SleepTimerEnd.SONG -> R.string.sleep_timer_until_song_end
         null -> R.string.sleep_timer_remaining
     }
     // Separate line without truncation so the remaining time is fully readable even with long durations and large font.

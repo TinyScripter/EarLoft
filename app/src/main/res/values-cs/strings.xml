@@ -1416,4 +1416,6 @@
     <string name="form_discard_title">Zahodit změny?</string>
     <string name="form_discard">Zahodit</string>
     <string name="form_keep_editing">Pokračovat v úpravách</string>
+    <string name="sleep_timer_song_end">Konec skladby</string>
+    <string name="sleep_timer_until_song_end">Pauza na konci skladby: %1$s</string>
 </resources>

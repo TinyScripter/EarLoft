@@ -1288,4 +1288,6 @@
     <string name="form_discard_title">Wijzigingen verwerpen?</string>
     <string name="form_discard">Verwerpen</string>
     <string name="form_keep_editing">Verder bewerken</string>
+    <string name="sleep_timer_song_end">Einde van het nummer</string>
+    <string name="sleep_timer_until_song_end">Pauze aan het einde van het nummer: %1$s</string>
 </resources>

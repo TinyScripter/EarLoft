@@ -1297,4 +1297,6 @@
     <string name="form_discard_title">Discard changes?</string>
     <string name="form_discard">Discard</string>
     <string name="form_keep_editing">Keep editing</string>
+    <string name="sleep_timer_song_end">End of song</string>
+    <string name="sleep_timer_until_song_end">Pause at end of song: %1$s</string>
 </resources>

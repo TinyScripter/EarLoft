@@ -1416,4 +1416,6 @@
     <string name="form_discard_title">Odrzucić zmiany?</string>
     <string name="form_discard">Odrzuć</string>
     <string name="form_keep_editing">Kontynuuj edycję</string>
+    <string name="sleep_timer_song_end">Koniec utworu</string>
+    <string name="sleep_timer_until_song_end">Pauza na końcu utworu: %1$s</string>
 </resources>

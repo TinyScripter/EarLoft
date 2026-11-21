@@ -1288,4 +1288,6 @@
     <string name="form_discard_title">Kassér ændringer?</string>
     <string name="form_discard">Kassér</string>
     <string name="form_keep_editing">Fortsæt redigering</string>
+    <string name="sleep_timer_song_end">Slutningen af sangen</string>
+    <string name="sleep_timer_until_song_end">Pause ved sangens slutning: %1$s</string>
 </resources>

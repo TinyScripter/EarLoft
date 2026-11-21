@@ -34,7 +34,7 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.playback.SleepTimer
 
 /** Where the sleep timer stops "until the end": at the end of the chapter (books with chapters), at the end of the episode or book. */
-enum class SleepTimerEnd { CHAPTER, EPISODE, BOOK }
+enum class SleepTimerEnd { CHAPTER, EPISODE, BOOK, SONG }
 
 fun sleepTimerEnd(episode: Boolean, hasChapters: Boolean): SleepTimerEnd = when {
     episode -> SleepTimerEnd.EPISODE
@@ -66,6 +66,7 @@ fun SleepTimerSheet(
             val endLabel = when (toEnd) {
                 SleepTimerEnd.CHAPTER -> R.string.sleep_timer_chapter_end
                 SleepTimerEnd.EPISODE -> R.string.sleep_timer_episode_end
+                SleepTimerEnd.SONG -> R.string.sleep_timer_song_end
                 SleepTimerEnd.BOOK, null -> null
             }
             if (endLabel != null) {

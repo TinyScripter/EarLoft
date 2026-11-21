@@ -152,6 +152,7 @@ fun SetupScreen(
         setAlbumCovers = viewModel::setAlbumCovers,
         setOnlineLyrics = viewModel::setOnlineLyrics,
         setAuthorImages = viewModel::setAuthorImages,
+        setArdSoundsBooks = viewModel::setArdSoundsBooks,
     )
     val moreActions = SetupMoreActions(
         setWatchQuality = watchViewModel::setQuality,

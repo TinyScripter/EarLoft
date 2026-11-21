@@ -139,6 +139,13 @@ class PlayerViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun startSleepTimer(minutes: Int) = playbackConnection.startSleepTimer(minutes)
+
+    /** Whether the running timer stops at the end of the song (for the line below the buttons). */
+    val sleepTimerToEnd: StateFlow<Boolean> = playbackConnection.sleepTimerToEnd
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Sleep timer until the end of the current song, like "until the end of the chapter" for books. */
+    fun startSleepTimerToEnd() = playbackConnection.startSleepTimerToEnd()
     fun cancelSleepTimer() = playbackConnection.cancelSleepTimer()
 
     val currentPositionMs: Long get() = playbackConnection.currentPositionMs

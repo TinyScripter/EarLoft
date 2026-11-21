@@ -1288,4 +1288,6 @@
     <string name="form_discard_title">Hylätäänkö muutokset?</string>
     <string name="form_discard">Hylkää</string>
     <string name="form_keep_editing">Jatka muokkausta</string>
+    <string name="sleep_timer_song_end">Kappaleen loppu</string>
+    <string name="sleep_timer_until_song_end">Tauko kappaleen lopussa: %1$s</string>
 </resources>

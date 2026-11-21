@@ -192,7 +192,7 @@ fun GeneralSettingsScreen(
                 SwitchRow(
                     title = stringResource(R.string.settings_ask_mobile_stream),
                     summary = stringResource(R.string.settings_ask_mobile_stream_summary),
-                    icon = DesignR.drawable.ic_cloud,
+                    icon = DesignR.drawable.ic_signal_cellular,
                     checked = state.askBeforeMobileStreaming,
                     onCheckedChange = viewModel::setAskBeforeMobileStreaming,
                 )
@@ -259,7 +259,7 @@ fun GeneralSettingsScreen(
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_backup_export)) },
                     supportingContent = { Text(stringResource(R.string.settings_backup_export_summary)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_description), contentDescription = null) },
                     modifier = Modifier.clickable { backupExportLauncher.launchOrHint("earloft-backup-${LocalDate.now()}.zip", context) },
                 )
             }
@@ -345,17 +345,6 @@ fun MusicSettingsScreen(
 
     SettingsPage(stringResource(R.string.settings_music), onBack, modifier) {
         group("sources", R.string.settings_section_sources) {
-            row("local-media") {
-                SwitchRow(
-                    title = stringResource(R.string.settings_local_media),
-                    summary = stringResource(R.string.settings_local_media_summary),
-                    icon = DesignR.drawable.ic_music_note,
-                    checked = state.useLocalMedia,
-                    onCheckedChange = { enabled ->
-                        if (enabled) requestAudioPermission() else viewModel.setUseLocalMedia(false)
-                    },
-                )
-            }
             if (state.isFailed) {
                 row("servers-failed") { LoadFailedHint() }
             } else if (!state.isLoading && state.servers.isEmpty()) {
@@ -373,6 +362,18 @@ fun MusicSettingsScreen(
             }
             // As in the setup wizard and for Audiobookshelf: a row of the list.
             row("add") { AddRow(stringResource(R.string.settings_add_server), onAddServer) }
+            // The music on this device after the servers, in the order of the setup wizard.
+            row("local-media") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_local_media),
+                    summary = stringResource(R.string.settings_local_media_summary),
+                    icon = DesignR.drawable.ic_music_note,
+                    checked = state.useLocalMedia,
+                    onCheckedChange = { enabled ->
+                        if (enabled) requestAudioPermission() else viewModel.setUseLocalMedia(false)
+                    },
+                )
+            }
         }
 
         group("refresh", R.string.settings_section_refresh) {
@@ -437,7 +438,7 @@ fun MusicSettingsScreen(
                 SwitchRow(
                     title = stringResource(R.string.settings_music_mobile),
                     summary = stringResource(R.string.settings_music_mobile_summary),
-                    icon = DesignR.drawable.ic_cloud,
+                    icon = DesignR.drawable.ic_signal_cellular,
                     checked = !state.downloadWifiOnly,
                     onCheckedChange = { viewModel.setDownloadWifiOnly(!it) },
                 )
@@ -753,7 +754,7 @@ fun PodcastsSettingsScreen(
                 SwitchRow(
                     title = stringResource(R.string.settings_podcast_mobile),
                     summary = stringResource(R.string.settings_podcast_mobile_summary),
-                    icon = DesignR.drawable.ic_cloud,
+                    icon = DesignR.drawable.ic_signal_cellular,
                     checked = state.podcastMobileData,
                     onCheckedChange = viewModel::setPodcastMobileData,
                 )
@@ -810,7 +811,7 @@ fun PodcastsSettingsScreen(
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_db_export)) },
                     supportingContent = { Text(stringResource(R.string.settings_db_export_summary)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_description), contentDescription = null) },
                     modifier = Modifier.clickable { databaseExportLauncher.launchOrHint("earloft-podcasts.db", context) },
                 )
             }
@@ -818,7 +819,7 @@ fun PodcastsSettingsScreen(
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_opml_export)) },
                     supportingContent = { Text(stringResource(R.string.settings_opml_export_summary)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_description), contentDescription = null) },
                     modifier = Modifier.clickable { exportLauncher.launchOrHint("earloft-podcasts.opml", context) },
                 )
             }
@@ -1061,6 +1062,25 @@ fun AudiobookSettingsScreen(
 
     SettingsPage(stringResource(R.string.settings_audiobooks), onBack, modifier) {
         group("sources", R.string.settings_section_sources) {
+            // One row per server like the music servers, then "Add" as a row.
+            if (absServers == LoadState.Failed) row("abs-failed") { LoadFailedHint() }
+            if (absServers is LoadState.Ready && absServers.valueOrNull.isNullOrEmpty()) {
+                row("abs-none") { EmptyHint(stringResource(R.string.spoken_abs_none)) }
+            }
+            absServers.valueOrNull.orEmpty().forEach { server ->
+                row("abs-${server.serverId}") {
+                    AbsServerRow(
+                        server = server,
+                        keyLost = server.serverId in absWithoutKey,
+                        onEdit = { onEditServer(server.serverId) },
+                        onSyncNow = { absViewModel.syncNow(server.serverId) },
+                        onEnabledChange = { absViewModel.setEnabled(server.serverId, it) },
+                        onLibraryShown = { libraryId, shown -> absViewModel.setLibraryShown(server.serverId, libraryId, shown) },
+                    )
+                }
+            }
+            row("abs-add") { AddRow(stringResource(R.string.spoken_abs_add), onAddServer) }
+            // Books on this device after the servers, in the order of the setup wizard.
             row("local-books") {
                 SwitchRow(
                     title = stringResource(R.string.settings_local_books),
@@ -1085,24 +1105,6 @@ fun AudiobookSettingsScreen(
                     )
                 }
             }
-            // One row per server like the music servers, then "Add" as a row.
-            if (absServers == LoadState.Failed) row("abs-failed") { LoadFailedHint() }
-            if (absServers is LoadState.Ready && absServers.valueOrNull.isNullOrEmpty()) {
-                row("abs-none") { EmptyHint(stringResource(R.string.spoken_abs_none)) }
-            }
-            absServers.valueOrNull.orEmpty().forEach { server ->
-                row("abs-${server.serverId}") {
-                    AbsServerRow(
-                        server = server,
-                        keyLost = server.serverId in absWithoutKey,
-                        onEdit = { onEditServer(server.serverId) },
-                        onSyncNow = { absViewModel.syncNow(server.serverId) },
-                        onEnabledChange = { absViewModel.setEnabled(server.serverId, it) },
-                        onLibraryShown = { libraryId, shown -> absViewModel.setLibraryShown(server.serverId, libraryId, shown) },
-                    )
-                }
-            }
-            row("abs-add") { AddRow(stringResource(R.string.spoken_abs_add), onAddServer) }
             row("ard-sounds-books") {
                 SwitchRow(
                     title = stringResource(R.string.directory_ard_sounds),
@@ -1174,7 +1176,7 @@ fun AudiobookSettingsScreen(
                 SwitchRow(
                     title = stringResource(R.string.settings_book_mobile),
                     summary = stringResource(R.string.settings_book_mobile_summary),
-                    icon = DesignR.drawable.ic_cloud,
+                    icon = DesignR.drawable.ic_signal_cellular,
                     checked = state.bookMobileData,
                     onCheckedChange = viewModel::setBookMobileData,
                 )

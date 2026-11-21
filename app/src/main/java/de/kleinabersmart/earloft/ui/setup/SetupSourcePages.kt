@@ -48,6 +48,7 @@ internal class SetupActions(
     val setAlbumCovers: (Boolean) -> Unit,
     val setOnlineLyrics: (Boolean) -> Unit,
     val setAuthorImages: (Boolean) -> Unit,
+    val setArdSoundsBooks: (Boolean) -> Unit = {},
 )
 
 /** Music, podcasts, books on or off; the source pages after it exist only for the enabled ones. */
@@ -202,6 +203,16 @@ internal fun LazyListScope.booksPage(state: SettingsUiState, servers: List<Spoke
                 icon = DesignR.drawable.ic_book,
                 checked = state.authorImages,
                 onCheckedChange = actions.setAuthorImages,
+            )
+        }
+        // As in Settings → Books → Sources: audiobooks and radio plays from ARD Sounds.
+        row("ard-sounds-books") {
+            SwitchRow(
+                title = stringResource(R.string.directory_ard_sounds),
+                summary = stringResource(R.string.settings_ard_sounds_books_summary),
+                icon = DesignR.drawable.ic_cloud,
+                checked = state.ardSoundsBooks,
+                onCheckedChange = actions.setArdSoundsBooks,
             )
         }
     }

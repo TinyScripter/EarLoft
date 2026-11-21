@@ -1288,4 +1288,6 @@
     <string name="form_discard_title">Kasta ändringarna?</string>
     <string name="form_discard">Kasta</string>
     <string name="form_keep_editing">Fortsätt redigera</string>
+    <string name="sleep_timer_song_end">Slutet av låten</string>
+    <string name="sleep_timer_until_song_end">Paus vid slutet av låten: %1$s</string>
 </resources>

@@ -162,7 +162,7 @@ interface PlaybackConnection {
 
     fun startSleepTimer(minutes: Int)
 
-    /** Sleep timer until the end of the chapter (books with chapters), the episode or the book. */
+    /** Sleep timer until the end of the chapter (books with chapters), the episode, the book or the song. */
     fun startSleepTimerToEnd()
 
     fun cancelSleepTimer()

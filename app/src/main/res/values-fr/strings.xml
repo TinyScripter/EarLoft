@@ -1352,4 +1352,6 @@
     <string name="form_discard_title">Abandonner les modifications ?</string>
     <string name="form_discard">Abandonner</string>
     <string name="form_keep_editing">Continuer</string>
+    <string name="sleep_timer_song_end">Fin du morceau</string>
+    <string name="sleep_timer_until_song_end">Pause à la fin du morceau : %1$s</string>
 </resources>

@@ -1288,4 +1288,6 @@
     <string name="form_discard_title">Forkaste endringene?</string>
     <string name="form_discard">Forkast</string>
     <string name="form_keep_editing">Fortsett å redigere</string>
+    <string name="sleep_timer_song_end">Slutten av sangen</string>
+    <string name="sleep_timer_until_song_end">Pause ved slutten av sangen: %1$s</string>
 </resources>

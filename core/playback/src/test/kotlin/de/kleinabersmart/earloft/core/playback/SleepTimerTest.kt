@@ -23,6 +23,7 @@ class SleepTimerTest {
         var playCount = 0
         var rewound = 0L
         var spoken = true
+        var music = false
         var bookId = 1L
         var ends = listOf(60_000L, 120_000L, 300_000L)
         var speed = 1f
@@ -39,6 +40,7 @@ class SleepTimerTest {
 
         override val isPlaying: Boolean get() = playing
         override val isSpoken: Boolean get() = spoken
+        override val hasMusic: Boolean get() = music
 
         override fun pause() {
             position = position
@@ -55,7 +57,11 @@ class SleepTimerTest {
         /** Handover to the cast device: the queue is briefly empty, `isSpoken` stays (like `asSleepTimerTarget`). */
         var awaitsRemoteQueue = false
 
-        override fun spokenSpot(): SpokenSpot? = if (spoken && !awaitsRemoteQueue) SpokenSpot(bookId, position, speed, ends) else null
+        override fun spokenSpot(): SpokenSpot? = when {
+            spoken && !awaitsRemoteQueue -> SpokenSpot(bookId, position, speed, ends)
+            music -> SpokenSpot(bookId, position, speed, ends.take(1), music = true)
+            else -> null
+        }
 
         override fun rewind(heardMs: Long) {
             rewound += heardMs
@@ -211,6 +217,34 @@ class SleepTimerTest {
         advance(10_000)
         assertEquals(80_000L, timer.state.value?.remainingMs)
         target.spoken = false
+        advance(2_000)
+        assertNull(timer.state.value)
+        assertEquals(0, target.pauseCount)
+    }
+
+    @Test
+    fun `end of song pauses just before the next song`() {
+        target.spoken = false
+        target.music = true
+        target.ends = listOf(200_000)
+        target.position = 150_000
+        timer.startToEnd()
+        advance(10_000)
+        assertEquals(40_000L, timer.state.value?.remainingMs)
+        advance(40_000)
+        assertNull(timer.state.value)
+        assertEquals(1, target.pauseCount)
+    }
+
+    @Test
+    fun `episode to the end followed by music with a song ends the timer without a pause`() {
+        target.ends = listOf(90_000)
+        target.position = 0
+        timer.startToEnd()
+        advance(10_000)
+        target.spoken = false
+        target.music = true
+        target.bookId = -1
         advance(2_000)
         assertNull(timer.state.value)
         assertEquals(0, target.pauseCount)

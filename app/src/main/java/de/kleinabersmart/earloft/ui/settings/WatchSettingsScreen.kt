@@ -299,36 +299,6 @@ private val WearSelectionKind.label: Int
         WearSelectionKind.FAVORITES -> R.string.watch_selection_favorites
     }
 
-@Composable
-private fun <T> ChoiceDialog(
-    title: String,
-    options: List<T>,
-    selected: T,
-    label: @Composable (T) -> String,
-    onSelect: (T) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(Modifier.selectableGroup()) {
-                options.forEach { option ->
-                    ListItem(
-                        headlineContent = { Text(label(option)) },
-                        leadingContent = { RadioButton(selected = option == selected, onClick = null) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.selectable(selected = option == selected, role = Role.RadioButton) { onSelect(option) },
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-        },
-    )
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun WatchSettingsContentPreview() {

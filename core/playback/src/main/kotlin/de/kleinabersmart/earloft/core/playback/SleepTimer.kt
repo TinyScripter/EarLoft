@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.playback
 
+import androidx.media3.common.C
 import android.os.SystemClock
 import androidx.media3.common.Player
 import kotlinx.coroutines.CoroutineScope
@@ -18,9 +19,10 @@ import javax.inject.Singleton
 
 /**
  * Where a book or episode currently is (book positions): [ends] are the positions where the timer "until the end"
- * can stop, ascending – for books with chapters every chapter end, otherwise only the end of the whole.
+ * can stop, ascending – for books with chapters every chapter end, otherwise only the end of the whole. For [music] the
+ * current song, whose only end is its length ("until the end of the song"); [bookId] is then a key of the song in the queue.
  */
-internal class SpokenSpot(val bookId: Long, val positionMs: Long, val speed: Float, val ends: List<Long>) {
+internal class SpokenSpot(val bookId: Long, val positionMs: Long, val speed: Float, val ends: List<Long>, val music: Boolean = false) {
     /** The end of the section in which [positionMs] lies. */
     fun endAfter(positionMs: Long): Long = ends.firstOrNull { it > positionMs } ?: ends.last()
 
@@ -35,10 +37,13 @@ internal interface SleepTimerTarget {
 
     /** A book or episode is loaded (even if [spokenSpot] is still missing because the timeline is loading). */
     val isSpoken: Boolean
+
+    /** A song is loaded (even if its length isn't known yet); "until the end" then means the end of the song. */
+    val hasMusic: Boolean get() = false
     fun pause()
     fun play()
 
-    /** State of the current book or episode; `null` for music or while the timeline is loading. */
+    /** State of the current book, episode or song; `null` while the timeline or the song's length is still loading. */
     fun spokenSpot(): SpokenSpot?
 
     /** For books and episodes rewind [heardMs] of listened time (converted with speed); nothing for music. */
@@ -54,9 +59,17 @@ internal fun Player.asSleepTimerTarget(spot: () -> SpokenSpot?, rewind: (Long) -
     override val isPlaying: Boolean get() = this@asSleepTimerTarget.isPlaying
     // During the handover to the cast device the queue is empty for a few seconds: not an end, "until the end" waits (review D9).
     override val isSpoken: Boolean get() = currentMediaItem?.isSpoken == true || awaitsRemoteQueue
+    override val hasMusic: Boolean get() = currentMediaItem?.let { !it.isSpoken } == true
     override fun pause() = this@asSleepTimerTarget.pause()
     override fun play() = this@asSleepTimerTarget.play()
-    override fun spokenSpot(): SpokenSpot? = spot()
+    override fun spokenSpot(): SpokenSpot? = spot() ?: musicSpot()
+
+    /** The current song as one section; its key in the queue (negative, never a book) tells the next song apart. */
+    private fun musicSpot(): SpokenSpot? {
+        if (!hasMusic) return null
+        val length = duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: return null
+        return SpokenSpot(-(currentMediaItemIndex + 1L), currentPosition, playbackParameters.speed, listOf(length), music = true)
+    }
     override fun rewind(heardMs: Long) = rewind.invoke(heardMs)
 }
 
@@ -127,9 +140,10 @@ class SleepTimer internal constructor(
         launch(Plan.Duration(now() + durationMs))
     }
 
-    /** Until the end of the chapter (books with chapters), the book or the episode; nothing without a book or episode. */
+    /** Until the end of the chapter (books with chapters), the book, the episode or the song; nothing without anything loaded. */
     fun startToEnd() {
-        if (target?.isSpoken != true) return
+        val target = target ?: return
+        if (!target.isSpoken && !target.hasMusic) return
         launch(Plan.ToEnd())
     }
 
@@ -175,7 +189,7 @@ class SleepTimer internal constructor(
             // Without a further chapter (episode, last chapter) by the last chosen duration.
             is Plan.ToEnd -> plan.endMs?.let { end ->
                 target.spokenSpot()?.takeIf { it.bookId == plan.bookId }?.endAfter(end)?.takeIf { it > end }
-            }?.let { Plan.ToEnd(bookId = plan.bookId, endMs = it, fromMs = plan.fromMs) }
+            }?.let { Plan.ToEnd(bookId = plan.bookId, endMs = it, fromMs = plan.fromMs, music = plan.music) }
         }
         launch(next ?: Plan.Duration(now() + lastDurationMs))
         if (fired) target.play()
@@ -264,7 +278,7 @@ class SleepTimer internal constructor(
          * extension, the start of the original chapter) falls asleep at the end of the new chapter. Stop just before the
          * boundary: otherwise an episode would already move on to the next one.
          */
-        class ToEnd(var bookId: Long? = null, var endMs: Long? = null, var fromMs: Long? = null) : Plan {
+        class ToEnd(var bookId: Long? = null, var endMs: Long? = null, var fromMs: Long? = null, var music: Boolean? = null) : Plan {
             override val slackMs = END_SLACK_MS
             private var lastRemaining = Long.MAX_VALUE
 
@@ -273,7 +287,15 @@ class SleepTimer internal constructor(
                 if (spot == null) {
                     // Just crossed the boundary into the next item (episode finished, next one loading): that was the end.
                     if (lastRemaining < CROSS_TOLERANCE_MS) return Step.Remaining(0)
-                    return if (target.isSpoken) Step.Wait else Step.Stop
+                    return if (target.isSpoken || target.hasMusic) Step.Wait else Step.Stop
+                }
+                // Started for a book or episode and now music plays (or the other way round): that timer is over, unless it was
+                // just its end.
+                val kind = music
+                if (kind == null) {
+                    music = spot.music
+                } else if (kind != spot.music) {
+                    return if (lastRemaining < CROSS_TOLERANCE_MS) Step.Remaining(0) else Step.Stop
                 }
                 if (spot.bookId != bookId) {
                     if (bookId != null && lastRemaining < CROSS_TOLERANCE_MS) return Step.Remaining(0)
