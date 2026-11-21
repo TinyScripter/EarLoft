@@ -682,7 +682,6 @@
     <string name="podcast_subscriptions">Tilaukset</string>
     <string name="podcast_add">Lisää podcast</string>
     <string name="podcast_add_url">Syötteen osoite</string>
-    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">Tilaa</string>
     <string name="podcast_adding">Luetaan syötettä…</string>
     <string name="podcast_add_http_hint">Salaamaton osoite: sovellus yrittää ensin HTTPS-yhteyttä. Jos palvelin ei tarjoa sitä, syöte ladataan salaamattomana – kuka tahansa verkossa näkee, mitä kuuntelet, ja yksityisissä syötteissä myös osoitteeseen sisältyvän käyttöavaimen.</string>
@@ -701,9 +700,7 @@
     <string name="podcast_credentials_failed">Syötettä ei voitu päivittää näillä tunnuksilla.</string>
     <string name="podcast_credentials_saved">Kirjauduttu, syöte päivitetty</string>
     <string name="podcast_already">Olet jo tilannut tämän podcastin.</string>
-    <string name="podcast_add_direct">Lisää suoraan</string>
-    <string name="podcast_add_search">Hae hakemistoista</string>
-    <string name="podcast_directory_search_label">Podcastin nimi tai aihe</string>
+    <string name="podcast_add_search_field">Hae tai liitä syötteen osoite</string>
     <string name="podcast_directory_search">Hae</string>
     <string name="podcast_discover_popular">Suositut (%1$s)</string>
     <string name="podcast_discover_trending">Nousussa</string>
@@ -729,7 +726,7 @@
     <string name="podcast_category_leisure">Vapaa-aika</string>
     <string name="podcast_category_kids">Lapset ja perhe</string>
     <string name="podcast_category_religion">Uskonto ja henkisyys</string>
-    <string name="podcast_directory_none">Yhtään hakemistoa ei ole otettu käyttöön. Napauta rataskuvaketta kohdan ”Hae hakemistoista” vieressä ja valitse, mistä hakemistoista sovellus saa hakea – hakusanasi lähetetään niihin.</string>
+    <string name="podcast_directory_none">Yhtään hakemistoa ei ole otettu käyttöön, joten tässä toimivat vain syötteiden osoitteet. Valitse, mistä hakemistoista sovellus saa hakea – hakusanasi lähetetään niihin.</string>
     <string name="podcast_directory_open_settings">Avaa asetukset</string>
     <string name="podcast_directories_choose">Valitse hakemistot</string>
     <string name="podcast_directory_searching">Haetaan…</string>

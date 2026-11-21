@@ -682,7 +682,6 @@
     <string name="podcast_subscriptions">Abonnementer</string>
     <string name="podcast_add">Tilføj podcast</string>
     <string name="podcast_add_url">Feedadresse</string>
-    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">Abonner</string>
     <string name="podcast_adding">Læser feed …</string>
     <string name="podcast_add_http_hint">Ukrypteret adresse: Appen prøver først med HTTPS. Hvis værten ikke tilbyder det, indlæses feedet ukrypteret – alle på netværket kan se, hvad du lytter til, og ved private feeds også adgangsnøglen i adressen.</string>
@@ -701,9 +700,7 @@
     <string name="podcast_credentials_failed">Feedet kunne ikke opdateres med disse loginoplysninger.</string>
     <string name="podcast_credentials_saved">Logget ind, feed opdateret</string>
     <string name="podcast_already">Du abonnerer allerede på denne podcast.</string>
-    <string name="podcast_add_direct">Tilføj direkte</string>
-    <string name="podcast_add_search">Søg i kataloger</string>
-    <string name="podcast_directory_search_label">Podcastnavn eller emne</string>
+    <string name="podcast_add_search_field">Søg eller indsæt feedadresse</string>
     <string name="podcast_directory_search">Søg</string>
     <string name="podcast_discover_popular">Populært i %1$s</string>
     <string name="podcast_discover_trending">Trender</string>
@@ -729,7 +726,7 @@
     <string name="podcast_category_leisure">Fritid</string>
     <string name="podcast_category_kids">Børn og familie</string>
     <string name="podcast_category_religion">Religion og spiritualitet</string>
-    <string name="podcast_directory_none">Ingen kataloger er slået til. Tryk på tandhjulet ved siden af »Søg i kataloger« for at vælge, hvilke kataloger appen må søge i – dine søgeord sendes til dem.</string>
+    <string name="podcast_directory_none">Ingen kataloger er slået til, så her virker kun feedadresser. Vælg, hvilke kataloger appen må søge i – dine søgeord sendes til dem.</string>
     <string name="podcast_directory_open_settings">Åbn indstillinger</string>
     <string name="podcast_directories_choose">Vælg kataloger</string>
     <string name="podcast_directory_searching">Søger …</string>

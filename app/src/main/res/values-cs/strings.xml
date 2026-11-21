@@ -740,7 +740,6 @@
     <string name="podcast_subscriptions">Odběry</string>
     <string name="podcast_add">Přidat podcast</string>
     <string name="podcast_add_url">Adresa kanálu</string>
-    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">Odebírat</string>
     <string name="podcast_adding">Načítání kanálu…</string>
     <string name="podcast_add_http_hint">Nešifrovaná adresa: aplikace nejdřív zkusí HTTPS. Pokud ho hostitel nenabízí, kanál se načte nešifrovaně – kdokoli v síti uvidí, co posloucháte, a u soukromých kanálů i přístupový klíč v adrese.</string>
@@ -759,9 +758,7 @@
     <string name="podcast_credentials_failed">S těmito přihlašovacími údaji se kanál nepodařilo aktualizovat.</string>
     <string name="podcast_credentials_saved">Přihlášeno, kanál aktualizován</string>
     <string name="podcast_already">Tento podcast už odebíráte.</string>
-    <string name="podcast_add_direct">Přidat přímo</string>
-    <string name="podcast_add_search">Hledat v katalozích</string>
-    <string name="podcast_directory_search_label">Název podcastu nebo téma</string>
+    <string name="podcast_add_search_field">Hledat nebo vložit adresu kanálu</string>
     <string name="podcast_directory_search">Hledat</string>
     <string name="podcast_discover_popular">Populární: %1$s</string>
     <string name="podcast_discover_trending">Trendy</string>
@@ -787,7 +784,7 @@
     <string name="podcast_category_leisure">Volný čas</string>
     <string name="podcast_category_kids">Děti a rodina</string>
     <string name="podcast_category_religion">Náboženství a spiritualita</string>
-    <string name="podcast_directory_none">Není zapnutý žádný katalog. Klepnutím na ozubené kolo vedle „Hledat v katalozích“ vyberte, ve kterých katalozích smí aplikace hledat – vaše hledané výrazy se do nich odesílají.</string>
+    <string name="podcast_directory_none">Není zapnutý žádný katalog, proto zde fungují jen adresy kanálů. Vyberte, ve kterých katalozích smí aplikace hledat – vaše hledané výrazy se do nich odesílají.</string>
     <string name="podcast_directory_open_settings">Otevřít nastavení</string>
     <string name="podcast_directories_choose">Vybrat katalogy</string>
     <string name="podcast_directory_searching">Hledání…</string>

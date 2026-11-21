@@ -682,7 +682,6 @@
     <string name="podcast_subscriptions">Abonnementer</string>
     <string name="podcast_add">Legg til podkast</string>
     <string name="podcast_add_url">Feedadresse</string>
-    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">Abonner</string>
     <string name="podcast_adding">Leser feeden …</string>
     <string name="podcast_add_http_hint">Ukryptert adresse: Appen prøver HTTPS først. Hvis verten ikke tilbyr det, lastes feeden ukryptert – alle på nettverket kan se hva du lytter til, og for private feeder også tilgangsnøkkelen i adressen.</string>
@@ -701,9 +700,7 @@
     <string name="podcast_credentials_failed">Feeden kunne ikke oppdateres med denne påloggingsinformasjonen.</string>
     <string name="podcast_credentials_saved">Pålogget, feeden er oppdatert</string>
     <string name="podcast_already">Du abonnerer allerede på denne podkasten.</string>
-    <string name="podcast_add_direct">Legg til direkte</string>
-    <string name="podcast_add_search">Søk i kataloger</string>
-    <string name="podcast_directory_search_label">Podkastnavn eller emne</string>
+    <string name="podcast_add_search_field">Søk eller lim inn feedadresse</string>
     <string name="podcast_directory_search">Søk</string>
     <string name="podcast_discover_popular">Populært i %1$s</string>
     <string name="podcast_discover_trending">Populært nå</string>
@@ -729,7 +726,7 @@
     <string name="podcast_category_leisure">Fritid</string>
     <string name="podcast_category_kids">Barn og familie</string>
     <string name="podcast_category_religion">Religion og spiritualitet</string>
-    <string name="podcast_directory_none">Ingen katalog er slått på. Trykk på tannhjulet ved siden av «Søk i kataloger» for å velge hvilke kataloger appen kan søke i – søkeordene dine sendes til dem.</string>
+    <string name="podcast_directory_none">Ingen katalog er slått på, så her fungerer bare feedadresser. Velg hvilke kataloger appen kan søke i – søkeordene dine sendes til dem.</string>
     <string name="podcast_directory_open_settings">Åpne innstillinger</string>
     <string name="podcast_directories_choose">Velg kataloger</string>
     <string name="podcast_directory_searching">Søker …</string>

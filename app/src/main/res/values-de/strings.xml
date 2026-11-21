@@ -682,7 +682,6 @@
     <string name="podcast_subscriptions">Abos</string>
     <string name="podcast_add">Podcast hinzufügen</string>
     <string name="podcast_add_url">Feed-Adresse</string>
-    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">Abonnieren</string>
     <string name="podcast_adding">Feed wird gelesen …</string>
     <string name="podcast_add_http_hint">Unverschlüsselte Adresse: Die App versucht zuerst HTTPS. Bietet der Host das nicht, wird der Feed unverschlüsselt geladen – wer im Netz mitliest, sieht, was du hörst, bei privaten Feeds auch den Zugangsschlüssel in der Adresse.</string>
@@ -701,9 +700,7 @@
     <string name="podcast_credentials_failed">Mit diesen Zugangsdaten ließ sich der Feed nicht abgleichen.</string>
     <string name="podcast_credentials_saved">Angemeldet, Feed abgeglichen</string>
     <string name="podcast_already">Dieser Podcast ist schon abonniert.</string>
-    <string name="podcast_add_direct">Direkt hinzufügen</string>
-    <string name="podcast_add_search">In Verzeichnissen suchen</string>
-    <string name="podcast_directory_search_label">Name oder Thema</string>
+    <string name="podcast_add_search_field">Suchen oder Feed-Adresse einfügen</string>
     <string name="podcast_directory_search">Suchen</string>
     <string name="podcast_discover_popular">Beliebt in %1$s</string>
     <string name="podcast_discover_trending">Gerade gefragt</string>
@@ -729,7 +726,7 @@
     <string name="podcast_category_leisure">Freizeit</string>
     <string name="podcast_category_kids">Kinder &amp; Familie</string>
     <string name="podcast_category_religion">Religion &amp; Spiritualität</string>
-    <string name="podcast_directory_none">Kein Verzeichnis eingeschaltet. Über das Zahnrad neben „In Verzeichnissen suchen“ legst du fest, in welchen Verzeichnissen gesucht werden darf – die Suchbegriffe gehen an diese Dienste.</string>
+    <string name="podcast_directory_none">Kein Verzeichnis eingeschaltet, daher klappen hier nur Feed-Adressen. Lege fest, in welchen Verzeichnissen gesucht werden darf – die Suchbegriffe gehen an diese Dienste.</string>
     <string name="podcast_directory_open_settings">Zu den Einstellungen</string>
     <string name="podcast_directories_choose">Verzeichnisse wählen</string>
     <string name="podcast_directory_searching">Suche läuft …</string>

@@ -711,7 +711,6 @@
     <string name="podcast_subscriptions">Abonnements</string>
     <string name="podcast_add">Ajouter un podcast</string>
     <string name="podcast_add_url">Adresse du flux</string>
-    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">S’abonner</string>
     <string name="podcast_adding">Lecture du flux…</string>
     <string name="podcast_add_http_hint">Adresse non chiffrée : l’application essaie d’abord HTTPS. Si l’hôte ne le propose pas, le flux est chargé sans chiffrement – n’importe qui sur le réseau peut voir ce que vous écoutez et, pour les flux privés, la clé d’accès contenue dans l’adresse.</string>
@@ -730,9 +729,7 @@
     <string name="podcast_credentials_failed">Impossible d’actualiser le flux avec ces identifiants.</string>
     <string name="podcast_credentials_saved">Connecté, flux actualisé</string>
     <string name="podcast_already">Vous êtes déjà abonné à ce podcast.</string>
-    <string name="podcast_add_direct">Ajouter directement</string>
-    <string name="podcast_add_search">Rechercher dans les annuaires</string>
-    <string name="podcast_directory_search_label">Nom du podcast ou thème</string>
+    <string name="podcast_add_search_field">Rechercher ou coller l’adresse du flux</string>
     <string name="podcast_directory_search">Rechercher</string>
     <string name="podcast_discover_popular">Populaires – %1$s</string>
     <string name="podcast_discover_trending">Tendances</string>
@@ -758,7 +755,7 @@
     <string name="podcast_category_leisure">Loisirs</string>
     <string name="podcast_category_kids">Enfants et famille</string>
     <string name="podcast_category_religion">Religion et spiritualité</string>
-    <string name="podcast_directory_none">Aucun annuaire n’est activé. Appuyez sur la roue dentée à côté de « Rechercher dans les annuaires » pour choisir les annuaires que l’application peut interroger – vos termes de recherche leur sont envoyés.</string>
+    <string name="podcast_directory_none">Aucun annuaire n’est activé : seules les adresses de flux fonctionnent ici. Choisissez les annuaires que l’application peut interroger – vos termes de recherche leur sont envoyés.</string>
     <string name="podcast_directory_open_settings">Ouvrir les paramètres</string>
     <string name="podcast_directories_choose">Choisir les annuaires</string>
     <string name="podcast_directory_searching">Recherche…</string>

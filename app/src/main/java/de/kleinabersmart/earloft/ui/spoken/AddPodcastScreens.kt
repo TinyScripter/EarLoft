@@ -36,6 +36,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import de.kleinabersmart.earloft.ui.components.GroupedItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import de.kleinabersmart.earloft.core.data.share.IncomingFeed
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -48,7 +55,6 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -74,7 +80,6 @@ import de.kleinabersmart.earloft.core.network.podcast.normalizeFeedUrl
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.GroupMargin
 import de.kleinabersmart.earloft.ui.components.SectionHeader
-import de.kleinabersmart.earloft.ui.components.group
 import de.kleinabersmart.earloft.ui.components.CardGap
 import de.kleinabersmart.earloft.ui.components.cardItems
 import de.kleinabersmart.earloft.ui.library.BackButton
@@ -82,9 +87,10 @@ import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * "Add podcast" page (concept 12.10): feed address and OPML import at the top, below that the search in the enabled
- * directories. The search only runs on the magnifier (or the keyboard's search key). As long as nothing has been searched,
- * the popular podcasts of the directories with charts ("Discover") are shown there, with categories as chips.
+ * "Add podcast" page (concept 12.10): one field at the top, for a search in the enabled directories or a feed address
+ * ([looksLikeFeedAddress]; then a card to subscribe instead of results). The search only runs on the magnifier (or the
+ * keyboard's search key). As long as nothing has been searched, the popular podcasts of the directories with charts
+ * ("Discover") are shown below, with categories as chips. The OPML import is in the menu at the top right.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,7 +110,6 @@ fun AddPodcastScreen(
     val discoverable by viewModel.discoverable.collectAsStateWithLifecycle()
     val country by viewModel.country.collectAsStateWithLifecycle()
     val discover by viewModel.discover.collectAsStateWithLifecycle()
-    var url by rememberSaveable { mutableStateOf("") }
     var term by rememberSaveable { mutableStateOf("") }
     var opmlToImport by rememberSaveable { mutableStateOf<Uri?>(null) }
     /** Result (by [feedKey]) for which the user is currently choosing whether the subscription runs via the feed or via ARD Sounds. */
@@ -148,127 +153,100 @@ fun AddPodcastScreen(
         TopAppBar(
             title = { Text(stringResource(R.string.podcast_add), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
+            // OPML is a one-off when switching apps; it waits in the menu instead of taking room on the page.
+            actions = {
+                Box {
+                    var menuOpen by remember { mutableStateOf(false) }
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.settings_opml_import)) },
+                            leadingIcon = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                importLauncher.launch(arrayOf("*/*"))
+                            },
+                        )
+                    }
+                }
+            },
         )
-        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
-            item(key = "direct") { SectionHeader(stringResource(R.string.podcast_add_direct)) }
-            item(key = "url") {
-                FeedUrlForm(url, onUrlChange = { url = it }, state = add, onSubscribe = { viewModel.subscribe(url) })
+        val enabled = directories
+        // One field for both (user, 2026-11-21): a feed address subscribes, anything else searches the directories.
+        val address = term.takeIf(::looksLikeFeedAddress)?.trim()
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+            // With search results, the field stays pinned at the top while scrolling (user, 2026-11-21); while discovering,
+            // only the categories are pinned ([DiscoverHeader]). Same key in both cases, so the field keeps its state.
+            val searchField: @Composable () -> Unit = {
+                SearchOrAddressField(
+                    term = term,
+                    onTermChange = {
+                        term = it
+                        if (add is AddPodcastState.Failed) viewModel.resetAdd()
+                    },
+                    address = address,
+                    canSearch = !enabled.isNullOrEmpty(),
+                    directories = enabled.orEmpty(),
+                    onSearch = startSearch,
+                    onSubscribe = { address?.let { viewModel.subscribe(IncomingFeed.fromLink(it) ?: it) } },
+                    onChooseDirectories = { choosingDirectories = true },
+                )
             }
-            group("opml-group") {
-                row("opml") {
-                    ListItem(
-                        headlineContent = { Text(stringResource(R.string.settings_opml_import)) },
-                        supportingContent = { Text(stringResource(R.string.settings_opml_import_summary)) },
-                        leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
-                        modifier = Modifier.clickable { importLauncher.launch(arrayOf("*/*")) },
-                    )
-                }
-            }
-
-            val enabled = directories
-            val chooseDirectories: @Composable () -> Unit = {
-                IconButton(onClick = { choosingDirectories = true }) {
-                    Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_directories_choose))
-                }
-            }
-            item(key = "search-header") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SectionHeader(stringResource(R.string.podcast_add_search), Modifier.weight(1f))
-                    // Without a search field the gear stays next to the heading (the hint below points there).
-                    if (enabled?.isEmpty() == true) Box(Modifier.padding(end = GroupMargin)) { chooseDirectories() }
-                }
+            if (search == DirectorySearchState.Idle || address != null) {
+                item(key = SearchFieldKey) { searchField() }
+            } else {
+                stickyHeader(key = SearchFieldKey) { searchField() }
             }
             when {
-                enabled == null -> Unit
-                // Enabling happens via the gear next to the heading, which the hint points to.
-                enabled.isEmpty() -> item(key = "no-directory") {
-                    Text(
-                        stringResource(R.string.podcast_directory_none),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = GroupMargin + 16.dp),
-                    )
+                address != null -> item(key = "address") {
+                    FeedAddressCard(address, add, onSubscribe = { viewModel.subscribe(IncomingFeed.fromLink(address) ?: address) })
                 }
-                else -> {
-                    val discovering = discoverable?.takeIf { it.isNotEmpty() && search == DirectorySearchState.Idle }
-                    // With search results, the search field (and the gear next to it) stays pinned at the top while scrolling
-                    // (user, 2026-11-21); while discovering, only the categories are pinned ([DiscoverHeader]). Same key in both
-                    // cases, so the field keeps its state when it becomes pinned.
-                    val searchField: @Composable () -> Unit = {
-                        // Own background, so the results below scroll underneath instead of showing through.
-                        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
-                            Row(Modifier.padding(start = GroupMargin, end = GroupMargin / 2), verticalAlignment = Alignment.Top) {
-                                OutlinedTextField(
-                                    value = term,
-                                    onValueChange = { term = it },
-                                    label = { Text(stringResource(R.string.podcast_directory_search_label)) },
-                                    supportingText = {
-                                        Text(enabled.joinToString(" · ") { resources.getString(it.label) }, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    },
-                                    trailingIcon = {
-                                        Row {
-                                            // Clearing the term also brings back "Discover" (see clearSearch above).
-                                            if (term.isNotEmpty()) {
-                                                IconButton(onClick = { term = "" }) {
-                                                    Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_clear_search))
-                                                }
-                                            }
-                                            IconButton(onClick = startSearch, enabled = term.isNotBlank()) {
-                                                Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(R.string.podcast_directory_search))
-                                            }
-                                        }
-                                    },
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                    keyboardActions = KeyboardActions(onSearch = { if (term.isNotBlank()) startSearch() }),
-                                    modifier = Modifier.weight(1f),
+                enabled == null -> Unit
+                enabled.isEmpty() -> item(key = "no-directory") {
+                    TrialNotice(
+                        text = stringResource(R.string.podcast_directory_none),
+                        modifier = Modifier.padding(horizontal = GroupMargin, vertical = 8.dp),
+                    ) {
+                        FilledTonalButton(onClick = { choosingDirectories = true }) { Text(stringResource(R.string.podcast_directories_choose)) }
+                    }
+                }
+                else -> when (val state = search) {
+                    DirectorySearchState.Idle -> discoverable?.takeIf { it.isNotEmpty() }?.let { directories ->
+                        stickyHeader(key = DiscoverHeaderKey) {
+                            DiscoverHeader(directories, country, discover?.category) {
+                                viewModel.discover(it, directories)
+                                scope.launch { listState.showDiscoverStart() }
+                            }
+                        }
+                        discoverSection(directories, discover, subscribed, onHit = openHit)
+                    }
+                    DirectorySearchState.Searching -> item(key = "searching") {
+                        Row(Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Text(stringResource(R.string.podcast_directory_searching), modifier = Modifier.padding(start = 12.dp))
+                        }
+                    }
+                    is DirectorySearchState.Done -> {
+                        if (state.failed.isNotEmpty()) {
+                            item(key = "failed") {
+                                Text(
+                                    stringResource(
+                                        R.string.podcast_directory_failed,
+                                        state.failed.sorted().joinToString(", ") { resources.getString(it.label) },
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
                                 )
-                                // Centered on the field (56 dp, the supporting text hangs below it).
-                                Box(Modifier.padding(top = 4.dp)) { chooseDirectories() }
                             }
                         }
-                    }
-                    if (search == DirectorySearchState.Idle) {
-                        item(key = SearchFieldKey) { searchField() }
-                    } else {
-                        stickyHeader(key = SearchFieldKey) { searchField() }
-                    }
-                    when (val state = search) {
-                        DirectorySearchState.Idle -> discovering?.let { directories ->
-                            stickyHeader(key = DiscoverHeaderKey) {
-                                DiscoverHeader(directories, country, discover?.category) {
-                                    viewModel.discover(it, directories)
-                                    scope.launch { listState.showDiscoverStart() }
-                                }
-                            }
-                            discoverSection(directories, discover, subscribed, onHit = openHit)
+                        if (state.hits.isEmpty() && state.failed.size < enabled.size) {
+                            item(key = "empty") { EmptyHint(stringResource(R.string.search_no_results, state.term)) }
                         }
-                        DirectorySearchState.Searching -> item(key = "searching") {
-                            Row(Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                                Text(stringResource(R.string.podcast_directory_searching), modifier = Modifier.padding(start = 12.dp))
-                            }
-                        }
-                        is DirectorySearchState.Done -> {
-                            if (state.failed.isNotEmpty()) {
-                                item(key = "failed") {
-                                    Text(
-                                        stringResource(
-                                            R.string.podcast_directory_failed,
-                                            state.failed.sorted().joinToString(", ") { resources.getString(it.label) },
-                                        ),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
-                                    )
-                                }
-                            }
-                            if (state.hits.isEmpty() && state.failed.size < enabled.size) {
-                                item(key = "empty") { EmptyHint(stringResource(R.string.search_no_results, state.term)) }
-                            }
-                            cardItems(state.hits, key = { "hit-${feedKey(it.feedUrl)}" }, gap = CardGap) { hit ->
-                                DirectoryHitRow(hit, subscribed = hit.isSubscribed(subscribed)) { openHit(hit) }
-                            }
+                        cardItems(state.hits, key = { "hit-${feedKey(it.feedUrl)}" }, gap = CardGap) { hit ->
+                            DirectoryHitRow(hit, subscribed = hit.isSubscribed(subscribed)) { openHit(hit) }
                         }
                     }
                 }
@@ -536,47 +514,128 @@ private fun SourceDialog(hit: DirectoryPodcast, onChoose: (String) -> Unit, onDi
     )
 }
 
-/** Field for the feed address with a hint for `http://`, error message and "Subscribe". */
+/**
+ * The one field of the page: a search term or a feed address ([address], then the keyboard's action subscribes instead of
+ * searching). Below it, where the search goes ("Search in Podcast Index · Apple"); a tap there chooses the directories.
+ */
 @Composable
-private fun FeedUrlForm(url: String, onUrlChange: (String) -> Unit, state: AddPodcastState, onSubscribe: () -> Unit) {
-    val working = state == AddPodcastState.Working
-    Column(Modifier.fillMaxWidth().padding(horizontal = GroupMargin)) {
+private fun SearchOrAddressField(
+    term: String,
+    onTermChange: (String) -> Unit,
+    address: String?,
+    canSearch: Boolean,
+    directories: List<PodcastDirectory>,
+    onSearch: () -> Unit,
+    onSubscribe: () -> Unit,
+    onChooseDirectories: () -> Unit,
+) {
+    val resources = LocalResources.current
+    // Own background, so the results below scroll underneath instead of showing through when pinned.
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal = GroupMargin)) {
         OutlinedTextField(
-            value = url,
-            onValueChange = onUrlChange,
-            label = { Text(stringResource(R.string.podcast_add_url)) },
-            placeholder = { Text(stringResource(R.string.podcast_add_url_hint)) },
+            value = term,
+            onValueChange = onTermChange,
+            placeholder = { Text(stringResource(R.string.podcast_add_search_field), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            leadingIcon = { Icon(painterResource(R.drawable.ic_nav_search), contentDescription = null) },
+            trailingIcon = {
+                // Clearing the term also brings back "Discover" (see clearSearch above).
+                if (term.isNotEmpty()) {
+                    IconButton(onClick = { onTermChange("") }) {
+                        Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_clear_search))
+                    }
+                }
+            },
             singleLine = true,
-            enabled = !working,
-            isError = state is AddPodcastState.Failed,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { if (url.isNotBlank()) onSubscribe() }),
+            shape = CircleShape,
+            keyboardOptions = KeyboardOptions(imeAction = if (address != null) ImeAction.Done else ImeAction.Search),
+            keyboardActions = KeyboardActions(
+                onSearch = { if (term.isNotBlank() && canSearch) onSearch() },
+                onDone = { onSubscribe() },
+            ),
             modifier = Modifier.fillMaxWidth(),
         )
-        if (isUnencrypted(url)) {
-            Text(
-                stringResource(R.string.podcast_add_http_hint),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+        // With an address nothing is searched, so where the search would go doesn't matter then.
+        if (directories.isNotEmpty() && address == null) {
+            Row(
+                Modifier
+                    .padding(top = 4.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onChooseDirectories)
+                    .padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.podcast_search_in, directories.joinToString(" · ") { resources.getString(it.label) }),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Icon(
+                    painterResource(DesignR.drawable.ic_chevron_right),
+                    contentDescription = stringResource(R.string.podcast_directories_choose),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
-        if (state is AddPodcastState.Failed) {
-            Text(
-                stringResource(state.message),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-        SubscribeButton(working, enabled = url.isNotBlank(), onClick = onSubscribe, modifier = Modifier.align(Alignment.End).padding(top = 8.dp))
     }
+}
+
+/** Instead of results while the field holds a feed address: the address, a hint for `http://`, errors and "Subscribe". */
+@Composable
+private fun FeedAddressCard(address: String, state: AddPodcastState, onSubscribe: () -> Unit) {
+    val working = state == AddPodcastState.Working
+    GroupedItem(0, 1, Modifier.padding(top = 8.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(stringResource(R.string.podcast_add_url), style = MaterialTheme.typography.titleMedium)
+            Text(
+                address,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            if (isUnencrypted(IncomingFeed.fromLink(address) ?: address)) {
+                Text(
+                    stringResource(R.string.podcast_add_http_hint),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            if (state is AddPodcastState.Failed) {
+                Text(
+                    stringResource(state.message),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            SubscribeButton(working, onClick = onSubscribe, modifier = Modifier.align(Alignment.End).padding(top = 12.dp))
+        }
+    }
+}
+
+private val ADDRESS_SCHEME = Regex("^(https?|feed|itpc|pcast|podcast):", RegexOption.IGNORE_CASE)
+
+/**
+ * Whether the field holds a feed address rather than a search term: one word that starts with a scheme (`https:`, `feed:`,
+ * `itpc:` …) or `www.`, or a host with a path (`example.com/feed.xml`). A bare `example.com` stays a search term.
+ */
+internal fun looksLikeFeedAddress(input: String): Boolean {
+    val text = input.trim()
+    if (text.isEmpty() || text.any { it.isWhitespace() }) return false
+    if (ADDRESS_SCHEME.containsMatchIn(text) || text.startsWith("www.", ignoreCase = true)) return true
+    return '/' in text && normalizeFeedUrl(text) != null
 }
 
 /** "Subscribe"; while loading, a spinner instead of text. */
 @Composable
-private fun SubscribeButton(working: Boolean, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    FilledTonalButton(onClick = onClick, enabled = enabled && !working, modifier = modifier) {
+private fun SubscribeButton(working: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    FilledTonalButton(onClick = onClick, enabled = !working, modifier = modifier) {
         if (working) {
             CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
             Text(stringResource(R.string.podcast_adding), modifier = Modifier.padding(start = 8.dp))

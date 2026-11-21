@@ -691,7 +691,6 @@
     <string name="podcast_subscriptions">Subscriptions</string>
     <string name="podcast_add">Add podcast</string>
     <string name="podcast_add_url">Feed address</string>
-    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">Subscribe</string>
     <string name="podcast_adding">Reading feed …</string>
     <string name="podcast_add_http_hint">Unencrypted address: the app tries HTTPS first. If the host doesn’t offer it, the feed is loaded unencrypted – anyone on the network can see what you listen to and, for private feeds, the access key in the address.</string>
@@ -710,9 +709,7 @@
     <string name="podcast_credentials_failed">The feed could not be refreshed with these credentials.</string>
     <string name="podcast_credentials_saved">Signed in, feed refreshed</string>
     <string name="podcast_already">You are already subscribed to this podcast.</string>
-    <string name="podcast_add_direct">Add directly</string>
-    <string name="podcast_add_search">Search directories</string>
-    <string name="podcast_directory_search_label">Podcast name or topic</string>
+    <string name="podcast_add_search_field">Search or paste a feed address</string>
     <string name="podcast_directory_search">Search</string>
     <string name="podcast_discover_popular">Popular in %1$s</string>
     <string name="podcast_discover_trending">Trending</string>
@@ -738,7 +735,7 @@
     <string name="podcast_category_leisure">Leisure</string>
     <string name="podcast_category_kids">Kids &amp; Family</string>
     <string name="podcast_category_religion">Religion &amp; Spirituality</string>
-    <string name="podcast_directory_none">No directory is switched on. Tap the gear next to “Search directories” to choose which directories the app may search – your search terms are sent to them.</string>
+    <string name="podcast_directory_none">No directory is switched on, so only feed addresses work here. Choose which directories the app may search – your search terms are sent to them.</string>
     <string name="podcast_directory_open_settings">Open settings</string>
     <string name="podcast_directories_choose">Choose directories</string>
     <string name="podcast_directory_searching">Searching …</string>

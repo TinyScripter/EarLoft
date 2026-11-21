@@ -711,7 +711,6 @@
     <string name="podcast_subscriptions">Iscrizioni</string>
     <string name="podcast_add">Aggiungi podcast</string>
     <string name="podcast_add_url">Indirizzo del feed</string>
-    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">Iscriviti</string>
     <string name="podcast_adding">Lettura del feed…</string>
     <string name="podcast_add_http_hint">Indirizzo non criptato: l’app prova prima con HTTPS. Se l’host non lo offre, il feed viene caricato senza crittografia – chiunque sulla rete può vedere cosa ascolti e, per i feed privati, la chiave di accesso contenuta nell’indirizzo.</string>
@@ -730,9 +729,7 @@
     <string name="podcast_credentials_failed">Impossibile aggiornare il feed con queste credenziali.</string>
     <string name="podcast_credentials_saved">Accesso effettuato, feed aggiornato</string>
     <string name="podcast_already">Sei già iscritto a questo podcast.</string>
-    <string name="podcast_add_direct">Aggiungi direttamente</string>
-    <string name="podcast_add_search">Cerca nei cataloghi</string>
-    <string name="podcast_directory_search_label">Nome o argomento del podcast</string>
+    <string name="podcast_add_search_field">Cerca o incolla l’indirizzo del feed</string>
     <string name="podcast_directory_search">Cerca</string>
     <string name="podcast_discover_popular">Popolari in %1$s</string>
     <string name="podcast_discover_trending">Di tendenza</string>
@@ -758,7 +755,7 @@
     <string name="podcast_category_leisure">Tempo libero</string>
     <string name="podcast_category_kids">Bambini e famiglia</string>
     <string name="podcast_category_religion">Religione e spiritualità</string>
-    <string name="podcast_directory_none">Nessun catalogo attivo. Tocca l’ingranaggio accanto a “Cerca nei cataloghi” per scegliere in quali cataloghi l’app può cercare – i termini di ricerca vengono inviati a questi cataloghi.</string>
+    <string name="podcast_directory_none">Nessun catalogo attivo, quindi qui funzionano solo gli indirizzi dei feed. Scegli in quali cataloghi l’app può cercare – i termini di ricerca vengono inviati a questi cataloghi.</string>
     <string name="podcast_directory_open_settings">Apri impostazioni</string>
     <string name="podcast_directories_choose">Scegli cataloghi</string>
     <string name="podcast_directory_searching">Ricerca…</string>

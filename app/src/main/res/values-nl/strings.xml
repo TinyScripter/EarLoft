@@ -682,7 +682,6 @@
     <string name="podcast_subscriptions">Abonnementen</string>
     <string name="podcast_add">Podcast toevoegen</string>
     <string name="podcast_add_url">Feedadres</string>
-    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">Abonneren</string>
     <string name="podcast_adding">Feed lezen…</string>
     <string name="podcast_add_http_hint">Onversleuteld adres: de app probeert eerst HTTPS. Als de host dat niet aanbiedt, wordt de feed onversleuteld geladen – iedereen op het netwerk kan zien waarnaar je luistert en, bij privéfeeds, de toegangssleutel in het adres.</string>
@@ -701,9 +700,7 @@
     <string name="podcast_credentials_failed">De feed kan met deze inloggegevens niet worden vernieuwd.</string>
     <string name="podcast_credentials_saved">Ingelogd, feed vernieuwd</string>
     <string name="podcast_already">Je bent al geabonneerd op deze podcast.</string>
-    <string name="podcast_add_direct">Direct toevoegen</string>
-    <string name="podcast_add_search">Gidsen doorzoeken</string>
-    <string name="podcast_directory_search_label">Naam of onderwerp van podcast</string>
+    <string name="podcast_add_search_field">Zoeken of feedadres plakken</string>
     <string name="podcast_directory_search">Zoeken</string>
     <string name="podcast_discover_popular">Populair in %1$s</string>
     <string name="podcast_discover_trending">Trending</string>
@@ -729,7 +726,7 @@
     <string name="podcast_category_leisure">Vrije tijd</string>
     <string name="podcast_category_kids">Kinderen &amp; gezin</string>
     <string name="podcast_category_religion">Religie &amp; spiritualiteit</string>
-    <string name="podcast_directory_none">Er is geen gids ingeschakeld. Tik op het tandwiel naast ‘Gidsen doorzoeken’ om te kiezen welke gidsen de app mag doorzoeken – je zoektermen worden naar die gidsen gestuurd.</string>
+    <string name="podcast_directory_none">Er is geen gids ingeschakeld, dus hier werken alleen feedadressen. Kies welke gidsen de app mag doorzoeken – je zoektermen worden naar die gidsen gestuurd.</string>
     <string name="podcast_directory_open_settings">Instellingen openen</string>
     <string name="podcast_directories_choose">Gidsen kiezen</string>
     <string name="podcast_directory_searching">Zoeken…</string>

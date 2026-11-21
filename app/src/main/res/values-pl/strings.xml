@@ -740,7 +740,6 @@
     <string name="podcast_subscriptions">Subskrypcje</string>
     <string name="podcast_add">Dodaj podcast</string>
     <string name="podcast_add_url">Adres kanału</string>
-    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">Subskrybuj</string>
     <string name="podcast_adding">Odczytywanie kanału…</string>
     <string name="podcast_add_http_hint">Adres nieszyfrowany: aplikacja najpierw próbuje HTTPS. Jeśli serwer go nie oferuje, kanał jest wczytywany bez szyfrowania – każdy w sieci może zobaczyć, czego słuchasz, a w przypadku prywatnych kanałów także klucz dostępu w adresie.</string>
@@ -759,9 +758,7 @@
     <string name="podcast_credentials_failed">Nie udało się odświeżyć kanału z tymi danymi logowania.</string>
     <string name="podcast_credentials_saved">Zalogowano, kanał odświeżony</string>
     <string name="podcast_already">Już subskrybujesz ten podcast.</string>
-    <string name="podcast_add_direct">Dodaj bezpośrednio</string>
-    <string name="podcast_add_search">Szukaj w katalogach</string>
-    <string name="podcast_directory_search_label">Nazwa podcastu lub temat</string>
+    <string name="podcast_add_search_field">Szukaj lub wklej adres kanału</string>
     <string name="podcast_directory_search">Szukaj</string>
     <string name="podcast_discover_popular">Popularne w kraju: %1$s</string>
     <string name="podcast_discover_trending">Na czasie</string>
@@ -787,7 +784,7 @@
     <string name="podcast_category_leisure">Czas wolny</string>
     <string name="podcast_category_kids">Dzieci i rodzina</string>
     <string name="podcast_category_religion">Religia i duchowość</string>
-    <string name="podcast_directory_none">Żaden katalog nie jest włączony. Dotknij koła zębatego obok „Szukaj w katalogach”, aby wybrać, które katalogi aplikacja może przeszukiwać – wyszukiwane hasła są do nich wysyłane.</string>
+    <string name="podcast_directory_none">Żaden katalog nie jest włączony, więc działają tu tylko adresy kanałów. Wybierz, które katalogi aplikacja może przeszukiwać – wyszukiwane hasła są do nich wysyłane.</string>
     <string name="podcast_directory_open_settings">Otwórz ustawienia</string>
     <string name="podcast_directories_choose">Wybierz katalogi</string>
     <string name="podcast_directory_searching">Wyszukiwanie…</string>

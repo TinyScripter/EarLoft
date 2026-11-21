@@ -682,7 +682,6 @@
     <string name="podcast_subscriptions">Prenumerationer</string>
     <string name="podcast_add">Lägg till podd</string>
     <string name="podcast_add_url">Flödesadress</string>
-    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">Prenumerera</string>
     <string name="podcast_adding">Läser flödet …</string>
     <string name="podcast_add_http_hint">Okrypterad adress: appen försöker först med HTTPS. Om värden inte erbjuder det läses flödet in okrypterat – alla i nätverket kan se vad du lyssnar på och, för privata flöden, åtkomstnyckeln i adressen.</string>
@@ -701,9 +700,7 @@
     <string name="podcast_credentials_failed">Flödet kunde inte uppdateras med de här inloggningsuppgifterna.</string>
     <string name="podcast_credentials_saved">Inloggad, flödet har uppdaterats</string>
     <string name="podcast_already">Du prenumererar redan på den här podden.</string>
-    <string name="podcast_add_direct">Lägg till direkt</string>
-    <string name="podcast_add_search">Sök i kataloger</string>
-    <string name="podcast_directory_search_label">Poddnamn eller ämne</string>
+    <string name="podcast_add_search_field">Sök eller klistra in flödesadress</string>
     <string name="podcast_directory_search">Sök</string>
     <string name="podcast_discover_popular">Populärt i %1$s</string>
     <string name="podcast_discover_trending">Trendar</string>
@@ -729,7 +726,7 @@
     <string name="podcast_category_leisure">Fritid</string>
     <string name="podcast_category_kids">Barn och familj</string>
     <string name="podcast_category_religion">Religion och andlighet</string>
-    <string name="podcast_directory_none">Ingen katalog är aktiverad. Tryck på kugghjulet bredvid ”Sök i kataloger” för att välja vilka kataloger appen får söka i – dina sökord skickas till dem.</string>
+    <string name="podcast_directory_none">Ingen katalog är aktiverad, så här fungerar bara flödesadresser. Välj vilka kataloger appen får söka i – dina sökord skickas till dem.</string>
     <string name="podcast_directory_open_settings">Öppna inställningar</string>
     <string name="podcast_directories_choose">Välj kataloger</string>
     <string name="podcast_directory_searching">Söker …</string>

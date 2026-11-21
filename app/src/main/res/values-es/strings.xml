@@ -711,7 +711,6 @@
     <string name="podcast_subscriptions">Suscripciones</string>
     <string name="podcast_add">Añadir podcast</string>
     <string name="podcast_add_url">Dirección del feed</string>
-    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">Suscribirse</string>
     <string name="podcast_adding">Leyendo feed…</string>
     <string name="podcast_add_http_hint">Dirección sin cifrar: la app prueba primero con HTTPS. Si el servidor no lo ofrece, el feed se carga sin cifrar; cualquiera en la red puede ver lo que escuchas y, en los feeds privados, la clave de acceso de la dirección.</string>
@@ -730,9 +729,7 @@
     <string name="podcast_credentials_failed">No se pudo actualizar el feed con estas credenciales.</string>
     <string name="podcast_credentials_saved">Sesión iniciada, feed actualizado</string>
     <string name="podcast_already">Ya tienes una suscripción a este podcast.</string>
-    <string name="podcast_add_direct">Añadir directamente</string>
-    <string name="podcast_add_search">Buscar en directorios</string>
-    <string name="podcast_directory_search_label">Nombre o tema del podcast</string>
+    <string name="podcast_add_search_field">Buscar o pegar dirección del feed</string>
     <string name="podcast_directory_search">Buscar</string>
     <string name="podcast_discover_popular">Populares en %1$s</string>
     <string name="podcast_discover_trending">Tendencias</string>
@@ -758,7 +755,7 @@
     <string name="podcast_category_leisure">Ocio</string>
     <string name="podcast_category_kids">Niños y familia</string>
     <string name="podcast_category_religion">Religión y espiritualidad</string>
-    <string name="podcast_directory_none">No hay ningún directorio activado. Toca el engranaje junto a «Buscar en directorios» para elegir en qué directorios puede buscar la app; tus términos de búsqueda se envían a ellos.</string>
+    <string name="podcast_directory_none">No hay ningún directorio activado, así que aquí solo funcionan direcciones de feed. Elige en qué directorios puede buscar la app; tus términos de búsqueda se envían a ellos.</string>
     <string name="podcast_directory_open_settings">Abrir ajustes</string>
     <string name="podcast_directories_choose">Elegir directorios</string>
     <string name="podcast_directory_searching">Buscando…</string>
