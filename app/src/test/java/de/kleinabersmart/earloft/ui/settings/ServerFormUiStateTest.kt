@@ -33,4 +33,20 @@ class ServerFormUiStateTest {
     fun `nothing can be submitted while loading`() {
         assertFalse(filled.copy(isEditing = true, hasStoredPassword = true, isLoading = true).canSubmit)
     }
+
+    @Test
+    fun `typed changes count against the state the form opened with`() {
+        val opened = filled.copy(initialFields = filled.fields())
+        assertFalse(opened.isDirty)
+        assertTrue(opened.copy(username = "other").isDirty)
+        assertTrue(opened.copy(allowHttp = true).isDirty)
+        // Typed back to the start: nothing to ask about.
+        assertFalse(opened.copy(username = "other").copy(username = "kal").isDirty)
+    }
+
+    @Test
+    fun `nothing to ask about while loading or once saved`() {
+        assertFalse(filled.copy(isLoading = true).isDirty)
+        assertFalse(filled.copy(initialFields = ServerFormUiState().fields(), done = true).isDirty)
+    }
 }

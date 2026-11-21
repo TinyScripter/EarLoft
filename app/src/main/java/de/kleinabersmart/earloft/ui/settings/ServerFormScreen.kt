@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.remember
 import androidx.compose.foundation.text.KeyboardActions
 import de.kleinabersmart.earloft.ui.components.RemoveServerButton
 import de.kleinabersmart.earloft.ui.components.passwordTransformation
@@ -108,9 +107,8 @@ private fun ServerFormContent(
     modifier: Modifier = Modifier,
     onRemove: () -> Unit = {},
 ) {
-    // What was there when the form opened; anything typed since is asked about before leaving (as in the Audiobookshelf form).
-    val initial = remember(state.isLoading) { state.takeUnless { it.isLoading }?.fields() }
-    val close = rememberDiscardGuard(dirty = initial != null && !state.done && state.fields() != initial, onClose = onBack)
+    // Anything typed since the form opened is asked about before leaving (as in the Audiobookshelf form).
+    val close = rememberDiscardGuard(dirty = state.isDirty, onClose = onBack)
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
@@ -258,8 +256,6 @@ private fun ServerFormContent(
 }
 
 /** The values the user can change, to notice unsaved input. */
-private fun ServerFormUiState.fields() = listOf(url, username, password, name, allowHttp, autoDownload, type)
-
 /** Navidrome/Subsonic, Jellyfin or Emby; the row is a selection group for accessibility services. */
 @Composable
 private fun ServerTypeSelector(selected: SourceType, onSelect: (SourceType) -> Unit) {

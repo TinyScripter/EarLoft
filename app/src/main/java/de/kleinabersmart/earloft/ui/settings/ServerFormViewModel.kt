@@ -45,8 +45,18 @@ data class ServerFormUiState(
     val result: ConnectionResult? = null,
     /** Saved, or the server no longer exists → close the form. */
     val done: Boolean = false,
+    /**
+     * The fields when the form opened (new: empty, edit: as loaded); `null` while loading. Kept here rather than in the
+     * composition, which a rotation or a theme or language change rebuilds with the typed values as the start (review H11).
+     */
+    val initialFields: List<Any?>? = null,
 ) {
     val isHttp: Boolean get() = url.trim().startsWith("http://", ignoreCase = true)
+
+    /** Something was typed since the form opened: leaving asks first. */
+    val isDirty: Boolean get() = initialFields != null && !done && fields() != initialFields
+
+    internal fun fields(): List<Any?> = listOf(url, username, password, name, allowHttp, autoDownload, type)
 
     val keepsStoredPassword: Boolean get() = isEditing && hasStoredPassword && password.isEmpty()
 
@@ -66,7 +76,9 @@ class ServerFormViewModel @AssistedInject constructor(
     @Assisted private val sourceId: String?,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(ServerFormUiState(isEditing = sourceId != null, isLoading = sourceId != null))
+    private val _state = MutableStateFlow(
+        ServerFormUiState(isEditing = sourceId != null, isLoading = sourceId != null).let { if (sourceId == null) it.withInitialFields() else it },
+    )
     val state: StateFlow<ServerFormUiState> = _state.asStateFlow()
 
     /** When editing: the loaded values, to save download-only changes without a connection test. */
@@ -96,7 +108,7 @@ class ServerFormViewModel @AssistedInject constructor(
                     // The unencrypted connection was already confirmed during setup.
                     allowHttp = server.info.baseUrl.startsWith("http://", ignoreCase = true),
                     autoDownload = autoDownload,
-                )
+                ).withInitialFields()
             }
         }
     }
@@ -148,6 +160,8 @@ class ServerFormViewModel @AssistedInject constructor(
             _state.update { it.copy(done = true) }
         }
     }
+
+    private fun ServerFormUiState.withInitialFields() = copy(initialFields = fields())
 
     private fun ServerFormUiState.onlyLocalOptionsDifferFrom(original: ServerInfo): Boolean =
         name == original.name && url == original.baseUrl && username == original.username.orEmpty() && password.isEmpty()
