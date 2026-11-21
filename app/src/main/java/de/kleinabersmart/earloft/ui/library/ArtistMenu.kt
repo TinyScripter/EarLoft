@@ -1,5 +1,8 @@
 package de.kleinabersmart.earloft.ui.library
 
+import de.kleinabersmart.earloft.ui.playlists.AddToPlaylistDialog
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -32,7 +35,7 @@ import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
  * Context menu of an artist (long press on tile or row, ⋮ on the artist page), structured like the album menu: the
- * name at the top, below it Play next, Add to queue (all their songs), Start mix, Add to favorites, Share, Download or Remove download
+ * name at the top, below it Play next, Add to queue (all their songs), Start mix, Add to favorites, Add to playlist, Share, Download or Remove download
  * (their albums). Only include it while it is open.
  */
 @Composable
@@ -45,6 +48,8 @@ fun ArtistMenu(
     val offline by remember(artistId) { viewModel.offline(artistId) }.collectAsStateWithLifecycle(AlbumOfflineStatus.EMPTY)
     var menuOpen by rememberSaveable { mutableStateOf(true) }
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var playlistSongs by remember { mutableStateOf<List<Long>?>(null) }
 
     DropdownMenu(expanded = menuOpen, onDismissRequest = onDismiss) {
         DropdownMenuItem(
@@ -72,6 +77,14 @@ fun ArtistMenu(
         )
         MixMenuItem(MixSeed.Artist(artistId), onDismiss)
         CollectionFavoriteMenuItem(FavoriteKind.ARTIST, artistId, onDismiss)
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_add_to_playlist)) },
+            leadingIcon = { Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = null) },
+            onClick = {
+                menuOpen = false
+                scope.launch { playlistSongs = viewModel.songIds(artistId) }
+            },
+        )
         ShareMenuItem(ShareTarget.Artist(artistId), onDismiss)
         // As with albums: purely local artists need no download; partially downloaded offers both.
         if (offline.downloadableCount > 0 && !offline.isFullyOffline && offline.pendingCount == 0) {
@@ -96,6 +109,9 @@ fun ArtistMenu(
         }
     }
 
+    playlistSongs?.let { songIds ->
+        if (songIds.isEmpty()) onDismiss() else AddToPlaylistDialog(songIds = songIds, onDismiss = onDismiss)
+    }
     if (confirmRemove) {
         AlertDialog(
             onDismissRequest = onDismiss,

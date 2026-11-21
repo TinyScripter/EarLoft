@@ -333,21 +333,16 @@ private fun QueueRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .background(background)
-            .then(
-                if (selection == null) {
-                    Modifier.clickable(onClick = onClick)
-                } else {
-                    Modifier.combinedClickable(
-                        onClick = onClick,
-                        onLongClick = { if (selecting) selection.toggle(item.book.id) else menu = true },
-                    )
-                },
+            // Long press opens the episode or book menu everywhere (also in the book queue and the queue search), with
+            // "Select" only where there is a multi-selection.
+            .combinedClickable(
+                onClick = onClick,
+                onLongClickLabel = stringResource(R.string.action_more),
+                onLongClick = { if (selecting) selection?.toggle(item.book.id) else menu = true },
             )
             .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
     ) {
-        if (selection != null) {
-            EpisodeMenu(item, expanded = menu, onDismiss = { menu = false }, onSelect = { selection.toggle(item.book.id) })
-        }
+        EpisodeMenu(item, expanded = menu, onDismiss = { menu = false }, onSelect = selection?.let { { it.toggle(item.book.id) } })
         dragHandle?.invoke()
         SelectableArt(item.book.id, selected, Modifier.padding(start = 4.dp).size(48.dp))
         Column(Modifier.weight(1f).padding(start = 16.dp, end = 4.dp)) {

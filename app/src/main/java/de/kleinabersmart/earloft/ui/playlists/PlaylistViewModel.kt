@@ -57,6 +57,14 @@ class PlaylistViewModel @AssistedInject constructor(
         songs()?.let { playbackConnection.play(it, shuffle = true) }
     }
 
+    fun playNext() {
+        songs()?.let(playbackConnection::playNext)
+    }
+
+    fun addToQueue() {
+        songs()?.let(playbackConnection::addToQueue)
+    }
+
     fun rename(name: String) {
         viewModelScope.launch { playlistRepository.rename(playlistId, name) }
     }

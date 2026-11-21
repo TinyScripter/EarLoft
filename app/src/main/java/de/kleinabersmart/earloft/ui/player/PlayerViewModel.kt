@@ -44,7 +44,10 @@ class PlayerViewModel @Inject constructor(
 ) : ViewModel() {
 
     /** Where "go to artist" leads from [entry]. */
-    suspend fun artistsOf(entry: QueueEntry): List<Artist> = libraryRepository.artistsOfSong(entry.songId, entry.albumId)
+    suspend fun artistsOf(entry: QueueEntry): List<Artist> = artistsOfSong(entry.songId, entry.albumId)
+
+    /** Where "go to artist" leads from a song (player and song menus). */
+    suspend fun artistsOfSong(songId: Long, albumId: Long?): List<Artist> = libraryRepository.artistsOfSong(songId, albumId)
 
     val state: StateFlow<PlayerState> = playbackConnection.state
 

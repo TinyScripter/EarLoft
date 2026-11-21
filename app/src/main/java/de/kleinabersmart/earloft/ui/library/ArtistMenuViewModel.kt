@@ -27,6 +27,9 @@ class ArtistMenuViewModel @Inject constructor(
 
     fun addToQueue(artistId: Long) = withSongs(artistId, playbackConnection::addToQueue)
 
+    /** The artist's songs for "Add to playlist". */
+    suspend fun songIds(artistId: Long): List<Long> = libraryRepository.songsOfArtist(artistId).map { it.id }
+
     fun download(artistId: Long) {
         viewModelScope.launch { downloadRepository.downloadArtist(artistId) }
     }

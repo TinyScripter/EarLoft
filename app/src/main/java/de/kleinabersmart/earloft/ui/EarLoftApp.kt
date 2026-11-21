@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.ui
 
+import de.kleinabersmart.earloft.ui.components.LocalLibraryLinks
+import de.kleinabersmart.earloft.ui.components.LibraryLinks
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.expandVertically
@@ -644,6 +646,9 @@ fun EarLoftApp(
         LocalBookDownloads provides rememberBookDownloads(),
         LocalFeedDownloads provides rememberFeedDownloads(),
         LocalMiniPlayerScrollHide provides miniPlayerScrollHide,
+        LocalLibraryLinks provides remember(navigator) {
+            LibraryLinks(openAlbum = openAlbum, openArtist = openArtist, artistsOfSong = playerViewModel::artistsOfSong)
+        },
     ) {
         SyncNoticeEffect()
         QueuedForMusicEffect()

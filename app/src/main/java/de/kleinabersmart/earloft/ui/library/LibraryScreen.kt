@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.library
 
+import de.kleinabersmart.earloft.ui.playlists.PlaylistRowMenu
 import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -356,15 +357,24 @@ private fun PlaylistList(
                 }
                 playlists.forEach { playlist ->
                     row(playlist.id) {
-                        ListItem(
-                            headlineContent = { Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            supportingContent = {
-                                val songs = pluralStringResource(R.plurals.song_count, playlist.songCount, playlist.songCount)
-                                Text("$songs · ${playlistLocation(playlist.serverName)}", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            },
-                            leadingContent = { PlaylistIcon() },
-                            modifier = Modifier.clickable { onPlaylistClick(playlist.id) },
-                        )
+                        var menu by remember { mutableStateOf(false) }
+                        Box {
+                            ListItem(
+                                headlineContent = { Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                supportingContent = {
+                                    val songs = pluralStringResource(R.plurals.song_count, playlist.songCount, playlist.songCount)
+                                    Text("$songs · ${playlistLocation(playlist.serverName)}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                },
+                                leadingContent = { PlaylistIcon() },
+                                // Long press opens the menu, as on albums and artists.
+                                modifier = Modifier.combinedClickable(
+                                    onClick = { onPlaylistClick(playlist.id) },
+                                    onLongClickLabel = stringResource(R.string.action_more),
+                                    onLongClick = { menu = true },
+                                ),
+                            )
+                            if (menu) PlaylistRowMenu(playlist, onDismiss = { menu = false })
+                        }
                     }
                 }
             }

@@ -89,6 +89,8 @@ fun PlaylistScreen(
         onBack = onBack,
         onPlay = viewModel::play,
         onShuffle = viewModel::shuffle,
+        onPlayNext = viewModel::playNext,
+        onAddToQueue = viewModel::addToQueue,
         onRename = viewModel::rename,
         onDelete = { viewModel.delete(onDeleted = onBack) },
         onRemoveEntry = viewModel::removeEntry,
@@ -111,6 +113,8 @@ private fun PlaylistContent(
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
     onRemoveEntry: (Long) -> Unit,
+    onPlayNext: () -> Unit = {},
+    onAddToQueue: () -> Unit = {},
     onReorder: (entryIds: List<Long>) -> Unit,
     actions: SongActions,
     modifier: Modifier = Modifier,
@@ -168,6 +172,8 @@ private fun PlaylistContent(
                     val entries = state.value.entries
                     PlaylistMenu(
                         playlist = state.value.playlist,
+                        onPlayNext = onPlayNext.takeIf { entries.isNotEmpty() },
+                        onAddToQueue = onAddToQueue.takeIf { entries.isNotEmpty() },
                         onRename = onRename,
                         onDelete = onDelete,
                         onReorder = if (entries.size > 1) ({
@@ -275,7 +281,14 @@ private fun PlaylistEntries(
 }
 
 @Composable
-private fun PlaylistMenu(playlist: Playlist, onRename: (String) -> Unit, onDelete: () -> Unit, onReorder: (() -> Unit)?) {
+private fun PlaylistMenu(
+    playlist: Playlist,
+    onPlayNext: (() -> Unit)?,
+    onAddToQueue: (() -> Unit)?,
+    onRename: (String) -> Unit,
+    onDelete: () -> Unit,
+    onReorder: (() -> Unit)?,
+) {
     var menuOpen by remember { mutableStateOf(false) }
     var renaming by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
@@ -285,6 +298,19 @@ private fun PlaylistMenu(playlist: Playlist, onRename: (String) -> Unit, onDelet
             Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            // The same entries as the long press on the playlist in the library.
+            if (onPlayNext != null && onAddToQueue != null) {
+                PlaylistQueueMenuItems(
+                    onPlayNext = {
+                        menuOpen = false
+                        onPlayNext()
+                    },
+                    onAddToQueue = {
+                        menuOpen = false
+                        onAddToQueue()
+                    },
+                )
+            }
             if (onReorder != null) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.playlist_reorder)) },
@@ -295,17 +321,12 @@ private fun PlaylistMenu(playlist: Playlist, onRename: (String) -> Unit, onDelet
                     },
                 )
             }
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.playlist_rename)) },
-                onClick = {
+            PlaylistEditMenuItems(
+                onRename = {
                     menuOpen = false
                     renaming = true
                 },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.playlist_delete)) },
-                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
-                onClick = {
+                onDelete = {
                     menuOpen = false
                     confirmDelete = true
                 },
@@ -326,28 +347,13 @@ private fun PlaylistMenu(playlist: Playlist, onRename: (String) -> Unit, onDelet
         )
     }
     if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(stringResource(R.string.playlist_delete_title)) },
-            text = {
-                val server = playlist.serverName
-                Text(
-                    if (server != null) {
-                        stringResource(R.string.playlist_delete_text_server, playlist.name, server)
-                    } else {
-                        stringResource(R.string.playlist_delete_text, playlist.name)
-                    },
-                )
+        PlaylistDeleteDialog(
+            playlist,
+            onConfirm = {
+                confirmDelete = false
+                onDelete()
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmDelete = false
-                    onDelete()
-                }) { Text(stringResource(R.string.playlist_delete)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) }
-            },
+            onDismiss = { confirmDelete = false },
         )
     }
 }

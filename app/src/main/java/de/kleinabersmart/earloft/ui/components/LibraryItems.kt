@@ -94,6 +94,9 @@ fun SongListItem(
     val status = offline ?: offlineController?.statusOf(song.id)
     var addToPlaylist by rememberSaveable { mutableStateOf(false) }
     if (addToPlaylist) AddToPlaylistDialog(songIds = listOf(song.id), onDismiss = { addToPlaylist = false })
+    // Opened by ⋮ and by a long press on the row, like the menus of albums, episodes and books.
+    var menuOpen by remember { mutableStateOf(false) }
+    val links = LocalLibraryLinks.current
 
     ListItem(
         headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -122,87 +125,116 @@ fun SongListItem(
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box {
-                    var menuOpen by remember { mutableStateOf(false) }
-                    IconButton(onClick = { menuOpen = true }) {
-                        Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
-                    }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_play_next)) },
-                            leadingIcon = { Icon(painterResource(DesignR.drawable.ic_playlist_play), contentDescription = null) },
-                            onClick = {
-                                menuOpen = false
-                                actions.playNext(song)
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_add_to_queue)) },
-                            leadingIcon = { Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = null) },
-                            onClick = {
-                                menuOpen = false
-                                actions.addToQueue(song)
-                            },
-                        )
-                        MixMenuItem(MixSeed.Song(song.id), onDismiss = { menuOpen = false })
-                        DropdownMenuItem(
-                            text = {
-                                Text(stringResource(if (song.isFavorite) R.string.action_remove_favorite else R.string.action_add_favorite))
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    painterResource(if (song.isFavorite) DesignR.drawable.ic_favorite else DesignR.drawable.ic_favorite_border),
-                                    contentDescription = null,
-                                )
-                            },
-                            onClick = {
-                                menuOpen = false
-                                actions.toggleFavorite(song)
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_add_to_playlist)) },
-                            leadingIcon = { Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = null) },
-                            onClick = {
-                                menuOpen = false
-                                addToPlaylist = true
-                            },
-                        )
-                        ShareMenuItem(ShareTarget.Song(song.id), onDismiss = { menuOpen = false })
-                        if (onRemoveFromPlaylist != null) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.action_remove_from_playlist)) },
-                                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_close), contentDescription = null) },
-                                onClick = {
-                                    menuOpen = false
-                                    onRemoveFromPlaylist()
-                                },
-                            )
+                ArtistPicker(
+                    lookup = { links?.artistsOfSong?.invoke(song.id, song.albumId).orEmpty() },
+                    onArtistClick = { links?.openArtist?.invoke(it) },
+                ) { openArtist ->
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
                         }
-                        when (status?.state) {
-                            null, SongOfflineState.LOCAL -> Unit
-                            SongOfflineState.NONE, SongOfflineState.FAILED -> DropdownMenuItem(
-                                text = { Text(stringResource(R.string.action_download)) },
-                                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_play_next)) },
+                                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_playlist_play), contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
-                                    offlineController?.download?.invoke(song.id)
+                                    actions.playNext(song)
                                 },
                             )
-                            SongOfflineState.DOWNLOADED, SongOfflineState.QUEUED, SongOfflineState.DOWNLOADING -> DropdownMenuItem(
-                                text = { Text(stringResource(R.string.action_remove_download)) },
-                                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_add_to_queue)) },
+                                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
-                                    offlineController?.removeDownload?.invoke(song.id)
+                                    actions.addToQueue(song)
                                 },
                             )
+                            MixMenuItem(MixSeed.Song(song.id), onDismiss = { menuOpen = false })
+                            DropdownMenuItem(
+                                text = {
+                                    Text(stringResource(if (song.isFavorite) R.string.action_remove_favorite else R.string.action_add_favorite))
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        painterResource(if (song.isFavorite) DesignR.drawable.ic_favorite else DesignR.drawable.ic_favorite_border),
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    menuOpen = false
+                                    actions.toggleFavorite(song)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_add_to_playlist)) },
+                                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    addToPlaylist = true
+                                },
+                            )
+                            ShareMenuItem(ShareTarget.Song(song.id), onDismiss = { menuOpen = false })
+                            if (links != null) {
+                                // On the album page the album is already open.
+                                if (trackNumber == null) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.action_go_to_album)) },
+                                        leadingIcon = { Icon(painterResource(DesignR.drawable.ic_album), contentDescription = null) },
+                                        onClick = {
+                                            menuOpen = false
+                                            links.openAlbum(song.albumId)
+                                        },
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_go_to_artist)) },
+                                    leadingIcon = { Icon(painterResource(DesignR.drawable.ic_person), contentDescription = null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        openArtist()
+                                    },
+                                )
+                            }
+                            if (onRemoveFromPlaylist != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_remove_from_playlist)) },
+                                    leadingIcon = { Icon(painterResource(DesignR.drawable.ic_close), contentDescription = null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        onRemoveFromPlaylist()
+                                    },
+                                )
+                            }
+                            when (status?.state) {
+                                null, SongOfflineState.LOCAL -> Unit
+                                SongOfflineState.NONE, SongOfflineState.FAILED -> DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_download)) },
+                                    leadingIcon = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        offlineController?.download?.invoke(song.id)
+                                    },
+                                )
+                                SongOfflineState.DOWNLOADED, SongOfflineState.QUEUED, SongOfflineState.DOWNLOADING -> DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_remove_download)) },
+                                    leadingIcon = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        offlineController?.removeDownload?.invoke(song.id)
+                                    },
+                                )
+                            }
                         }
                     }
                 }
             }
         },
-        modifier = modifier.clickable(onClick = onClick),
+        modifier = modifier.combinedClickable(
+            onClick = onClick,
+            onLongClickLabel = stringResource(R.string.action_more),
+            onLongClick = { menuOpen = true },
+        ),
     )
 }
 
@@ -229,7 +261,15 @@ private fun OfflineIndicator(offline: SongOfflineStatus, modifier: Modifier = Mo
     }
 }
 
-/** Artist row; long press opens the [ArtistMenu]. */
+/** ⋮ at the end of a row; opens the same menu as a long press on the row (songs, albums, artists). */
+@Composable
+fun MoreButton(onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
+    }
+}
+
+/** Artist row; ⋮ and long press open the [ArtistMenu]. */
 @Composable
 fun ArtistListItem(
     artist: Artist,
@@ -244,6 +284,7 @@ fun ArtistListItem(
             leadingContent = {
                 ArtistAvatar(artistId = artist.id, modifier = Modifier.size(48.dp), iconSize = 24.dp)
             },
+            trailingContent = { MoreButton { menu = true } },
             modifier = Modifier.combinedClickable(
                 onClick = onClick,
                 onLongClickLabel = stringResource(R.string.action_more),
@@ -279,7 +320,7 @@ fun GenreListItem(
     )
 }
 
-/** Album row with the download mark before the artist; long press opens the [AlbumMenu]. */
+/** Album row with the download mark before the artist; ⋮ and long press open the [AlbumMenu]. */
 @Composable
 fun AlbumListItem(
     album: Album,
@@ -297,7 +338,12 @@ fun AlbumListItem(
             leadingContent = {
                 AlbumArt(albumId = album.id, modifier = Modifier.size(48.dp), shape = MaterialTheme.shapes.small)
             },
-            trailingContent = onPlay?.let { play -> { PlayPauseButton(playing, play) } },
+            trailingContent = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onPlay != null) PlayPauseButton(playing, onPlay)
+                    MoreButton { menu = true }
+                }
+            },
             modifier = Modifier.combinedClickable(
                 onClick = onClick,
                 onLongClickLabel = stringResource(R.string.action_more),

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.components
 
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -22,6 +23,18 @@ import androidx.compose.ui.unit.dp
 import de.kleinabersmart.earloft.core.model.Artist
 import kotlinx.coroutines.launch
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
+
+/**
+ * Navigation from music rows and menus to album and artist pages ("Go to album/artist" in the song menu), provided by the
+ * app; `null` in previews, then the entries are missing.
+ */
+class LibraryLinks(
+    val openAlbum: (Long) -> Unit,
+    val openArtist: (Long) -> Unit,
+    val artistsOfSong: suspend (songId: Long, albumId: Long?) -> List<Artist>,
+)
+
+val LocalLibraryLinks = staticCompositionLocalOf<LibraryLinks?> { null }
 
 /** Where an artist name leads: [lookup] gives the artists with a page, [onArtistClick] opens one. */
 class ArtistLink(val lookup: suspend () -> List<Artist>, val onArtistClick: (Long) -> Unit) {
