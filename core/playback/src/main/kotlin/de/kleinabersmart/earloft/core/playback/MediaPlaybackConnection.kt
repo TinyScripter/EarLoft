@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
+import androidx.media3.common.C
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -96,6 +97,10 @@ class MediaPlaybackConnection @Inject constructor(
 
     override val positionJumps: Flow<Unit> = _positionJumps.asSharedFlow()
 
+    private val _playbackStarts = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    override val playbackStarts: Flow<Unit> = _playbackStarts.asSharedFlow()
+
     private val remoteHandOver = RemoteHandOver()
 
     override val currentPositionMs: Long
@@ -156,6 +161,15 @@ class MediaPlaybackConnection @Inject constructor(
                 return@launch
             }
             mediaController.addListener(object : Player.Listener {
+                override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                    if (playWhenReady) _playbackStarts.tryEmit(Unit)
+                }
+
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    val byItself = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
+                    if (mediaItem != null && !byItself && mediaController.playWhenReady) _playbackStarts.tryEmit(Unit)
+                }
+
                 override fun onEvents(player: Player, events: Player.Events) {
                     if (events.contains(Player.EVENT_POSITION_DISCONTINUITY)) _positionJumps.tryEmit(Unit)
                     val previous = _state.value
@@ -385,6 +399,7 @@ class MediaPlaybackConnection @Inject constructor(
 
     private fun Player.toState(previous: PlayerState, queueChanged: Boolean): PlayerState {
         val queue = if (queueChanged) (0 until mediaItemCount).mapNotNull { getMediaItemAt(it).toQueueEntry() } else previous.queue
+        val orderChanged = queueChanged || shuffleModeEnabled != previous.shuffle || currentMediaItemIndex != previous.currentIndex
         return PlayerState(
             current = currentMediaItem?.toQueueEntry(),
             spoken = currentMediaItem?.toSpokenEntry(),
@@ -395,11 +410,26 @@ class MediaPlaybackConnection @Inject constructor(
             repeatMode = repeatMode,
             queue = queue,
             currentIndex = currentMediaItemIndex,
+            laterIndices = if (orderChanged) laterIndices() else previous.laterIndices,
             outputSuppressed = playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT,
             isRemote = deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE,
             deviceVolume = deviceVolume,
             maxDeviceVolume = deviceInfo.maxVolume,
         )
+    }
+
+    /** The windows after the current one in playback order (shuffle order if on), without repeat; see [PlayerState.laterIndices]. */
+    private fun Player.laterIndices(): List<Int> {
+        val timeline = currentTimeline
+        var index = currentMediaItemIndex
+        if (timeline.isEmpty || index !in 0 until timeline.windowCount) return emptyList()
+        val later = ArrayList<Int>()
+        while (later.size < timeline.windowCount) {
+            index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, shuffleModeEnabled)
+            if (index == C.INDEX_UNSET) break
+            later += index
+        }
+        return later
     }
 
     private fun MediaItem.toSpokenEntry(): SpokenEntry? {

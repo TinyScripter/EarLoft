@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui
 
+import kotlin.math.roundToInt
 import de.kleinabersmart.earloft.ui.components.LocalLibraryLinks
 import de.kleinabersmart.earloft.ui.components.LibraryLinks
 import androidx.compose.animation.AnimatedVisibility
@@ -8,7 +9,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import de.kleinabersmart.earloft.ui.player.LocalMiniPlayerScrollHide
@@ -31,8 +31,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -48,9 +48,11 @@ import androidx.compose.material3.adaptive.navigationsuite.rememberNavigationSui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -282,8 +284,8 @@ fun EarLoftApp(
     val setupAudiobookshelf: () -> Unit = { navigator.navigate(AddAudiobookshelfRoute) }
     val openArdSounds: () -> Unit = { navigator.navigate(ArdSoundsRoute()) }
     val editAudiobookshelf: (String) -> Unit = { navigator.navigate(EditAudiobookshelfRoute(it)) }
-    // Mode changed: close the detail pane of the previous mode (tab back to its start page).
-    val closeDetail: () -> Unit = { navigator.navigate(navigationState.topLevelRoute) }
+    // Mode changed: Home and Library close the pages of the previous mode (detail pane included).
+    val closeDetail: () -> Unit = navigator::closeAreaPages
     val openSearch: () -> Unit = { navigator.navigate(SearchRoute()) }
     val addMusicServer: () -> Unit = { navigator.navigate(AddServerRoute) }
     // From an empty area directly to the area switches (Settings → General).
@@ -521,11 +523,11 @@ fun EarLoftApp(
                     onClose = navigator::goBack,
                     onOpenQueue = { navigator.navigate(QueueRoute(overPlayer = true)) },
                     onOpenAlbum = {
-                        navigator.goBack()
+                        navigator.closeFullScreenPlayer()
                         openAlbum(it)
                     },
                     onOpenArtist = {
-                        navigator.goBack()
+                        navigator.closeFullScreenPlayer()
                         openArtist(it)
                     },
                 )
@@ -585,9 +587,15 @@ fun EarLoftApp(
         }
         entry<LicensesRoute>(metadata = detailPane()) { LicensesScreen(onBack = navigator::goBack) }
         entry<PrivacyRoute>(metadata = detailPane()) { PrivacyScreen(onBack = navigator::goBack) }
-        entry<AddServerRoute>(metadata = detailPane()) { ServerFormScreen(sourceId = null, onDone = navigator::goBack) }
+        entry<AddServerRoute>(metadata = detailPane()) {
+            ServerFormScreen(
+                sourceId = null,
+                onDone = navigator::goBack,
+                onAlreadySetUp = { navigator.replaceTop(EditServerRoute(it, alreadySetUp = true)) },
+            )
+        }
         entry<EditServerRoute>(metadata = detailPane()) { route ->
-            ServerFormScreen(sourceId = route.sourceId, onDone = navigator::goBack)
+            ServerFormScreen(sourceId = route.sourceId, onDone = navigator::goBack, alreadySetUp = route.alreadySetUp)
         }
         entry<SetupRoute> { route ->
             SetupScreen(
@@ -616,12 +624,10 @@ fun EarLoftApp(
     // Scrolled out of the way only for the current page: another page, area or tab brings it back.
     val miniPlayerScrollHide = remember { MiniPlayerScrollHide() }
     LaunchedEffect(navigator.currentRoute, navigationState.topLevelRoute) { miniPlayerScrollHide.show() }
-    // Something starts playing (also another title): the mini player shows what it is. Read here via snapshotFlow, so the app
-    // doesn't recompose on every player state change.
-    LaunchedEffect(playerState) {
-        snapshotFlow { playerState.value.let { it.itemKey to it.isPlaying } }.collect { (_, playing) ->
-            if (playing) miniPlayerScrollHide.show()
-        }
+    // Playback starts, or the user starts something else: the mini player shows what it is. Not when the next title follows
+    // on by itself or buffering ends (review H28).
+    LaunchedEffect(playerViewModel) {
+        playerViewModel.playbackStarts.collect { miniPlayerScrollHide.show() }
     }
 
     val snackbars = hiltViewModel<SnackbarViewModel>().snackbars
@@ -650,7 +656,18 @@ fun EarLoftApp(
         LocalFeedDownloads provides rememberFeedDownloads(),
         LocalMiniPlayerScrollHide provides miniPlayerScrollHide,
         LocalLibraryLinks provides remember(navigator) {
-            LibraryLinks(openAlbum = openAlbum, openArtist = openArtist, artistsOfSong = playerViewModel::artistsOfSong)
+            // From the player or the queue over it (song menus, "Go to"), the page opens beneath the player (review H30).
+            LibraryLinks(
+                openAlbum = {
+                    navigator.closeFullScreenPlayer()
+                    openAlbum(it)
+                },
+                openArtist = {
+                    navigator.closeFullScreenPlayer()
+                    openArtist(it)
+                },
+                artistsOfSong = playerViewModel::artistsOfSong,
+            )
         },
     ) {
         SyncNoticeEffect()
@@ -693,8 +710,9 @@ fun EarLoftApp(
             val bottomInsets = if (showNavigation) WindowInsets.navigationBars.only(WindowInsetsSides.Bottom) else WindowInsets(0)
             // Below the pages sit snackbar, mini player and bar: their height counts as already consumed for the keyboard. Otherwise
             // `imePadding()` in forms pushes up by the full keyboard height, and buttons slide out of view above empty space.
-            var belowPages by remember { mutableStateOf(0.dp) }
-            val density = LocalDensity.current
+            // Read only while measuring (review H19): the mini player's animation changes it every frame, which would otherwise
+            // recompose the pages and `NavDisplay` each time.
+            val belowPages = remember { BelowPagesInsets() }
             Column(Modifier.windowInsetsPadding(bottomInsets)) {
                 // Shared elements (the header of Home and Library) stay in place during page transitions.
                 SharedTransitionLayout(
@@ -705,11 +723,11 @@ fun EarLoftApp(
                         .onGloballyPositioned { coordinates ->
                             val bottom = coordinates.positionInRoot().y + coordinates.size.height
                             val gap = coordinates.findRootCoordinates().size.height - bottom
-                            belowPages = with(density) { gap.coerceAtLeast(0f).toDp() }
+                            belowPages.bottomPx = gap.coerceAtLeast(0f).roundToInt()
                         }
                         // As `WindowInsets`: those are united with what's already consumed. `PaddingValues` would count the
                         // navigation bar a second time (it's in `belowPages` and already consumed above, review V12).
-                        .consumeWindowInsets(WindowInsets(bottom = belowPages)),
+                        .consumeWindowInsets(belowPages),
                 ) {
                     CompositionLocalProvider(LocalSharedTransitionScope provides this) {
                         NavDisplay(
@@ -815,4 +833,18 @@ private class AppSnackbarVisuals(message: SnackbarMessage) : SnackbarVisuals {
     override val withDismissAction: Boolean = message.duration == SnackbarDuration.Indefinite
     override val duration: SnackbarDuration = message.duration
     val keep: Boolean = message.keep
+}
+
+/**
+ * The height below the pages (snackbar, mini player, bar) as insets that count as consumed. A state read only when someone
+ * measures with the insets, so a change during the mini player's animation re-lays out instead of recomposing.
+ */
+@Stable
+private class BelowPagesInsets : WindowInsets {
+    var bottomPx by mutableIntStateOf(0)
+
+    override fun getLeft(density: Density, layoutDirection: LayoutDirection) = 0
+    override fun getTop(density: Density) = 0
+    override fun getRight(density: Density, layoutDirection: LayoutDirection) = 0
+    override fun getBottom(density: Density) = bottomPx
 }

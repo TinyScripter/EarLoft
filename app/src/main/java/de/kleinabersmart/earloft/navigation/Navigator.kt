@@ -40,7 +40,8 @@ class Navigator(private val state: NavigationState) {
 
     /**
      * Programmatic navigation. A tab route shows that tab on its start page (e.g. a notification opening Home with a page on
-     * top); every other route goes on top of the current tab. For taps on the navigation bar see [selectTab].
+     * top); every other route goes on top of the current tab, unless that very page is on top already (a quick double tap,
+     * "Go to artist" on the artist's own page, review H30). For taps on the navigation bar see [selectTab].
      */
     fun navigate(route: NavKey) {
         if (route in state.backStacks.keys) {
@@ -48,7 +49,8 @@ class Navigator(private val state: NavigationState) {
             while (stack.size > 1) stack.removeLastOrNull()
             state.topLevelRoute = route
         } else {
-            currentStack().add(route)
+            val stack = currentStack()
+            if (!stack.last().isSamePage(route)) stack.add(route)
         }
     }
 
@@ -68,6 +70,18 @@ class Navigator(private val state: NavigationState) {
     }
 
     /**
+     * The area (music, podcasts, books) was switched: Home and Library, whose content depends on it, go back to their start
+     * pages, also the tab not shown, so it doesn't come back with a page of the previous area (review H20). Settings and
+     * other tabs keep their page.
+     */
+    fun closeAreaPages() {
+        AREA_TABS.forEach { route ->
+            val stack = state.backStacks[route] ?: return@forEach
+            while (stack.size > 1) stack.removeLastOrNull()
+        }
+    }
+
+    /**
      * Shows the playback screen no matter where the app currently is (e.g. after tapping the notification).
      * If it's already in the current tab's stack, it is brought to the front (the queue on top of it is closed)
      * instead of being placed on top a second time.
@@ -80,6 +94,15 @@ class Navigator(private val state: NavigationState) {
         } else {
             while (stack.size > index + 1) stack.removeLastOrNull()
         }
+    }
+
+    /**
+     * Closes the full-screen player and the queue over it, if on top; a page opened from there (album, artist) then comes
+     * beneath the player instead of over it (review H30), as from the player itself.
+     */
+    fun closeFullScreenPlayer() {
+        val stack = currentStack()
+        while (stack.size > 1 && stack.last().isFullScreenPlayer) stack.removeLastOrNull()
     }
 
     /** Replaces the top page of the current tab (e.g. the preview with the subscription just created). */
@@ -125,3 +148,6 @@ class Navigator(private val state: NavigationState) {
     private fun currentStack() =
         state.backStacks[state.topLevelRoute] ?: error("No back stack for ${state.topLevelRoute}")
 }
+
+/** The tabs that show the selected area. */
+private val AREA_TABS = listOf(HomeRoute, LibraryRoute)

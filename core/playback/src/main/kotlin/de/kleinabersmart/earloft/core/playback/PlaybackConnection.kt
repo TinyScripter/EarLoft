@@ -51,6 +51,11 @@ data class PlayerState(
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     val queue: List<QueueEntry> = emptyList(),
     val currentIndex: Int = -1,
+    /**
+     * Indices into [queue] of the titles still to come after the current one, in the order the player will play them (the
+     * shuffled order with [shuffle]; without the wrap of repeat). While casting only the window the cast player holds.
+     */
+    val laterIndices: List<Int> = emptyList(),
     /** Playback paused because the output isn't suitable (watch without headphones, Wear concept 9). */
     val outputSuppressed: Boolean = false,
     /** Playback on another device (Chromecast). */
@@ -73,6 +78,12 @@ interface PlaybackConnection {
 
     /** Reports position jumps (seeking, title changes) that [state] doesn't reflect. */
     val positionJumps: Flow<Unit>
+
+    /**
+     * Playback starts: from paused to playing (not the end of buffering), or another title or queue chosen while playing (a
+     * skip, a new album), but not the next title following on by itself. The mini player comes back then (review H28).
+     */
+    val playbackStarts: Flow<Unit>
 
     /** Current position (0 without a connection); poll periodically for the progress display while [state] is observed. */
     val currentPositionMs: Long

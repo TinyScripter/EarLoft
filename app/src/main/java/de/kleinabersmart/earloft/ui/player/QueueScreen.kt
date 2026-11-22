@@ -73,13 +73,17 @@ fun QueueScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val laterMs by viewModel.queueLaterMs.collectAsStateWithLifecycle()
+    // Counts down while playing (review H29); only the formatted text below recomposes the title.
+    val position by rememberPlaybackPosition(state.isPlaying, viewModel.positionJumps, state.current) { viewModel.currentPositionMs }
+    // Count and time left, as in the podcast and book queues: the current song and everything still to come after it, in the
+    // player's order. Not while casting: the cast player only holds a window of the queue (review H9).
+    val count = state.laterIndices.size + 1
+    val left = laterMs?.let { it + (state.durationMs - position).coerceAtLeast(0) }
+    val leftText = left?.let { formatDuration(it) }
     QueueContent(
         state = state,
-        // Count and time left, as in the podcast and book queues: the rest of the current song plus everything after it.
-        summary = laterMs?.let { later ->
-            val left = later + (state.durationMs - viewModel.currentPositionMs).coerceAtLeast(0)
-            val count = state.queue.size
-            "${pluralStringResource(R.plurals.song_count, count, count)} · ${stringResource(R.string.book_remaining, formatDuration(left))}"
+        summary = leftText?.let {
+            "${pluralStringResource(R.plurals.song_count, count, count)} · ${stringResource(R.string.book_remaining, it)}"
         },
         onBack = onBack,
         onItemClick = viewModel::skipToQueueItem,

@@ -404,6 +404,22 @@ class SleepTimerTest {
     }
 
     @Test
+    fun `end of song with repeat one stops when the song starts over between two steps`() {
+        target.spoken = false
+        target.music = true
+        target.ends = listOf(200_000)
+        target.position = 190_000
+        timer.startToEnd()
+        advance(8_000)
+        assertEquals(2_000L, timer.state.value?.remainingMs)
+        // The song repeats before the next step: the player is back at its start.
+        target.position = 0
+        advance(1_000)
+        assertNull(timer.state.value)
+        assertEquals(1, target.pauseCount)
+    }
+
+    @Test
     fun `another album started at the same position counts down the new song`() {
         target.spoken = false
         target.music = true

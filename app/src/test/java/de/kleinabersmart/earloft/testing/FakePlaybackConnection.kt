@@ -25,6 +25,7 @@ class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
 
     override val state = MutableStateFlow(PlayerState())
     override val positionJumps: Flow<Unit> = MutableSharedFlow()
+    override val playbackStarts: Flow<Unit> = MutableSharedFlow()
     override var currentPositionMs: Long = 0
     override val sleepTimerRemainingMs: Flow<Long?> = flowOf(null)
     override val sleepTimerToEnd: Flow<Boolean> = flowOf(false)

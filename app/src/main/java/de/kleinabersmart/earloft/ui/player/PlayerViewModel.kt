@@ -53,15 +53,16 @@ class PlayerViewModel @Inject constructor(
     val state: StateFlow<PlayerState> = playbackConnection.state
 
     /**
-     * Length of the songs after the current one in the music queue, for its title (with the rest of the current song: time
-     * left); `null` while unknown.
+     * Length of the songs still to come after the current one, in the player's order (also shuffled), for the queue's title
+     * (with the rest of the current song: time left); `null` while unknown and while casting, where the player only holds a
+     * window of the queue (review H9).
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val queueLaterMs: StateFlow<Long?> = state
-        .map { it.queue.map { entry -> entry.songId } to it.currentIndex }
+        .map { current -> current.laterIndices.mapNotNull { current.queue.getOrNull(it)?.songId }.takeUnless { current.isRemote } }
         .distinctUntilChanged()
-        .mapLatest { (ids, index) ->
-            val later = ids.drop(index + 1)
+        .mapLatest { later ->
+            if (later == null) return@mapLatest null
             val durations = libraryRepository.songs(later.distinct()).associate { it.id to it.durationMs }
             later.sumOf { durations[it] ?: 0L }
         }
@@ -152,6 +153,9 @@ class PlayerViewModel @Inject constructor(
 
     /** Position jumps so the display catches up even while paused. */
     val positionJumps: Flow<Unit> = playbackConnection.positionJumps
+
+    /** See [PlaybackConnection.playbackStarts]. */
+    val playbackStarts: Flow<Unit> = playbackConnection.playbackStarts
 
     fun togglePlayPause() = playbackConnection.togglePlayPause()
     fun next() = playbackConnection.next()

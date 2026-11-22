@@ -188,7 +188,8 @@ data object SettingsRoute : NavKey
 data object AddServerRoute : NavKey
 
 @Serializable
-data class EditServerRoute(val sourceId: String) : NavKey
+/** [alreadySetUp]: opened instead of creating the same server a second time (review H23); the form says so. */
+data class EditServerRoute(val sourceId: String, val alreadySetUp: Boolean = false) : NavKey
 
 @Serializable
 data object SettingsGeneralRoute : NavKey
@@ -229,3 +230,29 @@ val NavKey.isFullScreenPlayer: Boolean
     get() = this == NowPlayingRoute || (this is QueueRoute && overPlayer)
 
 private fun newInstanceId(): String = UUID.randomUUID().toString()
+
+/**
+ * [this] shows the same page as [other], whatever their instance IDs: opening it again on top of itself (a quick double tap,
+ * "Go to artist" on that artist's page) would only stack a copy (review H30).
+ */
+fun NavKey.isSamePage(other: NavKey): Boolean = withoutInstance() == other.withoutInstance()
+
+private fun NavKey.withoutInstance(): NavKey = when (this) {
+    is AlbumRoute -> copy(instanceId = "")
+    is ArtistRoute -> copy(instanceId = "")
+    is GenreRoute -> copy(instanceId = "")
+    is PlaylistRoute -> copy(instanceId = "")
+    is BookRoute -> copy(instanceId = "")
+    is PodcastRoute -> copy(instanceId = "")
+    is PodcastInfoRoute -> copy(instanceId = "")
+    is SearchRoute -> copy(instanceId = "")
+    is PodcastSearchRoute -> copy(instanceId = "")
+    is PodcastSettingsRoute -> copy(instanceId = "")
+    is AddPodcastRoute -> copy(instanceId = "")
+    is PodcastPreviewRoute -> copy(instanceId = "")
+    is ArdSoundsRoute -> copy(instanceId = "")
+    is ArdShowRoute -> copy(instanceId = "")
+    is ArdBookRoute -> copy(instanceId = "")
+    is BookGroupRoute -> copy(instanceId = "")
+    else -> this
+}

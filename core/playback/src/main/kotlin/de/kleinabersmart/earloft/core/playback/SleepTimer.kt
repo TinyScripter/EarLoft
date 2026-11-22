@@ -333,6 +333,13 @@ class SleepTimer internal constructor(
                     fromMs = null
                 }
                 val position = spot.positionMs
+                // The same song started over ("Repeat: one", or one song with "all"): the step before was just at its end, so
+                // that was it, even if no step fell into the last moment before the boundary (review H34).
+                if (spot.music && lastRemaining < CROSS_TOLERANCE_MS && position < CROSS_TOLERANCE_MS * spot.speed &&
+                    endMs?.let { it - position > CROSS_TOLERANCE_MS } == true
+                ) {
+                    return Step.Remaining(0)
+                }
                 var end = endMs ?: spot.endAfter(position)
                 var from = fromMs ?: spot.startOf(end)
                 val overshoot = position - end

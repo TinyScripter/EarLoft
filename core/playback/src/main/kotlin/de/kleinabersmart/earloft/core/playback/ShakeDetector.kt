@@ -10,15 +10,20 @@ import kotlin.math.sqrt
 /**
  * Detects shaking from accelerations (in g): several strong spikes in quick succession. Turning over in bed or
  * putting the phone down gives at most one; after a hit there's a quiet period so one shake doesn't count twice.
+ * A spike counts once when the force rises above the threshold, not once per measurement above it: a single knock of
+ * 150 to 200 ms gave three measurements and counted as a shake (review H33).
  */
 internal class ShakeCounter {
     private val peaks = ArrayDeque<Long>()
     private var lastShakeMs = Long.MIN_VALUE / 2
+    private var above = false
 
     /** `true` if a shake is detected with this measurement. */
     fun onSample(gForce: Float, timeMs: Long): Boolean {
+        val rising = gForce >= THRESHOLD_G && !above
+        above = gForce >= THRESHOLD_G
         if (timeMs - lastShakeMs < COOLDOWN_MS) return false
-        if (gForce < THRESHOLD_G) return false
+        if (!rising) return false
         peaks.addLast(timeMs)
         while (peaks.isNotEmpty() && timeMs - peaks.first() > WINDOW_MS) peaks.removeFirst()
         if (peaks.size < PEAKS) return false
@@ -29,6 +34,7 @@ internal class ShakeCounter {
 
     fun reset() {
         peaks.clear()
+        above = false
     }
 
     companion object {

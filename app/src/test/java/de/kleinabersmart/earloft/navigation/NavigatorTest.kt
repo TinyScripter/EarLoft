@@ -269,4 +269,63 @@ class NavigatorTest {
         assertEquals(listOf(SettingsRoute, SettingsGeneralRoute), state.backStacks.getValue(SettingsRoute).toList())
         assertFalse(navigator.inSetup)
     }
+
+    @Test
+    fun `switching the area sends home and library back to their start pages, settings keep theirs`() {
+        navigator.navigate(LibraryRoute)
+        navigator.navigate(AlbumDetail)
+        navigator.navigate(HomeRoute)
+        navigator.navigate(AlbumDetail)
+        navigator.navigate(SettingsRoute)
+        navigator.navigate(AlbumDetail)
+        navigator.navigate(HomeRoute)
+        navigator.navigate(AlbumDetail)
+
+        navigator.closeAreaPages()
+
+        assertEquals(HomeRoute, state.topLevelRoute)
+        assertEquals(listOf(HomeRoute), state.backStacks.getValue(HomeRoute).toList())
+        assertEquals(listOf(LibraryRoute), state.backStacks.getValue(LibraryRoute).toList())
+        assertEquals(listOf(SettingsRoute, AlbumDetail), state.backStacks.getValue(SettingsRoute).toList())
+    }
+
+    @Test
+    fun `the page on top is not opened a second time`() {
+        navigator.navigate(AlbumDetail)
+        navigator.navigate(AlbumDetail)
+        val artist = ArtistRoute(artistId = 7)
+        navigator.navigate(artist)
+        navigator.navigate(ArtistRoute(artistId = 7))
+
+        assertEquals(listOf(HomeRoute, AlbumDetail, artist), state.backStacks.getValue(HomeRoute).toList())
+    }
+
+    @Test
+    fun `another artist or the same one further down still opens`() {
+        navigator.navigate(ArtistRoute(artistId = 7))
+        navigator.navigate(ArtistRoute(artistId = 8))
+        navigator.navigate(ArtistRoute(artistId = 7))
+
+        assertEquals(4, state.backStacks.getValue(HomeRoute).size)
+    }
+
+    @Test
+    fun `closing the full screen player also closes the queue over it`() {
+        navigator.navigate(AlbumDetail)
+        navigator.navigate(NowPlayingRoute)
+        navigator.navigate(QueueRoute(overPlayer = true))
+
+        navigator.closeFullScreenPlayer()
+
+        assertEquals(listOf(HomeRoute, AlbumDetail), state.backStacks.getValue(HomeRoute).toList())
+    }
+
+    @Test
+    fun `the queue opened from home stays when closing the player`() {
+        navigator.navigate(QueueRoute(overPlayer = false))
+
+        navigator.closeFullScreenPlayer()
+
+        assertEquals(listOf(HomeRoute, QueueRoute(overPlayer = false)), state.backStacks.getValue(HomeRoute).toList())
+    }
 }

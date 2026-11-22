@@ -63,6 +63,21 @@ internal fun savedMusicQueueOf(songs: List<Song>, savedIndex: Int): SavedMusicQu
     return SavedMusicQueue(entries, savedIndex.coerceIn(0, songs.lastIndex))
 }
 
+/** Where a restored queue starts: [index] in the songs still there; [sameSong]: the saved title itself is still there. */
+internal data class RestoredStart(val index: Int, val sameSong: Boolean)
+
+/**
+ * The start of the saved queue [savedIds] at [savedIndex] once the songs not [present] any more are left out: the saved
+ * title, or if it was removed the one after it (from its start), at the end the last one.
+ */
+internal fun restoredStart(savedIds: List<Long>, present: Set<Long>, savedIndex: Int): RestoredStart {
+    val index = savedIndex.coerceIn(0, (savedIds.size - 1).coerceAtLeast(0))
+    val remaining = savedIds.count { it in present }
+    val before = savedIds.take(index).count { it in present }
+    val sameSong = savedIds.getOrNull(index)?.let { it in present } == true
+    return RestoredStart(before.coerceAtMost((remaining - 1).coerceAtLeast(0)), sameSong && before < remaining)
+}
+
 /**
  * Position of [songId] in the saved queue [songIds]: the first occurrence from [near] (the previously saved
  * title), otherwise the closest one before it; `null` if the song isn't in it. That way a song enqueued twice hits the
@@ -225,17 +240,22 @@ class QueuePersistence @Inject constructor(
         playbackStateRepository.observeQueue(),
         context.playbackDataStore.data.map { it[KEY_INDEX] ?: 0 }.distinctUntilChanged(),
         ::Pair,
-    ).mapLatest { (songIds, index) -> savedMusicQueueOf(libraryRepository.songs(songIds), index) }
+    ).mapLatest { (songIds, index) ->
+        val songs = libraryRepository.songs(songIds)
+        savedMusicQueueOf(songs, restoredStart(songIds, songs.mapTo(HashSet()) { it.id }, index).index)
+    }
 
     suspend fun restore(): RestoredQueue? {
-        val songs = libraryRepository.songs(playbackStateRepository.loadQueue())
+        val songIds = playbackStateRepository.loadQueue()
+        val songs = libraryRepository.songs(songIds)
         if (songs.isEmpty()) return null
         val prefs = context.playbackDataStore.data.first()
-        val index = (prefs[KEY_INDEX] ?: 0).coerceIn(0, songs.lastIndex)
+        // Songs removed since then are missing from the list: the saved index is counted in the saved one (review H32).
+        val start = restoredStart(songIds, songs.mapTo(HashSet()) { it.id }, prefs[KEY_INDEX] ?: 0)
         return RestoredQueue(
             items = songs.map { it.toMediaItem() },
-            startIndex = index,
-            startPositionMs = prefs[KEY_POSITION] ?: 0L,
+            startIndex = start.index,
+            startPositionMs = if (start.sameSong) prefs[KEY_POSITION] ?: 0L else 0L,
             shuffle = prefs[KEY_SHUFFLE] ?: false,
             repeatMode = prefs[KEY_REPEAT] ?: Player.REPEAT_MODE_OFF,
         )
