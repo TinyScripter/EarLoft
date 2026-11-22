@@ -103,6 +103,8 @@ def build_music(out):
                 "title": title, "artist": album["artist"], "album_artist": album["artist"],
                 "album": album["title"], "date": album["year"], "genre": album["genre"], "track": f"{n}/{count}",
                 "disc": "1/1",
+                # ffmpeg turns a "lyrics" key into TXXX:USLT; TXXX:UNSYNCEDLYRICS is a key the app reads.
+                **({"UNSYNCEDLYRICS": catalog.LYRICS[title]} if title in catalog.LYRICS else {}),
             })
         log(f"album  {album['artist']} – {album['title']} ({count} tracks)")
 

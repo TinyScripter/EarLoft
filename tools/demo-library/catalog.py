@@ -242,3 +242,34 @@ BOOKS = [
             [1640, 1875, 2030, 1790, 2215, 1960, 2105, 1850, 2290, 1720, 2380, 1995], start=1)],
     ),
 ]
+
+# Synchronized lyrics (LRC) embedded in the track of the same title. Written for the demo library.
+LYRICS = {
+    "Gapless (Finally)": """\
+[00:09.00] I waited for the silence in between
+[00:16.50] A tiny gap where nothing should have been
+[00:24.00] Track one fades out, track two is late
+[00:31.50] Half a second felt like eight
+[00:39.00] Now it's gapless, finally
+[00:45.00] Every song flows into me
+[00:51.00] No more breaks, no more pause
+[00:57.00] Just the music, just because
+[01:05.00] I tried the buffers, tried the queue
+[01:12.50] I read the logs the whole night through
+[01:20.00] Three iterations, then I asked
+[01:27.50] And now the silence is the past
+[01:35.00] Now it's gapless, finally
+[01:41.00] Every song flows into me
+[01:47.00] No more breaks, no more pause
+[01:53.00] Just the music, just because
+[02:03.00] Waiting for Wi-Fi, waiting for you
+[02:10.50] Syncing my heart like servers do
+[02:18.00] Offline again, but I don't mind
+[02:25.50] The downloads left the gaps behind
+[02:35.00] Now it's gapless, finally
+[02:41.00] Every song flows into me
+[02:47.00] No more breaks, no more pause
+[02:53.00] Just the music, just because
+[03:05.00] Gapless... finally
+""",
+}

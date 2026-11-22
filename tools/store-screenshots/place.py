@@ -2,7 +2,7 @@
 """Copies a capture run into the fastlane layout and adds the store graphics.
 
 Usage: place.py <rundir> [fastlane-locale ...]
-  <rundir>/<locale>/phone/N_name.png -> fastlane/metadata/android/<locale>/images/phoneScreenshots/
+  <rundir>/<locale>/phone/N_name.png -> fastlane/metadata/android/<locale>/images/phoneScreenshots/ (promo.py compose)
   <rundir>/<locale>/wear/N_name.png  -> fastlane/metadata/android/<locale>/images/wearScreenshots/
   media/icon.png                     -> .../images/icon.png            (512x512, 32-bit PNG)
   media/featureGraphic.jpeg          -> .../images/featureGraphic.jpeg (1024x500, centre-cropped if wider)
@@ -27,9 +27,10 @@ for locale in sorted(l for l in os.listdir(run) if not only or l in only):
         if not os.path.isdir(src):
             problems.append(f"{locale}/{kind}: missing")
             continue
-        files = sorted(os.listdir(src))
-        if len(files) != 4:
-            problems.append(f"{locale}/{kind}: {len(files)} files instead of 4")
+        files = sorted(f for f in os.listdir(src) if f.endswith(".png"))
+        low = 2 if kind == "phone" else 1  # Google Play: 2-8 phone screenshots, 1-8 for Wear OS
+        if not low <= len(files) <= 8:
+            problems.append(f"{locale}/{kind}: {len(files)} files, Google Play wants {low} to 8")
         targets = [locale]
         for t in targets:
             dst = f"{base}/{t}/images/{folder}"

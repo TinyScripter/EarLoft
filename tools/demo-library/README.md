@@ -2,7 +2,8 @@
 
 A made-up library for store screenshots and demos: 11 albums, 5 podcast subscriptions and 5 audiobooks. Every name,
 text and cover is invented (`catalog.py`); the covers are drawn by `covers.py`, and the audio is silence with
-realistic durations. Nothing here comes from real artists, shows or books, so screenshots can be published.
+realistic durations; "Gapless (Finally)" carries made-up synchronized lyrics (`LYRICS`). Nothing here comes from real
+artists, shows or books, so screenshots can be published.
 
 | | Where on the device | Read by the app as |
 |---|---|---|

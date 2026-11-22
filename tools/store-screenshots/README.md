@@ -6,12 +6,13 @@ The store listing exists in English (`en-US`) and German (`de-DE`) only; see `LA
 
 | Screenshots | Folder | Size |
 |---|---|---|
-| Phone: `1_music_home`, `2_playback`, `3_podcast_library`, `4_audiobook` | `phoneScreenshots` | 1080×1920 |
-| Watch: `1_watch_home`, `2_phone_home`, `3_downloads`, `4_phone_playback` | `wearScreenshots` | 454×454 |
+| Phone: `1_library`, `2_player`, `3_podcasts`, `4_audiobooks`, `5_watch` – headline and subline above the app (`promo.py`) | `phoneScreenshots` | 1440×2560 |
+| Watch: `1_watch_home`, `2_phone_home`, `3_downloads`, `4_phone_playback` (`capture.py wear`) | `wearScreenshots` | 454×454 |
 
-Google Play wants the longer side of a phone screenshot to be at most twice the shorter one, which a Pixel 10 Pro
-screenshot (1280×2856) is not. `prepare.sh` therefore sets the display to 1080×1920 and turns on the demo-mode status
-bar (9:41, full battery).
+The phone slides are composed by `promo.py`: a headline that says what the app can do (orange words marked with
+`{braces}` in `SLIDES`), a subline, and the screen in a phone frame that runs off the bottom edge, so that the part
+with the content is large and the navigation bar is cut off. The last slide shows two watch screenshots. Google Play
+allows 2 to 8 phone screenshots with the longer side at most twice the shorter one (9:16 here).
 
 ## Requirements
 
@@ -20,29 +21,38 @@ bar (9:41, full battery).
 - Current **debug** builds of both apps on both emulators (`ANDROID_SERIAL=<serial> ./gradlew :app:installDebug`,
   `:wear:installDebug`).
 - The made-up library from [`tools/demo-library`](../demo-library/README.md) and nothing else: the screenshots are
-  published, so no real artists, covers, shows or books. Then on the phone:
-  - `TRACK` in `capture.py` ("Gapless (Finally)") loaded and paused at about a third, started from
-    **Library → Music → Songs** so that the queue on Home mixes albums;
-  - `BOOK` ("Ashes of the Ninth Moon") started and paused, so that it is in "Continue listening" with progress;
-  - a podcast episode started, the other new episodes untouched;
-  - a few albums, a book and an episode loaded onto the watch and downloaded there (on the emulator
-    `adb -s <watch> shell dumpsys battery set ac 1` plus `set status 2` lets it download, `dumpsys battery reset`
-    afterwards), and the watch shows the phone's playback under **Phone**.
+  published, so no real artists, covers, shows or books.
+- A few albums, a book and an episode loaded onto the watch and downloaded there (on the emulator
+  `adb -s <watch> shell dumpsys battery set ac 1` plus `set status 2` lets it download, `dumpsys battery reset`
+  afterwards), and the watch shows the phone's playback (`TRACK` in `capture.py`) under **Phone**.
 - Do not run another `uiautomator` against the emulators while capturing, the dumps get in each other's way.
-- Python 3 with Pillow.
+- Python 3 with Pillow; the Lato font (`fonts-lato`), otherwise DejaVu.
 
 ## Steps
 
+`promo.py shoot <run> <raw-name>` saves what the phone shows right now in every language (the open screen stays open
+when the app language changes). Navigate there by hand (or with `ui.py`) in this order, because the music and the
+book player cannot both be the current playback:
+
+| Raw shot | Screen and state |
+|---|---|
+| `book_player` | Home → Books → play "How to build the EarLoft app", open the player: chapter "The watch learns to wait" at about half, speed 1.25×, sleep timer 30 min, paused |
+| `player_lyrics` | Library → Music → Songs → "Gapless (Finally)" (the queue then mixes albums), open the player, turn the sleep timer off, *Show lyrics*, seek to about 1:16, pause |
+| `music_home` | Home → Music, scrolled to the top |
+| `podcast_library` | Library → Podcasts → New → All, one episode started (progress), the others untouched |
+
 ```sh
-tools/store-screenshots/prepare.sh                                  # phone display and status bar
-python3 tools/store-screenshots/capture.py phone /tmp/shots-1 &     # both devices can run in parallel
-python3 tools/store-screenshots/capture.py wear /tmp/shots-1
-python3 tools/store-screenshots/sheet.py /tmp/shots-1 phone /tmp/sheet-phone-1.png 400 en-US de-DE   # review
-python3 tools/store-screenshots/place.py /tmp/shots-1               # into fastlane/, checks the Play rules
-tools/store-screenshots/reset.sh                                    # display, status bar and app languages back
+tools/store-screenshots/prepare.sh native                           # demo status bar, display unchanged
+python3 tools/store-screenshots/promo.py shoot /tmp/promo-1 book_player      # … and the other three
+python3 tools/store-screenshots/capture.py wear /tmp/promo-1        # watch screenshots (also used by 5_watch)
+python3 tools/store-screenshots/promo.py compose /tmp/promo-1
+python3 tools/store-screenshots/sheet.py /tmp/promo-1 phone /tmp/sheet-promo-1.png 290 en-US de-DE   # review
+python3 tools/store-screenshots/place.py /tmp/promo-1               # into fastlane/, checks the Play rules
+tools/store-screenshots/reset.sh                                    # status bar and app languages back
 ```
 
 Use a new output directory and sheet name every time; the IDE shows stale images for reused paths.
+`capture.py phone` still captures plain 1080×1920 screenshots (after `prepare.sh` without `native`), without text.
 The scripts switch the language per app with `cmd locale set-app-locales`, find buttons by the texts in the
 `strings.xml` files, and print `WARN …` when a screen is not where it should be. Check the sheet before placing.
 
