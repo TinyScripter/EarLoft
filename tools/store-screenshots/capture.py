@@ -4,9 +4,10 @@
 Usage: capture.py <phone|wear> <outdir> [fastlane-locale ...]
 Run prepare.sh first (phone display size, status bar) and see README.md for the required emulator state.
 
-Phone (1080x1920, demo-mode status bar):  1_about, 2_music_home, 3_podcast_library, 4_playback
+Phone (1080x1920, demo-mode status bar):  1_music_home, 2_playback, 3_podcast_library, 4_audiobook
 Watch (454x454):                          1_watch_home, 2_phone_home, 3_downloads, 4_phone_playback
 Files land in <outdir>/<fastlane-locale>/<kind>/<name>.png as RGB PNG (Play rejects alpha).
+The screens show the made-up demo library (tools/demo-library), never real artists, shows or books.
 """
 import io
 import os
@@ -22,7 +23,9 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 PHONE = os.environ.get("PHONE_SERIAL", "emulator-5554")
 WATCH = os.environ.get("WATCH_SERIAL", "emulator-5556")
 PKG = "de.kleinabersmart.earloft.debug"
-TRACK = "Starting From Zero (feat. Michael McDonald)"
+# From the demo library (tools/demo-library/catalog.py): the paused track and the book with progress.
+TRACK = "Gapless (Finally)"
+BOOK = "Ashes of the Ninth Moon"
 
 # (fastlane locale, locale tag for the app, values-qualifier; None = default English)
 # The store listing exists in English and German only. Add a tuple, e.g. ("fr-FR", "fr-FR", "fr"), for more.
@@ -75,8 +78,6 @@ def phone(out, only):
         if only and fl not in only:
             continue
         d = f"{out}/{fl}/phone"
-        about_summary = lookup("app", q, "settings_about_summary")
-        about_text = lookup("app", q, "about_text")[:40]
         set_locale(PHONE, tag)
         time.sleep(4)
 
@@ -84,13 +85,13 @@ def phone(out, only):
         time.sleep(1.5)
         ui.tap(PHONE, 209, 380)   # Music
         time.sleep(2.5)
-        log(f"{fl} music_home {save(PHONE, f'{d}/2_music_home.png')}")
+        log(f"{fl} music_home {save(PHONE, f'{d}/1_music_home.png')}")
 
         ui.tap(PHONE, 480, 1560)  # mini player -> full player (opened from Home so the Home tab stays selected)
         time.sleep(3)
         if not [n for n in ui.find(ui.dump(PHONE), TRACK) if n["bounds"][1] > 700]:
             log(f"WARN {fl}: full player not open")
-        log(f"{fl} playback {save(PHONE, f'{d}/4_playback.png')}")
+        log(f"{fl} playback {save(PHONE, f'{d}/2_playback.png')}")
         ui.tap(PHONE, 180, 1750)  # Home closes the player
         time.sleep(1.5)
 
@@ -104,21 +105,23 @@ def phone(out, only):
         ui.tap(PHONE, 209, 380)   # back to Music so every later Home starts the same way
         time.sleep(1)
 
-        ui.tap(PHONE, 900, 1750)  # Settings
-        time.sleep(2)
-        nodes = ui.dump(PHONE)
-        if not has_text(nodes, about_text, contains=True):
-            hit = ui.find(nodes, about_summary)
-            if hit:
-                ui.tap(PHONE, *ui.center(hit[0]))
-            else:
-                log(f"WARN {fl}: About entry not found, using fixed position")
-                ui.tap(PHONE, 400, 1340)
-            time.sleep(2.5)
-            nodes = ui.dump(PHONE)
-        if not has_text(nodes, about_text, contains=True):
-            log(f"WARN {fl}: About text not on screen")
-        log(f"{fl} about {save(PHONE, f'{d}/1_about.png')}")
+        ui.tap(PHONE, 180, 1750)  # Home
+        time.sleep(1.5)
+        ui.tap(PHONE, 871, 380)   # Books
+        time.sleep(2.5)
+        if not ui.tap_text(PHONE, BOOK):  # the cover in "Continue listening" opens the book page
+            log(f"WARN {fl}: {BOOK} not on the books home")
+        time.sleep(3.5)
+        if len(ui.find(ui.dump(PHONE), BOOK)) == 0:
+            log(f"WARN {fl}: book page not open")
+        # A short, slow scroll: the mini player slides away and progress and Resume come into view below the cover.
+        ui.adb(PHONE, "shell", "input", "swipe", "540", "1400", "540", "1130", "1000")
+        time.sleep(2.5)
+        log(f"{fl} audiobook {save(PHONE, f'{d}/4_audiobook.png')}")
+        ui.tap(PHONE, 180, 1750)  # Home closes the book page
+        time.sleep(1.5)
+        ui.tap(PHONE, 209, 380)   # Music
+        time.sleep(1)
 
     ui.tap(PHONE, 180, 1750)
 

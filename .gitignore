@@ -26,3 +26,6 @@ keystore.properties
 # Play Console keys, also outside fastlane/ (PLAY_JSON_KEY may point to any path).
 *service-account*.json
 /fastlane/report.xml
+
+# Python
+__pycache__/

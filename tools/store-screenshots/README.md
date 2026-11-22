@@ -6,7 +6,7 @@ The store listing exists in English (`en-US`) and German (`de-DE`) only; see `LA
 
 | Screenshots | Folder | Size |
 |---|---|---|
-| Phone: `1_about`, `2_music_home`, `3_podcast_library`, `4_playback` | `phoneScreenshots` | 1080×1920 |
+| Phone: `1_music_home`, `2_playback`, `3_podcast_library`, `4_audiobook` | `phoneScreenshots` | 1080×1920 |
 | Watch: `1_watch_home`, `2_phone_home`, `3_downloads`, `4_phone_playback` | `wearScreenshots` | 454×454 |
 
 Google Play wants the longer side of a phone screenshot to be at most twice the shorter one, which a Pixel 10 Pro
@@ -19,8 +19,15 @@ bar (9:41, full battery).
   Other serials: `PHONE_SERIAL=… WATCH_SERIAL=…`.
 - Current **debug** builds of both apps on both emulators (`ANDROID_SERIAL=<serial> ./gradlew :app:installDebug`,
   `:wear:installDebug`).
-- The phone has a music track loaded and paused (the screenshots show whatever is current: `TRACK` in `capture.py`),
-  a podcast with two new episodes, and the watch shows the phone's playback under **Phone**.
+- The made-up library from [`tools/demo-library`](../demo-library/README.md) and nothing else: the screenshots are
+  published, so no real artists, covers, shows or books. Then on the phone:
+  - `TRACK` in `capture.py` ("Gapless (Finally)") loaded and paused at about a third, started from
+    **Library → Music → Songs** so that the queue on Home mixes albums;
+  - `BOOK` ("Ashes of the Ninth Moon") started and paused, so that it is in "Continue listening" with progress;
+  - a podcast episode started, the other new episodes untouched;
+  - a few albums, a book and an episode loaded onto the watch and downloaded there (on the emulator
+    `adb -s <watch> shell dumpsys battery set ac 1` plus `set status 2` lets it download, `dumpsys battery reset`
+    afterwards), and the watch shows the phone's playback under **Phone**.
 - Do not run another `uiautomator` against the emulators while capturing, the dumps get in each other's way.
 - Python 3 with Pillow.
 
