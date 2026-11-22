@@ -162,9 +162,18 @@ class SpokenLibraryViewModel @Inject constructor(
     val ardSounds: StateFlow<Boolean> = settings.ardSoundsBooks
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    /** An Audiobookshelf server or ARD Sounds as a source (or books from there); `null` while still loading. */
-    val hasServer: StateFlow<Boolean?> = combine(servers.servers, settings.ardSoundsBooks, ardBooks.library) { list, ard, ardLibrary ->
-        list.isNotEmpty() || ard || ardLibrary.isNotEmpty()
+    /**
+     * An Audiobookshelf server, ARD Sounds or the books on this device as a source (or books from ARD Sounds);
+     * `null` while still loading. Books on the device alone are enough: without them counting, the area only
+     * offered to set up Audiobookshelf although the device's books were in the library.
+     */
+    val hasServer: StateFlow<Boolean?> = combine(
+        servers.servers,
+        settings.ardSoundsBooks,
+        settings.useLocalBooks,
+        ardBooks.library,
+    ) { list, ard, local, ardLibrary ->
+        list.isNotEmpty() || ard || local || ardLibrary.isNotEmpty()
     }
         .map<_, Boolean?> { it }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
