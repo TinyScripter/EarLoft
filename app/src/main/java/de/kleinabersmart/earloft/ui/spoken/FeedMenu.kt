@@ -183,8 +183,9 @@ fun FeedMenu(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(R.string.feed_menu_mark_all_title)) },
             text = { Text(pluralStringResource(R.plurals.feed_menu_mark_all_text, current.unheard, current.unheard, feed.title)) },
+            // Changes many episodes at once without "Undo": red like the other collective actions (review H43).
             confirmButton = {
-                TextButton(onClick = {
+                DestructiveTextButton(onClick = {
                     viewModel.markAllPlayed(feed.id)
                     onDismiss()
                 }) { Text(stringResource(R.string.feed_menu_mark_all_confirm)) }

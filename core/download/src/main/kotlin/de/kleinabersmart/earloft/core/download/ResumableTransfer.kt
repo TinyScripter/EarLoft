@@ -4,7 +4,6 @@ import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import de.kleinabersmart.earloft.core.network.HttpStatusException
 import okhttp3.CacheControl
@@ -79,9 +78,8 @@ internal class ResumableTransfer(
             }
         }.build()
         val call = client.newCall(request)
-        val cancelCall = currentCoroutineContext().job.invokeOnCompletion { call.cancel() }
-        try {
-            return withContext(Dispatchers.IO) {
+        return call.cancelledWithCoroutine {
+            withContext(Dispatchers.IO) {
                 call.execute().use { response ->
                     when {
                         response.code == 416 -> {
@@ -152,8 +150,6 @@ internal class ResumableTransfer(
                     TransferResult.Completed(contentType.takeIf { it.startsWith("audio/") })
                 }
             }
-        } finally {
-            cancelCall.dispose()
         }
     }
 
@@ -202,9 +198,10 @@ internal class ResumableTransfer(
         FileOutputStream(part, append).use { output ->
             val buffer = ByteArray(BUFFER_BYTES)
             while (true) {
-                currentCoroutineContext().ensureActive()
                 val read = input.read(buffer)
                 if (read < 0) break
+                // After the read, which may have waited long: a cancelled download writes nothing more (review H31).
+                currentCoroutineContext().ensureActive()
                 output.write(buffer, 0, read)
                 written += read
                 val now = System.nanoTime()

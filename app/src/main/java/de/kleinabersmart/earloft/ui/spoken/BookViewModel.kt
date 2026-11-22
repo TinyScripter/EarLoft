@@ -106,15 +106,23 @@ class BookViewModel @AssistedInject constructor(
 
     private val isEpisode: Boolean get() = book.value?.book?.kind == BookKind.EPISODE
 
-    /** The episode is in the podcast queue ("Continue listening"); for the queue button as on the episode cards. */
-    val queued: StateFlow<Boolean> = continueListening.episodes.map { list -> list.any { it.book.id == bookId } }
+    /**
+     * The episode is in the podcast queue ("Continue listening"); for the queue button as on the episode cards. `null` while
+     * unknown and for books, so the button doesn't first show "add" (review H42), and a book doesn't watch the queue.
+     */
+    val queued: StateFlow<Boolean?> = book
+        .map { it?.book?.kind == BookKind.EPISODE }
         .distinctUntilChanged()
-        .orOnError(false)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+        .flatMapLatest { episode ->
+            if (!episode) flowOf(null) else continueListening.episodes.map { list -> list.any { it.book.id == bookId } }
+        }
+        .distinctUntilChanged()
+        .orOnError(null)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** To the end of the queue or out of it, as on the episode cards. */
     fun toggleQueued() {
-        val inQueue = queued.value
+        val inQueue = queued.value ?: return
         viewModelScope.launch { if (inQueue) continueListening.remove(bookId) else continueListening.append(bookId) }
     }
 

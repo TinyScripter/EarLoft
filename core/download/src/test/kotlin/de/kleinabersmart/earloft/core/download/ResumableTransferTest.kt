@@ -2,6 +2,14 @@ package de.kleinabersmart.earloft.core.download
 
 import de.kleinabersmart.earloft.core.network.HttpStatusException
 import kotlinx.coroutines.test.runTest
+import kotlin.system.measureTimeMillis
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.Dispatchers
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.SocketEffect
@@ -396,5 +404,28 @@ class ResumableTransferTest {
         assertTrue(storage.partFileFor(7, 0).exists())
         assertTrue(storage.metaFileFor(7, 0).exists())
         assertEquals(2, storage.deleteParts())
+    }
+
+    @Test
+    fun `cancelling ends a transfer that hangs in a read at once and writes nothing more`() = runBlocking {
+        // 64 KB, then nothing for a minute: the read blocks.
+        server.enqueue(
+            MockResponse.Builder()
+                .addHeader("Content-Type", "audio/mp4")
+                .body(Buffer().write(audio))
+                .throttleBody(65_536, 60, TimeUnit.SECONDS)
+                .build(),
+        )
+        var reported = 0L
+        val job = launch(Dispatchers.Default) { run(onProgress = { done, _ -> reported = done }) }
+        withTimeout(10_000) { while (!storage.partFileFor(7, 0).exists()) delay(20) }
+        delay(500)
+        val sizeAtCancel = storage.partFileFor(7, 0).length()
+
+        val tookMs = measureTimeMillis { job.cancelAndJoin() }
+
+        assertTrue("took $tookMs ms", tookMs < 5_000)
+        assertEquals(sizeAtCancel, storage.partFileFor(7, 0).length())
+        assertTrue(reported <= sizeAtCancel)
     }
 }

@@ -118,7 +118,7 @@ class OfflineImages @Inject constructor(
                 .filterNot { isLocalSource(it.serverId) }
                 .forEach { row -> unreachable.attempt(row.serverId) { bookCovers.ensureOwnCached(row) } }
             // Author images come from the same server; if it doesn't respond, all authors would otherwise wait for it individually.
-            if (unreachable.none()) bookDao.listedAuthors().flatMap(::bookAuthors).distinct().forEach { authorImages.image(it) }
+            if (unreachable.none()) bookDao.listedAuthors().flatMap(::bookAuthors).distinct().forEach { authorImages.ensureStored(it) }
             if (!unreachable.none()) complete = false
         }
         if (SpokenMode.MUSIC in areas) {

@@ -81,6 +81,19 @@ class AuthorImages @Inject constructor(
         }
     }
 
+    /**
+     * For `OfflineImages`: fetches the image of [name] onto the device unless one is stored already. Unlike [image] it doesn't
+     * decode a stored file just to throw the bitmap away (review H44, as D21 for artist images).
+     */
+    suspend fun ensureStored(name: String) {
+        val key = name.normalizeForMerge()
+        if (key.isEmpty()) return
+        val stored = withContext(Dispatchers.IO) {
+            file(SERVER, key).isFile || (settings.authorImages.first() && file(ONLINE, key).isFile)
+        }
+        if (!stored) image(name)
+    }
+
     /** Clears away the images from the internet (option disabled). */
     suspend fun clearOnlineImages() = withContext(Dispatchers.IO) { directory(ONLINE).deleteRecursively() }
 

@@ -15,7 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import okhttp3.CacheControl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -126,9 +125,8 @@ class Downloader @Inject constructor(
             .cacheControl(CacheControl.Builder().noStore().build())
             .build()
         val call = clientFor(network, url.host).newCall(request)
-        val cancelCall = currentCoroutineContext().job.invokeOnCompletion { call.cancel() }
-        try {
-            return withContext(Dispatchers.IO) {
+        return call.cancelledWithCoroutine {
+            withContext(Dispatchers.IO) {
                 call.execute().use { response ->
                     val contentType = response.header("Content-Type").orEmpty()
                     when {
@@ -168,8 +166,6 @@ class Downloader @Inject constructor(
                     finish(uid, mimeType, total)
                 }
             }
-        } finally {
-            cancelCall.dispose()
         }
     }
 
@@ -198,9 +194,10 @@ class Downloader @Inject constructor(
         part.outputStream().use { output ->
             val buffer = ByteArray(BUFFER_BYTES)
             while (true) {
-                currentCoroutineContext().ensureActive()
                 val read = input.read(buffer)
                 if (read < 0) break
+                // After the read, which may have waited long: a cancelled download writes nothing more (review H31).
+                currentCoroutineContext().ensureActive()
                 output.write(buffer, 0, read)
                 written += read
                 val now = System.nanoTime()

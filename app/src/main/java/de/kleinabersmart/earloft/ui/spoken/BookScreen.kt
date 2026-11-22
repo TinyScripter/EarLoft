@@ -176,7 +176,7 @@ fun BookScreen(
             BookHeader(
                 book, progress,
                 // Episodes: into the queue or out of it, as on the episode cards.
-                queued = queued.takeIf { book.kind == BookKind.EPISODE },
+                queued = queued,
                 onToggleQueue = viewModel::toggleQueued,
                 download = download.state,
                 partial = download.takeIf { it.partial }?.let { it.doneFiles to it.totalFiles },

@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.download
 
 import android.content.Context
+import android.os.Build
 import android.os.storage.StorageManager
 import android.util.Log
 import androidx.core.content.edit
@@ -75,10 +76,11 @@ internal object RunningDownloads {
 
 /**
  * Android stopped the job because the storage ran low (its "storage not low" constraint no longer holds). The job stays
- * enqueued and starts again by itself once there is room.
+ * enqueued and starts again by itself once there is room. Android names the reason only from API 31 on; before, such a stop
+ * looks like any other and the partial file stays.
  */
 internal val ListenableWorker.stoppedForLowStorage: Boolean
-    get() = stopReason == WorkInfo.STOP_REASON_CONSTRAINT_STORAGE_NOT_LOW
+    get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && stopReason == WorkInfo.STOP_REASON_CONSTRAINT_STORAGE_NOT_LOW
 
 /** The three download queues of the phone. */
 enum class DownloadKind { MUSIC, BOOKS, EPISODES }
