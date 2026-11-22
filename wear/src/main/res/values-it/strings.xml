@@ -39,6 +39,7 @@
     <string name="list_podcasts_empty_watch">Nessun episodio sull’orologio</string>
     <string name="list_books_empty_watch">Nessun libro sull’orologio</string>
     <string name="list_load_failed">Impossibile caricare</string>
+    <string name="play_failed">Impossibile riprodurre</string>
 
     <!-- Phone remote control -->
     <string name="remote_unreachable">Telefono non raggiungibile</string>

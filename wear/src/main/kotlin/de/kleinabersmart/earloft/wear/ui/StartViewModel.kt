@@ -7,7 +7,6 @@ import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.core.model.SpokenMode
-import de.kleinabersmart.earloft.wear.download.SelectionItem
 import de.kleinabersmart.earloft.wear.download.WatchState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -29,8 +28,11 @@ enum class OpenOnPhoneResult { OPENED, FAILED }
 
 data class StartUiState(
     val phone: PhoneStatus = PhoneStatus.Checking,
-    /** Selections from the phone in its order; then the watch shows them, even without the phone. */
-    val selections: List<SelectionItem> = emptyList(),
+    /**
+     * Music is selected on the phone, even if it is still downloading; then the watch shows it, even without the phone. Only
+     * this, not the selections with their progress: those change twice a second while downloading (review H47).
+     */
+    val hasMusic: Boolean = false,
     val openOnPhone: OpenOnPhoneResult? = null,
     /** Track or episode currently playing on the watch; `null` as long as nothing is loaded. */
     val nowPlaying: String? = null,
@@ -45,9 +47,6 @@ data class StartUiState(
 ) {
     /** The remote control exists as long as a phone with the app is connected. */
     val phoneConnected: Boolean get() = phone is PhoneStatus.Connected
-
-    /** Music is selected, even if it is still downloading. */
-    val hasMusic: Boolean get() = selections.isNotEmpty()
 
     val hasContent: Boolean get() = hasMusic || hasEpisodes || hasBooks
 }
@@ -78,16 +77,16 @@ class StartViewModel @Inject constructor(
 
     val state: StateFlow<StartUiState> = combine(
         phoneConnection.status,
-        storage.selections().orOnError(emptyList()),
+        storage.selections().orOnError(emptyList()).map { it.isNotEmpty() }.distinctUntilChanged(),
         openOnPhone,
-        playback.state,
+        playback.state.map { it.current?.title ?: it.spoken?.title }.distinctUntilChanged(),
         phoneAndSpoken,
-    ) { phone, selections, opened, player, (phoneTitle, hasEpisodes, hasBooks) ->
+    ) { phone, hasMusic, opened, nowPlaying, (phoneTitle, hasEpisodes, hasBooks) ->
         StartUiState(
             phone = phone,
-            selections = selections,
+            hasMusic = hasMusic,
             openOnPhone = opened,
-            nowPlaying = player.current?.title ?: player.spoken?.title,
+            nowPlaying = nowPlaying,
             phoneNowPlaying = phoneTitle,
             hasEpisodes = hasEpisodes,
             hasBooks = hasBooks,
@@ -95,7 +94,7 @@ class StartViewModel @Inject constructor(
     }.combine(watchState.settings.map { it.areas }.distinctUntilChanged()) { state, areas ->
         // The start screen does not show hidden sections; whatever of them is on the watch stays there (Storage & downloads).
         state.copy(
-            selections = state.selections.takeIf { SpokenMode.MUSIC in areas }.orEmpty(),
+            hasMusic = state.hasMusic && SpokenMode.MUSIC in areas,
             hasEpisodes = state.hasEpisodes && SpokenMode.PODCASTS in areas,
             hasBooks = state.hasBooks && SpokenMode.BOOKS in areas,
             areas = areas,

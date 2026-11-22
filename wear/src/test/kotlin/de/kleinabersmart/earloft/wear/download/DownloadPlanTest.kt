@@ -121,4 +121,27 @@ class DownloadPlanTest {
         assertEquals("nothing missing", false, replan(300_000_000, previous = 200_000_000, missing = 0))
         assertEquals("still no room", false, replan(0, previous = null))
     }
+
+    @Test
+    fun `space freed in small steps adds up until it is worth planning`() {
+        val step = 50L * 1024 * 1024
+        var reference: Long? = null
+        var replans = 0
+        // 10 MB freed per report, five reports: 50 MB in all.
+        for (budget in listOf(0L, 10, 20, 30, 40, 50).map { it * 1024 * 1024 + 1 }) {
+            val replan = shouldReplanForRoom(budget, storageFull = false, missingForStorage = 3, previousBudget = reference, growthBytes = step)
+            if (replan) replans++
+            reference = budgetReference(reference, budget, replan)
+        }
+        // The first report of the process plans, then once more after 50 MB.
+        assertEquals(2, replans)
+    }
+
+    @Test
+    fun `the reference follows a shrinking budget and resets when planning`() {
+        assertEquals(100L, budgetReference(previousReference = null, budget = 100, replanned = false))
+        assertEquals(80L, budgetReference(previousReference = 100, budget = 80, replanned = false))
+        assertEquals(100L, budgetReference(previousReference = 100, budget = 130, replanned = false))
+        assertEquals(130L, budgetReference(previousReference = 100, budget = 130, replanned = true))
+    }
 }

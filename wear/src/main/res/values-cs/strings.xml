@@ -41,6 +41,7 @@
     <string name="list_podcasts_empty_watch">V hodinkách nejsou žádné epizody</string>
     <string name="list_books_empty_watch">V hodinkách nejsou žádné knihy</string>
     <string name="list_load_failed">Nepodařilo se načíst</string>
+    <string name="play_failed">Nelze přehrát</string>
 
     <!-- Phone remote control -->
     <string name="remote_unreachable">Telefon není dostupný</string>

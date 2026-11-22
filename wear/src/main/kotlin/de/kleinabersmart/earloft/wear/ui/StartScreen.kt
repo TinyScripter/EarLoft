@@ -34,9 +34,7 @@ import androidx.wear.compose.material3.lazy.transformedHeight
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import androidx.wear.compose.ui.tooling.preview.WearPreviewFontScales
 import de.kleinabersmart.earloft.core.model.SpokenMode
-import de.kleinabersmart.earloft.core.model.WearSelectionKind
 import de.kleinabersmart.earloft.wear.R
-import de.kleinabersmart.earloft.wear.download.SelectionItem
 import de.kleinabersmart.earloft.wear.sync.PhoneStatus
 
 /** Where an entry of the start screen leads. */
@@ -222,10 +220,6 @@ private fun StartPhoneConnectedPreview() = previewCallbacks(
 private fun StartSelectionsPreview() = previewCallbacks(
     StartUiState(
         phone = PhoneStatus.Connected("phone"),
-        selections = listOf(
-            SelectionItem(1, WearSelectionKind.FAVORITES, "Favorites", 42),
-            SelectionItem(2, WearSelectionKind.ALBUM, "Moonlight", 4, downloadedCount = 1),
-            SelectionItem(3, WearSelectionKind.PLAYLIST, "Morning run with a very long name", 1),
-        ),
+        hasMusic = true,
     ),
 )

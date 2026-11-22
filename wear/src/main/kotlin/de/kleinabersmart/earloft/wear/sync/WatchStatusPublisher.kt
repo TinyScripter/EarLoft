@@ -10,6 +10,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearSelectionStatusDto
 import de.kleinabersmart.earloft.core.wearsync.WearStatusDto
 import de.kleinabersmart.earloft.core.wearsync.putPayload
 import de.kleinabersmart.earloft.wear.download.WatchState
+import de.kleinabersmart.earloft.wear.download.budgetReference
 import de.kleinabersmart.earloft.wear.download.WearDownloadPlanner
 import de.kleinabersmart.earloft.wear.download.downloadBudget
 import de.kleinabersmart.earloft.wear.download.shouldReplanForRoom
@@ -58,7 +59,7 @@ class WatchStatusPublisher @Inject constructor(
     /** Last sent report; only a different one is sent (review G47). */
     private var last: WearStatusDto? = null
 
-    /** Download budget at the previous report, to notice freed space ([shouldReplanForRoom]). */
+    /** Download budget to measure freed space from ([shouldReplanForRoom], [budgetReference]). */
     private var lastBudget: Long? = null
 
     private suspend fun publish(selections: List<WearSelectionStatusDto>) {
@@ -69,7 +70,7 @@ class WatchStatusPublisher @Inject constructor(
         // downloads by itself instead of waiting for "Retry" or the next change on the phone.
         val budget = downloadBudget(settings, free, used, reservedBytes = 0)
         val replan = shouldReplanForRoom(budget, state.isStorageFull, state.missingForStorage.value, lastBudget, FREE_BYTES_STEP)
-        lastBudget = budget
+        lastBudget = budgetReference(lastBudget, budget, replan)
         if (replan) {
             state.clearStorageFullError()
             planner.plan()

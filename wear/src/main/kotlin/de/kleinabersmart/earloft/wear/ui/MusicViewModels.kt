@@ -65,10 +65,10 @@ class PhoneMusicViewModel @Inject constructor(private val remote: PhoneRemote) :
     val favorites: StateFlow<PhoneFavorites> = remote.favorites()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PhoneFavorites())
 
-    /** [onStarted] then switches to the phone's now playing view. */
-    fun shuffleAll(onStarted: () -> Unit) {
+    /** [onStarted] then switches to the phone's now playing view; [onFailed] if the phone can't be reached (review H48). */
+    fun shuffleAll(onStarted: () -> Unit, onFailed: () -> Unit) {
         viewModelScope.launch {
-            if (remote.play(WearRemotePlayRequest(WearRemoteListKind.ALL, shuffle = true))) onStarted()
+            if (remote.play(WearRemotePlayRequest(WearRemoteListKind.ALL, shuffle = true))) onStarted() else onFailed()
         }
     }
 }

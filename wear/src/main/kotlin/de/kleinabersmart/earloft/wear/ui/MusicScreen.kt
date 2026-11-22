@@ -61,10 +61,12 @@ fun PhoneMusicScreen(
     viewModel: PhoneMusicViewModel = hiltViewModel(),
 ) {
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
+    var failed by remember { mutableStateOf<Int?>(null) }
+    PlayFailedDialog(failed, onDismiss = { failed = null })
     MusicContent(
         canShuffleAll = true,
         favoritesEnabled = true,
-        onShuffleAll = { viewModel.shuffleAll(onShuffled) },
+        onShuffleAll = { viewModel.shuffleAll(onShuffled, onFailed = { failed = R.string.remote_unreachable }) },
         onAlbumsClick = onAlbumsClick,
         onArtistsClick = onArtistsClick,
         onFavoritesClick = if (favorites.any) onFavoritesMenuClick else onFavoriteSongsClick,

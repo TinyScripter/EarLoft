@@ -41,6 +41,7 @@
     <string name="list_podcasts_empty_watch">Brak odcinków na zegarku</string>
     <string name="list_books_empty_watch">Brak książek na zegarku</string>
     <string name="list_load_failed">Nie udało się wczytać</string>
+    <string name="play_failed">Nie można odtworzyć</string>
 
     <!-- Phone remote control -->
     <string name="remote_unreachable">Telefon jest nieosiągalny</string>

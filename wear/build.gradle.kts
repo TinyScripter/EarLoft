@@ -32,6 +32,13 @@ android {
         versionName = appVersion.name
     }
 
+    // The languages for the system's per-app language setting come from the translations themselves, so the list can't drift
+    // apart from them (review H57; the phone keeps `locales_config.xml` by hand). The default language is in
+    // `res/resources.properties`.
+    androidResources {
+        generateLocaleConfig = true
+    }
+
     buildTypes {
         debug {
             // Same as the phone app: debug installable next to release, applicationId of both debug apps identical.

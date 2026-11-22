@@ -42,10 +42,12 @@ fun RemoteSpokenScreen(
 ) {
     val onWatch by viewModel.onWatch.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    var failed by remember { mutableStateOf<Int?>(null) }
+    PlayFailedDialog(failed, onDismiss = { failed = null })
     RemoteSpokenContent(
         item = item,
         onWatch = onWatch,
-        onPlay = { scope.launch { if (viewModel.play()) onPlayed() } },
+        onPlay = { scope.launch { if (viewModel.play()) onPlayed() else failed = R.string.remote_unreachable } },
         onSetOnWatch = viewModel::setOnWatch,
     )
 }

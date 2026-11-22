@@ -37,6 +37,7 @@
     <string name="list_podcasts_empty_watch">Ingen episoder på klokken</string>
     <string name="list_books_empty_watch">Ingen bøker på klokken</string>
     <string name="list_load_failed">Kunne ikke lastes inn</string>
+    <string name="play_failed">Kunne ikke spilles av</string>
 
     <!-- Phone remote control -->
     <string name="remote_unreachable">Telefonen kan ikke nås</string>

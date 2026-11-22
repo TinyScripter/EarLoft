@@ -4,7 +4,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -102,9 +105,11 @@ fun LocalSpokenScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val title = stringResource(if (kind == BookKind.EPISODE) R.string.list_podcasts else R.string.list_books)
+    var failed by remember { mutableStateOf<Int?>(null) }
     EntryListContent(title, state) { bookId ->
-        scope.launch { if (viewModel.play(bookId)) onPlayed() }
+        scope.launch { if (viewModel.play(bookId)) onPlayed() else failed = R.string.play_failed }
     }
+    PlayFailedDialog(failed, onDismiss = { failed = null })
 }
 
 /** The phone's queue and subscriptions; a tap opens the episodes ([onClick] with subscription and title). */

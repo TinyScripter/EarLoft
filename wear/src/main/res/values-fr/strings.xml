@@ -39,6 +39,7 @@
     <string name="list_podcasts_empty_watch">Aucun épisode sur la montre</string>
     <string name="list_books_empty_watch">Aucun livre sur la montre</string>
     <string name="list_load_failed">Chargement impossible</string>
+    <string name="play_failed">Lecture impossible</string>
 
     <!-- Phone remote control -->
     <string name="remote_unreachable">Téléphone inaccessible</string>

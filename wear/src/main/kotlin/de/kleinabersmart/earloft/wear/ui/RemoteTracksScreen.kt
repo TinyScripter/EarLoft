@@ -2,6 +2,9 @@ package de.kleinabersmart.earloft.wear.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -30,10 +33,12 @@ fun RemoteTracksScreen(
         ?.takeIf { kind == WearRemoteListKind.FAVORITES && it.title.isEmpty() }
         ?.copy(title = stringResource(R.string.list_favorites))
         ?: state
+    var failed by remember { mutableStateOf<Int?>(null) }
+    PlayFailedDialog(failed, onDismiss = { failed = null })
     TrackListContent(
         state = shown,
         onPlay = { key, shuffle ->
-            scope.launch { if (viewModel.play(key?.toInt(), shuffle)) onPlayed() }
+            scope.launch { if (viewModel.play(key?.toInt(), shuffle)) onPlayed() else failed = R.string.remote_unreachable }
         },
         playLabel = R.string.remote_play_on_phone,
         onWatch = onWatch,

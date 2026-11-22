@@ -35,6 +35,7 @@
     <string name="list_podcasts_empty_watch">Keine Folgen auf der Uhr</string>
     <string name="list_books_empty_watch">Keine Bücher auf der Uhr</string>
     <string name="list_load_failed">Konnte nicht geladen werden</string>
+    <string name="play_failed">Konnte nicht abgespielt werden</string>
 
     <!-- Phone remote control -->
     <string name="remote_unreachable">Telefon nicht erreichbar</string>

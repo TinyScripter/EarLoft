@@ -37,6 +37,7 @@
     <string name="list_podcasts_empty_watch">Kellossa ei ole jaksoja</string>
     <string name="list_books_empty_watch">Kellossa ei ole kirjoja</string>
     <string name="list_load_failed">Lataaminen epäonnistui</string>
+    <string name="play_failed">Toisto ei onnistunut</string>
 
     <!-- Phone remote control -->
     <string name="remote_unreachable">Puhelimeen ei saada yhteyttä</string>

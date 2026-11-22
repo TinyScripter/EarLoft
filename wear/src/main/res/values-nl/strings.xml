@@ -37,6 +37,7 @@
     <string name="list_podcasts_empty_watch">Geen afleveringen op het horloge</string>
     <string name="list_books_empty_watch">Geen boeken op het horloge</string>
     <string name="list_load_failed">Kan niet worden geladen</string>
+    <string name="play_failed">Kon niet worden afgespeeld</string>
 
     <!-- Phone remote control -->
     <string name="remote_unreachable">Telefoon niet bereikbaar</string>

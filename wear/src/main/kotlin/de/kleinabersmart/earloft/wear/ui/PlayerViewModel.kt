@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.repository.AlbumColorRepository
 import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
+import de.kleinabersmart.earloft.core.data.repository.seedColorOf
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.model.BookChapter
@@ -25,11 +26,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -99,28 +102,39 @@ class PlayerViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 
+    /** Album and book of the current item: what the cover and its color belong to. */
+    private val coverKey = playback.state.map { it.current?.albumId to it.spoken?.bookId }.distinctUntilChanged()
+
+    /**
+     * The current item's cover with the key it belongs to, decoded and scaled once off the main thread (review H49); the book's
+     * accent color is taken from it instead of decoding the file a second time.
+     */
     @OptIn(ExperimentalCoroutinesApi::class)
-    override val cover: StateFlow<Bitmap?> = playback.state
-        .map { it.current?.albumId to it.spoken?.bookId }
-        .distinctUntilChanged()
-        .mapLatest { (albumId, bookId) ->
-            when {
-                bookId != null -> bookCovers.cover(bookId)?.scaledTo(COVER_SIZE_PX)
+    private val keyedCover = coverKey
+        .mapLatest { key ->
+            val (albumId, bookId) = key
+            key to when {
+                bookId != null -> withContext(Dispatchers.Default) { bookCovers.cover(bookId)?.scaledTo(COVER_SIZE_PX) }
                 albumId != null -> withContext(Dispatchers.IO) { artwork.albumCover(albumId, COVER_SIZE_PX) }
                 else -> null
             }
         }
         .orOnError(null)
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
+
+    override val cover: StateFlow<Bitmap?> = keyedCover
+        .map { it?.second }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Accent color of the current album or episode (ARGB); `null` as long as it is missing or nothing is playing. */
     @OptIn(ExperimentalCoroutinesApi::class)
-    override val seedColor: StateFlow<Int?> = playback.state
-        .map { it.current?.albumId to it.spoken?.bookId }
-        .distinctUntilChanged()
-        .flatMapLatest { (albumId, bookId) ->
+    override val seedColor: StateFlow<Int?> = coverKey
+        .flatMapLatest { key ->
+            val (albumId, bookId) = key
             when {
-                bookId != null -> flow { emit(bookCovers.seedColor(bookId)) }
+                bookId != null -> keyedCover.filter { it?.first == key }.map { keyed ->
+                    keyed?.second?.let { withContext(Dispatchers.Default) { seedColorOf(it) } }
+                }
                 albumId != null -> albumColors.seedColor(albumId)
                 else -> flowOf(null)
             }
@@ -198,6 +212,8 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun showVolume() {
+        // Read again: headset buttons or another Bluetooth device may have changed it since (review H50).
+        _volume.value = readVolume()
         _volumeVisible.value = true
         hideVolumeJob?.cancel()
         hideVolumeJob = viewModelScope.launch {
