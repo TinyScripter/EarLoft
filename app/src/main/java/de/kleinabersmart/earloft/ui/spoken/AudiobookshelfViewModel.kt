@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import android.os.SystemClock
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -11,7 +13,9 @@ import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.spoken.AddServerResult
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.data.spoken.BeginOpenIdResult
+import de.kleinabersmart.earloft.core.data.spoken.BookSyncer
 import de.kleinabersmart.earloft.core.data.spoken.SpokenRefresher
+import de.kleinabersmart.earloft.core.data.sync.SyncFailure
 import de.kleinabersmart.earloft.core.model.SpokenServer
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsLoginOptions
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsOpenIdLogin
@@ -21,10 +25,11 @@ import de.kleinabersmart.earloft.ui.orOnError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.SharingStarted
@@ -44,15 +49,32 @@ sealed interface ConnectState {
 
 /**
  * Redirects from the browser without Auth Tab (`earloft://oauth`, concept 12.11); [OpenIdRedirectActivity] passes them on
- * to here, the form waits for them.
+ * to here, the form waits for them. The last one waits until a form takes it ([take]): after the process ended during the
+ * sign-in, the form is created only after the redirect arrived and then says the sign-in was lost instead of nothing
+ * (review H37). One older than the server keeps a sign-in open no longer counts.
  */
 object OpenIdRedirects {
-    private val _received = MutableSharedFlow<String>(extraBufferCapacity = 1)
-    val received: SharedFlow<String> = _received.asSharedFlow()
+    private class Redirect(val uri: String, val atMs: Long)
+
+    private val waiting = MutableStateFlow<Redirect?>(null)
+
+    /** Redirects not taken yet, newest first; collect and [take] each. */
+    val received: Flow<String> = waiting.filterNotNull()
+        .filter { SystemClock.elapsedRealtime() - it.atMs < MAX_AGE_MS }
+        .map { it.uri }
 
     fun deliver(uri: String) {
-        _received.tryEmit(uri)
+        waiting.value = Redirect(uri, SystemClock.elapsedRealtime())
     }
+
+    /** Marks [uri] as handled; `false` if another form took it already. */
+    fun take(uri: String): Boolean {
+        val current = waiting.value ?: return false
+        return current.uri == uri && waiting.compareAndSet(current, null)
+    }
+
+    /** As long as Audiobookshelf keeps the `state` of a sign-in (concept 12.11). */
+    private const val MAX_AGE_MS = 10 * 60 * 1000L
 }
 
 @OptIn(FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -60,6 +82,7 @@ object OpenIdRedirects {
 class AudiobookshelfViewModel @Inject constructor(
     private val servers: AudiobookshelfServers,
     private val refresher: SpokenRefresher,
+    syncer: BookSyncer,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -74,6 +97,9 @@ class AudiobookshelfViewModel @Inject constructor(
     val withoutKey: StateFlow<Set<String>> = servers.serversWithoutKey
         .orOnError(emptySet())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /** Error of the last sync per server, for its row in the settings (review H39). */
+    val failures: StateFlow<Map<String, SyncFailure>> = syncer.failures
 
     private val _connect = MutableStateFlow<ConnectState>(ConnectState.Idle)
     val connect: StateFlow<ConnectState> = _connect.asStateFlow()
@@ -94,7 +120,7 @@ class AudiobookshelfViewModel @Inject constructor(
     private var pendingLogin: Triple<AbsOpenIdLogin, String?, String>? = null
 
     init {
-        viewModelScope.launch { OpenIdRedirects.received.collect(::onBrowserResult) }
+        viewModelScope.launch { OpenIdRedirects.received.collect { if (OpenIdRedirects.take(it)) onBrowserResult(it) } }
     }
 
     fun onUrlChanged(url: String) {
@@ -151,11 +177,18 @@ class AudiobookshelfViewModel @Inject constructor(
     /** The browser's redirect; `null` if the user cancelled. */
     fun onBrowserResult(redirect: String?) {
         val (login, serverId, name) = pendingLogin ?: run {
-            // After the process ended during the login, the PKCE verifier and cookies are missing.
-            if (redirect != null) _connect.value = ConnectState.Failed(R.string.spoken_abs_error_openid_lost)
+            // After the process ended during the login, the PKCE verifier and cookies are missing. A second redirect after a
+            // finished sign-in changes nothing.
+            val busyOrDone = _connect.value == ConnectState.Connecting || _connect.value == ConnectState.Connected
+            if (redirect != null && !busyOrDone) _connect.value = ConnectState.Failed(R.string.spoken_abs_error_openid_lost)
             return
         }
         if (redirect == null) return
+        // Any app can send `earloft://oauth?…`: a redirect without this sign-in's `state` doesn't end it (review H37).
+        if (!login.isAnsweredBy(redirect)) {
+            Log.w(TAG, "OpenID redirect without the state of the running sign-in, ignored")
+            return
+        }
         pendingLogin = null
         _connect.value = ConnectState.Connecting
         viewModelScope.launch {
@@ -202,11 +235,21 @@ class AudiobookshelfViewModel @Inject constructor(
     }
 
     /** Typing again clears the last connection error, as in the music server form. */
+    /** The form's fields as last seen; only in memory, they contain the API key. */
+    private var lastFields: List<String>? = null
+
+    /** Clears the last error once the user changes a field, not when the form is only composed anew with the same ones. */
+    fun onFieldsChanged(fields: List<String>) {
+        if (lastFields != null && lastFields != fields) clearFailure()
+        lastFields = fields
+    }
+
     fun clearFailure() {
         if (_connect.value is ConnectState.Failed) _connect.value = ConnectState.Idle
     }
 
     private companion object {
         const val URL_CHECK_DELAY_MS = 500L
+        const val TAG = "AudiobookshelfForm"
     }
 }

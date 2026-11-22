@@ -129,7 +129,7 @@ private fun RefreshRow(title: String, onClick: () -> Unit) {
     )
 }
 
-/** The messages of [viewModel]'s imports and exports as a snackbar (Settings → Podcasts and setup wizard). */
+/** The messages of [viewModel]'s imports, exports and resets as a snackbar (Settings → Podcasts and Books, setup wizard). */
 @Composable
 fun TransferMessagesEffect(viewModel: SettingsViewModel) {
     val snackbars = LocalSnackbars.current
@@ -1045,6 +1045,7 @@ fun AudiobookSettingsScreen(
     val absViewModel: AudiobookshelfViewModel = hiltViewModel()
     val absServers by absViewModel.list.collectAsStateWithLifecycle()
     val absWithoutKey by absViewModel.withoutKey.collectAsStateWithLifecycle()
+    val absFailures by absViewModel.failures.collectAsStateWithLifecycle()
     var confirmingBookStatsReset by rememberSaveable { mutableStateOf(false) }
     var choosingBookDelete by rememberSaveable { mutableStateOf(false) }
     var choosingBookButtons by rememberSaveable { mutableStateOf(false) }
@@ -1059,6 +1060,8 @@ fun AudiobookSettingsScreen(
     val snackbars = LocalSnackbars.current
     val folderRejectedText = stringResource(R.string.settings_local_books_folder_wrong)
     LaunchedEffect(Unit) { viewModel.folderRejected.collect { snackbars.show(folderRejectedText, SnackbarDuration.Long) } }
+    // "Statistics reset" after resetting the book statistics, as on the podcast page (review H35).
+    TransferMessagesEffect(viewModel)
 
     SettingsPage(stringResource(R.string.settings_audiobooks), onBack, modifier) {
         group("sources", R.string.settings_section_sources) {
@@ -1072,6 +1075,7 @@ fun AudiobookSettingsScreen(
                     AbsServerRow(
                         server = server,
                         keyLost = server.serverId in absWithoutKey,
+                        failure = absFailures[server.serverId],
                         onEdit = { onEditServer(server.serverId) },
                         onSyncNow = { absViewModel.syncNow(server.serverId) },
                         onEnabledChange = { absViewModel.setEnabled(server.serverId, it) },

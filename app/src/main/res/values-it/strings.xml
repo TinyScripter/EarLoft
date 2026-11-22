@@ -332,6 +332,7 @@
     <string name="edit_server_login_required">Accesso non effettuato. Inserisci la password per accedere di nuovo.</string>
     <string name="add_server_unreachable">Server non raggiungibile (%1$s).</string>
     <string name="add_server_server_error">Il server segnala l’errore %1$d: %2$s</string>
+    <string name="add_server_already_set_up">Questo server è già configurato. Puoi modificarlo qui.</string>
     <string name="sync_failed_library_changed">La libreria “%1$s” è cambiata sul server durante la sincronizzazione. Non è stato rimosso nulla; la prossima sincronizzazione riproverà.</string>
     <string name="sync_failed_permission">EarLoft non è autorizzata a leggere la musica su questo dispositivo. Consenti l’accesso nelle impostazioni dell’app, in “Autorizzazioni”.</string>
     <string name="sync_failed_local_unavailable">Al momento non è possibile leggere la musica su questo dispositivo. La prossima sincronizzazione riproverà.</string>
@@ -1044,7 +1045,7 @@
     <string name="settings_podcast_auto_play_next">Riproduci automaticamente l’episodio successivo</string>
     <string name="settings_podcast_auto_play_next_summary">Quando un episodio finisce, parte il successivo in “Continua ad ascoltare”.</string>
     <string name="settings_podcast_mobile">Usa anche i dati mobili</string>
-    <string name="settings_podcast_mobile_summary">Disattivato: aggiornamento e download degli episodi solo con il Wi-Fi.</string>
+    <string name="settings_podcast_mobile_summary">Disattivato: aggiornamento automatico e download degli episodi solo con il Wi-Fi. L’aggiornamento manuale usa anche i dati mobili.</string>
     <string name="book_download_waiting_wifi">In attesa del Wi-Fi. Puoi consentire i dati mobili in Impostazioni → Libri.</string>
     <string name="settings_book_mobile">Usa anche i dati mobili</string>
     <string name="settings_book_mobile_summary">Disattivato: i libri vengono scaricati solo con il Wi-Fi.</string>

@@ -348,6 +348,7 @@
     <string name="edit_server_login_required">Nie zalogowano. Wpisz hasło, aby zalogować się ponownie.</string>
     <string name="add_server_unreachable">Serwer jest nieosiągalny (%1$s).</string>
     <string name="add_server_server_error">Serwer zgłasza błąd %1$d: %2$s</string>
+    <string name="add_server_already_set_up">Ten serwer jest już skonfigurowany. Tutaj możesz go zmienić.</string>
     <string name="sync_failed_library_changed">Biblioteka „%1$s” zmieniła się na serwerze podczas synchronizacji. Niczego nie usunięto; następna synchronizacja spróbuje ponownie.</string>
     <string name="sync_failed_permission">EarLoft nie ma uprawnień do odczytu muzyki na tym urządzeniu. Zezwól na dostęp w ustawieniach aplikacji w sekcji „Uprawnienia”.</string>
     <string name="sync_failed_local_unavailable">Nie można teraz odczytać muzyki na tym urządzeniu. Następna synchronizacja spróbuje ponownie.</string>
@@ -1085,7 +1086,7 @@
     <string name="settings_podcast_auto_play_next">Automatycznie odtwarzaj następny odcinek</string>
     <string name="settings_podcast_auto_play_next_summary">Gdy odcinek się skończy, zaczyna się następny z listy „Słuchaj dalej”.</string>
     <string name="settings_podcast_mobile">Używaj też mobilnej transmisji danych</string>
-    <string name="settings_podcast_mobile_summary">Wyłączone: odświeżanie i pobieranie odcinków działa tylko przez Wi-Fi.</string>
+    <string name="settings_podcast_mobile_summary">Wyłączone: automatyczne odświeżanie i pobieranie odcinków działa tylko przez Wi-Fi. Ręczne odświeżanie korzysta też z danych komórkowych.</string>
     <string name="book_download_waiting_wifi">Czekam na Wi-Fi. Mobilną transmisję danych możesz włączyć w Ustawienia → Książki.</string>
     <string name="settings_book_mobile">Używaj też mobilnej transmisji danych</string>
     <string name="settings_book_mobile_summary">Wyłączone: książki są pobierane tylko przez Wi-Fi.</string>

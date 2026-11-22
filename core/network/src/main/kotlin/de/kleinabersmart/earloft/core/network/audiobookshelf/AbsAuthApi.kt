@@ -18,6 +18,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import java.net.URI
+import java.net.URLDecoder
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
@@ -44,7 +46,19 @@ class AbsOpenIdLogin internal constructor(
     internal val state: String,
     internal val verifier: String,
     internal val cookies: CookieJar,
-)
+) {
+    /**
+     * Whether the browser's redirect [redirect] (`earloft://oauth?…` or `audiobookshelf://oauth?…`) carries this sign-in's
+     * `state`. Any app can send such a redirect; one that doesn't belong here must not end the sign-in (review H37).
+     */
+    fun isAnsweredBy(redirect: String): Boolean {
+        val query = runCatching { URI(redirect).rawQuery }.getOrNull() ?: return false
+        return query.split('&').any { part ->
+            part.substringBefore('=') == "state" &&
+                runCatching { URLDecoder.decode(part.substringAfter('=', ""), "UTF-8") }.getOrNull() == state
+        }
+    }
+}
 
 /** Audiobookshelf login via OpenID and token refresh (concept 12.11); the other calls are in [AbsApi]. */
 @Singleton

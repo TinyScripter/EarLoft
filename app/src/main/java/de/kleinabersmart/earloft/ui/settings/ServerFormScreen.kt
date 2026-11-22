@@ -63,20 +63,30 @@ import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.ui.permission.rememberLocalNetworkRequester
 
-/** Create ([sourceId] `null`) or edit a server. */
+/**
+ * Create ([sourceId] `null`) or edit a server. A new server that is set up already (same type, address and user) isn't
+ * created twice: [onAlreadySetUp] opens the existing one, whose form then says so ([alreadySetUp], review H23).
+ */
 @Composable
 fun ServerFormScreen(
     sourceId: String?,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
+    alreadySetUp: Boolean = false,
+    onAlreadySetUp: (sourceId: String) -> Unit = {},
     viewModel: ServerFormViewModel = hiltViewModel<ServerFormViewModel, ServerFormViewModel.Factory> { it.create(sourceId) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(state.done) {
         if (state.done) onDone()
     }
+    val existing = (state.result as? ConnectionResult.AlreadySetUp)?.sourceId
+    LaunchedEffect(existing) {
+        if (existing != null) onAlreadySetUp(existing)
+    }
     ServerFormContent(
         state = state,
+        alreadySetUp = alreadySetUp,
         onBack = onDone,
         onTypeChange = viewModel::onTypeChange,
         onNameChange = viewModel::onNameChange,
@@ -106,6 +116,7 @@ private fun ServerFormContent(
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
     onRemove: () -> Unit = {},
+    alreadySetUp: Boolean = false,
 ) {
     // Anything typed since the form opened is asked about before leaving (as in the Audiobookshelf form).
     val close = rememberDiscardGuard(dirty = state.isDirty, onClose = onBack)
@@ -141,6 +152,13 @@ private fun ServerFormContent(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (alreadySetUp) {
+                Text(
+                    stringResource(R.string.add_server_already_set_up),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
             // The type is fixed after creation: songs, favorites and playlists depend on it.
             if (!state.isEditing) ServerTypeSelector(state.type, onTypeChange)
             OutlinedTextField(
@@ -293,6 +311,8 @@ private fun ResultText(result: ConnectionResult, type: SourceType) {
         is ConnectionResult.Unreachable -> stringResource(R.string.add_server_unreachable, result.reason.orEmpty()) to true
         is ConnectionResult.ServerError ->
             stringResource(R.string.add_server_server_error, result.code, result.message.orEmpty()) to true
+        // Only for the moment until the existing server's form opens.
+        is ConnectionResult.AlreadySetUp -> stringResource(R.string.add_server_already_set_up) to false
     }
     Text(
         text,

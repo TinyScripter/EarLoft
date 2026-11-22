@@ -68,6 +68,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -560,21 +561,20 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    private var backupRunning = false
-
     /**
      * Reads the database file from [uri]: missing active subscriptions, listening progress and listening time (statistics).
-     * Takes a while because new feeds are synced; a second call in the meantime is ignored.
+     * Takes a while because new feeds are synced; a second call in the meantime is ignored, also one from another page (the
+     * wizard and the settings each have their own view model, review H36).
      */
     fun importImportData(uri: Uri) {
-        if (backupRunning) return
-        backupRunning = true
+        if (!databaseImportRunning.compareAndSet(false, true)) return
         viewModelScope.launch {
             try {
                 _transferMessages.send(TransferMessage.DatabaseImportStarted)
                 // The file belongs to the job in the app scope; it cleans it up itself, even if the page goes away first.
                 val imported = applicationScope.async {
-                    val file = File(context.cacheDir, "import.db")
+                    // A name of its own: an import still running elsewhere keeps its file.
+                    val file = withContext(Dispatchers.IO) { File.createTempFile("import", ".db", context.cacheDir) }
                     try {
                         val backup = withContext(Dispatchers.IO) {
                             context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } }
@@ -593,7 +593,7 @@ class SettingsViewModel @Inject constructor(
                 Log.w(TAG, "Backup import failed", e)
                 _transferMessages.send(TransferMessage.DatabaseImportFailed)
             } finally {
-                backupRunning = false
+                databaseImportRunning.set(false)
             }
         }
     }
@@ -696,11 +696,7 @@ class SettingsViewModel @Inject constructor(
     fun setServerEnabled(sourceId: String, enabled: Boolean) {
         viewModelScope.launch { serverRepository.setEnabled(sourceId, enabled) }
     }
-
-    fun remove(sourceId: String) {
-        viewModelScope.launch {
-            serverRepository.removeServer(sourceId)
-            downloadSettings.setAutoDownloadServer(sourceId, false)
-        }
-    }
 }
+
+/** One database import at a time in the process, whichever page started it (review H36). */
+private val databaseImportRunning = AtomicBoolean(false)

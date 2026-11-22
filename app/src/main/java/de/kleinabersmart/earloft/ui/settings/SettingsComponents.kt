@@ -285,6 +285,7 @@ internal fun ServerRow(
 internal fun AbsServerRow(
     server: SpokenServer,
     keyLost: Boolean,
+    failure: SyncFailure?,
     onEdit: () -> Unit,
     onSyncNow: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
@@ -304,6 +305,10 @@ internal fun AbsServerRow(
                     val status = when {
                         !server.enabled -> stringResource(R.string.server_disabled)
                         keyLost -> stringResource(if (server.openId) R.string.spoken_abs_login_lost else R.string.spoken_abs_key_lost)
+                        // The sync error as with music servers (review H39); a rejected key or sign-in says what to renew.
+                        failure == SyncFailure.WrongCredentials ->
+                            stringResource(if (server.openId) R.string.spoken_abs_login_lost else R.string.spoken_abs_error_auth)
+                        failure != null -> stringResource(R.string.server_sync_failed, syncFailureText(failure, type = null))
                         server.lastFullSyncAt <= 0L -> stringResource(R.string.server_never_synced)
                         else -> {
                             val ageMs = System.currentTimeMillis() - server.lastFullSyncAt
@@ -312,7 +317,7 @@ internal fun AbsServerRow(
                     }
                     Text(
                         status,
-                        color = if (keyLost && server.enabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if ((keyLost || failure != null) && server.enabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -376,9 +381,10 @@ internal fun notServerText(type: SourceType): Int = when (type) {
 
 /** The same texts as for the connection test in the server form. */
 @Composable
-private fun syncFailureText(failure: SyncFailure, type: SourceType): String = when (failure) {
+/** [type] `null`: an Audiobookshelf server. */
+private fun syncFailureText(failure: SyncFailure, type: SourceType?): String = when (failure) {
     SyncFailure.WrongCredentials -> stringResource(R.string.add_server_wrong_credentials)
-    SyncFailure.UnexpectedServer -> stringResource(notServerText(type))
+    SyncFailure.UnexpectedServer -> stringResource(if (type == null) R.string.spoken_abs_error_unreachable else notServerText(type))
     is SyncFailure.Unreachable -> stringResource(R.string.add_server_unreachable, failure.reason.orEmpty())
     is SyncFailure.ServerError -> stringResource(R.string.add_server_server_error, failure.code, failure.message.orEmpty())
     is SyncFailure.LibraryChanged -> stringResource(R.string.sync_failed_library_changed, failure.libraryName)

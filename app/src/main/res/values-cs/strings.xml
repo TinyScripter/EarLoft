@@ -348,6 +348,7 @@
     <string name="edit_server_login_required">Nepřihlášeno. Zadejte prosím heslo a přihlaste se znovu.</string>
     <string name="add_server_unreachable">Server není dostupný (%1$s).</string>
     <string name="add_server_server_error">Server hlásí chybu %1$d: %2$s</string>
+    <string name="add_server_already_set_up">Tento server je už nastavený. Tady ho můžete změnit.</string>
     <string name="sync_failed_library_changed">Knihovna „%1$s“ se během synchronizace na serveru změnila. Nic nebylo odstraněno; příští synchronizace to zkusí znovu.</string>
     <string name="sync_failed_permission">EarLoft nemá oprávnění číst hudbu v tomto zařízení. Povolte přístup v nastavení aplikace v části „Oprávnění“.</string>
     <string name="sync_failed_local_unavailable">Hudbu v tomto zařízení teď nelze přečíst. Příští synchronizace to zkusí znovu.</string>
@@ -1085,7 +1086,7 @@
     <string name="settings_podcast_auto_play_next">Automaticky přehrát další epizodu</string>
     <string name="settings_podcast_auto_play_next_summary">Když epizoda skončí, spustí se další ze seznamu „Pokračovat v poslechu“.</string>
     <string name="settings_podcast_mobile">Používat i mobilní data</string>
-    <string name="settings_podcast_mobile_summary">Vypnuto: aktualizace a stahování epizod probíhá jen přes Wi-Fi.</string>
+    <string name="settings_podcast_mobile_summary">Vypnuto: automatická aktualizace a stahování epizod probíhá jen přes Wi-Fi. Ruční aktualizace funguje i přes mobilní data.</string>
     <string name="book_download_waiting_wifi">Čeká se na Wi-Fi. Mobilní data můžete povolit v Nastavení → Knihy.</string>
     <string name="settings_book_mobile">Používat i mobilní data</string>
     <string name="settings_book_mobile_summary">Vypnuto: knihy se stahují jen přes Wi-Fi.</string>

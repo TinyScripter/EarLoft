@@ -326,6 +326,7 @@
     <string name="edit_server_login_required">Not signed in. Please enter the password to sign in again.</string>
     <string name="add_server_unreachable">Server unreachable (%1$s).</string>
     <string name="add_server_server_error">The server reports error %1$d: %2$s</string>
+    <string name="add_server_already_set_up">This server is already set up. You can change it here.</string>
     <string name="sync_failed_library_changed">The library “%1$s” changed on the server during the sync. Nothing was removed; the next sync tries again.</string>
     <string name="sync_failed_permission">EarLoft isn’t allowed to read the music on this device. Allow access in the app settings under “Permissions”.</string>
     <string name="sync_failed_local_unavailable">The music on this device can’t be read right now. The next sync tries again.</string>
@@ -1013,7 +1014,7 @@
     <string name="settings_podcast_auto_play_next">Play the next episode automatically</string>
     <string name="settings_podcast_auto_play_next_summary">When an episode ends, the next one in Continue listening starts.</string>
     <string name="settings_podcast_mobile">Also use mobile data</string>
-    <string name="settings_podcast_mobile_summary">Off: refreshing and downloading episodes only run on Wi-Fi.</string>
+    <string name="settings_podcast_mobile_summary">Off: automatic refreshing and downloading episodes only run on Wi-Fi. Refreshing by hand also uses mobile data.</string>
     <string name="book_download_waiting_wifi">Waiting for Wi-Fi. You can allow mobile data in Settings → Books.</string>
     <string name="settings_book_mobile">Also use mobile data</string>
     <string name="settings_book_mobile_summary">Off: books are only downloaded on Wi-Fi.</string>

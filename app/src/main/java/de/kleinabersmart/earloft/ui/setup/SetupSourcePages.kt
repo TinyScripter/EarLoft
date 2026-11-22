@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.ui.setup
 
 import de.kleinabersmart.earloft.ui.components.AddRow
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -78,7 +79,13 @@ internal fun LazyListScope.musicPage(state: SettingsUiState, actions: SetupActio
     group("servers", R.string.setup_section_servers) {
         state.servers.forEach { item ->
             row(item.server.sourceId) {
-                SourceRow(item.server.name, item.server.baseUrl, DesignR.drawable.ic_cloud) { actions.onEditMusicServer(item.server.sourceId) }
+                // A restored server without its password isn't ready: the row says so instead of a check mark (review H23).
+                SourceRow(
+                    item.server.name,
+                    item.server.baseUrl,
+                    DesignR.drawable.ic_cloud,
+                    problem = if (item.passwordLost) stringResource(R.string.server_password_lost) else null,
+                ) { actions.onEditMusicServer(item.server.sourceId) }
             }
         }
         row("add-server") { AddRow(stringResource(R.string.settings_add_server), actions.onAddMusicServer) }
@@ -174,12 +181,24 @@ internal fun LazyListScope.podcastsPage(state: SettingsUiState, actions: SetupAc
     }
 }
 
-internal fun LazyListScope.booksPage(state: SettingsUiState, servers: List<SpokenServer>, actions: SetupActions) {
+/** An Audiobookshelf server on the wizard's books page; [keyLost]: its API key or OpenID sign-in can't be read any more. */
+internal data class SetupBookServer(val server: SpokenServer, val keyLost: Boolean)
+
+internal fun LazyListScope.booksPage(state: SettingsUiState, servers: List<SetupBookServer>, actions: SetupActions) {
     pageHeader(R.string.settings_audiobooks, R.string.setup_books_text, icon = areaIcon(SpokenMode.BOOKS))
     group("servers", R.string.setup_section_servers) {
-        servers.forEach { server ->
+        servers.forEach { (server, keyLost) ->
             row(server.serverId) {
-                SourceRow(server.name, server.baseUrl, DesignR.drawable.ic_book) { actions.onEditAudiobookshelf(server.serverId) }
+                SourceRow(
+                    server.name,
+                    server.baseUrl,
+                    DesignR.drawable.ic_book,
+                    problem = if (keyLost) {
+                        stringResource(if (server.openId) R.string.spoken_abs_login_lost else R.string.spoken_abs_key_lost)
+                    } else {
+                        null
+                    },
+                ) { actions.onEditAudiobookshelf(server.serverId) }
             }
         }
         row("add-server") { AddRow(stringResource(R.string.spoken_abs_add), actions.onAddAudiobookshelf) }
@@ -205,7 +224,8 @@ internal fun LazyListScope.booksPage(state: SettingsUiState, servers: List<Spoke
                 onCheckedChange = actions.setAuthorImages,
             )
         }
-        // As in Settings → Books → Sources: audiobooks and radio plays from ARD Sounds.
+        // Audiobooks and radio plays from ARD Sounds: under Sources in Settings → Books, here with what else comes from the
+        // internet, as the wizard keeps the device and the servers apart from it.
         row("ard-sounds-books") {
             SwitchRow(
                 title = stringResource(R.string.directory_ard_sounds),
@@ -218,15 +238,31 @@ internal fun LazyListScope.booksPage(state: SettingsUiState, servers: List<Spoke
     }
 }
 
-/** An already configured source; a tap opens it for editing. */
+/**
+ * An already configured source; a tap opens it for editing. With a [problem] (e.g. the password is missing after a restore)
+ * that text stands below in the error color instead of the check mark.
+ */
 @Composable
-private fun SourceRow(title: String, subtitle: String?, icon: Int, onClick: (() -> Unit)? = null) {
+private fun SourceRow(title: String, subtitle: String?, icon: Int, problem: String? = null, onClick: (() -> Unit)? = null) {
     ListItem(
         headlineContent = { Text(title) },
-        supportingContent = subtitle?.let { { Text(it) } },
+        supportingContent = if (subtitle == null && problem == null) {
+            null
+        } else {
+            {
+                Column {
+                    subtitle?.let { Text(it) }
+                    problem?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            }
+        },
         leadingContent = { Icon(painterResource(icon), contentDescription = null) },
         trailingContent = {
-            Icon(painterResource(DesignR.drawable.ic_check), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            if (problem != null) {
+                Icon(painterResource(DesignR.drawable.ic_error), contentDescription = null, tint = MaterialTheme.colorScheme.error)
+            } else {
+                Icon(painterResource(DesignR.drawable.ic_check), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            }
         },
         modifier = if (onClick != null) Modifier.clickable(onClickLabel = stringResource(R.string.server_edit), onClick = onClick) else Modifier,
     )

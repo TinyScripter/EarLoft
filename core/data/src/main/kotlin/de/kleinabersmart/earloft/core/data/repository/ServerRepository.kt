@@ -27,6 +27,7 @@ import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,6 +50,9 @@ sealed interface ConnectionResult {
     data object UnexpectedServer : ConnectionResult
     data class Unreachable(val reason: String?) : ConnectionResult
     data class ServerError(val code: Int, val message: String?) : ConnectionResult
+
+    /** A server of this type with this address and user name exists already ([sourceId]); nothing was created (review H23). */
+    data class AlreadySetUp(val sourceId: String) : ConnectionResult
 }
 
 /** A server for editing; password or token never leave the repository. */
@@ -86,11 +90,28 @@ class ServerRepository @Inject constructor(
      * Checks the connection and only creates the server on success. The first sync starts
      * immediately afterwards. @return the test result.
      */
-    suspend fun addServer(type: SourceType, name: String, url: String, username: String, password: String): ConnectionResult =
-        when (val flavor = JellyfinFlavor.of(type)) {
+    suspend fun addServer(type: SourceType, name: String, url: String, username: String, password: String): ConnectionResult {
+        existingServer(type, url, username)?.let { return ConnectionResult.AlreadySetUp(it) }
+        return when (val flavor = JellyfinFlavor.of(type)) {
             null -> addSubsonicServer(name, url, username, password)
             else -> addJellyfinServer(flavor, name, url, username, password)
         }
+    }
+
+    /**
+     * The server of [type] at [url] for [username], if set up already (address as stored, user name without regard to case,
+     * as the servers sign in). Another user on the same server is a server of its own.
+     */
+    private suspend fun existingServer(type: SourceType, url: String, username: String): String? {
+        val baseUrl = when (JellyfinFlavor.of(type)) {
+            null -> SubsonicServer.normalizeBaseUrl(url)
+            else -> JellyfinServer.normalizeBaseUrl(url)
+        }?.toString() ?: return null
+        val user = username.trim()
+        return sourceDao.observeServers().first().firstOrNull {
+            it.type == type && it.baseUrl.equals(baseUrl, ignoreCase = true) && it.username.orEmpty().equals(user, ignoreCase = true)
+        }?.sourceId
+    }
 
     /**
      * Changes name, address, user or password of a server, only if the connection works with the

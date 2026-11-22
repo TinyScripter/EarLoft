@@ -316,6 +316,7 @@
     <string name="edit_server_login_required">Ikke pålogget. Skriv inn passordet for å logge på igjen.</string>
     <string name="add_server_unreachable">Serveren kan ikke nås (%1$s).</string>
     <string name="add_server_server_error">Serveren melder feil %1$d: %2$s</string>
+    <string name="add_server_already_set_up">Denne serveren er allerede satt opp. Her kan du endre den.</string>
     <string name="sync_failed_library_changed">Biblioteket «%1$s» ble endret på serveren under synkroniseringen. Ingenting ble fjernet; neste synkronisering prøver igjen.</string>
     <string name="sync_failed_permission">EarLoft har ikke tillatelse til å lese musikken på denne enheten. Gi tilgang i appinnstillingene under «Tillatelser».</string>
     <string name="sync_failed_local_unavailable">Musikken på denne enheten kan ikke leses akkurat nå. Neste synkronisering prøver igjen.</string>
@@ -1003,7 +1004,7 @@
     <string name="settings_podcast_auto_play_next">Spill av neste episode automatisk</string>
     <string name="settings_podcast_auto_play_next_summary">Når en episode slutter, starter den neste i «Fortsett å lytte».</string>
     <string name="settings_podcast_mobile">Bruk også mobildata</string>
-    <string name="settings_podcast_mobile_summary">Av: Oppdatering og nedlasting av episoder skjer bare via Wi-Fi.</string>
+    <string name="settings_podcast_mobile_summary">Av: Automatisk oppdatering og nedlasting av episoder skjer bare via Wi-Fi. Manuell oppdatering bruker også mobildata.</string>
     <string name="book_download_waiting_wifi">Venter på Wi-Fi. Du kan tillate mobildata i Innstillinger → Bøker.</string>
     <string name="settings_book_mobile">Bruk også mobildata</string>
     <string name="settings_book_mobile_summary">Av: Bøker lastes bare ned via Wi-Fi.</string>

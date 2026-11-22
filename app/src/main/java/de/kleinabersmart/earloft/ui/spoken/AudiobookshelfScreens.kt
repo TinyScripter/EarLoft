@@ -151,8 +151,8 @@ fun AudiobookshelfFormScreen(
         }
         loaded = true
     }
-    // Typing clears the last error, as in the music server form.
-    LaunchedEffect(fields) { viewModel.clearFailure() }
+    // Typing clears the last error, as in the music server form; a rotation (new composition, same fields) doesn't (review H41).
+    LaunchedEffect(fields) { viewModel.onFieldsChanged(fields) }
     LaunchedEffect(connectState) { if (connectState == ConnectState.Connected) onDone() }
     LaunchedEffect(url) { viewModel.onUrlChanged(url) }
 

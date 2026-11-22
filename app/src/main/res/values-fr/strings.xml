@@ -332,6 +332,7 @@
     <string name="edit_server_login_required">Non connecté. Veuillez saisir le mot de passe pour vous reconnecter.</string>
     <string name="add_server_unreachable">Serveur inaccessible (%1$s).</string>
     <string name="add_server_server_error">Le serveur signale l’erreur %1$d : %2$s</string>
+    <string name="add_server_already_set_up">Ce serveur est déjà configuré. Vous pouvez le modifier ici.</string>
     <string name="sync_failed_library_changed">La bibliothèque « %1$s » a changé sur le serveur pendant la synchronisation. Rien n’a été supprimé ; la prochaine synchronisation réessaiera.</string>
     <string name="sync_failed_permission">EarLoft n’est pas autorisé à lire la musique de cet appareil. Autorisez l’accès dans les paramètres de l’application, sous « Autorisations ».</string>
     <string name="sync_failed_local_unavailable">La musique de cet appareil ne peut pas être lue pour le moment. La prochaine synchronisation réessaiera.</string>
@@ -1044,7 +1045,7 @@
     <string name="settings_podcast_auto_play_next">Lire automatiquement l’épisode suivant</string>
     <string name="settings_podcast_auto_play_next_summary">À la fin d’un épisode, le suivant dans « Continuer l’écoute » démarre.</string>
     <string name="settings_podcast_mobile">Utiliser aussi les données mobiles</string>
-    <string name="settings_podcast_mobile_summary">Désactivé : l’actualisation et le téléchargement des épisodes ne se font qu’en Wi-Fi.</string>
+    <string name="settings_podcast_mobile_summary">Désactivé : l’actualisation automatique et le téléchargement des épisodes ne se font qu’en Wi-Fi. L’actualisation manuelle utilise aussi les données mobiles.</string>
     <string name="book_download_waiting_wifi">En attente du Wi-Fi. Vous pouvez autoriser les données mobiles dans Paramètres → Livres.</string>
     <string name="settings_book_mobile">Utiliser aussi les données mobiles</string>
     <string name="settings_book_mobile_summary">Désactivé : les livres ne sont téléchargés qu’en Wi-Fi.</string>

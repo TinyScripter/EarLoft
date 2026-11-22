@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.settings
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
@@ -66,9 +67,14 @@ data class ServerFormUiState(
             (!isHttp || allowHttp)
 }
 
-/** Form for creating ([sourceId] `null`) or editing a server. */
+/**
+ * Form for creating ([sourceId] `null`) or editing a server. Type, name, address, user name and the HTTP checkbox survive the
+ * end of the process in [savedStateHandle] (e.g. while a password manager is open, review H21); the password only lives in
+ * memory.
+ */
 @HiltViewModel(assistedFactory = ServerFormViewModel.Factory::class)
 class ServerFormViewModel @AssistedInject constructor(
+    private val savedStateHandle: SavedStateHandle,
     private val serverRepository: ServerRepository,
     private val downloadSettings: DownloadSettings,
     private val downloads: DownloadRepository,
@@ -84,8 +90,14 @@ class ServerFormViewModel @AssistedInject constructor(
     /** When editing: the loaded values, to save download-only changes without a connection test. */
     private var loaded: ServerInfo? = null
 
+    /** What was typed before the process ended; applied over the empty or loaded fields. */
+    private val restored: SavedFields? = SavedFields.from(savedStateHandle)
+
     init {
-        if (sourceId != null) load(sourceId)
+        if (sourceId != null) load(sourceId) else restored?.let { saved -> _state.update { saved.applyTo(it) } }
+        viewModelScope.launch {
+            _state.collect { current -> if (current.initialFields != null) SavedFields.of(current).writeTo(savedStateHandle) }
+        }
     }
 
     private fun load(sourceId: String) {
@@ -108,7 +120,7 @@ class ServerFormViewModel @AssistedInject constructor(
                     // The unencrypted connection was already confirmed during setup.
                     allowHttp = server.info.baseUrl.startsWith("http://", ignoreCase = true),
                     autoDownload = autoDownload,
-                ).withInitialFields()
+                ).withInitialFields().let { loadedState -> restored?.applyTo(loadedState) ?: loadedState }
             }
         }
     }
@@ -188,5 +200,53 @@ class ServerFormViewModel @AssistedInject constructor(
     @AssistedFactory
     interface Factory {
         fun create(sourceId: String?): ServerFormViewModel
+    }
+}
+
+/** The form fields that go into the saved instance state: no password. */
+internal data class SavedFields(
+    val type: SourceType,
+    val name: String,
+    val url: String,
+    val username: String,
+    val allowHttp: Boolean,
+) {
+    /** Over [state]'s values; [ServerFormUiState.initialFields] stays, so leaving still asks if this differs from it. */
+    fun applyTo(state: ServerFormUiState): ServerFormUiState = state.copy(
+        type = if (state.isEditing) state.type else type,
+        name = name,
+        url = url,
+        username = username,
+        allowHttp = allowHttp,
+    )
+
+    fun writeTo(handle: SavedStateHandle) {
+        handle[KEY_TYPE] = type.name
+        handle[KEY_NAME] = name
+        handle[KEY_URL] = url
+        handle[KEY_USERNAME] = username
+        handle[KEY_ALLOW_HTTP] = allowHttp
+    }
+
+    companion object {
+        private const val KEY_TYPE = "server_form_type"
+        private const val KEY_NAME = "server_form_name"
+        private const val KEY_URL = "server_form_url"
+        private const val KEY_USERNAME = "server_form_username"
+        private const val KEY_ALLOW_HTTP = "server_form_allow_http"
+
+        fun of(state: ServerFormUiState) = SavedFields(state.type, state.name, state.url, state.username, state.allowHttp)
+
+        /** `null` on a fresh start of the form. */
+        fun from(handle: SavedStateHandle): SavedFields? {
+            val url = handle.get<String>(KEY_URL) ?: return null
+            return SavedFields(
+                type = handle.get<String>(KEY_TYPE)?.let { name -> SourceType.entries.find { it.name == name } } ?: SourceType.SUBSONIC,
+                name = handle.get<String>(KEY_NAME).orEmpty(),
+                url = url,
+                username = handle.get<String>(KEY_USERNAME).orEmpty(),
+                allowHttp = handle.get<Boolean>(KEY_ALLOW_HTTP) ?: false,
+            )
+        }
     }
 }

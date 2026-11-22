@@ -316,6 +316,7 @@
     <string name="edit_server_login_required">Et ole kirjautunut. Kirjaudu uudelleen antamalla salasana.</string>
     <string name="add_server_unreachable">Palvelimeen ei saada yhteyttä (%1$s).</string>
     <string name="add_server_server_error">Palvelin ilmoittaa virheen %1$d: %2$s</string>
+    <string name="add_server_already_set_up">Tämä palvelin on jo määritetty. Voit muuttaa sitä tässä.</string>
     <string name="sync_failed_library_changed">Kirjasto ”%1$s” muuttui palvelimella synkronoinnin aikana. Mitään ei poistettu; seuraava synkronointi yrittää uudelleen.</string>
     <string name="sync_failed_permission">EarLoft ei saa lukea tämän laitteen musiikkia. Salli pääsy sovelluksen asetuksissa kohdassa ”Luvat”.</string>
     <string name="sync_failed_local_unavailable">Tämän laitteen musiikkia ei voi lukea juuri nyt. Seuraava synkronointi yrittää uudelleen.</string>
@@ -1003,7 +1004,7 @@
     <string name="settings_podcast_auto_play_next">Toista seuraava jakso automaattisesti</string>
     <string name="settings_podcast_auto_play_next_summary">Kun jakso päättyy, seuraava jakso listalla ”Jatka kuuntelua” alkaa.</string>
     <string name="settings_podcast_mobile">Käytä myös mobiilidataa</string>
-    <string name="settings_podcast_mobile_summary">Pois: jaksot päivitetään ja ladataan vain Wi-Fi-yhteydellä.</string>
+    <string name="settings_podcast_mobile_summary">Pois: automaattinen päivitys ja jaksojen lataus vain Wi-Fi-yhteydellä. Käsin päivittäminen käyttää myös mobiilidataa.</string>
     <string name="book_download_waiting_wifi">Odotetaan Wi-Fi-yhteyttä. Voit sallia mobiilidatan kohdassa Asetukset → Kirjat.</string>
     <string name="settings_book_mobile">Käytä myös mobiilidataa</string>
     <string name="settings_book_mobile_summary">Pois: kirjat ladataan vain Wi-Fi-yhteydellä.</string>

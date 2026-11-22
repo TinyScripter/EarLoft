@@ -316,6 +316,7 @@
     <string name="edit_server_login_required">Niet ingelogd. Voer het wachtwoord in om opnieuw in te loggen.</string>
     <string name="add_server_unreachable">Server onbereikbaar (%1$s).</string>
     <string name="add_server_server_error">De server meldt fout %1$d: %2$s</string>
+    <string name="add_server_already_set_up">Deze server is al ingesteld. Hier kun je hem wijzigen.</string>
     <string name="sync_failed_library_changed">De bibliotheek ‘%1$s’ is tijdens de synchronisatie op de server gewijzigd. Er is niets verwijderd; de volgende synchronisatie probeert het opnieuw.</string>
     <string name="sync_failed_permission">EarLoft mag de muziek op dit apparaat niet lezen. Sta toegang toe in de app-instellingen onder ‘Rechten’.</string>
     <string name="sync_failed_local_unavailable">De muziek op dit apparaat kan op dit moment niet worden gelezen. De volgende synchronisatie probeert het opnieuw.</string>
@@ -1003,7 +1004,7 @@
     <string name="settings_podcast_auto_play_next">Volgende aflevering automatisch afspelen</string>
     <string name="settings_podcast_auto_play_next_summary">Als een aflevering eindigt, start de volgende in Verder luisteren.</string>
     <string name="settings_podcast_mobile">Ook mobiele data gebruiken</string>
-    <string name="settings_podcast_mobile_summary">Uit: afleveringen worden alleen via wifi vernieuwd en gedownload.</string>
+    <string name="settings_podcast_mobile_summary">Uit: automatisch vernieuwen en afleveringen downloaden alleen via wifi. Handmatig vernieuwen gebruikt ook mobiele data.</string>
     <string name="book_download_waiting_wifi">Wacht op wifi. Je kunt mobiele data toestaan in Instellingen → Boeken.</string>
     <string name="settings_book_mobile">Ook mobiele data gebruiken</string>
     <string name="settings_book_mobile_summary">Uit: boeken worden alleen via wifi gedownload.</string>

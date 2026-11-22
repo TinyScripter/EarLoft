@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.core.data.spoken
 import android.util.Log
 import de.kleinabersmart.earloft.core.common.normalizeForMerge
 import de.kleinabersmart.earloft.core.data.refresh.NewBook
+import de.kleinabersmart.earloft.core.data.sync.SyncFailure
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.BookChapterEntity
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
@@ -12,12 +13,17 @@ import de.kleinabersmart.earloft.core.database.entity.SpokenLibraryEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.parseGenres
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsException
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsItemDto
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
@@ -46,6 +52,13 @@ class BookSyncer @Inject constructor(
     private val uploads: ArdUploadAdoption,
 ) {
     private val syncMutex = Mutex()
+    private val failedSyncs = MutableStateFlow<Map<String, SyncFailure>>(emptyMap())
+
+    /**
+     * Error of the last sync per server; a successful sync removes the entry. Shown on the server's row like with music servers
+     * (review H39).
+     */
+    val failures: StateFlow<Map<String, SyncFailure>> = failedSyncs.asStateFlow()
 
     /** `ok` if all servers, the "Audiobooks" folder and the books from ARD Sounds could be synced. */
     suspend fun syncAll(): BookSyncResult = coroutineScope {
@@ -63,6 +76,7 @@ class BookSyncer @Inject constructor(
     suspend fun syncSafely(server: AbsServer): BookSyncResult =
         try {
             val fresh = sync(server)
+            failedSyncs.update { it - server.serverId }
             // An uploaded book from ARD Sounds that the server now reports gets its state.
             uploads.settle(server.serverId)
             BookSyncResult(ok = true, newBooks = fresh)
@@ -70,6 +84,7 @@ class BookSyncer @Inject constructor(
             throw e
         } catch (e: IOException) {
             Log.w(TAG, "Sync with ${server.baseUrl} failed", e)
+            failedSyncs.update { it + (server.serverId to absSyncFailure(e)) }
             BookSyncResult(ok = false, newBooks = emptyList())
         }
 
@@ -249,4 +264,11 @@ class BookSyncer @Inject constructor(
         const val PAGE_SIZE = 100
         const val DETAIL_PARALLELISM = 4
     }
+}
+
+/** What a failed Audiobookshelf sync tells the user: a rejected key or sign-in, the server's error, or no connection. */
+internal fun absSyncFailure(e: IOException): SyncFailure = when {
+    e is AbsException && (e.code == 401 || e.code == 403) -> SyncFailure.WrongCredentials
+    e is AbsException && e.code > 0 -> SyncFailure.ServerError(e.code, e.message)
+    else -> SyncFailure.of(e)
 }

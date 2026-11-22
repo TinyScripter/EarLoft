@@ -46,7 +46,6 @@ import androidx.window.core.layout.WindowSizeClass
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.model.SpokenMode
-import de.kleinabersmart.earloft.core.model.SpokenServer
 import de.kleinabersmart.earloft.navigation.SetupPage
 import de.kleinabersmart.earloft.ui.components.AppLogo
 import de.kleinabersmart.earloft.ui.components.ListGroup
@@ -119,8 +118,10 @@ fun SetupScreen(
     val watchSettings by watchViewModel.settings.collectAsStateWithLifecycle()
     // Only the books page lists Audiobookshelf servers; an entry's page never changes.
     val absServers = if (page == SetupPage.BOOKS) {
-        val list by hiltViewModel<AudiobookshelfViewModel>().list.collectAsStateWithLifecycle()
-        list.valueOrNull.orEmpty()
+        val absViewModel = hiltViewModel<AudiobookshelfViewModel>()
+        val list by absViewModel.list.collectAsStateWithLifecycle()
+        val withoutKey by absViewModel.withoutKey.collectAsStateWithLifecycle()
+        list.valueOrNull.orEmpty().map { SetupBookServer(it, keyLost = it.serverId in withoutKey) }
     } else {
         emptyList()
     }
@@ -170,7 +171,7 @@ fun SetupScreen(
 private fun SetupContent(
     page: SetupPage,
     state: SettingsUiState,
-    absServers: List<SpokenServer>,
+    absServers: List<SetupBookServer>,
     watch: WatchSetup?,
     watchSettings: WatchSettings,
     actions: SetupActions,
