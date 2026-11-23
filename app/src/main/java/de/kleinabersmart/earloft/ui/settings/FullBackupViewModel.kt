@@ -102,8 +102,12 @@ class FullBackupViewModel @Inject constructor(
             } finally {
                 running.set(false)
             }
-            // Failures stay until they are dismissed.
-            message?.let { snackbars.show(SnackbarMessage(fullBackupMessage(context.resources, it), duration = SnackbarDuration.Long, keep = it !is FullBackupMessage.Exported)) }
+            // Failures stay until they are dismissed (indefinite, with the dismiss button); `keep` alone would still expire.
+            message?.let {
+                val failure = it !is FullBackupMessage.Exported
+                val duration = if (failure) SnackbarDuration.Indefinite else SnackbarDuration.Long
+                snackbars.show(SnackbarMessage(fullBackupMessage(context.resources, it), duration = duration, keep = failure))
+            }
         }
     }
 

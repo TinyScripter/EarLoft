@@ -557,7 +557,9 @@ class SettingsViewModel @Inject constructor(
     private fun report(message: TransferMessage) {
         val failed = message == TransferMessage.ImportFailed || message == TransferMessage.ExportFailed ||
             message == TransferMessage.DatabaseImportFailed || message == TransferMessage.DatabaseExportFailed
-        snackbars.show(SnackbarMessage(transferMessageText(context.resources, message), duration = SnackbarDuration.Long, keep = failed))
+        // Indefinite: a failure stays with its dismiss button; `keep` alone only protects it from being replaced and still expires.
+        val duration = if (failed) SnackbarDuration.Indefinite else SnackbarDuration.Long
+        snackbars.show(SnackbarMessage(transferMessageText(context.resources, message), duration = duration, keep = failed))
     }
 
     /**
