@@ -193,6 +193,12 @@
     <string name="settings_opml_import">Importer abonnementer (OPML)</string>
     <string name="settings_opml_import_summary">Fra en fil</string>
     <string name="settings_opml_import_message">Vil du legge podkastene til i abonnementene dine eller erstatte abonnementene dine med dem? Podkaster du allerede følger, hoppes over. Ved erstatning fjernes alle andre abonnementer med episodene og lyttefremdriften deres.</string>
+    <string name="settings_opml_import_question">Vil du legge podkastene til i abonnementene dine eller erstatte abonnementene dine med dem? Podkaster du allerede følger, hoppes over.</string>
+    <string name="settings_opml_replace_none">Ved erstatning fjernes ingen abonnementer.</string>
+    <plurals name="settings_opml_replace_removes">
+        <item quantity="one">Ved erstatning fjernes %d abonnement med episodene og lyttefremdriften.</item>
+        <item quantity="other">Ved erstatning fjernes %d abonnementer med episodene og lyttefremdriften deres.</item>
+    </plurals>
     <string name="settings_opml_add">Legg til</string>
     <string name="settings_opml_replace">Erstatt</string>
     <string name="settings_opml_import_failed">Filen kunne ikke leses som OPML.</string>

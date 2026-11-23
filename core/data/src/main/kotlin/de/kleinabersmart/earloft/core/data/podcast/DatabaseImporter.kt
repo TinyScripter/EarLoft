@@ -6,6 +6,7 @@ import de.kleinabersmart.earloft.core.database.dao.StatsDao
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
+import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.network.podcast.OpmlFeed
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsShowId
@@ -54,27 +55,31 @@ class DatabaseImporter @Inject constructor(
     suspend fun import(backup: ImportData): DatabaseImportResult = repository.withoutAutomation { importPaused(backup) }
 
     private suspend fun importPaused(backup: ImportData): DatabaseImportResult {
-        val known = podcastDao.feeds().mapTo(HashSet()) { it.url }
+        // Active and archived subscriptions of the app stay as they are (review J30); trial subscriptions become subscriptions.
+        val subscribedBefore = podcastDao.keptFeeds().mapTo(HashSet()) { it.feedId }
         // If an address is in the file as both active and archived, it counts as active.
         val wanted = backup.feeds
             .mapNotNull { f -> key(f.url)?.let { url -> WantedFeed(url, f.title.ifBlank { url }, f.active || ardSoundsShowId(f.url) != null, f) } }
             .groupBy { it.url }
             .map { (_, same) -> same.firstOrNull { it.active } ?: same.first() }
         // The address from the file: the import extracts credentials in it and stores them (review D6).
-        repository.importOpml(wanted.map { OpmlFeed(it.title, it.source.url) }, replace = false)
-        val added = wanted.filter { it.url !in known }.mapNotNull { wish ->
-            podcastDao.feedByUrl(wish.url)?.also {
+        repository.importOpml(wanted.map { OpmlFeed(it.title, it.source.url) }, replace = false, reactivateArchived = false)
+        // As when subscribing, an `http://` address in the file also finds the subscription stored under `https://` (review J2).
+        val added = wanted.mapNotNull { wish ->
+            repository.storedFeed(wish.url)?.takeIf { it.feedId !in subscribedBefore }?.also {
                 if (!wish.active) podcastDao.setArchived(it.feedId, true)
                 // Speed and effects only for new subscriptions; an existing subscription keeps its settings.
                 val source = wish.source
                 podcastDao.setEffects(it.feedId, source.speed, source.skipSilence, source.volumeBoostDb)
                 podcastDao.setSkipIntroOutro(it.feedId, source.skipIntroS, source.skipOutroS)
             }
-        }
+        }.distinctBy { it.feedId }
         // Without episodes there is nothing progress could be matched to.
         added.forEach { repository.refresh(it.feedId) }
 
-        val feedByUrl = (podcastDao.feeds() + added).associateBy { it.url }
+        val subscriptions = HashMap<String, PodcastFeedEntity?>()
+        suspend fun feedOf(url: String): PodcastFeedEntity? =
+            if (url in subscriptions) subscriptions[url] else repository.storedFeed(url)?.takeIf { it.subscribed }.also { subscriptions[url] = it }
         val titles = backup.feeds.associate { (key(it.url) ?: it.url) to it.title }
         val booksByFeed = HashMap<String, Map<String, BookEntity>>()
         var applied = 0
@@ -85,7 +90,7 @@ class DatabaseImporter @Inject constructor(
 
         for (episode in backup.episodes) {
             val feedUrl = key(episode.feedUrl) ?: episode.feedUrl
-            val feed = feedByUrl[feedUrl]
+            val feed = feedOf(feedUrl)
             val book = feed?.let { f -> booksByFeed.getOrPut(f.feedId) { bookDao.booksOf(f.feedId).associateBy { it.remoteId } }[episode.guid] }
             if (episode.starred && book != null) stars += book.bookId
             if (episode.played || episode.positionMs > 0) {

@@ -233,6 +233,9 @@ class AddPodcastViewModel @Inject constructor(
     fun importOpml(uri: Uri, replace: Boolean) {
         viewModelScope.launch { _opmlResults.send(applicationScope.async { opmlImporter.import(uri, replace) }.await()) }
     }
+
+    /** How many subscriptions importing [uri] with "replace" would remove (for the confirmation); `null` = file not readable. */
+    suspend fun opmlReplaceRemovals(uri: Uri): Int? = opmlImporter.replaceRemovals(uri)
 }
 
 /** Loading the feed for the preview. */

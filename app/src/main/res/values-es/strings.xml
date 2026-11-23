@@ -203,6 +203,13 @@
     <string name="settings_opml_import">Importar suscripciones (OPML)</string>
     <string name="settings_opml_import_summary">Desde un archivo</string>
     <string name="settings_opml_import_message">¿Añadir los podcasts a tus suscripciones o reemplazar tus suscripciones por ellos? Los podcasts que ya sigues se omiten. Al reemplazar se eliminan todas las demás suscripciones con sus episodios y su progreso de escucha.</string>
+    <string name="settings_opml_import_question">¿Añadir los podcasts a tus suscripciones o reemplazar tus suscripciones por ellos? Los podcasts que ya sigues se omiten.</string>
+    <string name="settings_opml_replace_none">Al reemplazar no se elimina ninguna suscripción.</string>
+    <plurals name="settings_opml_replace_removes">
+        <item quantity="one">Al reemplazar se elimina %d suscripción con sus episodios y su progreso de escucha.</item>
+        <item quantity="many">Al reemplazar se eliminan %d suscripciones con sus episodios y su progreso de escucha.</item>
+        <item quantity="other">Al reemplazar se eliminan %d suscripciones con sus episodios y su progreso de escucha.</item>
+    </plurals>
     <string name="settings_opml_add">Añadir</string>
     <string name="settings_opml_replace">Reemplazar</string>
     <string name="settings_opml_import_failed">No se pudo leer el archivo como OPML.</string>

@@ -193,6 +193,12 @@
     <string name="settings_opml_import">Abos importieren (OPML)</string>
     <string name="settings_opml_import_summary">Aus einer Datei</string>
     <string name="settings_opml_import_message">Die Podcasts zu deinen Abos hinzufügen oder deine Abos durch sie ersetzen? Schon abonnierte Podcasts werden übersprungen. Beim Ersetzen entfallen alle anderen Abos samt Folgen und Hörfortschritt.</string>
+    <string name="settings_opml_import_question">Die Podcasts zu deinen Abos hinzufügen oder deine Abos durch sie ersetzen? Schon abonnierte Podcasts werden übersprungen.</string>
+    <string name="settings_opml_replace_none">Beim Ersetzen entfällt kein Abo.</string>
+    <plurals name="settings_opml_replace_removes">
+        <item quantity="one">Beim Ersetzen entfällt %d Abo samt Folgen und Hörfortschritt.</item>
+        <item quantity="other">Beim Ersetzen entfallen %d Abos samt Folgen und Hörfortschritt.</item>
+    </plurals>
     <string name="settings_opml_add">Hinzufügen</string>
     <string name="settings_opml_replace">Ersetzen</string>
     <string name="settings_opml_import_failed">Die Datei konnte nicht als OPML gelesen werden.</string>

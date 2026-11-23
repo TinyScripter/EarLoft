@@ -286,6 +286,27 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `opml import finds a subscription stored under https by its http address`() = runTest {
+        val stored = subscribe()
+        val other = (repository.subscribe("https://example.com/other.xml") as SubscribeResult.Added).feedId
+        val file = listOf(OpmlFeed("Old", "http://example.com/feed.xml"), OpmlFeed("Same", "https://example.com/feed.xml"))
+
+        assertEquals(1, repository.opmlReplaceRemovals(file))
+        assertEquals(OpmlImportResult(added = 0, skipped = 2, removed = 0), repository.importOpml(file, replace = false))
+        assertEquals(2, db.podcastDao().feeds().size)
+
+        val replaced = repository.importOpml(file, replace = true)
+        assertEquals(OpmlImportResult(added = 0, skipped = 2, removed = 1), replaced)
+        val ids = db.podcastDao().feeds().map { it.feedId }
+        assertEquals(listOf(stored), ids)
+        assertTrue(other !in ids)
+        // Kept with its episodes rather than deleted and created again under the old address.
+        assertEquals(3, db.bookDao().booksOf(stored).size)
+        assertEquals(0, repository.opmlReplaceRemovals(file))
+        assertEquals(0, repository.opmlReplaceRemovals(emptyList()))
+    }
+
+    @Test
     fun `replacing with a file without feeds or without ard sounds keeps those subscriptions`() = runTest {
         val feed = subscribe()
         db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "ard", url = "ardsounds:urn:ard:show:5fa94a3212aa9829", title = "ARD"))

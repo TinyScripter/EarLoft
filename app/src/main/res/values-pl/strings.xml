@@ -213,6 +213,14 @@
     <string name="settings_opml_import">Importuj subskrypcje (OPML)</string>
     <string name="settings_opml_import_summary">Z pliku</string>
     <string name="settings_opml_import_message">Dodać te podcasty do subskrypcji czy zastąpić nimi obecne subskrypcje? Podcasty, które już obserwujesz, zostaną pominięte. Zastąpienie usuwa wszystkie pozostałe subskrypcje wraz z ich odcinkami i postępem słuchania.</string>
+    <string name="settings_opml_import_question">Dodać te podcasty do subskrypcji czy zastąpić nimi obecne subskrypcje? Podcasty, które już obserwujesz, zostaną pominięte.</string>
+    <string name="settings_opml_replace_none">Zastąpienie nie usunie żadnej subskrypcji.</string>
+    <plurals name="settings_opml_replace_removes">
+        <item quantity="one">Zastąpienie usunie %d subskrypcję wraz z jej odcinkami i postępem słuchania.</item>
+        <item quantity="few">Zastąpienie usunie %d subskrypcje wraz z ich odcinkami i postępem słuchania.</item>
+        <item quantity="many">Zastąpienie usunie %d subskrypcji wraz z ich odcinkami i postępem słuchania.</item>
+        <item quantity="other">Zastąpienie usunie %d subskrypcji wraz z ich odcinkami i postępem słuchania.</item>
+    </plurals>
     <string name="settings_opml_add">Dodaj</string>
     <string name="settings_opml_replace">Zastąp</string>
     <string name="settings_opml_import_failed">Nie udało się odczytać pliku jako OPML.</string>

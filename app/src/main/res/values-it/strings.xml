@@ -203,6 +203,13 @@
     <string name="settings_opml_import">Importa iscrizioni (OPML)</string>
     <string name="settings_opml_import_summary">Da un file</string>
     <string name="settings_opml_import_message">Aggiungere i podcast alle tue iscrizioni o sostituire con essi quelle attuali? I podcast che segui già vengono saltati. La sostituzione rimuove tutte le altre iscrizioni con i relativi episodi e l’avanzamento dell’ascolto.</string>
+    <string name="settings_opml_import_question">Aggiungere i podcast alle tue iscrizioni o sostituire con essi quelle attuali? I podcast che segui già vengono saltati.</string>
+    <string name="settings_opml_replace_none">La sostituzione non rimuove alcuna iscrizione.</string>
+    <plurals name="settings_opml_replace_removes">
+        <item quantity="one">La sostituzione rimuove %d iscrizione con i relativi episodi e l’avanzamento dell’ascolto.</item>
+        <item quantity="many">La sostituzione rimuove %d iscrizioni con i relativi episodi e l’avanzamento dell’ascolto.</item>
+        <item quantity="other">La sostituzione rimuove %d iscrizioni con i relativi episodi e l’avanzamento dell’ascolto.</item>
+    </plurals>
     <string name="settings_opml_add">Aggiungi</string>
     <string name="settings_opml_replace">Sostituisci</string>
     <string name="settings_opml_import_failed">Impossibile leggere il file come OPML.</string>

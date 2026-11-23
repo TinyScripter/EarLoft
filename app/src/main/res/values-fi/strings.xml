@@ -193,6 +193,12 @@
     <string name="settings_opml_import">Tuo tilaukset (OPML)</string>
     <string name="settings_opml_import_summary">Tiedostosta</string>
     <string name="settings_opml_import_message">Lisätäänkö podcastit tilauksiisi vai korvataanko tilauksesi niillä? Jo tilatut podcastit ohitetaan. Korvaaminen poistaa kaikki muut tilaukset jaksoineen ja kuuntelun edistymisineen.</string>
+    <string name="settings_opml_import_question">Lisätäänkö podcastit tilauksiisi vai korvataanko tilauksesi niillä? Jo tilatut podcastit ohitetaan.</string>
+    <string name="settings_opml_replace_none">Korvaaminen ei poista yhtään tilausta.</string>
+    <plurals name="settings_opml_replace_removes">
+        <item quantity="one">Korvaaminen poistaa %d tilauksen jaksoineen ja kuuntelun edistymisineen.</item>
+        <item quantity="other">Korvaaminen poistaa %d tilausta jaksoineen ja kuuntelun edistymisineen.</item>
+    </plurals>
     <string name="settings_opml_add">Lisää</string>
     <string name="settings_opml_replace">Korvaa</string>
     <string name="settings_opml_import_failed">Tiedostoa ei voitu lukea OPML-tiedostona.</string>

@@ -193,6 +193,12 @@
     <string name="settings_opml_import">Importera prenumerationer (OPML)</string>
     <string name="settings_opml_import_summary">Från en fil</string>
     <string name="settings_opml_import_message">Vill du lägga till poddarna i dina prenumerationer eller ersätta dina prenumerationer med dem? Poddar som du redan följer hoppas över. Om du ersätter tas alla andra prenumerationer bort, tillsammans med deras avsnitt och lyssningsförlopp.</string>
+    <string name="settings_opml_import_question">Vill du lägga till poddarna i dina prenumerationer eller ersätta dina prenumerationer med dem? Poddar som du redan följer hoppas över.</string>
+    <string name="settings_opml_replace_none">Om du ersätter tas ingen prenumeration bort.</string>
+    <plurals name="settings_opml_replace_removes">
+        <item quantity="one">Om du ersätter tas %d prenumeration bort, tillsammans med dess avsnitt och lyssningsförlopp.</item>
+        <item quantity="other">Om du ersätter tas %d prenumerationer bort, tillsammans med deras avsnitt och lyssningsförlopp.</item>
+    </plurals>
     <string name="settings_opml_add">Lägg till</string>
     <string name="settings_opml_replace">Ersätt</string>
     <string name="settings_opml_import_failed">Filen kunde inte läsas som OPML.</string>

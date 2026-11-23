@@ -193,6 +193,12 @@
     <string name="settings_opml_import">Abonnementen importeren (OPML)</string>
     <string name="settings_opml_import_summary">Uit een bestand</string>
     <string name="settings_opml_import_message">De podcasts toevoegen aan je abonnementen of je abonnementen erdoor vervangen? Podcasts die je al volgt, worden overgeslagen. Bij vervangen worden alle andere abonnementen verwijderd, met hun afleveringen en luistervoortgang.</string>
+    <string name="settings_opml_import_question">De podcasts toevoegen aan je abonnementen of je abonnementen erdoor vervangen? Podcasts die je al volgt, worden overgeslagen.</string>
+    <string name="settings_opml_replace_none">Bij vervangen wordt geen abonnement verwijderd.</string>
+    <plurals name="settings_opml_replace_removes">
+        <item quantity="one">Bij vervangen wordt %d abonnement verwijderd, met de afleveringen en luistervoortgang.</item>
+        <item quantity="other">Bij vervangen worden %d abonnementen verwijderd, met hun afleveringen en luistervoortgang.</item>
+    </plurals>
     <string name="settings_opml_add">Toevoegen</string>
     <string name="settings_opml_replace">Vervangen</string>
     <string name="settings_opml_import_failed">Het bestand kan niet als OPML worden gelezen.</string>

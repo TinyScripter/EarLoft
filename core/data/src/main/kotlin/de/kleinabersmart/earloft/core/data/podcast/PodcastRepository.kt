@@ -719,47 +719,74 @@ class PodcastRepository @Inject constructor(
      * (`https://name:password@host/feed`) are extracted and stored as when subscribing, not part of the subscription address
      * (otherwise they would end up in exports, the backup and on the watch, review D6). The episodes of the new subscriptions only come with the
      * next sync.
+     *
+     * A subscription counts as already there as when subscribing ([knownFeed]): also under the `https://` variant of an
+     * `http://` address in the file (review J2). [reactivateArchived] `false`: an archived subscription stays archived (database import,
+     * whose file states itself whether a subscription is archived).
      */
-    suspend fun importOpml(feeds: List<OpmlFeed>, replace: Boolean): OpmlImportResult = mutex.withLock {
+    suspend fun importOpml(feeds: List<OpmlFeed>, replace: Boolean, reactivateArchived: Boolean = true): OpmlImportResult = mutex.withLock {
         val auths = HashMap<String, FeedAuth>()
-        val wanted = feeds.mapNotNull { feed ->
-            when (val address = FeedAddress.of(feed.url)) {
-                is FeedAddress.ArdSounds -> feed.copy(url = address.url)
-                is FeedAddress.Http -> feed.copy(url = address.url.toString()).also { imported ->
-                    address.auth?.let { auths.putIfAbsent(imported.url, it) }
-                }
-                null -> null
-            }
-        }.distinctBy { it.url }
+        val wanted = opmlWanted(feeds, auths)
         var removed = 0
-        if (replace && wanted.isNotEmpty()) {
-            val keep = wanted.mapTo(HashSet()) { it.url }
-            val fileHasArdSounds = wanted.any { ardSoundsShowId(it.url) != null }
-            dao.feeds().filter { !it.isLocal && it.url !in keep && (fileHasArdSounds || ardSoundsShowId(it.url) == null) }.forEach {
+        if (replace) {
+            replacedBy(wanted).forEach {
                 dao.deleteFeed(it.feedId)
                 removed++
             }
         }
-        val known = dao.feeds().mapTo(HashSet()) { it.url }
-        val fresh = wanted.filter { it.url !in known }
+        val fresh = wanted.filter { (_, stored) ->
+            stored == null || !stored.subscribed || (reactivateArchived && stored.archived)
+        }
         val autoDownload = settings.autoDownloadNew.first()
-        fresh.forEach {
+        fresh.forEach { (feed, stored) ->
             // A trial or archived subscription with the same address becomes a subscription (again) (the address is unique).
             // Only the trial subscription gets the default for new subscriptions; the archived one keeps its setting.
-            val stored = dao.feedByUrl(it.url)
             val feedId = if (stored != null) {
                 if (!stored.subscribed) dao.subscribeTrial(stored.feedId, autoDownload)
-                dao.setArchived(stored.feedId, false)
+                if (reactivateArchived) dao.setArchived(stored.feedId, false)
                 stored.feedId
             } else {
                 UUID.randomUUID().toString().also { feedId ->
-                    dao.upsertFeed(PodcastFeedEntity(feedId = feedId, url = it.url, title = it.title, autoDownload = autoDownload))
+                    dao.upsertFeed(PodcastFeedEntity(feedId = feedId, url = feed.url, title = feed.title, autoDownload = autoDownload))
                 }
             }
             // Already stored (entered) credentials take precedence.
-            auths[it.url]?.let { auth -> if (credentials.forFeed(feedId) == null) credentials.set(feedId, auth) }
+            auths[feed.url]?.let { auth -> if (credentials.forFeed(feedId) == null) credentials.set(feedId, auth) }
         }
         OpmlImportResult(added = fresh.size, skipped = feeds.size - fresh.size, removed = removed)
+    }
+
+    /** How many subscriptions [importOpml] with `replace` would remove for [feeds] (for the confirmation). */
+    suspend fun opmlReplaceRemovals(feeds: List<OpmlFeed>): Int = replacedBy(opmlWanted(feeds, HashMap())).size
+
+    /** The stored subscription for [url] as when subscribing (also the `https://` variant of an `http://` address); `null` if there is none. */
+    suspend fun storedFeed(url: String): PodcastFeedEntity? = FeedAddress.of(url)?.let { knownFeed(it) }
+
+    /**
+     * The subscriptions from [feeds] with the address they get here and the stored feed they match (or `null`). Credentials in an
+     * address go to [auths]; entries for the same subscription count once.
+     */
+    private suspend fun opmlWanted(feeds: List<OpmlFeed>, auths: MutableMap<String, FeedAuth>): List<Pair<OpmlFeed, PodcastFeedEntity?>> =
+        feeds.mapNotNull { feed ->
+            val address = FeedAddress.of(feed.url) ?: return@mapNotNull null
+            val imported = when (address) {
+                is FeedAddress.ArdSounds -> feed.copy(url = address.url)
+                is FeedAddress.Http -> feed.copy(url = address.url.toString()).also { imported ->
+                    address.auth?.let { auths.putIfAbsent(imported.url, it) }
+                }
+            }
+            imported to knownFeed(address)
+        }.distinctBy { (feed, stored) -> stored?.feedId ?: feed.url }
+
+    /**
+     * What "replace" removes: all other active subscriptions; podcasts from the device stay, as do ARD Sounds subscriptions if
+     * the file contains none. A file without subscriptions replaces nothing.
+     */
+    private suspend fun replacedBy(wanted: List<Pair<OpmlFeed, PodcastFeedEntity?>>): List<PodcastFeedEntity> {
+        if (wanted.isEmpty()) return emptyList()
+        val keep = wanted.mapNotNullTo(HashSet()) { it.second?.feedId }
+        val fileHasArdSounds = wanted.any { ardSoundsShowId(it.first.url) != null }
+        return dao.feeds().filter { !it.isLocal && it.feedId !in keep && (fileHasArdSounds || ardSoundsShowId(it.url) == null) }
     }
 
     suspend fun setAutoDownload(feedId: String, enabled: Boolean) = dao.setAutoDownload(feedId, enabled)

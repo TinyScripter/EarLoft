@@ -203,6 +203,13 @@
     <string name="settings_opml_import">Importer des abonnements (OPML)</string>
     <string name="settings_opml_import_summary">À partir d’un fichier</string>
     <string name="settings_opml_import_message">Ajouter ces podcasts à vos abonnements ou remplacer vos abonnements par ceux-ci ? Les podcasts que vous suivez déjà sont ignorés. Remplacer supprime tous les autres abonnements, avec leurs épisodes et leur progression d’écoute.</string>
+    <string name="settings_opml_import_question">Ajouter ces podcasts à vos abonnements ou remplacer vos abonnements par ceux-ci ? Les podcasts que vous suivez déjà sont ignorés.</string>
+    <string name="settings_opml_replace_none">Remplacer ne supprime aucun abonnement.</string>
+    <plurals name="settings_opml_replace_removes">
+        <item quantity="one">Remplacer supprime %d abonnement, avec ses épisodes et sa progression d’écoute.</item>
+        <item quantity="many">Remplacer supprime %d abonnements, avec leurs épisodes et leur progression d’écoute.</item>
+        <item quantity="other">Remplacer supprime %d abonnements, avec leurs épisodes et leur progression d’écoute.</item>
+    </plurals>
     <string name="settings_opml_add">Ajouter</string>
     <string name="settings_opml_replace">Remplacer</string>
     <string name="settings_opml_import_failed">Impossible de lire le fichier au format OPML.</string>

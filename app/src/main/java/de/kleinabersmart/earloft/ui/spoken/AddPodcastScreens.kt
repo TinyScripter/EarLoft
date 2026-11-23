@@ -256,6 +256,7 @@ fun AddPodcastScreen(
 
     opmlToImport?.let { uri ->
         OpmlImportDialog(
+            countRemovals = { viewModel.opmlReplaceRemovals(uri) },
             onImport = { replace ->
                 viewModel.importOpml(uri, replace)
                 opmlToImport = null

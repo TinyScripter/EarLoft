@@ -194,6 +194,12 @@
     <string name="settings_opml_import">Import subscriptions (OPML)</string>
     <string name="settings_opml_import_summary">From a file</string>
     <string name="settings_opml_import_message">Add the podcasts to your subscriptions or replace your subscriptions with them? Podcasts you already follow are skipped. Replacing removes all other subscriptions with their episodes and listening progress.</string>
+    <string name="settings_opml_import_question">Add the podcasts to your subscriptions or replace your subscriptions with them? Podcasts you already follow are skipped.</string>
+    <string name="settings_opml_replace_none">Replacing removes no subscription.</string>
+    <plurals name="settings_opml_replace_removes">
+        <item quantity="one">Replacing removes %d subscription with its episodes and listening progress.</item>
+        <item quantity="other">Replacing removes %d subscriptions with their episodes and listening progress.</item>
+    </plurals>
     <string name="settings_opml_add">Add</string>
     <string name="settings_opml_replace">Replace</string>
     <string name="settings_opml_import_failed">The file could not be read as OPML.</string>

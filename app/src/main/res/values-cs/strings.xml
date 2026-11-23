@@ -213,6 +213,14 @@
     <string name="settings_opml_import">Importovat odběry (OPML)</string>
     <string name="settings_opml_import_summary">Ze souboru</string>
     <string name="settings_opml_import_message">Přidat podcasty k vašim odběrům, nebo jimi odběry nahradit? Podcasty, které už odebíráte, budou přeskočeny. Nahrazení odstraní všechny ostatní odběry i s jejich epizodami a průběhem poslechu.</string>
+    <string name="settings_opml_import_question">Přidat podcasty k vašim odběrům, nebo jimi odběry nahradit? Podcasty, které už odebíráte, budou přeskočeny.</string>
+    <string name="settings_opml_replace_none">Nahrazení neodstraní žádný odběr.</string>
+    <plurals name="settings_opml_replace_removes">
+        <item quantity="one">Nahrazení odstraní %d odběr i s jeho epizodami a průběhem poslechu.</item>
+        <item quantity="few">Nahrazení odstraní %d odběry i s jejich epizodami a průběhem poslechu.</item>
+        <item quantity="many">Nahrazení odstraní %d odběru i s jejich epizodami a průběhem poslechu.</item>
+        <item quantity="other">Nahrazení odstraní %d odběrů i s jejich epizodami a průběhem poslechu.</item>
+    </plurals>
     <string name="settings_opml_add">Přidat</string>
     <string name="settings_opml_replace">Nahradit</string>
     <string name="settings_opml_import_failed">Soubor nelze přečíst jako OPML.</string>

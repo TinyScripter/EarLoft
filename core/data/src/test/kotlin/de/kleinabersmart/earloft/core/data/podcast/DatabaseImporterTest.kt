@@ -130,7 +130,43 @@ class DatabaseImporterTest {
         assertEquals(false, db.podcastDao().feedByUrl(FEED_URL)!!.archived)
     }
 
+    @Test
+    fun `an archived subscription of the app stays archived and keeps its settings`() = runTest {
+        repository.archive(feedId)
+        db.podcastDao().setEffects(feedId, 1.5f, true, 3)
+
+        val result = importer.import(
+            ImportData(
+                feeds = listOf(ImportFeed(FEED_URL, "Test", active = true, speed = 2f, skipSilence = false, volumeBoostDb = 0)),
+                episodes = listOf(episode("guid-A", played = true, at = 2_000)),
+            ),
+        )
+
+        val feed = db.podcastDao().feed(feedId)!!
+        assertEquals(true, feed.archived)
+        assertEquals(1.5f, feed.speed)
+        assertEquals(0, result.feedsAdded)
+        // Its progress is still matched.
+        assertEquals(1, result.progressApplied)
+    }
+
+    @Test
+    fun `an http address in the file finds the subscription stored under https`() = runTest {
+        val result = importer.import(
+            ImportData(
+                feeds = listOf(ImportFeed(HTTP_URL, "Test", active = true)),
+                episodes = listOf(episode("guid-B", position = 120_000, at = 3_000, feed = HTTP_URL)),
+            ),
+        )
+
+        assertEquals(0, result.feedsAdded)
+        assertEquals(1, result.progressApplied)
+        assertEquals(1, db.podcastDao().keptFeeds().size)
+        assertEquals(120_000, db.bookDao().progress(bookId("guid-B"))!!.positionMs)
+    }
+
     private companion object {
+        const val HTTP_URL = "http://example.com/feed.xml"
         const val FEED_URL = "https://example.com/feed.xml"
         const val OLD_URL = "https://old.example.com/feed.xml"
         val FEED = """<rss version="2.0"><channel><title>Test</title>

@@ -561,6 +561,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** How many subscriptions importing [uri] with "replace" would remove (for the confirmation); `null` = file not readable. */
+    suspend fun opmlReplaceRemovals(uri: Uri): Int? = opmlImporter.replaceRemovals(uri)
+
     /**
      * Reads the database file from [uri]: missing active subscriptions, listening progress and listening time (statistics).
      * Takes a while because new feeds are synced; a second call in the meantime is ignored, also one from another page (the
