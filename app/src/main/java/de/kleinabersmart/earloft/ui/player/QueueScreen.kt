@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -107,7 +108,7 @@ private fun QueueContent(
     modifier: Modifier = Modifier,
 ) {
     var saving by remember { mutableStateOf(false) }
-    if (saving) AddToPlaylistDialog(songIds = state.queue.map { it.songId }, onDismiss = { saving = false })
+    if (saving) SaveQueueDialog(onDismiss = { saving = false })
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = { QueueTitle(summary = summary.takeIf { state.queue.isNotEmpty() }) },
@@ -119,9 +120,8 @@ private fun QueueContent(
                     canClear = state.queue.size > 1,
                     onClear = onClear,
                 ) { close ->
-                    // New or existing playlist; the same selection as "Add to playlist" for songs and albums. Not while
-                    // casting: the cast player only holds a window of the queue, the playlist would be cut short (review2 J5).
-                    if (!state.isRemote) DropdownMenuItem(
+                    // New or existing playlist; the same selection as "Add to playlist" for songs and albums.
+                    DropdownMenuItem(
                         text = { Text(stringResource(R.string.queue_save_as_playlist)) },
                         enabled = state.queue.isNotEmpty(),
                         onClick = {
@@ -140,6 +140,16 @@ private fun QueueContent(
             modifier = Modifier.navigationBarsPadding(),
         )
     }
+}
+
+/**
+ * "Save queue as playlist": the same selection as "Add to playlist", with the whole queue. While casting the player only holds a
+ * window of about 50 titles; the rest comes from the cast factory (review2 J5).
+ */
+@Composable
+internal fun SaveQueueDialog(onDismiss: () -> Unit, viewModel: PlayerViewModel = hiltViewModel()) {
+    val songIds by produceState<List<Long>?>(null, viewModel) { value = viewModel.queueSongIds() }
+    songIds?.let { AddToPlaylistDialog(songIds = it, onDismiss = onDismiss) }
 }
 
 /** The queue with drag handles; also to the right of playback on wide windows. */

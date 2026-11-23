@@ -37,6 +37,12 @@ interface SessionPlayerFactory {
 
     /** Main thread. Appends [items] after the held-back titles. */
     fun appendPending(items: List<MediaItem>) = Unit
+
+    /**
+     * Main thread. The whole queue in its order while titles are held back (before and after the player's window), e.g. for
+     * saving it as a playlist; `null` if the player holds the whole queue.
+     */
+    fun fullQueue(): List<MediaItem>? = null
 }
 
 /** How many more titles [player] can take ([SessionPlayerFactory.maxQueueSize] minus the existing ones). */

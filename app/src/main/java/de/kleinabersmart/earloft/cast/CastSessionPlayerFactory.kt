@@ -151,6 +151,13 @@ internal class CastSessionPlayerFactory @Inject constructor(
 
     override fun hasPendingItems(): Boolean = reserve.remaining > 0
 
+    override fun fullQueue(): List<MediaItem>? {
+        val player = castPlayer ?: return null
+        if (reserve.isEmpty() || player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE) return null
+        val window = List(player.mediaItemCount, player::getMediaItemAt)
+        return reserve.complete(window, C.INDEX_UNSET).first
+    }
+
     override fun appendPending(items: List<MediaItem>) {
         reserve.append(items)
         // If the receiver had no room left (endless mix at the last title), nothing would come until the next transition otherwise.

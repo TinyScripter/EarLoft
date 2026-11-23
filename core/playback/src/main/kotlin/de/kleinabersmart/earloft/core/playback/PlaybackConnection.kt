@@ -164,6 +164,12 @@ interface PlaybackConnection {
     /** "Clear queue": everything except the current title leaves the queue; playback continues. */
     fun clearQueue()
 
+    /**
+     * Song IDs of the whole music queue in its order, for "Save queue as playlist". While casting, [state] only has the window
+     * the receiver holds; this also has the titles before and after it (review2 J5).
+     */
+    suspend fun queueSongIds(): List<Long> = state.value.queue.map { it.songId }
+
     fun toggleShuffle()
 
     fun cycleRepeatMode()

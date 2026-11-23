@@ -548,6 +548,7 @@ private fun PlayerMoreMenu(state: PlayerState, links: PlayerLinks) {
     val current = state.current ?: return
     var open by remember { mutableStateOf(false) }
     var playlistSongs by remember { mutableStateOf<List<Long>?>(null) }
+    var savingQueue by remember { mutableStateOf(false) }
     var infoVisible by remember { mutableStateOf(false) }
     val openEqualizer = rememberEqualizerLauncher(state.isRemote)
     ArtistPicker(lookup = { links.artistsOf(current) }, onArtistClick = links.onOpenArtist) { openArtist ->
@@ -583,15 +584,13 @@ private fun PlayerMoreMenu(state: PlayerState, links: PlayerLinks) {
                     playlistSongs = listOf(current.songId)
                 },
             )
-            // Not while casting: the cast player only holds a window of about 50 titles, the playlist would be cut short
-            // without a word (review2 J5, like the time left in H9).
-            if (state.queue.size > 1 && !state.isRemote) {
+            if (state.queue.size > 1) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.queue_save_as_playlist)) },
                     leadingIcon = { Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = null) },
                     onClick = {
                         open = false
-                        playlistSongs = state.queue.map { it.songId }
+                        savingQueue = true
                     },
                 )
             }
@@ -617,6 +616,7 @@ private fun PlayerMoreMenu(state: PlayerState, links: PlayerLinks) {
     }
     }
     playlistSongs?.let { AddToPlaylistDialog(songIds = it, onDismiss = { playlistSongs = null }) }
+    if (savingQueue) SaveQueueDialog(onDismiss = { savingQueue = false })
     // Follows the current title, even if it changes while being shown.
     if (infoVisible) TrackInfoSheet(songId = current.songId, title = current.title, onDismiss = { infoVisible = false })
 }

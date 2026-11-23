@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -69,6 +70,8 @@ class MediaPlaybackConnection @Inject constructor(
     private val continueListening: ContinueListening,
     private val queuePersistence: QueuePersistence,
     spokenSettings: SpokenSettings,
+    /** The cast factory of the phone app; the session runs in this process, so it holds what the receiver doesn't. */
+    private val sessionPlayerFactory: Optional<SessionPlayerFactory>,
 ) : PlaybackConnection {
     // With a handler: an exception in a start (resume music, enqueue for music) is logged instead of ending the app.
     private val scope = MainScope() + LoggingExceptionHandler
@@ -370,6 +373,10 @@ class MediaPlaybackConnection @Inject constructor(
         val current = currentMediaItemIndex
         if (current + 1 < mediaItemCount) removeMediaItems(current + 1, mediaItemCount)
         if (current > 0) removeMediaItems(0, current)
+    }
+
+    override suspend fun queueSongIds(): List<Long> = withContext(Dispatchers.Main) {
+        sessionPlayerFactory.orElse(null)?.fullQueue()?.mapNotNull { it.songId } ?: state.value.queue.map { it.songId }
     }
 
     override fun toggleShuffle() = withController { shuffleModeEnabled = !shuffleModeEnabled }

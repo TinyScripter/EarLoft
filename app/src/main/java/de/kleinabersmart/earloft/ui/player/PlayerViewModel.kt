@@ -168,6 +168,9 @@ class PlayerViewModel @Inject constructor(
     fun moveQueueItem(from: Int, to: Int) = playbackConnection.moveQueueItem(from, to)
     fun clearQueue() = playbackConnection.clearQueue()
 
+    /** The whole queue for "Save queue as playlist", also while casting ([PlaybackConnection.queueSongIds]). */
+    suspend fun queueSongIds(): List<Long> = playbackConnection.queueSongIds()
+
     fun toggleFavorite() {
         val songId = state.value.current?.songId ?: return
         viewModelScope.launch { favoritesRepository.toggleFavorite(songId) }
