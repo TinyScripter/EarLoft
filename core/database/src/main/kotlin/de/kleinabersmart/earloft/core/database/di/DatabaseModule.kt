@@ -40,7 +40,12 @@ internal object DatabaseModule {
             .addCallback(
                 object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
-                        File(context.noBackupFilesDir, EarLoftDatabase.CREATED_MARKER).createNewFile()
+                        // The time tells the user data backup whether the database was recreated after its last restore
+                        // (e.g. after corruption); `createNewFile` alone keeps the time of an existing file.
+                        File(context.noBackupFilesDir, EarLoftDatabase.CREATED_MARKER).apply {
+                            createNewFile()
+                            setLastModified(System.currentTimeMillis())
+                        }
                     }
                 },
             )

@@ -70,6 +70,14 @@ data class UserDataSnapshot(
             playEvents.isEmpty() && wearSelections.isEmpty() && episodeDownloads.isEmpty() && collectionFavorites.isEmpty() &&
             bookmarks.isEmpty() && episodeStars.isEmpty() && ardBooks.isEmpty()
 
+    /**
+     * Whether there is any server, subscription or statistics entry. Removing the last server keeps the statistics, so a main
+     * database without all of them, next to a backup with some, has lost its data rather than been emptied by the user.
+     */
+    val hasServersFeedsOrStats: Boolean
+        get() = servers.isNotEmpty() || spokenServers.isNotEmpty() || podcasts.isNotEmpty() || listeningStats.isNotEmpty() ||
+            listeningDays.isNotEmpty()
+
     /** Entries of the backed-up playlists, in their order. */
     fun entriesOf(playlistKey: String): List<UserSongKey> =
         playlistEntries.values.filter { it.playlistKey == playlistKey }.sortedBy { it.position }.map { it.song }

@@ -311,13 +311,27 @@ class UserDataBackup @Inject constructor(
         if (music || audiobooks) restoreNotice.serversRestored()
     }
 
+    /**
+     * Restores once per installation, and again whenever the main database was created after the last restore (e.g. Room
+     * recreated it empty after corruption): otherwise mirroring would take the empty database for the wanted state and empty
+     * `user.db` as well.
+     */
     private suspend fun restoreOnce() {
-        val marker = File(context.noBackupFilesDir, RESTORED_MARKER)
-        if (withContext(Dispatchers.IO) { marker.exists() }) return
-        val saved = readUser()
+        // Opening creates a missing main database now, so that its marker is older than the one set after restoring.
+        withContext(Dispatchers.IO) { database.openHelper.writableDatabase }
+        val restoredBefore = withContext(Dispatchers.IO) { File(context.noBackupFilesDir, RESTORED_MARKER).exists() }
+        if (restoredBefore && !mainRecreatedSinceRestore()) return
+        if (restoredBefore) Log.w(TAG, "Main database was created after the last restore, restoring again")
+        restoreFromBackup(readUser())
+    }
+
+    /** Creates what is missing from [saved] in the main database and sets the restore marker to now. */
+    private suspend fun restoreFromBackup(saved: UserDataSnapshot) {
         if (!saved.isEmpty) {
+            val musicIds = sourceDao.getServers().mapTo(HashSet()) { it.sourceId }
+            val spokenIds = bookDao.servers().mapTo(HashSet()) { it.serverId }
             restore(saved)
-            serversRestored(saved.servers.isNotEmpty(), saved.spokenServers.isNotEmpty())
+            serversRestored(saved.servers.keys.any { it !in musicIds }, saved.spokenServers.keys.any { it !in spokenIds })
             Log.i(
                 TAG,
                 "User data restored: ${saved.servers.size} music servers, ${saved.spokenServers.size} ABS servers, " +
@@ -328,7 +342,29 @@ class UserDataBackup @Inject constructor(
                     "(follow with their books and songs)",
             )
         }
-        withContext(Dispatchers.IO) { marker.createNewFile() }
+        withContext(Dispatchers.IO) {
+            // `createNewFile` keeps the time of an existing file; a later restore must be newer than the database it restored into.
+            File(context.noBackupFilesDir, RESTORED_MARKER).apply { createNewFile(); setLastModified(System.currentTimeMillis()) }
+        }
+    }
+
+    /** Whether the main database was created after the last restore (both markers live in `noBackupFilesDir`). */
+    private suspend fun mainRecreatedSinceRestore(): Boolean = withContext(Dispatchers.IO) {
+        val restored = File(context.noBackupFilesDir, RESTORED_MARKER)
+        val created = File(context.noBackupFilesDir, EarLoftDatabase.CREATED_MARKER)
+        restored.exists() && created.exists() && created.lastModified() > restored.lastModified()
+    }
+
+    /**
+     * Under [mutex], instead of mirroring: brings the backup back into the main database, which has lost it (see [mirror]).
+     * Afterwards the next mirroring compares against `user.db` again.
+     */
+    private suspend fun restoreInsteadOfMirroring() {
+        val saved = readUser()
+        restoreFromBackup(saved)
+        applyAndWait(saved, pendingOf(saved))
+        mirrored = null
+        scope.launch { restoreArdBooks() }
     }
 
     /** Creates what is missing in the main database; existing data stays unchanged. */
@@ -581,13 +617,30 @@ class UserDataBackup @Inject constructor(
         mirrored = null
     }
 
-    /** [changedTables]: re-read only their parts; `null` = everything. */
+    /**
+     * [changedTables]: re-read only their parts; `null` = everything.
+     *
+     * Restores instead of mirroring if the main database lost what the backup holds: it was created after the last restore
+     * (while the app runs, e.g. after corruption), or, compared against `user.db` for the first time in this process, it
+     * has no server, subscription or statistics at all while the backup has some. Removing everything within a session
+     * is mirrored as usual.
+     */
     internal suspend fun mirror(changedTables: Set<String>? = null) {
+        if (mainRecreatedSinceRestore()) {
+            Log.w(TAG, "Main database was created after the last restore, restoring instead of mirroring")
+            restoreInsteadOfMirroring()
+            return
+        }
         val previous = mirrored ?: readUser()
         val now = SystemClock.elapsedRealtime()
         val base = mirrored.takeIf { changedTables != null && now - fullReadAt < FULL_READ_INTERVAL_MS }
         if (base == null) fullReadAt = now
         val current = readMain(base, changedTables.orEmpty()).keepingUnchangedPlaylists(previous)
+        if (mirrored == null && previous.hasServersFeedsOrStats && !current.hasServersFeedsOrStats) {
+            Log.w(TAG, "Main database has no servers, subscriptions or statistics, the backup has; restoring instead of mirroring")
+            restoreInsteadOfMirroring()
+            return
+        }
         // If the book or song is missing, the entry has not been applied yet (or the episode is no longer in the feed, the
         // file is gone): keep it. Only what exists here and was removed here is deleted.
         // Whatever is still to be applied stays as well, even if its book is already there.

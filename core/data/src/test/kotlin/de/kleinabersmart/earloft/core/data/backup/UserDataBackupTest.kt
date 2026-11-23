@@ -42,6 +42,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class UserDataBackupTest {
@@ -663,6 +664,90 @@ class UserDataBackupTest {
         } finally {
             newDevice.close()
         }
+    }
+
+    /** [fillMain] without the music server: restoring that one would reload the source registry, which these tests leave out. */
+    private suspend fun fillMainWithoutMusic() {
+        fillMain()
+        main.sourceDao().delete("nav")
+    }
+
+    private fun noBackupFile(name: String) = File(context.noBackupFilesDir, name)
+
+    @Test
+    fun `a main database recreated empty does not empty the backup, it gets the backup back`() = runTest {
+        fillMainWithoutMusic()
+        backupFor(main).mirror()
+
+        // Room recreated the main database (e.g. after corruption) without the creation time telling: the first mirror of the
+        // next start finds no server, subscription or statistics at all.
+        val recreated = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            backupFor(recreated).mirror()
+
+            val dao = user.userDataDao()
+            assertEquals(listOf("abs"), dao.spokenServers().map { it.serverId })
+            assertEquals(listOf("feed-1"), dao.podcasts().map { it.feedId })
+            assertEquals(60_000L, dao.listeningStats().single().listenedMs)
+            assertEquals("https://abs.example", recreated.bookDao().server("abs")!!.baseUrl)
+            assertEquals("https://example.org/feed", recreated.podcastDao().feed("feed-1")!!.url)
+            assertEquals(60_000L, recreated.statsDao().all().single().listenedMs)
+        } finally {
+            recreated.close()
+        }
+    }
+
+    @Test
+    fun `a main database created after the last restore gets the backup back instead of being mirrored`() = runTest {
+        fillMainWithoutMusic()
+        val backup = backupFor(main)
+        backup.mirror()
+        val restored = noBackupFile("user_data_restored")
+        val created = noBackupFile(EarLoftDatabase.CREATED_MARKER)
+        try {
+            restored.createNewFile()
+            restored.setLastModified(1_000_000)
+            // Recreated while the app runs: the earlier mirror in this process does not hold the backup back.
+            main.podcastDao().deleteFeed("feed-1")
+            main.bookDao().deleteServer("abs")
+            created.createNewFile()
+            created.setLastModified(2_000_000)
+
+            backup.mirror()
+
+            val dao = user.userDataDao()
+            assertEquals(listOf("feed-1"), dao.podcasts().map { it.feedId })
+            assertEquals(listOf("abs"), dao.spokenServers().map { it.serverId })
+            assertTrue(main.podcastDao().feed("feed-1") != null)
+            assertTrue(main.bookDao().server("abs") != null)
+            assertTrue(restored.lastModified() > created.lastModified())
+
+            // Restored once: from now on removals are mirrored again.
+            main.podcastDao().deleteFeed("feed-1")
+            backup.mirror()
+            assertTrue(dao.podcasts().isEmpty())
+        } finally {
+            restored.delete()
+            created.delete()
+        }
+    }
+
+    @Test
+    fun `removing everything while the app runs is mirrored`() = runTest {
+        fillMainWithoutMusic()
+        val backup = backupFor(main)
+        backup.mirror()
+
+        main.podcastDao().deleteFeed("feed-1")
+        main.bookDao().deleteServer("abs")
+        main.statsDao().clear(BookKind.EPISODE)
+        backup.mirror()
+
+        val dao = user.userDataDao()
+        assertTrue(dao.podcasts().isEmpty())
+        assertTrue(dao.spokenServers().isEmpty())
+        assertTrue(dao.listeningStats().isEmpty())
+        assertTrue(main.podcastDao().feed("feed-1") == null)
     }
 
     @Test
