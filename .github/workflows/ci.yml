@@ -12,7 +12,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -25,3 +25,19 @@ jobs:
 
       - name: Build and unit tests
         run: ./gradlew assembleDebug testDebugUnitTest :core:model:test :core:common:test
+
+      - name: Lint
+        run: ./gradlew lintDebug
+
+      # Without keystore.properties the release stays unsigned; what matters is that R8 gets through.
+      # Its own Gradle run, so R8 doesn't share the daemon heap with the debug build and the tests.
+      - name: Release build (R8)
+        run: ./gradlew assembleRelease
+
+      - name: Lint reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-reports
+          path: '**/build/reports/lint-results-*.html'
+          if-no-files-found: ignore

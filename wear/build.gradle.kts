@@ -45,10 +45,8 @@ android {
             applicationIdSuffix = ".debug"
         }
         release {
-            // Same as the phone app: only optimize androidx.** (kotlin.**/kotlinx.** caused a crash on startup there).
             optimization {
                 enable = true
-                packageScope = setOf("androidx.**")
             }
         }
     }
