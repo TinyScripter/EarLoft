@@ -572,6 +572,10 @@ abstract class BookDao {
     )
     abstract suspend fun countPendingBookDownloads(): Int
 
+    /** Whether files of this book or episode are still waiting or running. */
+    @Query("SELECT EXISTS(SELECT 1 FROM book_tracks WHERE bookId = :bookId AND downloadState IN ('QUEUED', 'RUNNING'))")
+    abstract suspend fun hasWaitingTracks(bookId: Long): Boolean
+
     /** Waiting and running files that the user queued themselves. */
     @Query(
         "SELECT COUNT(*) FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +

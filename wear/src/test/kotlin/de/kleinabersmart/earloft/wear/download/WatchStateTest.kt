@@ -51,6 +51,20 @@ class WatchStateTest {
     }
 
     @Test
+    fun `a book keeps coming over the phone until its last file arrived`() {
+        repeat(WatchState.SERVER_ATTEMPTS) { state.recordServerFailure("book:7") }
+        state.recordRetry()
+        state.recordRetry()
+
+        state.deliveredViaPhone("book:7", moreToCome = true)
+        assertTrue("the next file skips the server", state.hasServerFailedTooOften("book:7"))
+        assertEquals("progress restarts the interval", 0, state.retryRuns)
+
+        state.deliveredViaPhone("book:7", moreToCome = false)
+        assertFalse("a later book file asks the server again", state.hasServerFailedTooOften("book:7"))
+    }
+
+    @Test
     fun `an unreachable server counts for all waiting songs of it`() {
         state.recordServerFailure("nd:1")
         state.recordServerFailures(listOf("nd:2", "nd:3"))

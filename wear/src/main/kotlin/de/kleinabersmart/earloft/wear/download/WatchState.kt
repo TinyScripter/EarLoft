@@ -130,6 +130,17 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         }
     }
 
+    /**
+     * A file of an episode or book came over the phone. Progress: the next retry starts from the short interval again. The
+     * server failures of [failureKey] stay while [moreToCome] files of it are still waiting, so the rest of a book follows
+     * over the phone in the same run instead of three server attempts per file with a growing interval (review2 J6); they go
+     * once it is complete or the server delivers a file again.
+     */
+    fun deliveredViaPhone(failureKey: String, moreToCome: Boolean) {
+        clearRetries()
+        if (!moreToCome) clearServerFailures(failureKey)
+    }
+
     /** For "Retry": otherwise every song would go straight to the phone without asking the server again. */
     fun clearAllServerFailures() {
         serverFailures.edit { clear() }

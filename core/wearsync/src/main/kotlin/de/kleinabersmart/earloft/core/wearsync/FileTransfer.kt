@@ -73,17 +73,24 @@ suspend fun ChannelClient.receiveFileResumable(
     sourceUid: String,
     part: File,
     lengthFile: File,
+    fits: (missingBytes: Long) -> Boolean = { true },
     onProgress: suspend (bytesDone: Long, bytesTotal: Long) -> Unit = { _, _ -> },
 ): FileReceive {
     val from = withContext(Dispatchers.IO) { resumeOffset(part, lengthFile) }
     if (from > 0) Log.i(TAG, "$sourceUid: resuming at $from bytes")
     return try {
-        receiveInto(nodeId, sourceUid, part, lengthFile, from, onProgress)
+        receiveInto(nodeId, sourceUid, part, lengthFile, from, fits, onProgress)
     } catch (_: LengthChanged) {
         Log.i(TAG, "$sourceUid changed on the phone, starting over")
-        receiveInto(nodeId, sourceUid, part, lengthFile, from = 0, onProgress)
+        receiveInto(nodeId, sourceUid, part, lengthFile, from = 0, fits, onProgress)
     }
 }
+
+/**
+ * The rest of the file ([totalBytes] in all) does not fit into the storage: [receiveFileResumable] checks that once the phone
+ * has named the length, before writing a byte, instead of writing until the storage is full (review2 J7).
+ */
+class FileDoesNotFit(val totalBytes: Long) : IOException("File of $totalBytes bytes does not fit into the storage")
 
 /** Where an existing partial file can continue; `0` if there is no usable one. */
 internal fun resumeOffset(part: File, lengthFile: File): Long {
@@ -107,12 +114,14 @@ private suspend fun ChannelClient.receiveInto(
     part: File,
     lengthFile: File,
     from: Long,
+    fits: (missingBytes: Long) -> Boolean,
     onProgress: suspend (Long, Long) -> Unit,
 ): FileReceive {
     var output: OutputStream? = null
     try {
         val result = receive(nodeId, sourceUid, from, open = { total ->
             if (from > 0 && readLength(lengthFile) != total) throw LengthChanged()
+            if (!fits(total - from)) throw FileDoesNotFit(total)
             if (from == 0L) {
                 part.parentFile?.mkdirs()
                 lengthFile.writeText(total.toString())

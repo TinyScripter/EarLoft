@@ -12,6 +12,7 @@ import de.kleinabersmart.earloft.core.download.DownloadOutcome
 import de.kleinabersmart.earloft.core.download.DownloadStorage
 import de.kleinabersmart.earloft.core.download.EpisodeStorage
 import de.kleinabersmart.earloft.core.download.isNoSpace
+import de.kleinabersmart.earloft.core.wearsync.FileDoesNotFit
 import de.kleinabersmart.earloft.core.wearsync.FileReceive
 import de.kleinabersmart.earloft.core.wearsync.WearBookFile
 import de.kleinabersmart.earloft.core.wearsync.WearCoverFile
@@ -65,7 +66,7 @@ class PhoneFileFetcher @Inject constructor(
         storage.ensureDirectory()
         return try {
             var lastReport = 0L
-            val received = channelClient.receiveFileResumable(nodeId, requestUid, part, lengthFile) { done, total ->
+            val received = channelClient.receiveFileResumable(nodeId, requestUid, part, lengthFile, fits = { fitsForTransfer(it, storage.allocatableBytes()) }) { done, total ->
                 val now = System.nanoTime()
                 if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
                     lastReport = now
@@ -90,7 +91,7 @@ class PhoneFileFetcher @Inject constructor(
             withContext(NonCancellable) { downloadDao.requeue(uid) }
             throw e
         } catch (e: IOException) {
-            if (e.isNoSpace()) {
+            if (e.isNoSpace() || e is FileDoesNotFit) {
                 // A full storage is no unreachable phone (review G11): the next attempt would fail the same way.
                 Log.w(TAG, "Storage full while receiving $requestUid", e)
                 withContext(NonCancellable + Dispatchers.IO) {
@@ -99,7 +100,7 @@ class PhoneFileFetcher @Inject constructor(
                 }
                 // Not failed: without its entry the planner queues the song again once there is room.
                 downloadDao.delete(listOf(uid))
-                return DownloadOutcome.NoSpace(totalBytes = null)
+                return DownloadOutcome.NoSpace(totalBytes = (e as? FileDoesNotFit)?.totalBytes)
             }
             Log.w(TAG, "Transfer of $requestUid aborted (${part.length()} bytes kept for the next attempt)", e)
             DownloadOutcome.Retry(e)
@@ -123,10 +124,17 @@ class PhoneFileFetcher @Inject constructor(
         val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Phone not connected"))
         val requestUid = WearEpisodeFile.uid(book.serverId, book.remoteId)
         val part = episodeStorage.phonePartFileFor(bookId)
+        val lengthFile = episodeStorage.phoneLengthFileFor(bookId)
         episodeStorage.ensureDirectory()
         return try {
             var lastReport = 0L
-            val received = channelClient.receiveFileResumable(nodeId, requestUid, part, episodeStorage.phoneLengthFileFor(bookId)) { done, total ->
+            val received = channelClient.receiveFileResumable(
+                nodeId,
+                requestUid,
+                part,
+                lengthFile,
+                fits = { fitsForTransfer(it, episodeStorage.allocatableBytes()) },
+            ) { done, total ->
                 val now = System.nanoTime()
                 if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
                     lastReport = now
@@ -154,11 +162,15 @@ class PhoneFileFetcher @Inject constructor(
             withContext(NonCancellable) { podcastDao.requeueDownload(bookId) }
             throw e
         } catch (e: IOException) {
-            if (e.isNoSpace()) {
+            if (e.isNoSpace() || e is FileDoesNotFit) {
+                // With the length the phone named, the caller remembers the real size (review2 J7).
                 Log.w(TAG, "Storage full while receiving $requestUid", e)
-                withContext(NonCancellable + Dispatchers.IO) { part.delete() }
+                withContext(NonCancellable + Dispatchers.IO) {
+                    part.delete()
+                    lengthFile.delete()
+                }
                 bookDao.unqueueTrack(bookId, 0)
-                return DownloadOutcome.NoSpace(totalBytes = null)
+                return DownloadOutcome.NoSpace(totalBytes = (e as? FileDoesNotFit)?.totalBytes)
             }
             Log.w(TAG, "Transfer of $requestUid aborted (${part.length()} bytes kept for the next attempt)", e)
             DownloadOutcome.Retry(e)
@@ -186,10 +198,17 @@ class PhoneFileFetcher @Inject constructor(
         // A started server transfer does not match the file from the phone; the one from the phone has its own partial file.
         bookStorage.deletePart(bookId, index)
         val part = bookStorage.phonePartFileFor(bookId, index)
+        val lengthFile = bookStorage.phoneLengthFileFor(bookId, index)
         bookStorage.ensureDirectory()
         return try {
             var lastReport = 0L
-            val received = channelClient.receiveFileResumable(nodeId, requestUid, part, bookStorage.phoneLengthFileFor(bookId, index)) { done, total ->
+            val received = channelClient.receiveFileResumable(
+                nodeId,
+                requestUid,
+                part,
+                lengthFile,
+                fits = { fitsForTransfer(it, bookStorage.allocatableBytes()) },
+            ) { done, total ->
                 val now = System.nanoTime()
                 if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
                     lastReport = now
@@ -217,11 +236,15 @@ class PhoneFileFetcher @Inject constructor(
             withContext(NonCancellable) { bookDao.requeueBookTrack(bookId, index) }
             throw e
         } catch (e: IOException) {
-            if (e.isNoSpace()) {
+            if (e.isNoSpace() || e is FileDoesNotFit) {
+                // With the length the phone named, the caller remembers the real size (review2 J7).
                 Log.w(TAG, "Storage full while receiving $requestUid", e)
-                withContext(NonCancellable + Dispatchers.IO) { part.delete() }
+                withContext(NonCancellable + Dispatchers.IO) {
+                    part.delete()
+                    lengthFile.delete()
+                }
                 bookDao.unqueueTrack(bookId, index)
-                return DownloadOutcome.NoSpace(totalBytes = null)
+                return DownloadOutcome.NoSpace(totalBytes = (e as? FileDoesNotFit)?.totalBytes)
             }
             Log.w(TAG, "Transfer of $requestUid aborted (${part.length()} bytes kept for the next attempt)", e)
             DownloadOutcome.Retry(e)
@@ -278,3 +301,14 @@ class PhoneFileFetcher @Inject constructor(
         const val MISSING_ON_PHONE = "Phone has no copy"
     }
 }
+
+/**
+ * Whether [missingBytes] from the phone fit into the storage next to the reserve the server downloads keep free as well. Checked
+ * before the first byte: the transfer used to run until the storage was full, without a size to remember, and the planner
+ * queued the file again with its estimate, the next transfer starting at 0 (review2 J7).
+ */
+internal fun fitsForTransfer(missingBytes: Long, allocatableBytes: Long): Boolean =
+    missingBytes <= allocatableBytes - TRANSFER_RESERVE_BYTES
+
+/** Like the reserve of the server downloads (`ResumableTransfer`). */
+internal const val TRANSFER_RESERVE_BYTES = 100L * 1024 * 1024

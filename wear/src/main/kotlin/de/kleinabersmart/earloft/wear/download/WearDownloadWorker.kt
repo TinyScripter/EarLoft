@@ -206,6 +206,7 @@ class WearDownloadWorker(
                     }
                     DownloadOutcome.Done -> {
                         state.clearServerFailures(uid)
+                        state.clearRetries()
                         state.setLastError(null)
                     }
                     DownloadOutcome.Cancelled -> Unit
@@ -244,6 +245,8 @@ class WearDownloadWorker(
                     }
                     DownloadOutcome.Done -> {
                         state.clearServerFailures(key)
+                        // Something got ahead: the next retry starts from the short interval again (review2 J6).
+                        state.clearRetries()
                         state.clearFileSize(track.bookId, 0)
                         // Like for songs: a download that worked ends the last error (it stayed after episodes and books).
                         state.setLastError(null)
@@ -296,6 +299,8 @@ class WearDownloadWorker(
                     }
                     DownloadOutcome.Done -> {
                         state.clearServerFailures(key)
+                        // Something got ahead: the next retry starts from the short interval again (review2 J6).
+                        state.clearRetries()
                         state.clearFileSize(track.bookId, track.trackIndex)
                         state.setLastError(null)
                     }
@@ -411,7 +416,7 @@ class WearDownloadWorker(
         releaseWifi()
         return when (val outcome = downloadSpoken(track) { onProgress -> phoneFetcher.fetchEpisode(track, onProgress) }) {
             DownloadOutcome.Done -> {
-                state.clearServerFailures(episodeFailureKey(track.bookId))
+                state.deliveredViaPhone(episodeFailureKey(track.bookId), moreToCome = false)
                 state.clearPhoneUnreachable()
                 state.setLastError(null)
                 true
@@ -423,7 +428,8 @@ class WearDownloadWorker(
             }
             is DownloadOutcome.NoSpace -> {
                 state.clearPhoneUnreachable()
-                storageFull()
+                // Like from the server: with the real size the planner only queues it again once that much is free (review2 J7).
+                spokenDidNotFit(track, outcome)
                 true
             }
             is DownloadOutcome.Retry -> {
@@ -441,7 +447,7 @@ class WearDownloadWorker(
         releaseWifi()
         return when (val outcome = downloadSpoken(track) { onProgress -> phoneFetcher.fetchBookTrack(track, onProgress) }) {
             DownloadOutcome.Done -> {
-                state.clearServerFailures(bookFailureKey(track.bookId))
+                state.deliveredViaPhone(bookFailureKey(track.bookId), moreToCome = bookDao.hasWaitingTracks(track.bookId))
                 state.clearPhoneUnreachable()
                 state.setLastError(null)
                 true
@@ -453,7 +459,8 @@ class WearDownloadWorker(
             }
             is DownloadOutcome.NoSpace -> {
                 state.clearPhoneUnreachable()
-                storageFull()
+                // Like from the server: with the real size the planner only queues it again once that much is free (review2 J7).
+                spokenDidNotFit(track, outcome)
                 true
             }
             is DownloadOutcome.Retry -> {
@@ -490,7 +497,8 @@ class WearDownloadWorker(
     }
 
     /**
-     * An episode or book file from the server did not fit (review H4): not via the phone, the file would not fit there either.
+     * An episode or book file did not fit (review H4; over the phone review2 J7): from the server not via the phone, the file would
+     * not fit there either.
      * Back to "not queued", its partial file is already gone (H26); with its real size the planner only queues it again once
      * that much room is free.
      */
@@ -596,7 +604,7 @@ class WearDownloadWorker(
             if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
         }) {
             DownloadOutcome.Done -> {
-                state.clearServerFailures(uid)
+                state.deliveredViaPhone(uid, moreToCome = false)
                 state.clearPhoneUnreachable()
                 state.setLastError(null)
                 true
