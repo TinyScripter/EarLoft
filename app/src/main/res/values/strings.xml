@@ -109,13 +109,20 @@
     <string name="mini_player_hide">Hide mini player</string>
     <string name="mini_player_hidden">Mini player hidden. It comes back when playback starts.</string>
     <string name="action_undo">Undo</string>
+    <string name="duration_hours_minutes">%1$d\u00A0h\u00A0%2$d\u00A0min</string>
+    <string name="duration_minutes">%1$d\u00A0min</string>
+    <string name="duration_seconds">%1$d\u00A0s</string>
+    <string name="episode_number_short">#%1$d</string>
+    <string name="count_more_than">%1$d+</string>
+    <string name="server_account_at_address">%1$s @ %2$s</string>
+    <string name="settings_backup_counts">%1$s, %2$s, %3$s</string>
     <string name="player_open_queue">Open queue</string>
     <string name="player_close">Close player</string>
     <string name="player_show_lyrics">Show lyrics</string>
     <string name="player_hide_lyrics">Show cover</string>
     <string name="lyrics_none">No lyrics available</string>
     <string name="lyrics_unavailable">Lyrics could not be loaded.</string>
-    <string name="lyrics_retry">Try again</string>
+    <string name="action_retry">Try again</string>
     <string name="lyrics_source_lrclib">Lyrics from LRCLIB</string>
     <string name="player_shuffle_on">Shuffle on</string>
     <string name="player_shuffle_off">Shuffle off</string>
@@ -172,6 +179,10 @@
     <string name="settings_general_summary">Downloads, appearance, backup, sections</string>
     <string name="settings_music">Music</string>
     <string name="settings_music_summary_local">%1$s · local music</string>
+    <string name="settings_books_on_device">books on this device</string>
+    <string name="summary_joined">%1$s · %2$s</string>
+    <string name="new_content_text">%1$s %2$s</string>
+    <string name="action_for_item">%1$s: %2$s</string>
     <string name="settings_audiobooks">Books</string>
     <string name="settings_about_summary">Version, licenses, privacy</string>
     <plurals name="settings_server_count">
@@ -411,6 +422,8 @@
     <string name="downloads_remove_all">Remove all downloads</string>
     <string name="downloads_remove_all_title">Remove all downloads?</string>
     <string name="downloads_remove_all_text">All downloaded files will be deleted. The library is kept.</string>
+    <string name="downloads_remove_all_text_shown">The downloaded files of the sections shown here will be deleted. Those of hidden sections and the library are kept.</string>
+    <string name="downloads_hidden_areas">Another %1$s in hidden sections</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d of %2$d song · %3$s</item>
         <item quantity="other">%1$d of %2$d songs · %3$s</item>
@@ -539,6 +552,12 @@
     <string name="watch_status_limit">Limit: %s</string>
     <string name="watch_status_none">No report from the watch yet</string>
     <string name="watch_status_error">Last error: %s</string>
+    <string name="watch_error_server_via_phone">Server unreachable, phone delivers</string>
+    <string name="watch_error_server_refused_via_phone">Server did not deliver, phone delivers</string>
+    <string name="watch_error_server_no_phone_copy">Server unreachable, phone has no copy</string>
+    <string name="watch_error_phone_no_copy">Phone has no copy</string>
+    <string name="watch_error_storage_full">The watch’s storage is full</string>
+    <string name="watch_error_phone_unreachable">Phone unreachable</string>
     <string name="watch_selection_progress" tools:ignore="PluralsCandidate">%1$s · %2$d of %3$d loaded</string>
     <plurals name="watch_status_missing">
         <item quantity="one">Watch storage full – %d track missing</item>
@@ -918,7 +937,7 @@
     <string name="book_library_all">All libraries</string>
     <string name="settings_book_buttons">Buttons in notification and car</string>
     <string name="settings_book_buttons_summary">Android shows only three buttons in the compact notification and in Android Auto. Books without chapters always skip.</string>
-    <string name="settings_book_buttons_seek">Skip (−%1$d s / +%2$d s)</string>
+    <string name="settings_book_buttons_seek">Skip (−%1$s / +%2$s)</string>
     <string name="settings_book_buttons_chapters">Previous and next chapter</string>
     <string name="spoken_abs_libraries">Libraries</string>
     <string name="episode_delete_download">Delete download</string>

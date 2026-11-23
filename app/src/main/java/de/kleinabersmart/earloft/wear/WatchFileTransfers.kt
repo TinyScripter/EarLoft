@@ -78,17 +78,21 @@ class WatchTransferWorker(context: Context, params: WorkerParameters) : Coroutin
         val transfers = EntryPointAccessors.fromApplication(applicationContext, TransferEntryPoint::class.java).watchFileTransfers()
         transfers.workerRunning.set(true)
         transfers.workerQueued.set(false)
-        val finished = withTimeoutOrNull(MAX_RUN_MS) {
-            while (true) {
-                transfers.running.first { it == 0 }
-                // If a new transfer arrives during the grace period, keep waiting; otherwise done.
-                if (withTimeoutOrNull(GRACE_MS) { transfers.running.first { it > 0 } } != null) continue
-                transfers.workerRunning.set(false)
-                if (transfers.running.value == 0) break
-                transfers.workerRunning.set(true)
+        val finished = try {
+            withTimeoutOrNull(MAX_RUN_MS) {
+                while (true) {
+                    transfers.running.first { it == 0 }
+                    // If a new transfer arrives during the grace period, keep waiting; otherwise done.
+                    if (withTimeoutOrNull(GRACE_MS) { transfers.running.first { it > 0 } } != null) continue
+                    transfers.workerRunning.set(false)
+                    if (transfers.running.value == 0) break
+                    transfers.workerRunning.set(true)
+                }
             }
+        } finally {
+            // Also when the system stops the job: otherwise `track` would enqueue no new one (review2 J81, gap of N1).
+            transfers.workerRunning.set(false)
         }
-        transfers.workerRunning.set(false)
         if (finished == null) Log.w(TAG, "Transfer to the watch runs longer than ${MAX_RUN_MS / 60_000} min, ending the job")
         return Result.success()
     }

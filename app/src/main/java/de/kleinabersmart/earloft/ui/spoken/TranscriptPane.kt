@@ -82,7 +82,7 @@ private fun TranscriptHint(text: String, modifier: Modifier, retry: (() -> Unit)
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-        if (retry != null) TextButton(onClick = retry) { Text(stringResource(R.string.lyrics_retry)) }
+        if (retry != null) TextButton(onClick = retry) { Text(stringResource(R.string.action_retry)) }
     }
 }
 

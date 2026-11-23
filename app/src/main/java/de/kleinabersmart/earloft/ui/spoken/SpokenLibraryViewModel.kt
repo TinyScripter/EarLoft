@@ -8,13 +8,20 @@ import de.kleinabersmart.earloft.core.data.spoken.ArdBooks
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.data.podcast.EpisodeQueue
+import de.kleinabersmart.earloft.core.data.spoken.BookGroup
+import de.kleinabersmart.earloft.core.data.spoken.SeriesProgress
 import de.kleinabersmart.earloft.core.data.spoken.SpokenRefresher
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
+import de.kleinabersmart.earloft.core.data.spoken.authorGroups
 import de.kleinabersmart.earloft.core.data.spoken.continueSeries
 import de.kleinabersmart.earloft.core.data.spoken.genreGroups
 import de.kleinabersmart.earloft.core.data.spoken.hasGenre
 import de.kleinabersmart.earloft.core.data.spoken.sameGenre
+import de.kleinabersmart.earloft.core.data.spoken.seriesGroups
+import de.kleinabersmart.earloft.core.data.spoken.seriesProgress
 import de.kleinabersmart.earloft.core.data.spoken.sortedAndFiltered
+import de.kleinabersmart.earloft.core.data.spoken.sortedAuthors
+import de.kleinabersmart.earloft.core.data.spoken.sortedSeries
 import de.kleinabersmart.earloft.core.model.AuthorSort
 import de.kleinabersmart.earloft.core.model.BookFilter
 import de.kleinabersmart.earloft.core.model.SeriesSort
@@ -32,6 +39,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -142,6 +150,26 @@ class SpokenLibraryViewModel @Inject constructor(
 
     val authorSort: StateFlow<AuthorSort> = settings.authorSort
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AuthorSort.NAME)
+
+    /**
+     * The series with their progress, grouped off the main thread: the books change with every saved position, every 15 s
+     * during playback (review2 J55).
+     */
+    val seriesGroups: StateFlow<List<SeriesProgress>> = combine(books.books(), settings.seriesSort) { all, sort ->
+        all.seriesGroups().sortedSeries(sort).seriesProgress()
+    }
+        .flowOn(Dispatchers.Default)
+        .orOnError(emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The authors, regrouped only when a book changes, not its progress (the authors page shows none). */
+    val authorGroups: StateFlow<List<BookGroup>> = combine(
+        books.books().distinctUntilChangedBy { all -> all.map { it.book } },
+        settings.authorSort,
+    ) { all, sort -> all.authorGroups().sortedAuthors(sort) }
+        .flowOn(Dispatchers.Default)
+        .orOnError(emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun setSeriesSort(sort: SeriesSort) {
         viewModelScope.launch { settings.setSeriesSort(sort) }

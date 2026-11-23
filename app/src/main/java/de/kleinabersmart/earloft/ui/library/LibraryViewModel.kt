@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.library
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -50,6 +51,7 @@ class LibraryViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val playbackConnection: PlaybackConnection,
     private val favoritesRepository: FavoritesRepository,
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel(), SongActions {
 
     val albumSort: StateFlow<AlbumSort> = librarySettings.albumSort.stateInViewModel(AlbumSort.TITLE)
@@ -67,13 +69,24 @@ class LibraryViewModel @Inject constructor(
     val decades: StateFlow<List<Decade>> = libraryRepository.decades().stateInViewModel(emptyList())
 
     // Selected chips (on/off, several at once); none selected = all albums. Whatever no longer exists doesn't count anymore.
-    private val chosenDecades = MutableStateFlow(emptySet<Int>())
-    private val chosenGenres = MutableStateFlow(emptySet<String>())
+    // Kept in the saved state, so they survive the end of the process like the tab and the scroll position (review2 J76).
+    private val chosenDecades = MutableStateFlow(savedStateHandle.get<IntArray>(KEY_DECADES)?.toSet().orEmpty())
+    private val chosenGenres = MutableStateFlow(savedStateHandle.get<ArrayList<String>>(KEY_GENRES)?.toSet().orEmpty())
 
     val favoriteAlbumIds: StateFlow<Set<Long>> = favoritesRepository.favoriteAlbumIds().stateInViewModel(emptySet())
     val favoriteArtistIds: StateFlow<Set<Long>> = favoritesRepository.favoriteArtistIds().stateInViewModel(emptySet())
 
-    private val chosenFavorites = MutableStateFlow(emptySet<FavoritesChip>())
+    private val chosenFavorites = MutableStateFlow<Set<FavoritesChip>>(
+        savedStateHandle.get<ArrayList<String>>(KEY_FAVORITES).orEmpty().mapNotNullTo(HashSet()) { name ->
+            FavoritesChip.entries.firstOrNull { it.name == name }
+        },
+    )
+
+    init {
+        viewModelScope.launch { chosenDecades.collect { savedStateHandle[KEY_DECADES] = it.toIntArray() } }
+        viewModelScope.launch { chosenGenres.collect { savedStateHandle[KEY_GENRES] = ArrayList(it) } }
+        viewModelScope.launch { chosenFavorites.collect { chips -> savedStateHandle[KEY_FAVORITES] = chips.mapTo(ArrayList()) { it.name } } }
+    }
 
     /** Tabs in which the "Favorites" chip is on; it filters in addition to the other chips. */
     val favoritesOnly: StateFlow<Set<FavoritesChip>> = chosenFavorites.asStateFlow()
@@ -194,6 +207,9 @@ class LibraryViewModel @Inject constructor(
         asLoadState().stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), LoadState.Loading)
 
     private companion object {
+        const val KEY_DECADES = "decades"
+        const val KEY_GENRES = "genres"
+        const val KEY_FAVORITES = "favorites"
         const val STOP_TIMEOUT_MS = 5_000L
     }
 }

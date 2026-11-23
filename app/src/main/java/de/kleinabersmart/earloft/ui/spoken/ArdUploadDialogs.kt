@@ -38,7 +38,7 @@ fun ArdUploadDialogs(state: UploadState, title: String, onConfirm: (UploadTarget
         )
         UploadState.NoTarget -> Notice(R.string.ard_upload_no_target, onDismiss)
         is UploadState.Choosing -> Choosing(state, title, onConfirm, onDismiss)
-        is UploadState.Downloading -> Progress(stringResource(R.string.ard_upload_downloading), null, onDismiss)
+        UploadState.Downloading -> Progress(stringResource(R.string.ard_upload_downloading), null, onDismiss)
         is UploadState.Uploading -> Progress(
             stringResource(R.string.ard_upload_uploading, formatBytes(state.sent), formatBytes(state.total)),
             if (state.total > 0) state.sent.toFloat() / state.total else null,

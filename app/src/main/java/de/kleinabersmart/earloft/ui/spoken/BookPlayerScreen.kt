@@ -885,8 +885,12 @@ private fun SpeedDialog(
                 Slider(
                     value = shown,
                     onValueChange = {
-                        dragged = snapSpeed(it)
-                        onSpeed(snapSpeed(it))
+                        // Every pointer event lands here; only a new step is written (review2 J56).
+                        val snapped = snapSpeed(it)
+                        if (snapped != dragged) {
+                            dragged = snapped
+                            onSpeed(snapped)
+                        }
                     },
                     onValueChangeFinished = { dragged = null },
                     valueRange = MIN_SPEED..MAX_SPEED,

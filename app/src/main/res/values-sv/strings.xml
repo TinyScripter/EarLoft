@@ -108,13 +108,20 @@
     <string name="mini_player_hide">Dölj minispelaren</string>
     <string name="mini_player_hidden">Minispelaren är dold. Den kommer tillbaka när uppspelningen startar.</string>
     <string name="action_undo">Ångra</string>
+    <string name="duration_hours_minutes">%1$d\u00A0h\u00A0%2$d\u00A0min</string>
+    <string name="duration_minutes">%1$d\u00A0min</string>
+    <string name="duration_seconds">%1$d\u00A0s</string>
+    <string name="episode_number_short">#%1$d</string>
+    <string name="count_more_than">%1$d+</string>
+    <string name="server_account_at_address">%1$s @ %2$s</string>
+    <string name="settings_backup_counts">%1$s, %2$s, %3$s</string>
     <string name="player_open_queue">Öppna kön</string>
     <string name="player_close">Stäng spelaren</string>
     <string name="player_show_lyrics">Visa låttext</string>
     <string name="player_hide_lyrics">Visa omslag</string>
     <string name="lyrics_none">Ingen låttext tillgänglig</string>
     <string name="lyrics_unavailable">Låttexten kunde inte läsas in.</string>
-    <string name="lyrics_retry">Försök igen</string>
+    <string name="action_retry">Försök igen</string>
     <string name="lyrics_source_lrclib">Låttext från LRCLIB</string>
     <string name="player_shuffle_on">Blanda på</string>
     <string name="player_shuffle_off">Blanda av</string>
@@ -171,6 +178,10 @@
     <string name="settings_general_summary">Nedladdningar, utseende, säkerhetskopiering, områden</string>
     <string name="settings_music">Musik</string>
     <string name="settings_music_summary_local">%1$s · lokal musik</string>
+    <string name="settings_books_on_device">böcker på enheten</string>
+    <string name="summary_joined">%1$s · %2$s</string>
+    <string name="new_content_text">%1$s %2$s</string>
+    <string name="action_for_item">%1$s: %2$s</string>
     <string name="settings_audiobooks">Böcker</string>
     <string name="settings_about_summary">Version, licenser, integritet</string>
     <plurals name="settings_server_count">
@@ -401,6 +412,8 @@
     <string name="downloads_remove_all">Ta bort alla nedladdningar</string>
     <string name="downloads_remove_all_title">Vill du ta bort alla nedladdningar?</string>
     <string name="downloads_remove_all_text">Alla nedladdade filer raderas. Biblioteket behålls.</string>
+    <string name="downloads_remove_all_text_shown">De nedladdade filerna i områdena som visas här raderas. Filerna i dolda områden och biblioteket behålls.</string>
+    <string name="downloads_hidden_areas">Ytterligare %1$s i dolda områden</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d av %2$d låt · %3$s</item>
         <item quantity="other">%1$d av %2$d låtar · %3$s</item>
@@ -529,6 +542,12 @@
     <string name="watch_status_limit">Gräns: %s</string>
     <string name="watch_status_none">Ingen rapport från klockan än</string>
     <string name="watch_status_error">Senaste fel: %s</string>
+    <string name="watch_error_server_via_phone">Servern går inte att nå, telefonen levererar</string>
+    <string name="watch_error_server_refused_via_phone">Servern levererade inte, telefonen levererar</string>
+    <string name="watch_error_server_no_phone_copy">Servern går inte att nå, telefonen har ingen kopia</string>
+    <string name="watch_error_phone_no_copy">Telefonen har ingen kopia</string>
+    <string name="watch_error_storage_full">Klockans lagringsutrymme är fullt</string>
+    <string name="watch_error_phone_unreachable">Telefonen går inte att nå</string>
     <string name="watch_selection_progress" tools:ignore="PluralsCandidate">%1$s · överfört: %2$d av %3$d</string>
     <plurals name="watch_status_missing">
         <item quantity="one">Klockans lagringsutrymme är fullt – %d spår saknas</item>
@@ -908,7 +927,7 @@
     <string name="book_library_all">Alla bibliotek</string>
     <string name="settings_book_buttons">Knappar i avisering och bil</string>
     <string name="settings_book_buttons_summary">Android visar bara tre knappar i den kompakta aviseringen och i Android Auto. Böcker utan kapitel spolar alltid.</string>
-    <string name="settings_book_buttons_seek">Spola (−%1$d s / +%2$d s)</string>
+    <string name="settings_book_buttons_seek">Spola (−%1$s / +%2$s)</string>
     <string name="settings_book_buttons_chapters">Föregående och nästa kapitel</string>
     <string name="spoken_abs_libraries">Bibliotek</string>
     <string name="episode_delete_download">Radera nedladdning</string>

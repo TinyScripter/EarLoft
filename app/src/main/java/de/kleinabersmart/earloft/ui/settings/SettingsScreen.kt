@@ -118,13 +118,18 @@ private fun SettingsContent(
                     )
                 }
                 if (SpokenMode.BOOKS in state.areas) row("audiobooks") {
+                    // Like music: servers, books on the device and ARD Sounds, as far as they are used (review2 Z16).
+                    val parts = listOfNotNull(
+                        pluralStringResource(R.plurals.settings_server_count, state.audiobookServerCount, state.audiobookServerCount)
+                            .takeIf { state.audiobookServerCount > 0 || !state.useLocalBooks && !state.ardSoundsBooks },
+                        stringResource(R.string.settings_books_on_device).takeIf { state.useLocalBooks },
+                        stringResource(R.string.directory_ard_sounds).takeIf { state.ardSoundsBooks },
+                    )
+                    val joined = stringResource(R.string.summary_joined)
                     NavRow(
                         title = stringResource(R.string.settings_audiobooks),
-                        summary = pluralStringResource(
-                            R.plurals.settings_server_count,
-                            state.audiobookServerCount,
-                            state.audiobookServerCount,
-                        ),
+                        // A part in the middle is lowercase ("1 server · books on this device"); alone it starts the line.
+                        summary = parts.reduce { summary, part -> joined.format(summary, part) }.replaceFirstChar { it.titlecase() },
                         icon = DesignR.drawable.ic_book,
                         onClick = onOpenAudiobooks,
                     )

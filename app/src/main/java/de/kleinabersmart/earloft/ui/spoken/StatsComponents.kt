@@ -15,6 +15,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import de.kleinabersmart.earloft.R
 
@@ -39,7 +41,12 @@ fun BarChart(bars: List<StatBar>, caption: String, modifier: Modifier = Modifier
         )
         Row(Modifier.fillMaxWidth()) {
             bars.forEach { bar ->
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                // One announcement per bar ("Mon: 2 h") instead of loose hour numbers and labels (review2 J97).
+                val spoken = stringResource(R.string.action_for_item, bar.label, formatListened(bar.valueMs))
+                Column(
+                    Modifier.weight(1f).clearAndSetSemantics { contentDescription = spoken },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
                     Box(Modifier.height(CHART_HEIGHT_DP.dp + 16.dp).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
                             if (bar.valueMs > 0) {

@@ -6,6 +6,7 @@ import java.io.BufferedOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
@@ -57,11 +58,13 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
     @Synchronized
     fun start(preferredPort: Int): Int {
         port?.let { return it }
+        // All IPv4 interfaces (E18: no binding to the LAN address), but not IPv6: a globally reachable IPv6 address would
+        // expose the server beyond the home network, and the Chromecast only uses IPv4 (review2 Z19).
         val server = try {
-            ServerSocket(preferredPort)
+            ServerSocket(preferredPort, BACKLOG, IPV4_ANY)
         } catch (e: IOException) {
             Log.i(TAG, "Port $preferredPort in use, taking a free one", e)
-            ServerSocket(0)
+            ServerSocket(0, BACKLOG, IPV4_ANY)
         }
         val pool = ThreadPoolExecutor(0, MAX_CONNECTIONS, 30, TimeUnit.SECONDS, SynchronousQueue()) { runnable ->
             Thread(runnable, "cast-http").apply { isDaemon = true }
@@ -241,6 +244,8 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
 
     private companion object {
         const val TAG = "HttpFileServer"
+        const val BACKLOG = 50
+        val IPV4_ANY: InetAddress = InetAddress.getByName("0.0.0.0")
         const val MAX_CONNECTIONS = 8
         const val IDLE_TIMEOUT_MS = 30_000
         const val BUFFER_SIZE = 64 * 1024

@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.playback.spokenCastSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -51,10 +52,15 @@ class CastMediaCache @Inject constructor(
         serverKeys = audiobookshelf.allIncludingDisabled().associate { it.serverId to (audiobookshelf.freshToken(it.serverId) ?: it.token) }
     }
 
+    /** Changes with [clear] and [exclude]: a [prepare] that started before must not write its stale result afterwards (review2 J78). */
+    private val generation = AtomicInteger()
+
     suspend fun prepare(songIds: Collection<Long>) {
         val missing = songIds.filterNot(entries::containsKey).distinct()
         if (missing.isEmpty()) return
+        val started = generation.get()
         val resolved = resolver.resolve(missing, excluded.toSet())
+        if (generation.get() != started) return
         missing.forEach { entries[it] = Entry(resolved[it]) }
     }
 
@@ -64,6 +70,7 @@ class CastMediaCache @Inject constructor(
      */
     fun exclude(sourceId: String): Boolean {
         if (!excluded.add(sourceId)) return false
+        generation.incrementAndGet()
         entries.entries.removeIf { it.value.media?.sourceId == sourceId }
         return true
     }
@@ -143,6 +150,7 @@ class CastMediaCache @Inject constructor(
 
     /** At the start of every session: servers or passwords may have changed since the last one. */
     fun clear() {
+        generation.incrementAndGet()
         entries.clear()
         excluded.clear()
         serverKeys = null

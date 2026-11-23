@@ -58,7 +58,8 @@ fun QueueMoreMenu(
             title = { Text(stringResource(R.string.queue_clear_title)) },
             text = { Text(clearMessage) },
             confirmButton = {
-                TextButton(onClick = {
+                // Red like every confirmation that deletes something (review2 J73).
+                DestructiveTextButton(onClick = {
                     confirmClear = false
                     onClear()
                 }) { Text(stringResource(R.string.queue_clear)) }

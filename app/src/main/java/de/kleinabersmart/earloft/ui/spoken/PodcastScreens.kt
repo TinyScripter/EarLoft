@@ -804,7 +804,7 @@ private val EpisodeFilter.label: Int
 private fun NewEpisodesBadge(count: Int, modifier: Modifier = Modifier) {
     if (count <= 0) return
     CoverPill(
-        if (count > MAX_BADGE_COUNT) "$MAX_BADGE_COUNT+" else count.toString(),
+        if (count > MAX_BADGE_COUNT) stringResource(R.string.count_more_than, MAX_BADGE_COUNT) else count.toString(),
         pluralStringResource(R.plurals.feed_new, count, count),
         modifier,
     )

@@ -55,11 +55,9 @@ import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.ui.permission.NotificationPermission
 import de.kleinabersmart.earloft.ui.permission.rememberAudioPermissionRequester
 import de.kleinabersmart.earloft.ui.permission.rememberNotificationPermissionRequester
-import de.kleinabersmart.earloft.ui.settings.FullBackupMessagesEffect
 import de.kleinabersmart.earloft.ui.settings.FullBackupViewModel
 import de.kleinabersmart.earloft.ui.settings.SettingsUiState
 import de.kleinabersmart.earloft.ui.settings.SettingsViewModel
-import de.kleinabersmart.earloft.ui.settings.TransferMessagesEffect
 import de.kleinabersmart.earloft.ui.settings.rememberFullBackupImport
 import de.kleinabersmart.earloft.ui.spoken.AudiobookshelfViewModel
 import de.kleinabersmart.earloft.ui.valueOrNull
@@ -131,11 +129,9 @@ fun SetupScreen(
     val requestLocalBooks = rememberAudioPermissionRequester { if (it) viewModel.setUseLocalBooks(true) }
     // Import as in the settings; snackbars report the results.
     val restoreBackup = rememberFullBackupImport(backupViewModel)
-    FullBackupMessagesEffect(backupViewModel)
     val podcastDatabaseLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.importImportData(uri)
     }
-    TransferMessagesEffect(viewModel)
     val actions = SetupActions(
         onRestoreBackup = restoreBackup,
         onAddMusicServer = onAddMusicServer,

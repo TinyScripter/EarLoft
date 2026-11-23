@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -203,6 +204,14 @@ private fun FastScroller(
                                 scrollTo(scope, currentScrollTo, lastFirstIndex(currentCount, currentVisibleCount()), dragFraction)
                             },
                         )
+                    }
+                    // A tap on the visible strip jumps there (E16, review2 Z18) instead of being swallowed without effect.
+                    .pointerInput(Unit) {
+                        detectTapGestures { offset ->
+                            currentOnDragStart()
+                            val fraction = ((offset.y - thumbPx / 2) / rangePx).coerceIn(0f, 1f)
+                            scrollTo(scope, currentScrollTo, lastFirstIndex(currentCount, currentVisibleCount()), fraction)
+                        }
                     },
             ) {
                 Box(

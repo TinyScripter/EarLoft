@@ -61,8 +61,6 @@ import de.kleinabersmart.earloft.core.data.spoken.sameGenre
 import de.kleinabersmart.earloft.core.data.spoken.seriesProgress
 import de.kleinabersmart.earloft.core.data.spoken.narratorGroups
 import de.kleinabersmart.earloft.core.data.spoken.seriesGroups
-import de.kleinabersmart.earloft.core.data.spoken.sortedAuthors
-import de.kleinabersmart.earloft.core.data.spoken.sortedSeries
 import de.kleinabersmart.earloft.navigation.BookGroupKind
 import de.kleinabersmart.earloft.ui.components.LazyGridFastScroller
 import de.kleinabersmart.earloft.ui.components.PinnableHeaderBox
@@ -272,6 +270,8 @@ fun SpokenLibraryScreen(
     val bookLibrary by viewModel.bookLibrary.collectAsStateWithLifecycle()
     val seriesSort by viewModel.seriesSort.collectAsStateWithLifecycle()
     val authorSort by viewModel.authorSort.collectAsStateWithLifecycle()
+    val series by viewModel.seriesGroups.collectAsStateWithLifecycle()
+    val authors by viewModel.authorGroups.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { BookTab.entries.size }
     val scope = rememberCoroutineScope()
 
@@ -296,8 +296,6 @@ fun SpokenLibraryScreen(
             booksState.valueOrNull.isNullOrEmpty() -> NoBooksHint(signInNeeded, onEditServer, viewModel::syncNow)
             else -> {
                 val all = booksState.valueOrNull.orEmpty()
-                val series = remember(all, seriesSort) { all.seriesGroups().sortedSeries(seriesSort).seriesProgress() }
-                val authors = remember(all, authorSort) { all.authorGroups().sortedAuthors(authorSort) }
                 PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
                     BookTab.entries.forEachIndexed { index, tab ->
                         // As in the music and podcast libraries: smaller font instead of wrapping.

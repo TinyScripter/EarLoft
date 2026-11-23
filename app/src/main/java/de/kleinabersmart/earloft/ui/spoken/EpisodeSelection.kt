@@ -141,7 +141,7 @@ fun EpisodeSelectionBar(
                 val played = !allPlayed
                 val text = quantity(resources, if (played) R.plurals.episodes_marked_played else R.plurals.episodes_marked_unplayed, markable.size)
                 viewModel.setPlayed(markable, played) { restore ->
-                    snackbars.show(text, SnackbarDuration.Long, resources.getString(R.string.spoken_bookmark_undo)) { viewModel.undo(restore) }
+                    snackbars.show(text, SnackbarDuration.Long, resources.getString(R.string.action_undo)) { viewModel.undo(restore) }
                 }
                 selection.clear()
             }) {
@@ -275,8 +275,11 @@ fun EpisodeSwipeBox(
     val handle by rememberUpdatedState { direction: SwipeToDismissBoxValue ->
         when (direction) {
             SwipeToDismissBoxValue.StartToEnd -> if (inQueue) {
-                viewModel.removeFromQueue(listOf(item))
-                snackbars.show(resources.getString(R.string.queue_removed, item.book.title))
+                // Undo as from the menu (review2 J50): back to its old place.
+                val text = resources.getString(R.string.queue_removed, item.book.title)
+                viewModel.setQueued(item.book.id, false) { restore ->
+                    snackbars.show(text, SnackbarDuration.Long, resources.getString(R.string.action_undo)) { viewModel.undo(restore) }
+                }
             } else {
                 viewModel.append(listOf(item))
                 snackbars.show(resources.getString(R.string.queue_added_at_end, item.book.title))
@@ -292,7 +295,7 @@ fun EpisodeSwipeBox(
             } else {
                 val text = resources.getString(if (played) R.string.episode_marked_unplayed else R.string.episode_marked_played, item.book.title)
                 viewModel.setPlayed(listOf(item), !played) { restore ->
-                    snackbars.show(text, SnackbarDuration.Long, resources.getString(R.string.spoken_bookmark_undo)) { viewModel.undo(restore) }
+                    snackbars.show(text, SnackbarDuration.Long, resources.getString(R.string.action_undo)) { viewModel.undo(restore) }
                 }
             }
             SwipeToDismissBoxValue.Settled -> Unit

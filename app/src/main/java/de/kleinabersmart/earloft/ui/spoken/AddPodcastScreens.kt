@@ -74,7 +74,6 @@ import kotlinx.coroutines.launch
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
-import java.util.Locale
 import de.kleinabersmart.earloft.core.network.podcast.directory.feedKey
 import de.kleinabersmart.earloft.core.network.podcast.normalizeFeedUrl
 import de.kleinabersmart.earloft.ui.components.EmptyHint
@@ -335,7 +334,7 @@ private fun DiscoverHeader(
     onCategory: (PodcastCategory?) -> Unit,
 ) {
     val title = if (PodcastDirectory.APPLE in directories && country != null) {
-        stringResource(R.string.podcast_discover_popular, Locale.Builder().setRegion(country).build().displayCountry)
+        stringResource(R.string.podcast_discover_popular, countryName(country))
     } else {
         stringResource(R.string.podcast_discover_trending)
     }

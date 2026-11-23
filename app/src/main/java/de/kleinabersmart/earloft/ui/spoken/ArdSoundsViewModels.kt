@@ -149,20 +149,33 @@ class ArdShowViewModel @AssistedInject constructor(
         load()
     }
 
+    /** A tap is being handled; a second one meanwhile would subscribe twice (review2 J54). */
+    private var toggling = false
+
     fun toggleSubscription(title: String) {
+        if (toggling) return
+        toggling = true
         viewModelScope.launch {
-            if (subscribed.value) {
-                ardBooks.unsubscribe(showId)
-                _subscription.send(SubscriptionResult.UNSUBSCRIBED)
-            } else {
-                val result = try {
-                    ardBooks.subscribe(showId, title)
-                    SubscriptionResult.SUBSCRIBED
-                } catch (e: IOException) {
-                    SubscriptionResult.FAILED
-                }
-                _subscription.send(result)
+            try {
+                toggleSubscriptionNow(title)
+            } finally {
+                toggling = false
             }
+        }
+    }
+
+    private suspend fun toggleSubscriptionNow(title: String) {
+        if (subscribed.value) {
+            ardBooks.unsubscribe(showId)
+            _subscription.send(SubscriptionResult.UNSUBSCRIBED)
+        } else {
+            val result = try {
+                ardBooks.subscribe(showId, title)
+                SubscriptionResult.SUBSCRIBED
+            } catch (e: IOException) {
+                SubscriptionResult.FAILED
+            }
+            _subscription.send(result)
         }
     }
 

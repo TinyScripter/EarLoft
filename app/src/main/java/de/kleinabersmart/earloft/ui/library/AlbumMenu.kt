@@ -11,6 +11,7 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -119,7 +120,8 @@ fun AlbumMenu(
     }
 
     playlistSongs?.let { songIds ->
-        if (songIds.isEmpty()) onDismiss() else AddToPlaylistDialog(songIds = songIds, onDismiss = onDismiss)
+        // Not during composition: closing changes state (review2 J74).
+        if (songIds.isEmpty()) LaunchedEffect(songIds) { onDismiss() } else AddToPlaylistDialog(songIds = songIds, onDismiss = onDismiss)
     }
     if (confirmRemove) {
         AlertDialog(

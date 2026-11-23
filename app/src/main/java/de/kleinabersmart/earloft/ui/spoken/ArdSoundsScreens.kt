@@ -390,7 +390,7 @@ private fun ArdBookHeader(book: ArdBook, working: Boolean, onAction: (ArdBookAct
         }
         val facts = listOfNotNull(
             book.publisher.ifBlank { null },
-            book.durationMs.takeIf { it > 0 }?.let(::formatDuration),
+            book.durationMs.takeIf { it > 0 }?.let { formatDuration(it) },
             pluralStringResource(R.plurals.ard_books_parts, book.parts.size, book.parts.size).takeIf { book.parts.size > 1 },
         )
         if (facts.isNotEmpty()) Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
@@ -500,7 +500,7 @@ private fun ArdBookRow(book: ArdBookSummary, inLibrary: Boolean, withShow: Boole
                 if (people.isNotEmpty()) Text(people.joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val facts = listOfNotNull(
                     pluralStringResource(R.plurals.ard_books_parts, book.parts, book.parts).takeIf { book.parts > 1 },
-                    book.durationMs?.takeIf { it > 0 }?.let(::formatDuration),
+                    book.durationMs?.takeIf { it > 0 }?.let { formatDuration(it) },
                     book.showTitle.ifBlank { null }?.takeIf { withShow },
                 )
                 Text(
@@ -540,7 +540,7 @@ private fun ArdLoading() {
 private fun ArdFailed(onRetry: (() -> Unit)?) {
     Column(Modifier.fillMaxWidth().padding(horizontal = GroupMargin + 16.dp, vertical = 16.dp)) {
         Text(stringResource(R.string.ard_books_failed), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-        if (onRetry != null) TextButton(onClick = onRetry) { Text(stringResource(R.string.lyrics_retry)) }
+        if (onRetry != null) TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
     }
 }
 

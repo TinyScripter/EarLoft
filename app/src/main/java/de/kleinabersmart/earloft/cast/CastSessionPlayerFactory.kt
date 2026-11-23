@@ -39,6 +39,7 @@ import de.kleinabersmart.earloft.core.playback.songId
 import de.kleinabersmart.earloft.ui.snackbar.Snackbars
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -258,20 +259,25 @@ internal class CastSessionPlayerFactory @Inject constructor(
         val expected = generation
         val songIds = reserve.peek(REFILL_CHUNK).mapNotNull { it.songId }
         scope.launch {
-            // The converter has to return synchronously; that's why the addresses are resolved beforehand.
-            cache.prepare(songIds)
-            withContext(Dispatchers.Main) {
-                refilling = false
-                val stillValid = expected == generation && player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
-                if (!stillValid || !hasReportedQueue(player)) return@withContext
-                // Only once the receiver has reported the removal is there room; then it continues via [onTimelineChanged].
-                if (!makeRoom(player)) return@withContext
-                val room = MAX_REMOTE_QUEUE - player.mediaItemCount
-                val next = reserve.take(minOf(REFILL_CHUNK, room))
-                if (next.isEmpty()) return@withContext
-                player.addMediaItems(next)
-                // Only refill further once the receiver has reported the chunk; until then [itemsAhead] doesn't count it.
-                awaitQueue(next)
+            try {
+                // The converter has to return synchronously; that's why the addresses are resolved beforehand.
+                cache.prepare(songIds)
+                withContext(Dispatchers.Main) {
+                    refilling = false
+                    val stillValid = expected == generation && player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+                    if (!stillValid || !hasReportedQueue(player)) return@withContext
+                    // Only once the receiver has reported the removal is there room; then it continues via [onTimelineChanged].
+                    if (!makeRoom(player)) return@withContext
+                    val room = MAX_REMOTE_QUEUE - player.mediaItemCount
+                    val next = reserve.take(minOf(REFILL_CHUNK, room))
+                    if (next.isEmpty()) return@withContext
+                    player.addMediaItems(next)
+                    // Only refill further once the receiver has reported the chunk; until then [itemsAhead] doesn't count it.
+                    awaitQueue(next)
+                }
+            } finally {
+                // Also after a failure: otherwise no cast session of this process would refill again (review2 J77).
+                withContext(NonCancellable + Dispatchers.Main) { refilling = false }
             }
         }
     }
@@ -386,10 +392,10 @@ internal class CastSessionPlayerFactory @Inject constructor(
             private fun prepareQueue() {
                 cache.clear()
                 val songIds = (0 until player.mediaItemCount).mapNotNull { player.getMediaItemAt(it).songId }
-                scope.launch {
-                    cache.prepareServerKeys()
-                    cache.prepare(songIds)
-                }
+                // In parallel: the songs must not wait for a token renewal of an unreachable OpenID server, or the receiver
+                // would ask for them first and they were resolved blocking on the main thread (review2 J79).
+                scope.launch { cache.prepareServerKeys() }
+                scope.launch { cache.prepare(songIds) }
             }
         }
         cast.addSessionManagerListener(listener)

@@ -66,7 +66,8 @@ class WearRemoteHandler @Inject constructor(
             WearRemoteAction.SEEK -> seek(command.value.coerceAtLeast(0))
             WearRemoteAction.SKIP_BACK -> playback.skipBack()
             WearRemoteAction.SKIP_FORWARD -> playback.skipForward()
-            WearRemoteAction.VOLUME_STEPS -> changeVolume(command.value.toInt())
+            // Bounded: while casting every step starts a coroutine (review2 J82); no crown turn has more.
+            WearRemoteAction.VOLUME_STEPS -> changeVolume(command.value.coerceIn(-MAX_VOLUME_STEPS, MAX_VOLUME_STEPS).toInt())
             WearRemoteAction.CYCLE_REPEAT -> playback.cycleRepeatMode()
             // The sleep timer belongs on the main thread; the watch's messages arrive on another one.
             WearRemoteAction.SLEEP_TIMER_START -> withContext(Dispatchers.Main) {
@@ -165,6 +166,7 @@ class WearRemoteHandler @Inject constructor(
 
     private companion object {
         const val TAG = "WearRemoteHandler"
+        const val MAX_VOLUME_STEPS = 25L
     }
 }
 

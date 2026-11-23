@@ -43,8 +43,8 @@ sealed interface UploadState {
     /** [missingParts]: parts that ARD Sounds no longer carries and that were never downloaded; they will be missing on the server. */
     data class Choosing(val targets: List<UploadTarget>, val bytes: Long, val missingParts: Int = 0) : UploadState
 
-    /** The book is downloaded first, [doneBytes] of [totalBytes] (`null` = unknown). */
-    data class Downloading(val doneBytes: Long, val totalBytes: Long?) : UploadState
+    /** The book is downloaded first (its progress shows on the book page). */
+    data object Downloading : UploadState
 
     data class Uploading(val sent: Long, val total: Long) : UploadState
 
@@ -120,7 +120,7 @@ class ArdUploadViewModel @AssistedInject constructor(
 
     private suspend fun ensureDownloaded(): Boolean {
         if (books.download(bookId).first().state == TrackDownload.DONE) return true
-        _state.value = UploadState.Downloading(0, null)
+        _state.value = UploadState.Downloading
         when (downloads.download(bookId)) {
             DownloadStart.OFFLINE -> return fail(UploadFinish.OFFLINE)
             DownloadStart.WAITING_FOR_WIFI -> _state.value = UploadState.Finished(UploadFinish.WAITING_FOR_WIFI)

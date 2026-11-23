@@ -47,7 +47,7 @@ internal fun episodeLabel(book: Book, withSeason: Boolean): String? {
             EpisodeType.FULL, null -> null
         },
         book.season?.takeIf { withSeason }?.let { stringResource(R.string.podcast_season, it) },
-        book.episodeNumber?.let { if (withSeason) stringResource(R.string.episode_number, it) else "#$it" },
+        book.episodeNumber?.let { stringResource(if (withSeason) R.string.episode_number else R.string.episode_number_short, it) },
     )
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }

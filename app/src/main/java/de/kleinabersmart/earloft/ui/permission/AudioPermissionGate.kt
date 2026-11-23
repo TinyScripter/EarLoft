@@ -65,13 +65,17 @@ fun AudioPermissionGate(
     var granted by remember { mutableStateOf(AudioPermission.isGranted(context)) }
     var requested by rememberSaveable { mutableStateOf(false) }
     var permanentlyDenied by rememberSaveable { mutableStateOf(false) }
+    val request = remember { RequestState() }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         requested = true
         val audioGranted = result[AudioPermission.name] == true
         granted = audioGranted
-        // After a denial without a rationale dialog, the system shows no dialog anymore.
-        permanentlyDenied = !audioGranted && context.findActivity()?.shouldShowRequestPermissionRationale(AudioPermission.name) == false
+        // The system shows no dialog anymore only if it answered at once, as in [rememberPermissionRequester]: a dialog closed
+        // with Back or beside it also leaves the rationale flag `false` (review2 J63).
+        val rationaleAfter = context.findActivity()?.shouldShowRequestPermissionRationale(AudioPermission.name)
+        val answeredAtOnce = SystemClock.elapsedRealtime() - request.launchedAt < NO_DIALOG_MS
+        permanentlyDenied = !audioGranted && !request.rationaleBefore && rationaleAfter == false && answeredAtOnce
     }
 
     LifecycleResumeEffect(Unit) {
@@ -91,7 +95,11 @@ fun AudioPermissionGate(
     } else {
         PermissionRationale(
             permanentlyDenied = requested && permanentlyDenied,
-            onRequest = { launcher.launch(requestedPermissions()) },
+            onRequest = {
+                request.rationaleBefore = context.findActivity()?.shouldShowRequestPermissionRationale(AudioPermission.name) == true
+                request.launchedAt = SystemClock.elapsedRealtime()
+                launcher.launch(requestedPermissions())
+            },
             onOpenSettings = { context.openAppSettings() },
             onSkip = onSkip,
         )

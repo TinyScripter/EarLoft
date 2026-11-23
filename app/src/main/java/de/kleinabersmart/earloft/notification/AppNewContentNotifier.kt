@@ -107,7 +107,8 @@ class AppNewContentNotifier @Inject constructor(
         val albums = content.albums.size
         return Message(
             title = context.getString(R.string.new_content_music_title),
-            text = songsText + " " + context.resources.getQuantityString(R.plurals.new_content_on_albums, albums, albums),
+            // One format string: the order of both parts may differ by language (review2 J86).
+            text = context.getString(R.string.new_content_text, songsText, context.resources.getQuantityString(R.plurals.new_content_on_albums, albums, albums)),
             details = names(content.albums.map { album -> listOf(album.title, album.artist).filter { it.isNotBlank() }.joinToString(" – ") }),
             target = NewContentTarget(SpokenMode.MUSIC),
         )
@@ -143,7 +144,7 @@ class AppNewContentNotifier @Inject constructor(
         val feeds = content.episodes.size
         return Message(
             title = context.getString(R.string.new_content_episodes_title),
-            text = episodesText + " " + context.resources.getQuantityString(R.plurals.new_content_in_podcasts, feeds, feeds),
+            text = context.getString(R.string.new_content_text, episodesText, context.resources.getQuantityString(R.plurals.new_content_in_podcasts, feeds, feeds)),
             details = names(content.episodes.map { "${it.feedTitle} (${it.count})" }) + listOfNotNull(movedLine),
             target = NewContentTarget(SpokenMode.PODCASTS),
         )

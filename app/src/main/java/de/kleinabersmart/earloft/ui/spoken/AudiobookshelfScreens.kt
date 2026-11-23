@@ -70,6 +70,7 @@ import de.kleinabersmart.earloft.ui.components.LoadFailedHint
 import de.kleinabersmart.earloft.ui.permission.rememberLocalNetworkRequester
 import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthApi
+import de.kleinabersmart.earloft.ui.components.startOrHint
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /** The app's own redirect for browsers without Auth Tab; must be registered in Audiobookshelf (concept 12.11). */
@@ -114,8 +115,8 @@ fun AudiobookshelfFormScreen(
                 .apply { intent.setPackage(authTab) }
                 .launch(authTabLauncher, address, AbsAuthApi.DEFAULT_REDIRECT_URI.substringBefore(':'))
         } else {
-            // The redirect arrives via OpenIdRedirectActivity.
-            CustomTabsIntent.Builder().build().launchUrl(context, address)
+            // The redirect arrives via OpenIdRedirectActivity. Without any browser a hint instead of a crash (review2 J57).
+            startOrHint(context) { CustomTabsIntent.Builder().build().launchUrl(context, address) }
         }
     }
     var name by rememberSaveable { mutableStateOf("") }

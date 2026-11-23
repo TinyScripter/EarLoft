@@ -14,6 +14,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -41,7 +42,8 @@ fun FeedCredentialsDialog(
     onRemove: (() -> Unit)? = null,
 ) {
     var username by rememberSaveable { mutableStateOf(initialUsername) }
-    var password by rememberSaveable { mutableStateOf("") }
+    // Only in memory, like the passwords of the servers (H21): the saved state leaves the process (review2 J52).
+    var password by remember { mutableStateOf("") }
     val ready = username.isNotBlank() && password.isNotEmpty()
     val confirm = { if (ready) onConfirm(PodcastRepository.Credentials(username.trim(), password)) }
     val host = normalizeFeedUrl(feedUrl)?.host ?: feedUrl

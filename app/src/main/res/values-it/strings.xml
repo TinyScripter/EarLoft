@@ -113,13 +113,20 @@
     <string name="mini_player_hide">Nascondi mini player</string>
     <string name="mini_player_hidden">Mini player nascosto. Ricompare quando inizia la riproduzione.</string>
     <string name="action_undo">Annulla</string>
+    <string name="duration_hours_minutes">%1$d\u00A0h\u00A0%2$d\u00A0min</string>
+    <string name="duration_minutes">%1$d\u00A0min</string>
+    <string name="duration_seconds">%1$d\u00A0s</string>
+    <string name="episode_number_short">#%1$d</string>
+    <string name="count_more_than">%1$d+</string>
+    <string name="server_account_at_address">%1$s @ %2$s</string>
+    <string name="settings_backup_counts">%1$s, %2$s, %3$s</string>
     <string name="player_open_queue">Apri coda</string>
     <string name="player_close">Chiudi player</string>
     <string name="player_show_lyrics">Mostra testo</string>
     <string name="player_hide_lyrics">Mostra copertina</string>
     <string name="lyrics_none">Nessun testo disponibile</string>
     <string name="lyrics_unavailable">Impossibile caricare il testo.</string>
-    <string name="lyrics_retry">Riprova</string>
+    <string name="action_retry">Riprova</string>
     <string name="lyrics_source_lrclib">Testi da LRCLIB</string>
     <string name="player_shuffle_on">Riproduzione casuale attiva</string>
     <string name="player_shuffle_off">Riproduzione casuale disattivata</string>
@@ -180,6 +187,10 @@
     <string name="settings_general_summary">Download, aspetto, backup, sezioni</string>
     <string name="settings_music">Musica</string>
     <string name="settings_music_summary_local">%1$s · musica locale</string>
+    <string name="settings_books_on_device">libri sul dispositivo</string>
+    <string name="summary_joined">%1$s · %2$s</string>
+    <string name="new_content_text">%1$s %2$s</string>
+    <string name="action_for_item">%1$s: %2$s</string>
     <string name="settings_audiobooks">Libri</string>
     <string name="settings_about_summary">Versione, licenze, privacy</string>
     <plurals name="settings_server_count">
@@ -423,6 +434,8 @@
     <string name="downloads_remove_all">Rimuovi tutti i download</string>
     <string name="downloads_remove_all_title">Rimuovere tutti i download?</string>
     <string name="downloads_remove_all_text">Tutti i file scaricati verranno eliminati. La libreria resta.</string>
+    <string name="downloads_remove_all_text_shown">I file scaricati delle sezioni mostrate qui verranno eliminati. Quelli delle sezioni nascoste e la libreria restano.</string>
+    <string name="downloads_hidden_areas">Altri %1$s in sezioni nascoste</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d di %2$d brano · %3$s</item>
         <item quantity="many">%1$d di %2$d brani · %3$s</item>
@@ -554,6 +567,12 @@
     <string name="watch_status_limit">Limite: %s</string>
     <string name="watch_status_none">Ancora nessuna risposta dall’orologio</string>
     <string name="watch_status_error">Ultimo errore: %s</string>
+    <string name="watch_error_server_via_phone">Server non raggiungibile, invia il telefono</string>
+    <string name="watch_error_server_refused_via_phone">Il server non ha inviato, invia il telefono</string>
+    <string name="watch_error_server_no_phone_copy">Server non raggiungibile, il telefono non ha una copia</string>
+    <string name="watch_error_phone_no_copy">Il telefono non ha una copia</string>
+    <string name="watch_error_storage_full">Lo spazio dell’orologio è esaurito</string>
+    <string name="watch_error_phone_unreachable">Telefono non raggiungibile</string>
     <string name="watch_selection_progress" tools:ignore="PluralsCandidate">%1$s · %2$d di %3$d caricati</string>
     <plurals name="watch_status_missing">
         <item quantity="one">Spazio dell’orologio esaurito – manca %d brano</item>
@@ -945,7 +964,7 @@
     <string name="book_library_all">Tutte le librerie</string>
     <string name="settings_book_buttons">Pulsanti in notifica e in auto</string>
     <string name="settings_book_buttons_summary">Android mostra solo tre pulsanti nella notifica compatta e in Android Auto. Nei libri senza capitoli i pulsanti saltano sempre avanti e indietro.</string>
-    <string name="settings_book_buttons_seek">Salti (−%1$d s / +%2$d s)</string>
+    <string name="settings_book_buttons_seek">Salti (−%1$s / +%2$s)</string>
     <string name="settings_book_buttons_chapters">Capitolo precedente e successivo</string>
     <string name="spoken_abs_libraries">Librerie</string>
     <string name="episode_delete_download">Elimina download</string>

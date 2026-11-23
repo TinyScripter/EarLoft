@@ -331,7 +331,7 @@ private fun BookHeader(
             book.publishedYear.takeIf { isBook },
             book.publisher.takeIf { isBook },
             language.takeIf { isBook },
-            book.durationMs.takeIf { it > 0 }?.let(::formatDuration),
+            book.durationMs.takeIf { it > 0 }?.let { formatDuration(it) },
             remaining,
         )
         if (facts.isNotEmpty()) Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)

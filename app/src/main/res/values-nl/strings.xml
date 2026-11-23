@@ -108,13 +108,20 @@
     <string name="mini_player_hide">Minispeler verbergen</string>
     <string name="mini_player_hidden">Minispeler verborgen. Hij komt terug zodra het afspelen start.</string>
     <string name="action_undo">Ongedaan maken</string>
+    <string name="duration_hours_minutes">%1$d\u00A0h\u00A0%2$d\u00A0min</string>
+    <string name="duration_minutes">%1$d\u00A0min</string>
+    <string name="duration_seconds">%1$d\u00A0s</string>
+    <string name="episode_number_short">#%1$d</string>
+    <string name="count_more_than">%1$d+</string>
+    <string name="server_account_at_address">%1$s @ %2$s</string>
+    <string name="settings_backup_counts">%1$s, %2$s, %3$s</string>
     <string name="player_open_queue">Wachtrij openen</string>
     <string name="player_close">Speler sluiten</string>
     <string name="player_show_lyrics">Songtekst tonen</string>
     <string name="player_hide_lyrics">Cover tonen</string>
     <string name="lyrics_none">Geen songtekst beschikbaar</string>
     <string name="lyrics_unavailable">Songtekst kan niet worden geladen.</string>
-    <string name="lyrics_retry">Opnieuw proberen</string>
+    <string name="action_retry">Opnieuw proberen</string>
     <string name="lyrics_source_lrclib">Songtekst van LRCLIB</string>
     <string name="player_shuffle_on">Shuffle aan</string>
     <string name="player_shuffle_off">Shuffle uit</string>
@@ -171,6 +178,10 @@
     <string name="settings_general_summary">Downloads, weergave, back-up, onderdelen</string>
     <string name="settings_music">Muziek</string>
     <string name="settings_music_summary_local">%1$s · lokale muziek</string>
+    <string name="settings_books_on_device">boeken op het apparaat</string>
+    <string name="summary_joined">%1$s · %2$s</string>
+    <string name="new_content_text">%1$s %2$s</string>
+    <string name="action_for_item">%1$s: %2$s</string>
     <string name="settings_audiobooks">Boeken</string>
     <string name="settings_about_summary">Versie, licenties, privacy</string>
     <plurals name="settings_server_count">
@@ -401,6 +412,8 @@
     <string name="downloads_remove_all">Alle downloads verwijderen</string>
     <string name="downloads_remove_all_title">Alle downloads verwijderen?</string>
     <string name="downloads_remove_all_text">Alle gedownloade bestanden worden verwijderd. De bibliotheek blijft behouden.</string>
+    <string name="downloads_remove_all_text_shown">De gedownloade bestanden van de hier getoonde onderdelen worden verwijderd. Die van verborgen onderdelen en de bibliotheek blijven.</string>
+    <string name="downloads_hidden_areas">Nog %1$s in verborgen onderdelen</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d van %2$d nummer · %3$s</item>
         <item quantity="other">%1$d van %2$d nummers · %3$s</item>
@@ -529,6 +542,12 @@
     <string name="watch_status_limit">Limiet: %s</string>
     <string name="watch_status_none">Nog geen melding van het horloge</string>
     <string name="watch_status_error">Laatste fout: %s</string>
+    <string name="watch_error_server_via_phone">Server onbereikbaar, telefoon levert</string>
+    <string name="watch_error_server_refused_via_phone">Server leverde niet, telefoon levert</string>
+    <string name="watch_error_server_no_phone_copy">Server onbereikbaar, telefoon heeft geen kopie</string>
+    <string name="watch_error_phone_no_copy">Telefoon heeft geen kopie</string>
+    <string name="watch_error_storage_full">De opslag van het horloge is vol</string>
+    <string name="watch_error_phone_unreachable">Telefoon onbereikbaar</string>
     <string name="watch_selection_progress" tools:ignore="PluralsCandidate">%1$s · %2$d van %3$d geladen</string>
     <plurals name="watch_status_missing">
         <item quantity="one">Horlogeopslag vol – %d track ontbreekt</item>
@@ -908,7 +927,7 @@
     <string name="book_library_all">Alle bibliotheken</string>
     <string name="settings_book_buttons">Knoppen in melding en auto</string>
     <string name="settings_book_buttons_summary">Android toont maar drie knoppen in de compacte melding en in Android Auto. Bij boeken zonder hoofdstukken wordt altijd gespoeld.</string>
-    <string name="settings_book_buttons_seek">Spoelen (−%1$d s / +%2$d s)</string>
+    <string name="settings_book_buttons_seek">Spoelen (−%1$s / +%2$s)</string>
     <string name="settings_book_buttons_chapters">Vorig en volgend hoofdstuk</string>
     <string name="spoken_abs_libraries">Bibliotheken</string>
     <string name="episode_delete_download">Download verwijderen</string>

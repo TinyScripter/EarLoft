@@ -5,8 +5,8 @@ import android.content.res.Resources
 import android.database.SQLException
 import android.net.Uri
 import android.util.Log
+import androidx.compose.material3.SnackbarDuration
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.R
@@ -17,16 +17,15 @@ import de.kleinabersmart.earloft.core.data.backup.FullBackupInterruptedException
 import de.kleinabersmart.earloft.core.data.backup.FullBackupResult
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRefresher
+import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
+import de.kleinabersmart.earloft.ui.snackbar.Snackbars
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 /**
@@ -54,43 +53,36 @@ class FullBackupViewModel @Inject constructor(
     private val podcastRefresher: PodcastRefresher,
     @param:ApplicationContext private val context: Context,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
+    private val snackbars: Snackbars,
 ) : ViewModel() {
 
-    private val _messages = Channel<FullBackupMessage>(Channel.BUFFERED)
-
-    /** Result, to be shown once. */
-    val messages: Flow<FullBackupMessage> = _messages.receiveAsFlow()
-
-    private var running = false
-
     fun export(uri: Uri) = run(failed = FullBackupMessage.ExportFailed) {
-        val counts = applicationScope.async {
-            withContext(Dispatchers.IO) {
-                context.contentResolver.openOutputStream(uri, "wt")?.use { fullBackup.export(it) }
-                    ?: throw IOException("File not writable")
-            }
-        }.await()
+        val counts = withContext(Dispatchers.IO) {
+            context.contentResolver.openOutputStream(uri, "wt")?.use { fullBackup.export(it) }
+                ?: throw IOException("File not writable")
+        }
         FullBackupMessage.Exported(counts)
     }
 
     fun import(uri: Uri) = run(failed = FullBackupMessage.ImportUnreadable) {
-        applicationScope.async {
-            withContext(Dispatchers.IO) {
-                context.contentResolver.openInputStream(uri)?.use { fullBackup.import(it) }
-                    ?: throw IOException("File not readable")
-            }.also {
-                // New subscriptions fetch their episodes right away, not only the next time the app is opened; only then does their progress apply.
-                if (it.added.podcasts > 0) podcastRefresher.refreshAll()
-            }
-        }.await()
+        val result = withContext(Dispatchers.IO) {
+            context.contentResolver.openInputStream(uri)?.use { fullBackup.import(it) }
+                ?: throw IOException("File not readable")
+        }
+        // New subscriptions fetch their episodes right away, not only the next time the app is opened; only then does their progress apply.
+        if (result.added.podcasts > 0) podcastRefresher.refreshAll()
         null
     }
 
-    /** One job at a time; a second tap in the meantime is ignored. [failed]: message on read and write errors. */
+    /**
+     * One job at a time, in the whole app (settings and wizard have their own view model); a second tap in the meantime is ignored.
+     * Job and lock belong to the app scope, and the result goes to the app-wide snackbars: leaving the page neither aborts the job
+     * nor lets a second one start, and the user still learns whether it worked (review2 J61, J62). [failed]: message on read and
+     * write errors.
+     */
     private fun run(failed: FullBackupMessage, block: suspend () -> FullBackupMessage?) {
-        if (running) return
-        running = true
-        viewModelScope.launch {
+        if (!running.compareAndSet(false, true)) return
+        applicationScope.launch {
             val message = try {
                 block()
             } catch (e: CancellationException) {
@@ -108,14 +100,18 @@ class FullBackupViewModel @Inject constructor(
                 Log.w(TAG, "Backup failed", e)
                 failed
             } finally {
-                running = false
+                running.set(false)
             }
-            message?.let { _messages.send(it) }
+            // Failures stay until they are dismissed.
+            message?.let { snackbars.show(SnackbarMessage(fullBackupMessage(context.resources, it), duration = SnackbarDuration.Long, keep = it !is FullBackupMessage.Exported)) }
         }
     }
 
     private companion object {
         const val TAG = "FullBackupViewModel"
+
+        /** Process-wide: the settings and the wizard each have their own view model. */
+        val running = AtomicBoolean(false)
     }
 }
 
@@ -138,9 +134,10 @@ fun backupRestoredMessage(resources: Resources, result: FullBackupResult): Strin
 
 private fun BackupCounts.summary(resources: Resources): String {
     val servers = musicServers + audiobookServers
-    return listOf(
+    return resources.getString(
+        R.string.settings_backup_counts,
         resources.getQuantityString(R.plurals.settings_server_count, servers, servers),
         resources.getQuantityString(R.plurals.settings_podcast_count, podcasts, podcasts),
         resources.getQuantityString(R.plurals.count_playlists, playlists, playlists),
-    ).joinToString(", ")
+    )
 }

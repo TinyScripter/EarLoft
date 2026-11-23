@@ -198,6 +198,9 @@ class AddPodcastViewModel @Inject constructor(
 
     private var discoverJob: Job? = null
 
+    /** Category and directories of the running [discoverJob]. */
+    private var loadingKey: Pair<PodcastCategory?, List<PodcastDirectory>>? = null
+
     /** Loaded charts per category and directories while the page lives: switching back and forth doesn't query again. */
     private val popular = HashMap<Pair<PodcastCategory?, List<PodcastDirectory>>, DiscoverState.Done>()
 
@@ -213,8 +216,10 @@ class AddPodcastViewModel @Inject constructor(
             _discover.value = it
             return
         }
-        if (_discover.value == DiscoverState.Loading(category) && discoverJob?.isActive == true) return
+        // The same category with other directories (one switched off while loading) loads again (review2 J48).
+        if (_discover.value == DiscoverState.Loading(category) && loadingKey == key && discoverJob?.isActive == true) return
         discoverJob?.cancel()
+        loadingKey = key
         _discover.value = DiscoverState.Loading(category)
         discoverJob = viewModelScope.launch {
             val result = directorySearch.popular(category)

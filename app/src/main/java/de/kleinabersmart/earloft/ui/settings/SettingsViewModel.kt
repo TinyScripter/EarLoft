@@ -4,6 +4,7 @@ import android.database.SQLException
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import androidx.compose.material3.SnackbarDuration
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -51,6 +52,8 @@ import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.core.playback.EndlessMixSettings
 import de.kleinabersmart.earloft.core.playback.ReplayGainSettings
 import de.kleinabersmart.earloft.ui.orOnError
+import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
+import de.kleinabersmart.earloft.ui.snackbar.Snackbars
 import de.kleinabersmart.earloft.ui.theme.ThemeMode
 import de.kleinabersmart.earloft.ui.theme.ThemeSettings
 import kotlinx.coroutines.CancellationException
@@ -213,6 +216,7 @@ class SettingsViewModel @Inject constructor(
     private val statsRepository: StatsRepository,
     @param:ApplicationContext private val context: Context,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
+    private val snackbars: Snackbars,
     audiobookServers: AudiobookshelfServers,
     syncer: LibrarySyncer,
 ) : ViewModel() {
@@ -546,19 +550,24 @@ class SettingsViewModel @Inject constructor(
 
     fun refreshPodcasts() = podcastRefresher.refreshAll()
 
-    private val _transferMessages = Channel<TransferMessage>(Channel.BUFFERED)
-
-    /** Result of the last OPML import or export, to be shown once. */
-    val transferMessages: Flow<TransferMessage> = _transferMessages.receiveAsFlow()
+    /**
+     * Reports the result of an import, export or reset via the app-wide snackbars: the job runs in the app scope, and its
+     * result must reach the user even if the page is gone by then (review2 J62); failures stay until they are dismissed.
+     */
+    private fun report(message: TransferMessage) {
+        val failed = message == TransferMessage.ImportFailed || message == TransferMessage.ExportFailed ||
+            message == TransferMessage.DatabaseImportFailed || message == TransferMessage.DatabaseExportFailed
+        snackbars.show(SnackbarMessage(transferMessageText(context.resources, message), duration = SnackbarDuration.Long, keep = failed))
+    }
 
     /**
      * Reads the subscriptions from [uri] and adopts them ([replace]: all other subscriptions are dropped); then the feeds are synced.
      * Imports and exports run in the app scope: otherwise, if the user left the page, it would abort mid-delete or mid-write.
      */
     fun importOpml(uri: Uri, replace: Boolean) {
-        viewModelScope.launch {
-            val result = applicationScope.async { opmlImporter.import(uri, replace) }.await()
-            _transferMessages.send(if (result != null) TransferMessage.Imported(result) else TransferMessage.ImportFailed)
+        applicationScope.launch {
+            val result = opmlImporter.import(uri, replace)
+            report(if (result != null) TransferMessage.Imported(result) else TransferMessage.ImportFailed)
         }
     }
 
@@ -568,81 +577,74 @@ class SettingsViewModel @Inject constructor(
     /**
      * Reads the database file from [uri]: missing active subscriptions, listening progress and listening time (statistics).
      * Takes a while because new feeds are synced; a second call in the meantime is ignored, also one from another page (the
-     * wizard and the settings each have their own view model, review H36).
+     * wizard and the settings each have their own view model, review H36). Job and lock belong to the app scope: leaving the page
+     * must not let a second import start while the first one still runs (review2 J61).
      */
     fun importImportData(uri: Uri) {
         if (!databaseImportRunning.compareAndSet(false, true)) return
-        viewModelScope.launch {
-            try {
-                _transferMessages.send(TransferMessage.DatabaseImportStarted)
-                // The file belongs to the job in the app scope; it cleans it up itself, even if the page goes away first.
-                val imported = applicationScope.async {
-                    // A name of its own: an import still running elsewhere keeps its file.
-                    val file = withContext(Dispatchers.IO) { File.createTempFile("import", ".db", context.cacheDir) }
-                    try {
-                        val backup = withContext(Dispatchers.IO) {
-                            context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } }
-                                ?: throw IOException("File not readable")
-                            DatabaseReader.read(file)
-                        }
-                        databaseImporter.import(backup)
-                    } finally {
-                        file.delete()
-                    }
-                }.await()
-                _transferMessages.send(TransferMessage.DatabaseImported(imported))
+        report(TransferMessage.DatabaseImportStarted)
+        applicationScope.launch {
+            // A name of its own: an import still running elsewhere keeps its file.
+            val file = withContext(Dispatchers.IO) { File.createTempFile("import", ".db", context.cacheDir) }
+            val message = try {
+                val backup = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } }
+                        ?: throw IOException("File not readable")
+                    DatabaseReader.read(file)
+                }
+                TransferMessage.DatabaseImported(databaseImporter.import(backup))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
                 Log.w(TAG, "Backup import failed", e)
-                _transferMessages.send(TransferMessage.DatabaseImportFailed)
+                TransferMessage.DatabaseImportFailed
             } catch (e: SQLException) {
                 // Not a database file, or the own storage is full while writing (`SQLiteFullException`): a message instead
                 // of ending the app, as with the export and the full backup (review2 J60).
                 Log.w(TAG, "Backup import failed", e)
-                _transferMessages.send(TransferMessage.DatabaseImportFailed)
+                TransferMessage.DatabaseImportFailed
             } finally {
+                file.delete()
                 databaseImportRunning.set(false)
             }
+            report(message)
         }
     }
 
     /** Deletes the books' listening time counted by the app; the server's numbers remain. */
     fun resetBookStats() {
-        viewModelScope.launch {
+        applicationScope.launch {
             statsRepository.resetBookStats()
-            _transferMessages.send(TransferMessage.StatsReset)
+            report(TransferMessage.StatsReset)
         }
     }
 
     /** Deletes the entire podcast statistics (counted and imported listening time). */
     fun resetPodcastStats() {
-        viewModelScope.launch {
+        applicationScope.launch {
             statsRepository.resetPodcastStats()
-            _transferMessages.send(TransferMessage.StatsReset)
+            report(TransferMessage.StatsReset)
         }
     }
 
     /** Writes subscriptions, listening progress and listening time as a database file to [uri]. */
     fun exportDatabase(uri: Uri) {
-        viewModelScope.launch {
-            val result = applicationScope.async { databaseExport.export(uri) }.await()
-            _transferMessages.send(if (result != null) TransferMessage.DatabaseExported(result) else TransferMessage.DatabaseExportFailed)
+        applicationScope.launch {
+            val result = databaseExport.export(uri)
+            report(if (result != null) TransferMessage.DatabaseExported(result) else TransferMessage.DatabaseExportFailed)
         }
     }
 
     /** Writes the subscriptions as OPML to [uri]; in the app scope, so leaving the page doesn't leave an empty file (review H12). */
     fun exportOpml(uri: Uri, title: String) {
-        viewModelScope.launch {
+        applicationScope.launch {
             val message = try {
-                applicationScope.async {
-                    val created = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now())
-                    val text = podcastRepository.exportOpml(title, created, podcastSettings.rssBridge.first().ifBlank { null })
-                    withContext(Dispatchers.IO) {
-                        context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) }
-                            ?: throw IOException("File not writable")
-                    }
-                }.await()
+                val created = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now())
+                val text = podcastRepository.exportOpml(title, created, podcastSettings.rssBridge.first().ifBlank { null })
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) }
+                        ?: throw IOException("File not writable")
+                }
                 TransferMessage.Exported
             } catch (e: CancellationException) {
                 throw e
@@ -650,7 +652,7 @@ class SettingsViewModel @Inject constructor(
                 Log.w(TAG, "OPML export failed", e)
                 TransferMessage.ExportFailed
             }
-            _transferMessages.send(message)
+            report(message)
         }
     }
 

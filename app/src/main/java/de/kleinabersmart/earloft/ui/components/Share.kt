@@ -10,6 +10,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -20,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.core.content.FileProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.ShareReceiverActivity
@@ -30,6 +32,9 @@ import de.kleinabersmart.earloft.core.data.share.ShareTarget
 import de.kleinabersmart.earloft.core.download.EpisodeDownloads
 import de.kleinabersmart.earloft.ui.snackbar.Snackbars
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
@@ -56,6 +61,16 @@ class ShareViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
     private val copying = Mutex()
+
+    private val _readyMedia = Channel<Pair<SharedMedia, String>>(Channel.BUFFERED)
+
+    /** Copies for [prepareMedia] that are ready to share, with their title; kept for the next collector after a rotation. */
+    val readyMedia: Flow<Pair<SharedMedia, String>> = _readyMedia.receiveAsFlow()
+
+    /** Like [media], in the view model's scope: turning the device while copying must not cancel it (review2 J75). */
+    fun prepareMedia(bookId: Long, title: String) {
+        viewModelScope.launch { media(bookId, title)?.let { _readyMedia.send(it to title) } }
+    }
 
     suspend fun content(target: ShareTarget): ShareContent? = repository.content(target)
 
@@ -112,10 +127,13 @@ class SharedMedia(val uri: Uri, val mimeType: String)
 fun rememberShareController(viewModel: ShareViewModel = hiltViewModel()): ShareController {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    LaunchedEffect(viewModel, context) {
+        viewModel.readyMedia.collect { (media, title) -> context.startShareMedia(media, title) }
+    }
     return remember(viewModel, context, scope) {
         ShareController(
             share = { target -> scope.launch { viewModel.content(target)?.let(context::startShare) } },
-            shareMedia = { bookId, title -> scope.launch { viewModel.media(bookId, title)?.let { context.startShareMedia(it, title) } } },
+            shareMedia = { bookId, title -> viewModel.prepareMedia(bookId, title) },
         )
     }
 }

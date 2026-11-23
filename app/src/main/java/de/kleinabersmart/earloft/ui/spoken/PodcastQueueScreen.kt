@@ -185,7 +185,8 @@ internal fun SpokenQueueList(
         is LoadState.Ready -> if (rows.isEmpty() && entries.valueOrNull.isNullOrEmpty()) EmptyHint(emptyText)
     }
     if (rows.isEmpty()) return
-    val sameDay = remember(rows) { episodesSharingDay(rows.filter { it.isEpisode }.map { it.book }) }
+    // A copy as the key: the list instance stays the same when it changes (review2 J47).
+    val sameDay = remember(rows.toList()) { episodesSharingDay(rows.filter { it.isEpisode }.map { it.book }) }
     FastScrollLazyColumn(state = listState, contentPadding = contentPadding, modifier = modifier) {
         items(rows, key = { it.book.id }) { item ->
             val id = item.book.id

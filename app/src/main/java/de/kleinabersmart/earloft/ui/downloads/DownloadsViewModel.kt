@@ -43,6 +43,8 @@ data class DownloadsUiState(
     val isFailed: Boolean = false,
     /** Downloads wait because there is not enough storage (review H7). */
     val storageShort: Boolean = false,
+    /** Bytes of the downloads in hidden areas: not shown and not removed by "Remove all", but they take up space (review2 Z17). */
+    val hiddenBytes: Long = 0,
 )
 
 @HiltViewModel
@@ -53,7 +55,7 @@ class DownloadsViewModel @Inject constructor(
     private val podcastRepository: PodcastRepository,
     private val episodeDownloads: EpisodeDownloads,
     bookProgress: BookDownloadProgress,
-    spokenSettings: SpokenSettings,
+    private val spokenSettings: SpokenSettings,
     space: DownloadSpace,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
@@ -85,10 +87,16 @@ class DownloadsViewModel @Inject constructor(
         )
     }.combine(spokenSettings.areas) { state, areas ->
         // Hidden areas (General → Areas) aren't shown in the overview; "used" still counts everything.
+        val bookBytes = state.books.sumOf { it.download.bytes }
+        val podcastBytes = state.podcasts.sumOf { it.bytes }
+        val musicBytes = state.overview.usedBytes - bookBytes - podcastBytes
         state.copy(
             albums = state.albums.takeIf { SpokenMode.MUSIC in areas }.orEmpty(),
             books = state.books.takeIf { SpokenMode.BOOKS in areas }.orEmpty(),
             podcasts = state.podcasts.takeIf { SpokenMode.PODCASTS in areas }.orEmpty(),
+            hiddenBytes = (if (SpokenMode.MUSIC in areas) 0 else musicBytes) +
+                (if (SpokenMode.BOOKS in areas) 0 else bookBytes) +
+                (if (SpokenMode.PODCASTS in areas) 0 else podcastBytes),
         )
     }.combine(space.isShort) { state, short -> state.copy(storageShort = short) }
         .orOnError(DownloadsUiState(isLoading = false, isFailed = true))
@@ -128,9 +136,13 @@ class DownloadsViewModel @Inject constructor(
         act { episodeDownloads.removeAll() }
     }
 
+    /** Only the areas shown: what one doesn't see shouldn't go with one tap; a hidden area is not given up (review2 Z17). */
     fun removeAll() {
-        removeAllMusic()
-        removeAllBooks()
-        removeAllPodcasts()
+        act {
+            val areas = spokenSettings.areas.first()
+            if (SpokenMode.MUSIC in areas) removeAllMusic()
+            if (SpokenMode.BOOKS in areas) removeAllBooks()
+            if (SpokenMode.PODCASTS in areas) removeAllPodcasts()
+        }
     }
 }

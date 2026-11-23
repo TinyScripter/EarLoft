@@ -69,6 +69,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
@@ -297,7 +298,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
 
     /**
      * The playing time of a book or episode: measured at start, on pause, on seeking and on speed changes
-     * ([measured]); in between it keeps running every second.
+     * ([measured]); in between it moves on every [TICK_INTERVAL_MS] of real time.
      */
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     private fun clockUpdates(nowPlaying: NowPlaying?): Flow<BookClock?> {
@@ -425,6 +426,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
             )
         }
         NowPlayingWidget().updateAll(context)
+        revokeUnusedCovers()
     }
 
     /**
@@ -476,8 +478,24 @@ class NowPlayingWidgetUpdater @Inject constructor(
             ?: return
         try {
             context.grantUriPermission(home, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            grantedCovers[uri] = home
         } catch (e: RuntimeException) {
             Log.w(TAG, "Cover not granted to $home", e)
+        }
+    }
+
+    /** Covers granted by [grantCoverAccess], with the launcher, so that those no longer shown are taken back (review2 J87). */
+    private val grantedCovers = ConcurrentHashMap<Uri, String>()
+
+    private fun revokeUnusedCovers() {
+        val shown = _state.value.entries.values.mapNotNullTo(HashSet()) { it.coverUri }
+        grantedCovers.keys.filter { it !in shown }.forEach { uri ->
+            val home = grantedCovers.remove(uri) ?: return@forEach
+            try {
+                context.revokeUriPermission(home, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (e: RuntimeException) {
+                Log.w(TAG, "Cover not revoked from $home", e)
+            }
         }
     }
 

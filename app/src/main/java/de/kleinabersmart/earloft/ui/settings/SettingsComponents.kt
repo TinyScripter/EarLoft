@@ -53,6 +53,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.kleinabersmart.earloft.R
@@ -183,10 +184,13 @@ internal fun PreAmpRow(preAmpDb: Float, enabled: Boolean, onPreAmpChange: (Float
         supportingContent = {
             Column {
                 Text(stringResource(R.string.settings_pre_amp_summary))
+                val shown = stringResource(R.string.settings_pre_amp_value, value)
                 Slider(
                     value = value,
                     onValueChange = { value = it },
                     onValueChangeFinished = { onPreAmpChange(value) },
+                    // TalkBack reads the decibels, not a percentage of the range (review2 J97).
+                    modifier = Modifier.semantics { stateDescription = shown },
                     valueRange = ReplayGainSettings.MIN_PRE_AMP_DB..ReplayGainSettings.MAX_PRE_AMP_DB,
                     steps = (ReplayGainSettings.MAX_PRE_AMP_DB - ReplayGainSettings.MIN_PRE_AMP_DB).toInt() - 1,
                     enabled = enabled,
@@ -207,7 +211,8 @@ private fun ServerRowActions(name: String, enabled: Boolean, syncLabel: String, 
     Row {
         if (enabled) {
             IconButton(onClick = onSyncNow) {
-                Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = syncLabel)
+                // With the server's name, like the switch: several rows otherwise all read "Sync now" (review2 J97).
+                Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.action_for_item, syncLabel, name))
             }
         }
         Switch(
@@ -239,12 +244,15 @@ internal fun ServerRow(
         headlineContent = { Text(server.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
             Column {
+                val account = server.username
+                val address = server.baseUrl
                 Text(
-                    listOfNotNull(server.username, server.baseUrl).joinToString(" @ "),
+                    if (account != null && address != null) stringResource(R.string.server_account_at_address, account, address) else account ?: address.orEmpty(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                val isError = item.passwordLost || item.error != null
+                // A switched-off server is not an error, as in the book server rows (review2 J64).
+                val isError = server.enabled && (item.passwordLost || item.error != null)
                 val status = when {
                     !server.enabled -> stringResource(R.string.server_disabled)
                     item.passwordLost -> stringResource(R.string.server_password_lost)

@@ -118,13 +118,20 @@
     <string name="mini_player_hide">Skrýt minipřehrávač</string>
     <string name="mini_player_hidden">Minipřehrávač je skrytý. Znovu se objeví, jakmile začne přehrávání.</string>
     <string name="action_undo">Vrátit zpět</string>
+    <string name="duration_hours_minutes">%1$d\u00A0h\u00A0%2$d\u00A0min</string>
+    <string name="duration_minutes">%1$d\u00A0min</string>
+    <string name="duration_seconds">%1$d\u00A0s</string>
+    <string name="episode_number_short">#%1$d</string>
+    <string name="count_more_than">%1$d+</string>
+    <string name="server_account_at_address">%1$s @ %2$s</string>
+    <string name="settings_backup_counts">%1$s, %2$s, %3$s</string>
     <string name="player_open_queue">Otevřít frontu</string>
     <string name="player_close">Zavřít přehrávač</string>
     <string name="player_show_lyrics">Zobrazit text</string>
     <string name="player_hide_lyrics">Zobrazit obal</string>
     <string name="lyrics_none">Text není k dispozici</string>
     <string name="lyrics_unavailable">Text se nepodařilo načíst.</string>
-    <string name="lyrics_retry">Zkusit znovu</string>
+    <string name="action_retry">Zkusit znovu</string>
     <string name="lyrics_source_lrclib">Text z LRCLIB</string>
     <string name="player_shuffle_on">Náhodné pořadí zapnuto</string>
     <string name="player_shuffle_off">Náhodné pořadí vypnuto</string>
@@ -189,6 +196,10 @@
     <string name="settings_general_summary">Stahování, vzhled, záloha, sekce</string>
     <string name="settings_music">Hudba</string>
     <string name="settings_music_summary_local">%1$s · místní hudba</string>
+    <string name="settings_books_on_device">knihy v zařízení</string>
+    <string name="summary_joined">%1$s · %2$s</string>
+    <string name="new_content_text">%1$s %2$s</string>
+    <string name="action_for_item">%1$s: %2$s</string>
     <string name="settings_audiobooks">Knihy</string>
     <string name="settings_about_summary">Verze, licence, ochrana soukromí</string>
     <plurals name="settings_server_count">
@@ -445,6 +456,8 @@
     <string name="downloads_remove_all">Odstranit všechny stažené soubory</string>
     <string name="downloads_remove_all_title">Odstranit všechny stažené soubory?</string>
     <string name="downloads_remove_all_text">Všechny stažené soubory budou smazány. Knihovna zůstane zachována.</string>
+    <string name="downloads_remove_all_text_shown">Stažené soubory zde zobrazených sekcí budou smazány. Soubory skrytých sekcí a knihovna zůstanou.</string>
+    <string name="downloads_hidden_areas">Dalších %1$s ve skrytých sekcích</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d z %2$d skladby · %3$s</item>
         <item quantity="few">%1$d z %2$d skladeb · %3$s</item>
@@ -579,6 +592,12 @@
     <string name="watch_status_limit">Limit: %s</string>
     <string name="watch_status_none">Hodinky zatím nic nenahlásily</string>
     <string name="watch_status_error">Poslední chyba: %s</string>
+    <string name="watch_error_server_via_phone">Server je nedostupný, doručí telefon</string>
+    <string name="watch_error_server_refused_via_phone">Server nic nedodal, doručí telefon</string>
+    <string name="watch_error_server_no_phone_copy">Server je nedostupný, telefon nemá kopii</string>
+    <string name="watch_error_phone_no_copy">Telefon nemá kopii</string>
+    <string name="watch_error_storage_full">Úložiště hodinek je plné</string>
+    <string name="watch_error_phone_unreachable">Telefon není dostupný</string>
     <string name="watch_selection_progress" tools:ignore="PluralsCandidate">%1$s · nahráno %2$d z %3$d</string>
     <plurals name="watch_status_missing">
         <item quantity="one">Úložiště hodinek je plné – chybí %d skladba</item>
@@ -982,7 +1001,7 @@
     <string name="book_library_all">Všechny knihovny</string>
     <string name="settings_book_buttons">Tlačítka v oznámení a v autě</string>
     <string name="settings_book_buttons_summary">Android v kompaktním oznámení a v Android Auto zobrazuje jen tři tlačítka. Knihy bez kapitol vždy přeskakují o čas.</string>
-    <string name="settings_book_buttons_seek">Přeskočit (−%1$d s / +%2$d s)</string>
+    <string name="settings_book_buttons_seek">Přeskočit (−%1$s / +%2$s)</string>
     <string name="settings_book_buttons_chapters">Předchozí a další kapitola</string>
     <string name="spoken_abs_libraries">Knihovny</string>
     <string name="episode_delete_download">Smazat stažený soubor</string>

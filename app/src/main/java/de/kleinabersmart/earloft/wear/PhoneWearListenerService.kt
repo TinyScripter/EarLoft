@@ -35,6 +35,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearThumbnailFile
 import de.kleinabersmart.earloft.core.wearsync.payloadOrNull
 import de.kleinabersmart.earloft.core.wearsync.sendFile
 import de.kleinabersmart.earloft.core.wearsync.sendPayload
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
@@ -153,12 +154,20 @@ class PhoneWearListenerService : WearableListenerService() {
             val bookTrack = WearBookFile.parse(sourceUid)
             val cover = WearCoverFile.parse(sourceUid)
             val thumbnail = WearThumbnailFile.parse(sourceUid)
-            val file = when {
-                episode != null -> fileLocator.openEpisode(episode.first, episode.second)
-                bookTrack != null -> fileLocator.openBookTrack(bookTrack.serverId, bookTrack.remoteId, bookTrack.trackIndex)
-                cover != null -> fileLocator.openCover(cover.first, cover.second)
-                thumbnail != null -> thumbnails.open(thumbnail)?.let { PhoneFile(it.size.toLong(), ByteArrayInputStream(it)) }
-                else -> fileLocator.open(sourceUid)
+            val file = try {
+                when {
+                    episode != null -> fileLocator.openEpisode(episode.first, episode.second)
+                    bookTrack != null -> fileLocator.openBookTrack(bookTrack.serverId, bookTrack.remoteId, bookTrack.trackIndex)
+                    cover != null -> fileLocator.openCover(cover.first, cover.second)
+                    thumbnail != null -> thumbnails.open(thumbnail)?.let { PhoneFile(it.size.toLong(), ByteArrayInputStream(it)) }
+                    else -> fileLocator.open(sourceUid)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Answer "no file" anyway: otherwise the channel stays open and the watch waits 30 s (review2 J80).
+                Log.w(TAG, "File $sourceUid for the watch not available", e)
+                null
             }
             Log.d(TAG, "File $sourceUid for the watch: ${file?.length?.let { "$it bytes from $from" } ?: "no file"}")
             val send: suspend () -> Unit = { channelClient.sendFile(channel, file?.length ?: 0, file?.input, from) }

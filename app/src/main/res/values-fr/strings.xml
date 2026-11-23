@@ -113,13 +113,20 @@
     <string name="mini_player_hide">Masquer le mini-lecteur</string>
     <string name="mini_player_hidden">Mini-lecteur masqué. Il réapparaît à la prochaine lecture.</string>
     <string name="action_undo">Annuler</string>
+    <string name="duration_hours_minutes">%1$d\u00A0h\u00A0%2$d\u00A0min</string>
+    <string name="duration_minutes">%1$d\u00A0min</string>
+    <string name="duration_seconds">%1$d\u00A0s</string>
+    <string name="episode_number_short">nº\u00A0%1$d</string>
+    <string name="count_more_than">%1$d+</string>
+    <string name="server_account_at_address">%1$s @ %2$s</string>
+    <string name="settings_backup_counts">%1$s, %2$s, %3$s</string>
     <string name="player_open_queue">Ouvrir la file d’attente</string>
     <string name="player_close">Fermer le lecteur</string>
     <string name="player_show_lyrics">Afficher les paroles</string>
     <string name="player_hide_lyrics">Afficher la pochette</string>
     <string name="lyrics_none">Paroles non disponibles</string>
     <string name="lyrics_unavailable">Impossible de charger les paroles.</string>
-    <string name="lyrics_retry">Réessayer</string>
+    <string name="action_retry">Réessayer</string>
     <string name="lyrics_source_lrclib">Paroles fournies par LRCLIB</string>
     <string name="player_shuffle_on">Lecture aléatoire activée</string>
     <string name="player_shuffle_off">Lecture aléatoire désactivée</string>
@@ -180,6 +187,10 @@
     <string name="settings_general_summary">Téléchargements, apparence, sauvegarde, sections</string>
     <string name="settings_music">Musique</string>
     <string name="settings_music_summary_local">%1$s · musique locale</string>
+    <string name="settings_books_on_device">livres sur l’appareil</string>
+    <string name="summary_joined">%1$s · %2$s</string>
+    <string name="new_content_text">%1$s %2$s</string>
+    <string name="action_for_item">%1$s: %2$s</string>
     <string name="settings_audiobooks">Livres</string>
     <string name="settings_about_summary">Version, licences, confidentialité</string>
     <plurals name="settings_server_count">
@@ -423,6 +434,8 @@
     <string name="downloads_remove_all">Supprimer tous les téléchargements</string>
     <string name="downloads_remove_all_title">Supprimer tous les téléchargements ?</string>
     <string name="downloads_remove_all_text">Tous les fichiers téléchargés seront supprimés. La bibliothèque est conservée.</string>
+    <string name="downloads_remove_all_text_shown">Les fichiers téléchargés des sections affichées ici seront supprimés. Ceux des sections masquées et la bibliothèque sont conservés.</string>
+    <string name="downloads_hidden_areas">Encore %1$s dans des sections masquées</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d morceau sur %2$d · %3$s</item>
         <item quantity="many">%1$d morceaux sur %2$d · %3$s</item>
@@ -554,6 +567,12 @@
     <string name="watch_status_limit">Limite : %s</string>
     <string name="watch_status_none">Aucune information de la montre pour l’instant</string>
     <string name="watch_status_error">Dernière erreur : %s</string>
+    <string name="watch_error_server_via_phone">Serveur inaccessible, le téléphone prend le relais</string>
+    <string name="watch_error_server_refused_via_phone">Le serveur n’a rien envoyé, le téléphone prend le relais</string>
+    <string name="watch_error_server_no_phone_copy">Serveur inaccessible, aucune copie sur le téléphone</string>
+    <string name="watch_error_phone_no_copy">Aucune copie sur le téléphone</string>
+    <string name="watch_error_storage_full">L’espace de stockage de la montre est plein</string>
+    <string name="watch_error_phone_unreachable">Téléphone inaccessible</string>
     <string name="watch_selection_progress" tools:ignore="PluralsCandidate">%1$s · chargé : %2$d sur %3$d</string>
     <plurals name="watch_status_missing">
         <item quantity="one">Stockage de la montre plein – %d morceau manquant</item>
@@ -945,7 +964,7 @@
     <string name="book_library_all">Toutes les bibliothèques</string>
     <string name="settings_book_buttons">Boutons de la notification et de la voiture</string>
     <string name="settings_book_buttons_summary">Android n’affiche que trois boutons dans la notification réduite et dans Android Auto. Pour les livres sans chapitres, les boutons font toujours un saut.</string>
-    <string name="settings_book_buttons_seek">Sauter (−%1$d s / +%2$d s)</string>
+    <string name="settings_book_buttons_seek">Sauter (−%1$s / +%2$s)</string>
     <string name="settings_book_buttons_chapters">Chapitre précédent et suivant</string>
     <string name="spoken_abs_libraries">Bibliothèques</string>
     <string name="episode_delete_download">Supprimer le téléchargement</string>

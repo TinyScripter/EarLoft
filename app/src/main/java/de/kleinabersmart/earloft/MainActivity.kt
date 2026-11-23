@@ -107,7 +107,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.dropUnreadableExtras()
-        if (intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)) openNowPlaying = true
+        if (intent.safeBooleanExtra(EXTRA_OPEN_NOW_PLAYING)) openNowPlaying = true
         playFromSearch(intent)
         playNewEpisode(intent)
         openSharedFeed(intent)
@@ -147,7 +147,7 @@ class MainActivity : ComponentActivity() {
     private fun openSharedFeed(intent: Intent) {
         val address = when (intent.action) {
             // EXTRA_TEXT is a CharSequence; formatted text (Spanned) would arrive as null via getStringExtra.
-            Intent.ACTION_SEND -> intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.let(IncomingFeed::fromText)
+            Intent.ACTION_SEND -> intent.safeCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.let(IncomingFeed::fromText)
             Intent.ACTION_VIEW -> intent.dataString?.let(IncomingFeed::fromLink)
             else -> null
         }
@@ -160,7 +160,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun playFromSearch(intent: Intent) {
         if (intent.action != MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH) return
-        val query = intent.getStringExtra(SearchManager.QUERY).orEmpty()
+        val query = intent.safeStringExtra(SearchManager.QUERY).orEmpty()
         lifecycleScope.launch {
             if (playbackConnection.playFromSearch(query)) {
                 openNowPlaying = true
@@ -194,7 +194,7 @@ class MainActivity : ComponentActivity() {
         // From "Recents" the system redelivers the intent of the first start (play, voice search, shared
         // link); but that job was already done and must not run again.
         if (savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0) {
-            openNowPlaying = intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)
+            openNowPlaying = intent.safeBooleanExtra(EXTRA_OPEN_NOW_PLAYING)
             playFromSearch(intent)
             playNewEpisode(intent)
             openSharedFeed(intent)

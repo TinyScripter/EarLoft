@@ -108,13 +108,20 @@
     <string name="mini_player_hide">Piilota minisoitin</string>
     <string name="mini_player_hidden">Minisoitin piilotettu. Se palaa, kun toisto alkaa.</string>
     <string name="action_undo">Kumoa</string>
+    <string name="duration_hours_minutes">%1$d\u00A0t\u00A0%2$d\u00A0min</string>
+    <string name="duration_minutes">%1$d\u00A0min</string>
+    <string name="duration_seconds">%1$d\u00A0s</string>
+    <string name="episode_number_short">#%1$d</string>
+    <string name="count_more_than">%1$d+</string>
+    <string name="server_account_at_address">%1$s @ %2$s</string>
+    <string name="settings_backup_counts">%1$s, %2$s, %3$s</string>
     <string name="player_open_queue">Avaa jono</string>
     <string name="player_close">Sulje soitin</string>
     <string name="player_show_lyrics">Näytä sanat</string>
     <string name="player_hide_lyrics">Näytä kansikuva</string>
     <string name="lyrics_none">Sanoja ei ole saatavilla</string>
     <string name="lyrics_unavailable">Sanoja ei voitu ladata.</string>
-    <string name="lyrics_retry">Yritä uudelleen</string>
+    <string name="action_retry">Yritä uudelleen</string>
     <string name="lyrics_source_lrclib">Sanat: LRCLIB</string>
     <string name="player_shuffle_on">Satunnaistoisto päällä</string>
     <string name="player_shuffle_off">Satunnaistoisto pois</string>
@@ -171,6 +178,10 @@
     <string name="settings_general_summary">Lataukset, ulkoasu, varmuuskopio, osiot</string>
     <string name="settings_music">Musiikki</string>
     <string name="settings_music_summary_local">%1$s · paikallinen musiikki</string>
+    <string name="settings_books_on_device">kirjat laitteella</string>
+    <string name="summary_joined">%1$s · %2$s</string>
+    <string name="new_content_text">%1$s %2$s</string>
+    <string name="action_for_item">%1$s: %2$s</string>
     <string name="settings_audiobooks">Kirjat</string>
     <string name="settings_about_summary">Versio, lisenssit, tietosuoja</string>
     <plurals name="settings_server_count">
@@ -401,6 +412,8 @@
     <string name="downloads_remove_all">Poista kaikki lataukset</string>
     <string name="downloads_remove_all_title">Poistetaanko kaikki lataukset?</string>
     <string name="downloads_remove_all_text">Kaikki ladatut tiedostot poistetaan. Kirjasto säilyy.</string>
+    <string name="downloads_remove_all_text_shown">Tässä näkyvien osioiden ladatut tiedostot poistetaan. Piilotettujen osioiden tiedostot ja kirjasto säilyvät.</string>
+    <string name="downloads_hidden_areas">Lisäksi %1$s piilotetuissa osioissa</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d/%2$d kappale · %3$s</item>
         <item quantity="other">%1$d/%2$d kappaletta · %3$s</item>
@@ -529,6 +542,12 @@
     <string name="watch_status_limit">Raja: %s</string>
     <string name="watch_status_none">Kellolta ei ole vielä tilatietoja</string>
     <string name="watch_status_error">Viimeisin virhe: %s</string>
+    <string name="watch_error_server_via_phone">Palvelimeen ei saada yhteyttä, puhelin toimittaa</string>
+    <string name="watch_error_server_refused_via_phone">Palvelin ei toimittanut, puhelin toimittaa</string>
+    <string name="watch_error_server_no_phone_copy">Palvelimeen ei saada yhteyttä, puhelimessa ei ole kopiota</string>
+    <string name="watch_error_phone_no_copy">Puhelimessa ei ole kopiota</string>
+    <string name="watch_error_storage_full">Kellon tallennustila on täynnä</string>
+    <string name="watch_error_phone_unreachable">Puhelimeen ei saada yhteyttä</string>
     <string name="watch_selection_progress" tools:ignore="PluralsCandidate">%1$s · siirretty %2$d/%3$d</string>
     <plurals name="watch_status_missing">
         <item quantity="one">Kellon tallennustila täynnä – %d raita puuttuu</item>
@@ -908,7 +927,7 @@
     <string name="book_library_all">Kaikki kirjastot</string>
     <string name="settings_book_buttons">Ilmoituksen ja auton painikkeet</string>
     <string name="settings_book_buttons_summary">Android näyttää tiivistetyssä ilmoituksessa ja Android Autossa vain kolme painiketta. Kirjoissa, joissa ei ole lukuja, painikkeet hyppäävät aina.</string>
-    <string name="settings_book_buttons_seek">Hyppäys (−%1$d s / +%2$d s)</string>
+    <string name="settings_book_buttons_seek">Hyppäys (−%1$s / +%2$s)</string>
     <string name="settings_book_buttons_chapters">Edellinen ja seuraava luku</string>
     <string name="spoken_abs_libraries">Kirjastot</string>
     <string name="episode_delete_download">Poista lataus</string>

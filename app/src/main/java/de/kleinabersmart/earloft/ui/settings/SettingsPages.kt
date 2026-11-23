@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.settings
 
+import android.content.res.Resources
 import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.spoken.AudiobookshelfViewModel
@@ -49,6 +50,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -98,15 +101,17 @@ private fun CustomAlbumCount(initial: Int, onApply: (Int) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
         Text(stringResource(R.string.settings_auto_download_albums_custom), style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            val shown = pluralStringResource(R.plurals.album_count, count.roundToInt(), count.roundToInt())
             Slider(
                 value = count,
                 // Snap to whole steps (the slider returns intermediate values).
                 onValueChange = { count = (it / step).roundToInt() * step.toFloat() },
                 valueRange = step.toFloat()..max.toFloat(),
                 steps = max / step - 2,
-                modifier = Modifier.weight(1f),
+                // TalkBack reads the number of albums, not a percentage (review2 J97).
+                modifier = Modifier.weight(1f).semantics { stateDescription = shown },
             )
-            Text(pluralStringResource(R.plurals.album_count, count.roundToInt(), count.roundToInt()))
+            Text(shown)
         }
         Button(onClick = { onApply(count.roundToInt()) }, modifier = Modifier.align(Alignment.End)) {
             Text(stringResource(R.string.settings_auto_download_albums_apply))
@@ -129,34 +134,24 @@ private fun RefreshRow(title: String, onClick: () -> Unit) {
     )
 }
 
-/** The messages of [viewModel]'s imports, exports and resets as a snackbar (Settings → Podcasts and Books, setup wizard). */
-@Composable
-fun TransferMessagesEffect(viewModel: SettingsViewModel) {
-    val snackbars = LocalSnackbars.current
-    val resources = LocalResources.current
-    LaunchedEffect(viewModel) {
-        viewModel.transferMessages.collect { message ->
-            val text = when (message) {
-                is TransferMessage.Imported -> opmlImportMessage(resources, message.result)
-                TransferMessage.ImportFailed -> opmlImportMessage(resources, null)
-                TransferMessage.Exported -> resources.getString(R.string.settings_opml_exported)
-                TransferMessage.ExportFailed -> resources.getString(R.string.settings_opml_export_failed)
-                TransferMessage.DatabaseImportStarted -> resources.getString(R.string.settings_db_import_started)
-                is TransferMessage.DatabaseImported -> resources.getString(
-                    R.string.settings_db_import_imported,
-                    resources.getQuantityString(R.plurals.count_podcasts, message.result.feedsAdded, message.result.feedsAdded),
-                    resources.getQuantityString(R.plurals.count_episodes, message.result.progressApplied, message.result.progressApplied),
-                    message.result.progressKept + message.result.progressMissing,
-                    resources.getQuantityString(R.plurals.count_episodes, message.result.statsImported, message.result.statsImported),
-                )
-                is TransferMessage.DatabaseExported -> databaseExportMessage(resources, message.result)
-                TransferMessage.DatabaseExportFailed -> databaseExportMessage(resources, null)
-                TransferMessage.StatsReset -> resources.getString(R.string.settings_stats_reset_done)
-                TransferMessage.DatabaseImportFailed -> resources.getString(R.string.settings_db_import_failed)
-            }
-            snackbars.show(text, SnackbarDuration.Long)
-        }
-    }
+/** Text of [message] for the snackbar (see `SettingsViewModel.report`). */
+fun transferMessageText(resources: Resources, message: TransferMessage): String = when (message) {
+    is TransferMessage.Imported -> opmlImportMessage(resources, message.result)
+    TransferMessage.ImportFailed -> opmlImportMessage(resources, null)
+    TransferMessage.Exported -> resources.getString(R.string.settings_opml_exported)
+    TransferMessage.ExportFailed -> resources.getString(R.string.settings_opml_export_failed)
+    TransferMessage.DatabaseImportStarted -> resources.getString(R.string.settings_db_import_started)
+    is TransferMessage.DatabaseImported -> resources.getString(
+        R.string.settings_db_import_imported,
+        resources.getQuantityString(R.plurals.count_podcasts, message.result.feedsAdded, message.result.feedsAdded),
+        resources.getQuantityString(R.plurals.count_episodes, message.result.progressApplied, message.result.progressApplied),
+        message.result.progressKept + message.result.progressMissing,
+        resources.getQuantityString(R.plurals.count_episodes, message.result.statsImported, message.result.statsImported),
+    )
+    is TransferMessage.DatabaseExported -> databaseExportMessage(resources, message.result)
+    TransferMessage.DatabaseExportFailed -> databaseExportMessage(resources, null)
+    TransferMessage.StatsReset -> resources.getString(R.string.settings_stats_reset_done)
+    TransferMessage.DatabaseImportFailed -> resources.getString(R.string.settings_db_import_failed)
 }
 
 /** What applies to all areas: downloads, appearance, sync, backup, areas, setup. */
@@ -176,7 +171,6 @@ fun GeneralSettingsScreen(
         if (uri != null) backupViewModel.export(uri)
     }
     val importBackup = rememberFullBackupImport(backupViewModel)
-    FullBackupMessagesEffect(backupViewModel)
 
     SettingsPage(stringResource(R.string.settings_general), onBack, modifier) {
         group("downloads", R.string.nav_downloads) {
@@ -617,7 +611,6 @@ fun PodcastsSettingsScreen(
         if (uri != null) viewModel.exportOpml(uri, exportName)
     }
     val snackbars = LocalSnackbars.current
-    TransferMessagesEffect(viewModel)
 
     // The problematic subscriptions only arrive with the database; otherwise the list would keep the row that was first until then anchored, and
     // they would sit above the visible start.
@@ -1062,7 +1055,6 @@ fun AudiobookSettingsScreen(
     val folderRejectedText = stringResource(R.string.settings_local_books_folder_wrong)
     LaunchedEffect(Unit) { viewModel.folderRejected.collect { snackbars.show(folderRejectedText, SnackbarDuration.Long) } }
     // "Statistics reset" after resetting the book statistics, as on the podcast page (review H35).
-    TransferMessagesEffect(viewModel)
 
     SettingsPage(stringResource(R.string.settings_audiobooks), onBack, modifier) {
         group("sources", R.string.settings_section_sources) {
@@ -1299,6 +1291,7 @@ fun AudiobookSettingsScreen(
 /** "Skip (−10 s / +30 s)" or "Previous and next chapter". */
 @Composable
 private fun bookButtonsLabel(buttons: BookButtons, seek: SeekSteps): String = when (buttons) {
-    BookButtons.SEEK -> stringResource(R.string.settings_book_buttons_seek, seek.backSeconds, seek.forwardSeconds)
+    // Steps of a minute read "1 min" as in the rows of the steps themselves (review2 J66).
+    BookButtons.SEEK -> stringResource(R.string.settings_book_buttons_seek, resumeSecondsLabel(seek.backSeconds), resumeSecondsLabel(seek.forwardSeconds))
     BookButtons.CHAPTERS -> stringResource(R.string.settings_book_buttons_chapters)
 }

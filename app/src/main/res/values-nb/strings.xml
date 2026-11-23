@@ -108,13 +108,20 @@
     <string name="mini_player_hide">Skjul minispilleren</string>
     <string name="mini_player_hidden">Minispilleren er skjult. Den kommer tilbake når avspillingen starter.</string>
     <string name="action_undo">Angre</string>
+    <string name="duration_hours_minutes">%1$d\u00A0h\u00A0%2$d\u00A0min</string>
+    <string name="duration_minutes">%1$d\u00A0min</string>
+    <string name="duration_seconds">%1$d\u00A0s</string>
+    <string name="episode_number_short">#%1$d</string>
+    <string name="count_more_than">%1$d+</string>
+    <string name="server_account_at_address">%1$s @ %2$s</string>
+    <string name="settings_backup_counts">%1$s, %2$s, %3$s</string>
     <string name="player_open_queue">Åpne køen</string>
     <string name="player_close">Lukk spilleren</string>
     <string name="player_show_lyrics">Vis sangtekst</string>
     <string name="player_hide_lyrics">Vis omslag</string>
     <string name="lyrics_none">Ingen sangtekst tilgjengelig</string>
     <string name="lyrics_unavailable">Sangteksten kunne ikke lastes inn.</string>
-    <string name="lyrics_retry">Prøv igjen</string>
+    <string name="action_retry">Prøv igjen</string>
     <string name="lyrics_source_lrclib">Sangtekst fra LRCLIB</string>
     <string name="player_shuffle_on">Tilfeldig rekkefølge på</string>
     <string name="player_shuffle_off">Tilfeldig rekkefølge av</string>
@@ -171,6 +178,10 @@
     <string name="settings_general_summary">Nedlastinger, utseende, sikkerhetskopi, områder</string>
     <string name="settings_music">Musikk</string>
     <string name="settings_music_summary_local">%1$s · lokal musikk</string>
+    <string name="settings_books_on_device">bøker på enheten</string>
+    <string name="summary_joined">%1$s · %2$s</string>
+    <string name="new_content_text">%1$s %2$s</string>
+    <string name="action_for_item">%1$s: %2$s</string>
     <string name="settings_audiobooks">Bøker</string>
     <string name="settings_about_summary">Versjon, lisenser, personvern</string>
     <plurals name="settings_server_count">
@@ -401,6 +412,8 @@
     <string name="downloads_remove_all">Fjern alle nedlastinger</string>
     <string name="downloads_remove_all_title">Vil du fjerne alle nedlastinger?</string>
     <string name="downloads_remove_all_text">Alle nedlastede filer slettes. Biblioteket beholdes.</string>
+    <string name="downloads_remove_all_text_shown">De nedlastede filene fra områdene som vises her, slettes. Filene fra skjulte områder og biblioteket beholdes.</string>
+    <string name="downloads_hidden_areas">Ytterligere %1$s i skjulte områder</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d av %2$d sang · %3$s</item>
         <item quantity="other">%1$d av %2$d sanger · %3$s</item>
@@ -529,6 +542,12 @@
     <string name="watch_status_limit">Grense: %s</string>
     <string name="watch_status_none">Ingen melding fra klokken ennå</string>
     <string name="watch_status_error">Siste feil: %s</string>
+    <string name="watch_error_server_via_phone">Serveren kan ikke nås, telefonen leverer</string>
+    <string name="watch_error_server_refused_via_phone">Serveren leverte ikke, telefonen leverer</string>
+    <string name="watch_error_server_no_phone_copy">Serveren kan ikke nås, telefonen har ingen kopi</string>
+    <string name="watch_error_phone_no_copy">Telefonen har ingen kopi</string>
+    <string name="watch_error_storage_full">Lagringsplassen på klokken er full</string>
+    <string name="watch_error_phone_unreachable">Telefonen kan ikke nås</string>
     <string name="watch_selection_progress" tools:ignore="PluralsCandidate">%1$s · %2$d av %3$d lastet inn</string>
     <plurals name="watch_status_missing">
         <item quantity="one">Lagringsplassen på klokken er full – %d spor mangler</item>
@@ -908,7 +927,7 @@
     <string name="book_library_all">Alle biblioteker</string>
     <string name="settings_book_buttons">Knapper i varsel og bil</string>
     <string name="settings_book_buttons_summary">Android viser bare tre knapper i det kompakte varselet og i Android Auto. Bøker uten kapitler hopper alltid.</string>
-    <string name="settings_book_buttons_seek">Hopp (−%1$d s / +%2$d s)</string>
+    <string name="settings_book_buttons_seek">Hopp (−%1$s / +%2$s)</string>
     <string name="settings_book_buttons_chapters">Forrige og neste kapittel</string>
     <string name="spoken_abs_libraries">Biblioteker</string>
     <string name="episode_delete_download">Slett nedlasting</string>

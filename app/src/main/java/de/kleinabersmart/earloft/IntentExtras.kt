@@ -19,3 +19,20 @@ internal fun Intent.dropUnreadableExtras() {
         replaceExtras(null as Bundle?)
     }
 }
+
+/**
+ * Reading single extras of a foreign intent: from API 33 [dropUnreadableExtras] no longer unpacks anything, and the targeted
+ * read of a value that is an unknown Parcelable throws (`BadParcelableException`). Then the extra counts as missing (review2 J71).
+ */
+internal fun Intent.safeBooleanExtra(name: String): Boolean = readSafely(name) { getBooleanExtra(name, false) } ?: false
+
+internal fun Intent.safeStringExtra(name: String): String? = readSafely(name) { getStringExtra(name) }
+
+internal fun Intent.safeCharSequenceExtra(name: String): CharSequence? = readSafely(name) { getCharSequenceExtra(name) }
+
+private inline fun <T> Intent.readSafely(name: String, read: () -> T): T? = try {
+    read()
+} catch (e: RuntimeException) {
+    Log.w("IntentExtras", "Extra $name of $action not readable", e)
+    null
+}

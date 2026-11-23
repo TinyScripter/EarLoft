@@ -156,11 +156,11 @@ private fun DownloadsContent(
         when {
             state.isLoading -> LoadingIndicator()
             state.isFailed -> LoadFailedHint()
-            isEmpty -> EmptyHint(stringResource(R.string.downloads_empty))
+            isEmpty && state.hiddenBytes <= 0 -> EmptyHint(stringResource(R.string.downloads_empty))
             else -> Box(Modifier.fillMaxSize()) {
                 val listState = rememberLazyListState()
                 LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
-                    item(key = "storage") { StorageLine(overview) }
+                    item(key = "storage") { StorageLine(overview, state.hiddenBytes) }
                     group("status") {
                         if (state.storageShort) row("no-room") { NoRoomRow() }
                         if (overview.pendingSongs > 0) row("pending") { PendingRow(overview) }
@@ -262,7 +262,7 @@ private fun DownloadsContent(
     if (confirmRemoveAll) {
         ConfirmDialog(
             title = stringResource(R.string.downloads_remove_all_title),
-            text = stringResource(R.string.downloads_remove_all_text),
+            text = stringResource(if (state.hiddenBytes > 0) R.string.downloads_remove_all_text_shown else R.string.downloads_remove_all_text),
             onConfirm = onRemoveAll,
             onDismiss = { confirmRemoveAll = false },
         )
@@ -270,13 +270,21 @@ private fun DownloadsContent(
 }
 
 @Composable
-private fun StorageLine(overview: DownloadOverview) {
-    Text(
-        stringResource(R.string.downloads_storage, formatBytes(overview.usedBytes), formatBytes(overview.freeBytes)),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
-    )
+private fun StorageLine(overview: DownloadOverview, hiddenBytes: Long) {
+    Column(Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp)) {
+        Text(
+            stringResource(R.string.downloads_storage, formatBytes(overview.usedBytes), formatBytes(overview.freeBytes)),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (hiddenBytes > 0) {
+            Text(
+                stringResource(R.string.downloads_hidden_areas, formatBytes(hiddenBytes)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 private const val WAITING_HINT_DELAY_MS = 3_000L

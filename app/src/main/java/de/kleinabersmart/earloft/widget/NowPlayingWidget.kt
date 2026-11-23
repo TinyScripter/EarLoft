@@ -255,7 +255,6 @@ private fun NowPlayingContent(state: WidgetState, entry: WidgetEntry?, areas: Se
                         isPrimary = false,
                         badge = if (isBook) back.toString() else null,
                     )
-                    Spacer(modifier = GlanceModifier.width(12.dp))
                 }
 
                 ControlButton(
@@ -271,7 +270,6 @@ private fun NowPlayingContent(state: WidgetState, entry: WidgetEntry?, areas: Se
                 )
 
                 if (controls != null) {
-                    Spacer(modifier = GlanceModifier.width(12.dp))
                     val isBook = controls.isBook
                     val forward = state.seekOf(controls).forwardSeconds
                     ControlButton(
@@ -300,51 +298,55 @@ private fun ControlButton(
     /** Number in the icon (skip interval in seconds for books). */
     badge: String? = null,
 ) {
-    if (isPrimary) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = GlanceModifier
-                .size(36.dp)
-                .cornerRadius(18.dp)
-                .background(GlanceTheme.colors.primary)
-                .clickable(action)
-        ) {
-            Image(
-                provider = ImageProvider(icon),
-                contentDescription = label,
-                colorFilter = ColorFilter.tint(GlanceTheme.colors.onPrimary),
-                modifier = GlanceModifier.size(20.dp)
-            )
-        }
-    } else {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = GlanceModifier
-                .size(32.dp)
-                .cornerRadius(16.dp)
-                .clickable(action)
-        ) {
-            Image(
-                provider = ImageProvider(icon),
-                contentDescription = label,
-                colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurface),
-                modifier = GlanceModifier.size(if (badge != null) 28.dp else 20.dp)
-            )
-            if (badge != null) {
-                Text(
-                    text = badge,
-                    style = TextStyle(
-                        color = GlanceTheme.colors.onSurface,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                    ),
-                    modifier = GlanceModifier.padding(top = 2.dp),
+    // A touch target of 48 dp, the visible circle inside (review2 J84); the space around it replaces the gap between the buttons.
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = GlanceModifier
+            .size(TOUCH_TARGET)
+            .cornerRadius(TOUCH_TARGET / 2)
+            .clickable(action),
+    ) {
+        if (isPrimary) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = GlanceModifier
+                    .size(36.dp)
+                    .cornerRadius(18.dp)
+                    .background(GlanceTheme.colors.primary),
+            ) {
+                Image(
+                    provider = ImageProvider(icon),
+                    contentDescription = label,
+                    colorFilter = ColorFilter.tint(GlanceTheme.colors.onPrimary),
+                    modifier = GlanceModifier.size(20.dp),
                 )
+            }
+        } else {
+            Box(contentAlignment = Alignment.Center, modifier = GlanceModifier.size(32.dp)) {
+                Image(
+                    provider = ImageProvider(icon),
+                    contentDescription = label,
+                    colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurface),
+                    modifier = GlanceModifier.size(if (badge != null) 28.dp else 20.dp),
+                )
+                if (badge != null) {
+                    Text(
+                        text = badge,
+                        style = TextStyle(
+                            color = GlanceTheme.colors.onSurface,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                        ),
+                        modifier = GlanceModifier.padding(top = 2.dp),
+                    )
+                }
             }
         }
     }
 }
+
+private val TOUCH_TARGET = 48.dp
 
 private val SUBTITLE_TEXT_SIZE = 12.sp
 private val SUBTITLE_PADDING = 2.dp
@@ -367,7 +369,7 @@ private fun Subtitle(text: String) {
  * "00:45:12 / 03:12:01" (played / total). If the book plays at 1×, a chronometer in the launcher counts up by itself, and
  * only while the widget is visible; the app sends nothing for it. Otherwise a fixed text: when paused, because a
  * stopped chronometer would recompute from its base when the launcher rebuilds it; at other speeds,
- * because it only counts in real time (then the updater resets the time every second).
+ * because it only counts in real time (then the updater sets the time every 10 s, see `NowPlayingWidgetUpdater`).
  */
 @Composable
 private fun BookClockLine(clock: BookClock) {

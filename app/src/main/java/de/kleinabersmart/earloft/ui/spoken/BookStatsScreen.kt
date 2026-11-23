@@ -107,7 +107,7 @@ fun BookStatsScreen(
             if (refresh == StatsRefresh.FAILED) {
                 item(key = "server-retry") {
                     TextButton(onClick = viewModel::retry, modifier = Modifier.padding(horizontal = GroupMargin + 4.dp)) {
-                        Text(stringResource(R.string.lyrics_retry))
+                        Text(stringResource(R.string.action_retry))
                     }
                 }
             }

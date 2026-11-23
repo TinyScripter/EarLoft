@@ -60,6 +60,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import de.kleinabersmart.earloft.core.data.spoken.LocalBooks
+import de.kleinabersmart.earloft.ui.snackbar.Snackbars
 import java.io.IOException
 import javax.inject.Inject
 
@@ -107,13 +108,14 @@ class SettingsViewModelTest {
     @Inject @ApplicationContext lateinit var context: Context
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
     @Inject lateinit var audiobookServers: AudiobookshelfServers
+    @Inject lateinit var snackbars: Snackbars
 
     private val viewModel by lazy {
         SettingsViewModel(
             serverRepository, refresher, downloadSettings, downloadRepository, syncSettings, replayGainSettings, endlessMixSettings,
             themeSettings, librarySettings, spokenSettings, podcastSettings, artworkSettings, artworkRepository,
             lyricsSettings, lyricsRepository, authorImages, registry, spokenRefresher, localBooks, podcastRefresher, podcastRepository, opmlImporter, directorySearch,
-            databaseImporter, databaseExport, statsRepository, context, applicationScope, audiobookServers, syncer,
+            databaseImporter, databaseExport, statsRepository, context, applicationScope, snackbars, audiobookServers, syncer,
         )
     }
 

@@ -118,13 +118,20 @@
     <string name="mini_player_hide">Ukryj miniodtwarzacz</string>
     <string name="mini_player_hidden">Miniodtwarzacz ukryty. Wróci, gdy rozpocznie się odtwarzanie.</string>
     <string name="action_undo">Cofnij</string>
+    <string name="duration_hours_minutes">%1$d\u00A0h\u00A0%2$d\u00A0min</string>
+    <string name="duration_minutes">%1$d\u00A0min</string>
+    <string name="duration_seconds">%1$d\u00A0s</string>
+    <string name="episode_number_short">#%1$d</string>
+    <string name="count_more_than">%1$d+</string>
+    <string name="server_account_at_address">%1$s @ %2$s</string>
+    <string name="settings_backup_counts">%1$s, %2$s, %3$s</string>
     <string name="player_open_queue">Otwórz kolejkę</string>
     <string name="player_close">Zamknij odtwarzacz</string>
     <string name="player_show_lyrics">Pokaż tekst</string>
     <string name="player_hide_lyrics">Pokaż okładkę</string>
     <string name="lyrics_none">Brak tekstu utworu</string>
     <string name="lyrics_unavailable">Nie udało się wczytać tekstu utworu.</string>
-    <string name="lyrics_retry">Spróbuj ponownie</string>
+    <string name="action_retry">Spróbuj ponownie</string>
     <string name="lyrics_source_lrclib">Tekst z LRCLIB</string>
     <string name="player_shuffle_on">Odtwarzanie losowe włączone</string>
     <string name="player_shuffle_off">Odtwarzanie losowe wyłączone</string>
@@ -189,6 +196,10 @@
     <string name="settings_general_summary">Pobieranie, wygląd, kopia zapasowa, sekcje</string>
     <string name="settings_music">Muzyka</string>
     <string name="settings_music_summary_local">%1$s · muzyka lokalna</string>
+    <string name="settings_books_on_device">książki na urządzeniu</string>
+    <string name="summary_joined">%1$s · %2$s</string>
+    <string name="new_content_text">%1$s %2$s</string>
+    <string name="action_for_item">%1$s: %2$s</string>
     <string name="settings_audiobooks">Książki</string>
     <string name="settings_about_summary">Wersja, licencje, prywatność</string>
     <plurals name="settings_server_count">
@@ -445,6 +456,8 @@
     <string name="downloads_remove_all">Usuń wszystkie pobrane</string>
     <string name="downloads_remove_all_title">Usunąć wszystkie pobrane?</string>
     <string name="downloads_remove_all_text">Wszystkie pobrane pliki zostaną usunięte. Biblioteka pozostanie bez zmian.</string>
+    <string name="downloads_remove_all_text_shown">Pobrane pliki widocznych tu sekcji zostaną usunięte. Pliki ukrytych sekcji i biblioteka pozostaną.</string>
+    <string name="downloads_hidden_areas">Jeszcze %1$s w ukrytych sekcjach</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d z %2$d utworu · %3$s</item>
         <item quantity="few">%1$d z %2$d utworów · %3$s</item>
@@ -579,6 +592,12 @@
     <string name="watch_status_limit">Limit: %s</string>
     <string name="watch_status_none">Brak jeszcze informacji z zegarka</string>
     <string name="watch_status_error">Ostatni błąd: %s</string>
+    <string name="watch_error_server_via_phone">Serwer nieosiągalny, dostarcza telefon</string>
+    <string name="watch_error_server_refused_via_phone">Serwer nie dostarczył pliku, dostarcza telefon</string>
+    <string name="watch_error_server_no_phone_copy">Serwer nieosiągalny, telefon nie ma kopii</string>
+    <string name="watch_error_phone_no_copy">Telefon nie ma kopii</string>
+    <string name="watch_error_storage_full">Pamięć zegarka jest pełna</string>
+    <string name="watch_error_phone_unreachable">Telefon nieosiągalny</string>
     <string name="watch_selection_progress" tools:ignore="PluralsCandidate">%1$s · wgrano %2$d z %3$d</string>
     <plurals name="watch_status_missing">
         <item quantity="one">Pamięć zegarka pełna – brakuje %d utworu</item>
@@ -982,7 +1001,7 @@
     <string name="book_library_all">Wszystkie biblioteki</string>
     <string name="settings_book_buttons">Przyciski w powiadomieniu i samochodzie</string>
     <string name="settings_book_buttons_summary">Android pokazuje tylko trzy przyciski w kompaktowym powiadomieniu i w Android Auto. W książkach bez rozdziałów przyciski zawsze przewijają.</string>
-    <string name="settings_book_buttons_seek">Przewijanie (−%1$d s / +%2$d s)</string>
+    <string name="settings_book_buttons_seek">Przewijanie (−%1$s / +%2$s)</string>
     <string name="settings_book_buttons_chapters">Poprzedni i następny rozdział</string>
     <string name="spoken_abs_libraries">Biblioteki</string>
     <string name="episode_delete_download">Usuń pobrany plik</string>

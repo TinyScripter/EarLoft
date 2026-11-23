@@ -23,7 +23,7 @@ import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 /**
  * "Restore backup" (Settings → General and setup wizard): pick a file, confirm (the
  * settings are replaced), restore. Returns the call that opens the file picker. Errors are reported by
- * [FullBackupMessagesEffect], the result by `RestoreNoticeEffect` at the root.
+ * the view model via the app-wide snackbars, the result by `RestoreNoticeEffect` at the root.
  */
 @Composable
 fun rememberFullBackupImport(viewModel: FullBackupViewModel): () -> Unit {
@@ -49,14 +49,4 @@ fun rememberFullBackupImport(viewModel: FullBackupViewModel): () -> Unit {
         )
     }
     return { launcher.launchOrHint(arrayOf("*/*"), context) }
-}
-
-/** The messages of [viewModel] (backup saved or failed) as a snackbar. */
-@Composable
-fun FullBackupMessagesEffect(viewModel: FullBackupViewModel) {
-    val snackbars = LocalSnackbars.current
-    val resources = LocalResources.current
-    LaunchedEffect(viewModel) {
-        viewModel.messages.collect { snackbars.show(fullBackupMessage(resources, it), SnackbarDuration.Long) }
-    }
 }

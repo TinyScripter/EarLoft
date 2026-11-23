@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import android.content.res.Resources
 import java.util.Locale
 import java.util.Date
 import java.util.Calendar
@@ -64,6 +65,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -459,14 +461,19 @@ fun BookArt(
 }
 
 /** "5 h 12 min", "12 min", "45 s" – with non-breaking spaces, so a narrow row doesn't wrap in the middle of the duration. */
-fun formatDuration(ms: Long): String {
+@Composable
+@ReadOnlyComposable
+fun formatDuration(ms: Long): String = formatDuration(LocalResources.current, ms)
+
+/** Like [formatDuration], outside of composition; the units come from the resources (review2 J53). */
+fun formatDuration(resources: Resources, ms: Long): String {
     val totalSeconds = (ms / 1000).coerceAtLeast(0)
-    val hours = totalSeconds / 3600
-    val minutes = (totalSeconds % 3600) / 60
+    val hours = (totalSeconds / 3600).toInt()
+    val minutes = ((totalSeconds % 3600) / 60).toInt()
     return when {
-        hours > 0 -> "$hours h $minutes min"
-        minutes > 0 -> "$minutes min"
-        else -> "$totalSeconds s"
+        hours > 0 -> resources.getString(R.string.duration_hours_minutes, hours, minutes)
+        minutes > 0 -> resources.getString(R.string.duration_minutes, minutes)
+        else -> resources.getString(R.string.duration_seconds, totalSeconds.toInt())
     }
 }
 

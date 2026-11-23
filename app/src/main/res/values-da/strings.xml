@@ -108,13 +108,20 @@
     <string name="mini_player_hide">Skjul miniafspiller</string>
     <string name="mini_player_hidden">Miniafspilleren er skjult. Den vender tilbage, når afspilningen starter.</string>
     <string name="action_undo">Fortryd</string>
+    <string name="duration_hours_minutes">%1$d\u00A0h\u00A0%2$d\u00A0min</string>
+    <string name="duration_minutes">%1$d\u00A0min</string>
+    <string name="duration_seconds">%1$d\u00A0s</string>
+    <string name="episode_number_short">#%1$d</string>
+    <string name="count_more_than">%1$d+</string>
+    <string name="server_account_at_address">%1$s @ %2$s</string>
+    <string name="settings_backup_counts">%1$s, %2$s, %3$s</string>
     <string name="player_open_queue">Åbn kø</string>
     <string name="player_close">Luk afspiller</string>
     <string name="player_show_lyrics">Vis sangtekst</string>
     <string name="player_hide_lyrics">Vis cover</string>
     <string name="lyrics_none">Ingen sangtekst tilgængelig</string>
     <string name="lyrics_unavailable">Sangteksten kunne ikke indlæses.</string>
-    <string name="lyrics_retry">Prøv igen</string>
+    <string name="action_retry">Prøv igen</string>
     <string name="lyrics_source_lrclib">Sangtekst fra LRCLIB</string>
     <string name="player_shuffle_on">Bland til</string>
     <string name="player_shuffle_off">Bland fra</string>
@@ -171,6 +178,10 @@
     <string name="settings_general_summary">Downloads, udseende, backup, sektioner</string>
     <string name="settings_music">Musik</string>
     <string name="settings_music_summary_local">%1$s · lokal musik</string>
+    <string name="settings_books_on_device">bøger på enheden</string>
+    <string name="summary_joined">%1$s · %2$s</string>
+    <string name="new_content_text">%1$s %2$s</string>
+    <string name="action_for_item">%1$s: %2$s</string>
     <string name="settings_audiobooks">Bøger</string>
     <string name="settings_about_summary">Version, licenser, privatliv</string>
     <plurals name="settings_server_count">
@@ -401,6 +412,8 @@
     <string name="downloads_remove_all">Fjern alle downloads</string>
     <string name="downloads_remove_all_title">Vil du fjerne alle downloads?</string>
     <string name="downloads_remove_all_text">Alle downloadede filer slettes. Biblioteket bevares.</string>
+    <string name="downloads_remove_all_text_shown">De hentede filer fra de viste områder slettes. Filerne fra skjulte områder og biblioteket bevares.</string>
+    <string name="downloads_hidden_areas">Yderligere %1$s i skjulte områder</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d af %2$d sang · %3$s</item>
         <item quantity="other">%1$d af %2$d sange · %3$s</item>
@@ -529,6 +542,12 @@
     <string name="watch_status_limit">Grænse: %s</string>
     <string name="watch_status_none">Ingen rapport fra uret endnu</string>
     <string name="watch_status_error">Seneste fejl: %s</string>
+    <string name="watch_error_server_via_phone">Serveren kan ikke nås, telefonen leverer</string>
+    <string name="watch_error_server_refused_via_phone">Serveren leverede ikke, telefonen leverer</string>
+    <string name="watch_error_server_no_phone_copy">Serveren kan ikke nås, telefonen har ingen kopi</string>
+    <string name="watch_error_phone_no_copy">Telefonen har ingen kopi</string>
+    <string name="watch_error_storage_full">Urets lagerplads er fuld</string>
+    <string name="watch_error_phone_unreachable">Telefonen kan ikke nås</string>
     <string name="watch_selection_progress" tools:ignore="PluralsCandidate">%1$s · overført: %2$d af %3$d</string>
     <plurals name="watch_status_missing">
         <item quantity="one">Urets lagerplads er fuld – %d nummer mangler</item>
@@ -908,7 +927,7 @@
     <string name="book_library_all">Alle biblioteker</string>
     <string name="settings_book_buttons">Knapper i notifikation og bil</string>
     <string name="settings_book_buttons_summary">Android viser kun tre knapper i den kompakte notifikation og i Android Auto. Bøger uden kapitler springer altid.</string>
-    <string name="settings_book_buttons_seek">Spring (−%1$d s / +%2$d s)</string>
+    <string name="settings_book_buttons_seek">Spring (−%1$s / +%2$s)</string>
     <string name="settings_book_buttons_chapters">Forrige og næste kapitel</string>
     <string name="spoken_abs_libraries">Biblioteker</string>
     <string name="episode_delete_download">Slet download</string>

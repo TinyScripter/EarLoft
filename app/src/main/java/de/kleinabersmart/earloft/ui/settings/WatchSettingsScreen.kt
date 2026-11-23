@@ -44,6 +44,7 @@ import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
+import de.kleinabersmart.earloft.core.wearsync.WearDownloadError
 import de.kleinabersmart.earloft.core.wearsync.WearQuality
 import de.kleinabersmart.earloft.core.wearsync.WearStatusDto
 import de.kleinabersmart.earloft.ui.components.EmptyHint
@@ -273,8 +274,10 @@ private fun WatchStatusRows(status: WearStatusDto?) {
                 },
             )
         }
-        status.lastError?.let { error ->
-            ListItem(headlineContent = { Text(stringResource(R.string.watch_status_error, error)) })
+        // In the phone's language if the watch sends the code; from an older watch its text (review2 Z20).
+        val error = WearDownloadError.of(status.lastErrorCode)?.let { stringResource(it.textRes) } ?: status.lastError
+        error?.let {
+            ListItem(headlineContent = { Text(stringResource(R.string.watch_status_error, it)) })
         }
     }
 }
@@ -321,3 +324,14 @@ private fun WatchSettingsContentPreview() {
         )
     }
 }
+
+/** The watch's error as the phone words it. */
+private val WearDownloadError.textRes: Int
+    get() = when (this) {
+        WearDownloadError.SERVER_VIA_PHONE -> R.string.watch_error_server_via_phone
+        WearDownloadError.SERVER_REFUSED_VIA_PHONE -> R.string.watch_error_server_refused_via_phone
+        WearDownloadError.SERVER_NO_PHONE_COPY -> R.string.watch_error_server_no_phone_copy
+        WearDownloadError.PHONE_NO_COPY -> R.string.watch_error_phone_no_copy
+        WearDownloadError.STORAGE_FULL -> R.string.watch_error_storage_full
+        WearDownloadError.PHONE_UNREACHABLE -> R.string.watch_error_phone_unreachable
+    }
