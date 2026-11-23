@@ -189,7 +189,9 @@ internal class PhoneMediaServer @Inject constructor(
                 (link.address as? Inet4Address)?.let { LocalAddress(it, link.prefixLength, local, vpn, network == default) }
             }
         }
-        return CastLanAddress.pick(candidates, receiver)?.hostAddress
+        return CastLanAddress.pick(candidates, receiver)?.hostAddress.also {
+            Log.i(TAG, "Announcing $it to receiver $receiver (candidates: ${candidates.joinToString { c -> "${c.address.hostAddress}/${c.prefixLength} local=${c.local} vpn=${c.vpn}" }})")
+        }
     }
 
     private fun debugAddress(): String? {
