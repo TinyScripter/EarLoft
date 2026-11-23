@@ -26,6 +26,7 @@ import java.io.FileInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.Inet4Address
+import java.net.InetAddress
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -40,8 +41,9 @@ import javax.inject.Singleton
  *   ([stop]); outside a session there are no addresses (a late resolve after the end doesn't start it again).
  *   Each session gets a new secret in the path ([newSession]); only what was published in this session
  *   can be fetched ([fileUrl], the covers of published albums and books). The addresses must therefore be treated like credentials.
- * - The address is the phone's IPv4 address on Wi-Fi (or Ethernet); without it there are no addresses, and the titles are
- *   dropped when casting as before. In the debug build, `phone_address` (host:port) in the SharedPreferences `cast_debug` replaces
+ * - The address is the phone's IPv4 address on Wi-Fi (or Ethernet), preferably the one in the receiver's subnet; VPN networks
+ *   don't count, their tunnel address is out of the receiver's reach ([CastLanAddress], review J12). Without it there are no
+ *   addresses, and the titles are dropped when casting as before. In the debug build, `phone_address` (host:port) in the SharedPreferences `cast_debug` replaces
  *   the announced address: in the emulator the receiver can only reach the phone through port forwarding on the host.
  * - While the server is running and being accessed, a partial wake lock and a Wi-Fi lock keep CPU and Wi-Fi awake
  *   (like ExoPlayer when streaming); they expire by themselves [LOCK_TIMEOUT_MS] after the last delivery
@@ -79,6 +81,10 @@ internal class PhoneMediaServer @Inject constructor(
     @Volatile
     private var host: Pair<String, Long>? = null
 
+    /** The receiver's address in this session, to pick the phone's address in the same subnet. */
+    @Volatile
+    private var receiver: InetAddress? = null
+
     private val wakeLock by lazy {
         context.getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "EarLoft:cast-server")
             .apply { setReferenceCounted(false) }
@@ -92,8 +98,9 @@ internal class PhoneMediaServer @Inject constructor(
     }
 
     /** At the start of every cast session: new secret; nothing from before remains accessible. */
-    fun newSession() {
+    fun newSession(receiver: InetAddress?) {
         stop()
+        this.receiver = receiver
         token = newToken()
         files.clear()
         keys.clear()
@@ -103,8 +110,13 @@ internal class PhoneMediaServer @Inject constructor(
     }
 
     /** Resuming a session: within the process everything stays; after a process restart it starts like a new one. */
-    fun resumeSession() {
-        if (!active) newSession()
+    fun resumeSession(receiver: InetAddress?) {
+        if (!active) {
+            newSession(receiver)
+        } else if (receiver != null && receiver != this.receiver) {
+            this.receiver = receiver
+            host = null
+        }
     }
 
     /** At the end of the session. */
@@ -159,18 +171,25 @@ internal class PhoneMediaServer @Inject constructor(
         return lanAddress()?.also { host = it to now }
     }
 
-    /** The IPv4 address on Wi-Fi or Ethernet; the receiver can't reach the phone over mobile data. */
+    /**
+     * The IPv4 address on Wi-Fi or Ethernet, chosen by [CastLanAddress]. All networks, not just the default one: with a VPN the
+     * default network is the tunnel, and the Wi-Fi underneath is only one of the others.
+     */
     private fun lanAddress(): String? {
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
-        val network = connectivity.activeNetwork ?: return null
-        val capabilities = connectivity.getNetworkCapabilities(network) ?: return null
-        val local = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
-        if (!local) return null
-        return connectivity.getLinkProperties(network)?.linkAddresses
-            ?.map { it.address }
-            ?.firstOrNull { it is Inet4Address && !it.isLoopbackAddress && !it.isLinkLocalAddress }
-            ?.hostAddress
+        val default = connectivity.activeNetwork
+        @Suppress("DEPRECATION") // A one-off snapshot; a NetworkCallback would have to be kept registered for the session.
+        val networks = connectivity.allNetworks
+        val candidates = networks.flatMap { network ->
+            val capabilities = connectivity.getNetworkCapabilities(network) ?: return@flatMap emptyList()
+            val local = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+            val vpn = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+            connectivity.getLinkProperties(network)?.linkAddresses.orEmpty().mapNotNull { link ->
+                (link.address as? Inet4Address)?.let { LocalAddress(it, link.prefixLength, local, vpn, network == default) }
+            }
+        }
+        return CastLanAddress.pick(candidates, receiver)?.hostAddress
     }
 
     private fun debugAddress(): String? {

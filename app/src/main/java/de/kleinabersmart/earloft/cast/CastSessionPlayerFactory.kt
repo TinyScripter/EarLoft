@@ -342,12 +342,12 @@ internal class CastSessionPlayerFactory @Inject constructor(
                 handOver.checkRejoin = handOver.resuming
                 handOver.rejected = false
                 // Before resolving: addresses served by the phone are valid only in this session.
-                phone.newSession()
+                phone.newSession(session.castDevice?.inetAddress)
                 prepareQueue()
             }
 
             override fun onSessionResuming(session: CastSession, sessionId: String) {
-                phone.resumeSession()
+                phone.resumeSession(session.castDevice?.inetAddress)
                 prepareQueue()
             }
 
