@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.orOnError
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -176,6 +177,8 @@ class SpokenLibraryViewModel @Inject constructor(
         list.isNotEmpty() || ard || local || ardLibrary.isNotEmpty()
     }
         .map<_, Boolean?> { it }
+        // Stays "loading" instead of ending the app (review2 J49).
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**

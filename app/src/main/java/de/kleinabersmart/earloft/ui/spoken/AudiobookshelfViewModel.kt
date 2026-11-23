@@ -119,8 +119,14 @@ class AudiobookshelfViewModel @Inject constructor(
     /** The running OpenID login and what it is for (server, name); only in memory. */
     private var pendingLogin: Triple<AbsOpenIdLogin, String?, String>? = null
 
-    init {
-        viewModelScope.launch { OpenIdRedirects.received.collect { if (OpenIdRedirects.take(it)) onBrowserResult(it) } }
+    /**
+     * Takes the browser's redirects while the form is shown ([AudiobookshelfFormScreen]). Only the form collects: before, every
+     * instance did so in `init`, including those of Settings → Books and the setup wizard alive in the back stack, and whichever
+     * took the redirect first won. One without a running sign-in only failed in its own, invisible state while the form stayed
+     * "idle" (review2 J9).
+     */
+    suspend fun collectRedirects() {
+        OpenIdRedirects.received.collect { if (OpenIdRedirects.take(it)) onBrowserResult(it) }
     }
 
     fun onUrlChanged(url: String) {

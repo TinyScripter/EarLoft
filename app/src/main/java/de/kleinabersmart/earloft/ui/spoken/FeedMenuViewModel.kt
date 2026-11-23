@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.orOnError
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
@@ -61,6 +62,8 @@ class FeedMenuViewModel @Inject constructor(
             hasHeardDownloads = episodes.any { it.progress?.finished == true && downloadStates[it.book.id] == TrackDownload.DONE },
         )
     }
+        // A database error used to end the app (review2 J49); then the menu offers no episode actions.
+        .orOnError(FeedMenuState(next = null, nextQueued = false, unheard = 0, hasHeardDownloads = false))
 
     /** Like [PodcastViewModel.playOrPause], just without pause: if the episode is already loaded, it continues there. */
     fun play(bookId: Long) {

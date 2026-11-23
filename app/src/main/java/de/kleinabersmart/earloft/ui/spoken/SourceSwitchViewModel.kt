@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.data.podcast.PodcastSourceSwitch
 import de.kleinabersmart.earloft.core.data.podcast.SourceCheck
 import de.kleinabersmart.earloft.ui.settings.DatabaseExport
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +28,7 @@ sealed interface SourceSwitchState {
     data class Failed(@param:StringRes val message: Int, val detail: String? = null) : SourceSwitchState
 
     /** Checked; waiting for confirmation. */
-    data class Ready(val episodes: Int, val matched: Int, val keptUnmatched: Int) : SourceSwitchState
+    data class Ready(val episodes: Int, val matched: Int, val keptUnmatched: Int, val address: String) : SourceSwitchState
     data object Switching : SourceSwitchState
     data object Done : SourceSwitchState
 }
@@ -54,14 +55,21 @@ class SourceSwitchViewModel @AssistedInject constructor(
 
     private var checked: SourceCheck.Ready? = null
 
+    /**
+     * The running check: "Cancel" and "Back" end it. Before, it kept running and set "Ready" afterwards, so the next dialog
+     * opened straight at the confirmation for the cancelled input (review2 J10).
+     */
+    private var checkJob: Job? = null
+
     /** Loads the new source and matches the episodes; nothing is changed yet. */
     fun check(input: String) {
+        checkJob?.cancel()
         _state.value = SourceSwitchState.Checking
-        viewModelScope.launch {
+        checkJob = viewModelScope.launch {
             _state.value = when (val result = sourceSwitch.check(feedId, input.trim())) {
                 is SourceCheck.Ready -> {
                     checked = result
-                    SourceSwitchState.Ready(result.episodes, result.matched, result.keptUnmatched)
+                    SourceSwitchState.Ready(result.episodes, result.matched, result.keptUnmatched, result.address)
                 }
                 SourceCheck.SameSource -> SourceSwitchState.Failed(R.string.podcast_source_switch_same)
                 is SourceCheck.Taken -> SourceSwitchState.Failed(R.string.podcast_source_switch_taken, result.title)
@@ -75,6 +83,7 @@ class SourceSwitchViewModel @AssistedInject constructor(
      * next dialog would close again immediately after a switch ("Done"), and old errors and export results would be in it.
      */
     fun reset() {
+        checkJob?.cancel()
         checked = null
         _state.value = SourceSwitchState.Idle
         _export.value = null
@@ -82,6 +91,7 @@ class SourceSwitchViewModel @AssistedInject constructor(
 
     /** Back to input. */
     fun back() {
+        checkJob?.cancel()
         checked = null
         _state.value = SourceSwitchState.Idle
     }

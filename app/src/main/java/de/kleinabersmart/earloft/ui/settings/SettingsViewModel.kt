@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.settings
 
+import android.database.SQLException
 import android.content.Context
 import android.net.Uri
 import android.util.Log
@@ -593,6 +594,11 @@ class SettingsViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
+                Log.w(TAG, "Backup import failed", e)
+                _transferMessages.send(TransferMessage.DatabaseImportFailed)
+            } catch (e: SQLException) {
+                // Not a database file, or the own storage is full while writing (`SQLiteFullException`): a message instead
+                // of ending the app, as with the export and the full backup (review2 J60).
                 Log.w(TAG, "Backup import failed", e)
                 _transferMessages.send(TransferMessage.DatabaseImportFailed)
             } finally {

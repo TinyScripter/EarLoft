@@ -104,6 +104,8 @@ fun AudiobookshelfFormScreen(
     val authTabLauncher = rememberLauncherForActivityResult(AuthTabIntent.AuthenticateUserResultContract()) { result ->
         viewModel.onBrowserResult(result.resultUri?.takeIf { result.resultCode == AuthTabIntent.RESULT_OK }?.toString())
     }
+    // Redirects of a browser without Auth Tab: only this form takes them (review2 J9).
+    LaunchedEffect(viewModel) { viewModel.collectRedirects() }
     LaunchedEffect(browserUrl) {
         val address = browserUrl?.toUri() ?: return@LaunchedEffect
         viewModel.browserOpened()

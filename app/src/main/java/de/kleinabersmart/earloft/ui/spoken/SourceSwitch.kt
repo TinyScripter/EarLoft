@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -85,6 +86,15 @@ fun SourceSwitchDialog(
                         Working(R.string.podcast_source_switch_switching)
                     } else {
                         Column {
+                            // Which address it switches to (review2 J10).
+                            Text(
+                                ready.address,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            )
                             Text(
                                 stringResource(
                                     R.string.podcast_source_switch_matched,

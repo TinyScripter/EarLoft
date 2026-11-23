@@ -34,7 +34,10 @@ sealed interface SourceCheck {
         val episodes: Int,
         val matched: Int,
         val keptUnmatched: Int,
-    ) : SourceCheck
+    ) : SourceCheck {
+        /** The address the subscription would switch to: the confirmation names it (review2 J10). */
+        val address: String get() = plan.newUrl
+    }
 
     /** The new address is the current one. */
     data object SameSource : SourceCheck

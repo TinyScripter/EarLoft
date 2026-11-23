@@ -583,7 +583,9 @@ private fun PlayerMoreMenu(state: PlayerState, links: PlayerLinks) {
                     playlistSongs = listOf(current.songId)
                 },
             )
-            if (state.queue.size > 1) {
+            // Not while casting: the cast player only holds a window of about 50 titles, the playlist would be cut short
+            // without a word (review2 J5, like the time left in H9).
+            if (state.queue.size > 1 && !state.isRemote) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.queue_save_as_playlist)) },
                     leadingIcon = { Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = null) },

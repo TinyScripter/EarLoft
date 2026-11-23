@@ -119,8 +119,9 @@ private fun QueueContent(
                     canClear = state.queue.size > 1,
                     onClear = onClear,
                 ) { close ->
-                    // New or existing playlist; the same selection as "Add to playlist" for songs and albums.
-                    DropdownMenuItem(
+                    // New or existing playlist; the same selection as "Add to playlist" for songs and albums. Not while
+                    // casting: the cast player only holds a window of the queue, the playlist would be cut short (review2 J5).
+                    if (!state.isRemote) DropdownMenuItem(
                         text = { Text(stringResource(R.string.queue_save_as_playlist)) },
                         enabled = state.queue.isNotEmpty(),
                         onClick = {
