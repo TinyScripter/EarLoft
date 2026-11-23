@@ -42,7 +42,7 @@ private fun SelectionUiState.toTrackList(): TrackListState = when (this) {
     is SelectionUiState.Ready -> TrackListState.Ready(
         title = details.playlist.name,
         songCount = details.playlist.songCount,
-        loadedCount = downloadedCount,
+        loadedCount = loadedEntries,
         items = details.entries.map { TrackItem(it.entryId, it.song.title, it.song.artist, enabled = isLoaded(it.song.id)) },
     )
 }

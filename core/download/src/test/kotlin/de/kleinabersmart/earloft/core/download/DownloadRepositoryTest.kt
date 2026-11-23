@@ -232,8 +232,8 @@ class DownloadRepositoryTest {
     fun `favorite artists are downloaded only when switched on`() = runTest {
         val albumId = library.album("Takk")
         library.song(albumId, "A", "home" to "a")
-        val artistId = library.db.libraryDao().insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigur ros"))
-        library.db.libraryDao().insertAlbumArtist(AlbumArtistCrossRef(albumId, artistId, 0))
+        val artistId = library.db.mergeDao().insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigur ros"))
+        library.db.mergeDao().insertAlbumArtist(AlbumArtistCrossRef(albumId, artistId, 0))
         library.db.syncDao().setArtistFavorite(artistId, true, 1)
 
         repository.reconcileFavoriteDownloads(enabled = true, withArtists = false)

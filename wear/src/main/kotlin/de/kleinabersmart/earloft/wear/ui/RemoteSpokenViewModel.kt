@@ -15,17 +15,13 @@ import de.kleinabersmart.earloft.wear.download.WatchStorageRepository
 import de.kleinabersmart.earloft.wear.sync.PhoneRemote
 import de.kleinabersmart.earloft.wear.sync.PhoneSelections
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 /**
  * An episode or book of the phone (Wear concept 17): play on the phone or bring it to the watch with "Download". Whether it is on
@@ -41,10 +37,7 @@ class RemoteSpokenViewModel @AssistedInject constructor(
     storage: WatchStorageRepository,
 ) : ViewModel() {
 
-    /** Desired state after a tap until the episode manifest confirms it (or [PENDING_TIMEOUT_MS] passes). */
-    private val pending = MutableStateFlow<Boolean?>(null)
-    private val failed = MutableStateFlow(false)
-    private var pendingTimeout: Job? = null
+    private val toggle = PendingToggle(viewModelScope)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val download: Flow<SpokenDownload?> = books.observeIdByRemote(item.serverId, item.remoteId).flatMapLatest { localId ->
@@ -54,11 +47,11 @@ class RemoteSpokenViewModel @AssistedInject constructor(
     val onWatch: StateFlow<OnWatchState> = combine(
         books.observeIdByRemote(item.serverId, item.remoteId),
         download,
-        pending,
-        failed,
+        toggle.pending,
+        toggle.failed,
     ) { localId, loaded, wanted, failedNow ->
         val confirmed = localId != null
-        if (wanted == confirmed) pending.value = null
+        toggle.confirmed(confirmed)
         onWatchState(confirmed, wanted, loaded?.progress, failedNow, downloadFailed = loaded?.failed == true)
     }
         .orOnError(OnWatchState(OnWatchStatus.NOT_ON_WATCH))
@@ -67,30 +60,10 @@ class RemoteSpokenViewModel @AssistedInject constructor(
     /** The phone plays the book or episode at the saved position (as in the app). @return `false` without a phone. */
     suspend fun play(): Boolean = remote.play(WearRemotePlayRequest(WearRemoteListKind.CONTINUE, refId = item.id))
 
-    fun setOnWatch(selected: Boolean) {
-        viewModelScope.launch {
-            failed.value = false
-            pending.value = selected
-            if (!phoneSelections.setSpokenSelected(item.id, selected)) {
-                pending.value = null
-                failed.value = true
-                return@launch
-            }
-            pendingTimeout?.cancel()
-            pendingTimeout = launch {
-                delay(PENDING_TIMEOUT_MS)
-                pending.value = null
-            }
-        }
-    }
+    fun setOnWatch(selected: Boolean) = toggle.request(selected) { phoneSelections.setSpokenSelected(item.id, it) }
 
     @AssistedFactory
     interface Factory {
         fun create(item: WearRemoteBookDto): RemoteSpokenViewModel
-    }
-
-    private companion object {
-        /** The phone only sends the episode manifest after 2 s of quiet; the watch creates the entries after that. */
-        const val PENDING_TIMEOUT_MS = 20_000L
     }
 }

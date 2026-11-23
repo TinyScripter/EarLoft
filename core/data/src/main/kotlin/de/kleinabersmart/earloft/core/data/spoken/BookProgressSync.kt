@@ -67,6 +67,11 @@ class BookProgressSync @Inject constructor(
      */
     val held: SharedFlow<Long> = _held.asSharedFlow()
 
+    /** [bookId] was finished and plays again; its next position goes to the server twice (see [reopened]). */
+    fun markReopened(bookId: Long) {
+        reopened.add(bookId)
+    }
+
     /**
      * Records the position. It is sent at most every [PUSH_INTERVAL_MS], immediately with [force] (pause, track change,
      * stop). If sending fails, the entry stays `dirty` and [BookProgressWorker] catches up.

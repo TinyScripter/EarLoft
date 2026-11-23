@@ -124,6 +124,9 @@ class BookPlaybackSource @Inject constructor(
         val speed = playing.speed
         // After the reconcile: from now on the book is at the very front of "Continue listening" (episodes have their own row).
         if (forPlayback && !episode) {
+            // `touchProgress` clears "finished" before the first recorded position, so [BookProgressSync.record] can't see the
+            // reopening itself (review2 J32).
+            if (progress?.finished == true) progressSync.markReopened(bookId)
             repository.touchProgress(bookId, startPositionMs, timeline.durationMs)
             queue.moveToFront(bookId)
         }

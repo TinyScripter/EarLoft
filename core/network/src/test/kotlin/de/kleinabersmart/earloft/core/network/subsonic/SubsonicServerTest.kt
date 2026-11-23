@@ -43,6 +43,14 @@ class SubsonicServerTest {
     }
 
     @Test
+    fun `a server entered with http still owns its endpoints after a proxy redirects to https`() {
+        val server = SubsonicServer("s", "http://example.com/".toHttpUrl(), SubsonicCredentials.ApiKey("k"))
+
+        assertTrue(server.owns("https://example.com/rest/stream?id=1".toHttpUrl()))
+        assertFalse(server.owns("https://other.example/rest/stream?id=1".toHttpUrl()))
+    }
+
+    @Test
     fun `authenticated url carries a valid token for external receivers`() {
         val server = SubsonicServer("nd", "https://example.com/".toHttpUrl(), SubsonicCredentials.Password("anna", "secret"))
 

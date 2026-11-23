@@ -51,14 +51,14 @@ class SyncQueueProcessorTest {
         db.sourceDao().upsert(SourceEntity("local", SourceType.LOCAL, "local"))
         db.sourceDao().upsert(SourceEntity("home", SourceType.SUBSONIC, "home", priority = 1))
         db.sourceDao().upsert(SourceEntity("office", SourceType.SUBSONIC, "office"))
-        val albumId = db.libraryDao().insertAlbum(
+        val albumId = db.mergeDao().insertAlbum(
             AlbumEntity(title = "A", sortTitle = "A", normTitle = "a", albumArtistDisplay = "B", normAlbumArtist = "b"),
         )
-        songId = db.libraryDao().insertSong(
+        songId = db.mergeDao().insertSong(
             SongEntity(albumId = albumId, title = "S", normTitle = "s", artistDisplay = "B", durationMs = 1, dateAdded = 0),
         )
         listOf("local" to "1", "home" to "h", "office" to "o").forEach { (sourceId, remoteId) ->
-            db.libraryDao().insertSongSource(
+            db.mergeDao().insertSongSource(
                 SongSourceEntity("$sourceId:$remoteId", songId, sourceId, remoteId, seenInGeneration = 1),
             )
         }
@@ -108,6 +108,19 @@ class SyncQueueProcessorTest {
         val left = db.syncDao().getActions().single()
         assertEquals(SyncActionType.SET_FAVORITE, left.actionType)
         assertEquals("an unreachable server doesn't use up attempts", 40, left.attempts)
+    }
+
+    @Test
+    fun `a server that can't be used right now keeps its actions until they are a month old`() = runTest {
+        val day = 24 * 60 * 60 * 1000L
+        val now = System.currentTimeMillis()
+        db.syncDao().insert(SyncActionEntity(sourceId = "home", actionType = SyncActionType.SET_FAVORITE, targetKey = "home:h", payloadJson = "true", createdAt = now - day))
+        db.syncDao().insert(SyncActionEntity(sourceId = "home", actionType = SyncActionType.SCROBBLE, targetKey = "home:h", payloadJson = "1", createdAt = now - 31 * day))
+
+        // Its password can't be decrypted (e.g. after a system update): the registry has no source for it.
+        assertFalse(db.syncQueueProcessor(office).process())
+
+        assertEquals(SyncActionType.SET_FAVORITE, db.syncDao().getActions().single().actionType)
     }
 
     @Test

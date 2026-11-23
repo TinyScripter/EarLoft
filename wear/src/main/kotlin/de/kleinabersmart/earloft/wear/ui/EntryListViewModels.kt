@@ -130,7 +130,8 @@ class LocalArtistsViewModel @Inject constructor(
 class LocalPlaylistsViewModel @Inject constructor(storage: WatchStorageRepository) : ViewModel() {
     val state: StateFlow<EntryListState> = storage.selections().map { all ->
         val entries = all.filter { it.kind == WearSelectionKind.PLAYLIST }
-            .map { ListEntry(it.playlistId, it.title, it.songCount, loadedCount = it.downloadedCount) }
+            // Complete means all entries, also with a song twice in the playlist (review2 J88).
+            .map { ListEntry(it.playlistId, it.title, it.songCount, loadedCount = if (it.downloadedCount >= it.distinctSongs) it.songCount else it.downloadedCount) }
         if (entries.isEmpty()) EntryListState.Message(R.string.list_empty_watch) else EntryListState.Ready(entries)
     }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 }

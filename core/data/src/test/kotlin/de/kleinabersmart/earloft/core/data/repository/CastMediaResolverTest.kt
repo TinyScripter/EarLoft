@@ -46,7 +46,7 @@ class CastMediaResolverTest {
         db.sourceDao().upsert(SourceEntity("local", SourceType.LOCAL, "local"))
         db.sourceDao().upsert(SourceEntity("nd", SourceType.SUBSONIC, "nd", priority = 0))
         db.sourceDao().upsert(SourceEntity("nd2", SourceType.SUBSONIC, "nd2", priority = 5))
-        albumId = db.libraryDao().insertAlbum(AlbumEntity(title = "A", sortTitle = "A", normTitle = "a", albumArtistDisplay = "B", normAlbumArtist = "b"))
+        albumId = db.mergeDao().insertAlbum(AlbumEntity(title = "A", sortTitle = "A", normTitle = "a", albumArtistDisplay = "B", normAlbumArtist = "b"))
     }
 
     @After
@@ -131,11 +131,11 @@ class CastMediaResolverTest {
     }
 
     private suspend fun song(vararg sources: Pair<String, String>, mimeType: String? = "audio/mpeg"): Long {
-        val songId = db.libraryDao().insertSong(
+        val songId = db.mergeDao().insertSong(
             SongEntity(albumId = albumId, title = "S", normTitle = "s", artistDisplay = "B", durationMs = 1, dateAdded = 0),
         )
         sources.forEach { (sourceId, remoteId) ->
-            db.libraryDao().insertSongSource(
+            db.mergeDao().insertSongSource(
                 SongSourceEntity(
                     uid = "$sourceId:$remoteId", songId = songId, sourceId = sourceId, remoteId = remoteId,
                     mimeType = mimeType, seenInGeneration = 1,

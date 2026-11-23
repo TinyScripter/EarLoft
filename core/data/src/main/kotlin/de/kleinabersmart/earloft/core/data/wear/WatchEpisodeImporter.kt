@@ -2,10 +2,12 @@ package de.kleinabersmart.earloft.core.data.wear
 
 import android.content.Context
 import android.util.Log
+import androidx.room.withTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.spoken.AbsSessionReporter
 import de.kleinabersmart.earloft.core.data.spoken.BookProgressSync
 import de.kleinabersmart.earloft.core.data.stats.StatsRepository
+import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
@@ -40,11 +42,13 @@ data class WatchEpisodeListening(val feedId: String, val guid: String, val liste
  * Adopts what was listened to on the watch (Wear concept 16.1/16.2): the progress if it's newer than the phone's,
  * and the listening time into the statistics, as if listened to here. For Audiobookshelf books both are forwarded to the
  * server: the progress as when playing on the phone, the time as a listening session. Items listened to the end thereby drop
- * out of the selection and thus off the watch. Each packet counts only once ([ImportedPackets]).
+ * out of the selection and thus off the watch. Each packet counts only once ([ImportedPackets]), and in one transaction: one
+ * aborted halfway arrives again and must not count its first listening times twice.
  */
 @Singleton
 class WatchEpisodeImporter @Inject constructor(
     @ApplicationContext context: Context,
+    private val database: EarLoftDatabase,
     private val bookDao: BookDao,
     private val stats: StatsRepository,
     private val progressSync: BookProgressSync,
@@ -58,41 +62,47 @@ class WatchEpisodeImporter @Inject constructor(
         if (packetId in importedPackets) return 0
         var applied = 0
         val toServer = mutableListOf<Long>()
-        for (item in progress) {
-            val book = book(item.feedId, item.guid) ?: continue
-            val local = bookDao.progress(book.bookId)
-            if (local != null && local.updatedAt >= item.updatedAt) continue
-            val synced = book.syncsWithServer
-            bookDao.upsertProgress(
-                BookProgressEntity(
-                    bookId = book.bookId,
-                    positionMs = item.positionMs.coerceAtLeast(0),
-                    durationMs = item.durationMs,
-                    finished = item.finished,
-                    speed = item.speed,
-                    updatedAt = item.updatedAt,
-                    // Episodes and books from the device have no server that would need to receive the state.
-                    dirty = synced,
-                    skipSilence = item.skipSilence,
-                    volumeBoostDb = item.volumeBoostDb,
-                ),
-            )
-            if (synced) toServer += book.bookId
-            applied++
-        }
-        for (item in listening) {
-            val book = book(item.feedId, item.guid) ?: continue
-            if (book.kind == BookKind.EPISODE) {
-                stats.recordEpisodeListening(book.bookId, item.listenedMs, now = item.at)
-            } else {
-                stats.recordBookListening(book.bookId, item.listenedMs, now = item.at)
-                val position = bookDao.progress(book.bookId)
-                sessions.record(book.bookId, item.listenedMs, position?.positionMs, position?.durationMs, force = true, now = item.at)
+        val sessionIds = mutableSetOf<String>()
+        database.withTransaction {
+            for (item in progress) {
+                val book = book(item.feedId, item.guid) ?: continue
+                val local = bookDao.progress(book.bookId)
+                if (local != null && local.updatedAt >= item.updatedAt) continue
+                val synced = book.syncsWithServer
+                bookDao.upsertProgress(
+                    BookProgressEntity(
+                        bookId = book.bookId,
+                        positionMs = item.positionMs.coerceAtLeast(0),
+                        durationMs = item.durationMs,
+                        finished = item.finished,
+                        speed = item.speed,
+                        updatedAt = item.updatedAt,
+                        // Episodes and books from the device have no server that would need to receive the state.
+                        dirty = synced,
+                        skipSilence = item.skipSilence,
+                        volumeBoostDb = item.volumeBoostDb,
+                    ),
+                )
+                if (synced) toServer += book.bookId
+                applied++
+            }
+            for (item in listening) {
+                val book = book(item.feedId, item.guid) ?: continue
+                if (book.kind == BookKind.EPISODE) {
+                    stats.recordEpisodeListening(book.bookId, item.listenedMs, now = item.at)
+                } else {
+                    stats.recordBookListening(book.bookId, item.listenedMs, now = item.at)
+                    val position = bookDao.progress(book.bookId)
+                    // Reported to the server only after the transaction.
+                    sessions.record(book.bookId, item.listenedMs, position?.positionMs, position?.durationMs, now = item.at, push = false)
+                        ?.let { sessionIds += it }
+                }
             }
         }
         importedPackets.remember(packetId)
         // Without a connection the state stays `dirty`; the BookProgressSync worker delivers it later.
         toServer.forEach { progressSync.push(it) }
+        sessionIds.forEach { sessions.push(it) }
         applied
     }
 

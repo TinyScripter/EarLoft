@@ -64,6 +64,7 @@
     <string name="player_repeat_all">Alle wiederholen</string>
     <string name="player_repeat_one">Titel wiederholen</string>
     <string name="player_output">Bluetooth-Ausgabe</string>
+    <string name="output_settings_missing">Diese Uhr hat keine Bluetooth-Einstellungen.</string>
     <string name="player_position">Position im Titel</string>
     <string name="player_position_spoken">Wiedergabeposition</string>
     <string name="player_position_chapter">Position im Kapitel</string>
@@ -91,6 +92,8 @@
     <string name="sleep_timer_chapter_end">Ende des Kapitels</string>
     <string name="sleep_timer_episode_end">Ende der Folge</string>
     <string name="sleep_timer_start">Starten</string>
+    <string name="sleep_timer_shorter">Kürzer</string>
+    <string name="sleep_timer_longer">Länger</string>
 
     <!-- Downloads -->
     <string name="download_channel_name">Downloads</string>

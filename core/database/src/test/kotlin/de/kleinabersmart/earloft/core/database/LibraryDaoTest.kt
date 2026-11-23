@@ -4,6 +4,7 @@ import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.database.dao.LibraryDao
+import de.kleinabersmart.earloft.core.database.dao.MergeDao
 import de.kleinabersmart.earloft.core.database.dao.NOT_SERVER_TYPES
 import de.kleinabersmart.earloft.core.database.dao.SourceDao
 import de.kleinabersmart.earloft.core.database.entity.AlbumArtistCrossRef
@@ -35,6 +36,7 @@ class LibraryDaoTest {
     private lateinit var db: EarLoftDatabase
     private lateinit var sourceDao: SourceDao
     private lateinit var libraryDao: LibraryDao
+    private lateinit var mergeDao: MergeDao
 
     @Before
     fun setUp() {
@@ -44,6 +46,7 @@ class LibraryDaoTest {
         ).allowMainThreadQueries().build()
         sourceDao = db.sourceDao()
         libraryDao = db.libraryDao()
+        mergeDao = db.mergeDao()
     }
 
     @After
@@ -51,23 +54,26 @@ class LibraryDaoTest {
         db.close()
     }
 
+    private fun strings(sql: String): List<String> = db.query(sql, null).use { cursor ->
+        buildList { while (cursor.moveToNext()) add(cursor.getString(0)) }
+    }
+
     @Test
     fun `removing a source keeps songs that another source still provides`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome"))
-        val albumId = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
+        val albumId = mergeDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
         val shared = insertSong(song(albumId, "Svefn-g-englar", track = 1))
         val localOnly = insertSong(song(albumId, "Starálfur", track = 2))
-        libraryDao.insertSongSource(songSource(shared, LOCAL, "1"))
-        libraryDao.insertSongSource(songSource(shared, NAVIDROME, "a"))
-        libraryDao.insertSongSource(songSource(localOnly, LOCAL, "2"))
+        mergeDao.insertSongSource(songSource(shared, LOCAL, "1"))
+        mergeDao.insertSongSource(songSource(shared, NAVIDROME, "a"))
+        mergeDao.insertSongSource(songSource(localOnly, LOCAL, "2"))
 
         sourceDao.delete(LOCAL)
         libraryDao.cleanupOrphans()
 
-        val songs = libraryDao.observeSongsOfAlbum(albumId).first()
-        assertEquals(listOf("Svefn-g-englar"), songs.map { it.title })
-        assertEquals(listOf("$NAVIDROME:a"), libraryDao.getSourcesOfSong(shared).map { it.uid })
+        assertEquals(listOf("Svefn-g-englar"), strings("SELECT title FROM songs WHERE albumId = $albumId"))
+        assertEquals(listOf("$NAVIDROME:a"), mergeDao.getSourcesOfSong(shared).map { it.uid })
     }
 
     @Test
@@ -79,11 +85,11 @@ class LibraryDaoTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = PHONE, type = SourceType.PHONE, name = "Phone"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome"))
-        val albumId = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
+        val albumId = mergeDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
         val songId = insertSong(song(albumId, "Svefn-g-englar", track = 1))
-        libraryDao.insertSongSource(songSource(songId, LOCAL, "1"))
-        libraryDao.insertSongSource(songSource(songId, PHONE, "local:1"))
-        libraryDao.insertSongSource(songSource(songId, NAVIDROME, "a"))
+        mergeDao.insertSongSource(songSource(songId, LOCAL, "1"))
+        mergeDao.insertSongSource(songSource(songId, PHONE, "local:1"))
+        mergeDao.insertSongSource(songSource(songId, NAVIDROME, "a"))
 
         assertEquals(listOf(NAVIDROME), sourceDao.getServers().map { it.sourceId })
         assertEquals(listOf("$NAVIDROME:a"), db.syncDao().getServerSources(songId).map { it.uid })
@@ -97,41 +103,41 @@ class LibraryDaoTest {
     @Test
     fun `cleanup removes empty albums and unreferenced artists`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
-        val artistId = libraryDao.insertArtist(
+        val artistId = mergeDao.insertArtist(
             ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"),
         )
-        val albumId = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        val albumId = mergeDao.insertAlbum(album("Takk...", "Sigur Rós"))
         val songId = insertSong(song(albumId, "Hoppípolla", track = 3))
-        libraryDao.insertSongSource(songSource(songId, LOCAL, "7"))
-        libraryDao.insertSongArtist(SongArtistCrossRef(songId, artistId, position = 0))
-        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(albumId, artistId, position = 0))
+        mergeDao.insertSongSource(songSource(songId, LOCAL, "7"))
+        mergeDao.insertSongArtist(SongArtistCrossRef(songId, artistId, position = 0))
+        mergeDao.insertAlbumArtist(AlbumArtistCrossRef(albumId, artistId, position = 0))
 
         sourceDao.delete(LOCAL)
         libraryDao.cleanupOrphans()
 
-        assertTrue(libraryDao.observeAlbums().first().isEmpty())
-        assertTrue(libraryDao.observeArtists().first().isEmpty())
+        assertTrue(strings("SELECT title FROM albums").isEmpty())
+        assertTrue(strings("SELECT name FROM artists").isEmpty())
     }
 
     @Test(expected = SQLiteConstraintException::class)
     fun `the same remote id cannot be stored twice for one source`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome"))
-        val albumId = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        val albumId = mergeDao.insertAlbum(album("Takk...", "Sigur Rós"))
         val songId = insertSong(song(albumId, "Glósóli", track = 2))
-        libraryDao.insertSongSource(songSource(songId, NAVIDROME, "x"))
-        libraryDao.insertSongSource(songSource(songId, NAVIDROME, "x").copy(uid = "other"))
+        mergeDao.insertSongSource(songSource(songId, NAVIDROME, "x"))
+        mergeDao.insertSongSource(songSource(songId, NAVIDROME, "x").copy(uid = "other"))
     }
 
     @Test
     fun `full text search ignores case and diacritics`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
-        val artistId = libraryDao.insertArtist(
+        val artistId = mergeDao.insertArtist(
             ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"),
         )
-        val albumId = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
-        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(albumId, artistId, position = 0))
+        val albumId = mergeDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        mergeDao.insertAlbumArtist(AlbumArtistCrossRef(albumId, artistId, position = 0))
         val songId = insertSong(song(albumId, "Hoppípolla", track = 3))
-        libraryDao.insertSongSource(songSource(songId, LOCAL, "7"))
+        mergeDao.insertSongSource(songSource(songId, LOCAL, "7"))
 
         assertEquals(listOf("Hoppípolla"), libraryDao.searchSongRows("HOPPI*", 10).map { it.title })
         assertEquals(listOf("Takk..."), libraryDao.searchAlbumRows("takk*", 10).map { it.title })
@@ -142,11 +148,11 @@ class LibraryDaoTest {
     @Test
     fun `album rows count songs and queue skips unknown songs`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
-        val albumId = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        val albumId = mergeDao.insertAlbum(album("Takk...", "Sigur Rós"))
         val first = insertSong(song(albumId, "Glósóli", track = 2))
         val second = insertSong(song(albumId, "Hoppípolla", track = 3))
-        libraryDao.insertSongSource(songSource(first, LOCAL, "1"))
-        libraryDao.insertSongSource(songSource(second, LOCAL, "2"))
+        mergeDao.insertSongSource(songSource(first, LOCAL, "1"))
+        mergeDao.insertSongSource(songSource(second, LOCAL, "2"))
 
         assertEquals(2, libraryDao.observeAlbumRows().first().single().songCount)
 
@@ -159,9 +165,9 @@ class LibraryDaoTest {
     fun `genres merge spellings, count visible songs and list their albums`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
-        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
-        val agaetis = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
-        val hidden = libraryDao.insertAlbum(album("Kveikur", "Sigur Rós"))
+        val takk = mergeDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        val agaetis = mergeDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
+        val hidden = mergeDao.insertAlbum(album("Kveikur", "Sigur Rós"))
         val songs = listOf(
             insertSong(song(takk, "Glósóli", track = 2).copy(genre = "Post-Rock")),
             insertSong(song(takk, "Hoppípolla", track = 3).copy(genre = "post-rock")),
@@ -170,10 +176,10 @@ class LibraryDaoTest {
             insertSong(song(agaetis, "Starálfur", track = 2).copy(genre = "Ambient|post-rock")),
             insertSong(song(agaetis, "Flugufrelsarinn", track = 3).copy(genre = " ")),
         )
-        songs.forEachIndexed { index, songId -> libraryDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
+        songs.forEachIndexed { index, songId -> mergeDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
         // Only on a disabled server: doesn't count.
         val hiddenSong = insertSong(song(hidden, "Brennisteinn", track = 1).copy(genre = "Post-Rock"))
-        libraryDao.insertSongSource(songSource(hiddenSong, NAVIDROME, "k"))
+        mergeDao.insertSongSource(songSource(hiddenSong, NAVIDROME, "k"))
 
         val genres = libraryDao.observeGenreRows().first()
         assertEquals(listOf("Ambient", "Post-Rock"), genres.map { it.name })
@@ -204,18 +210,18 @@ class LibraryDaoTest {
     fun `decades group visible albums by year`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
-        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós").copy(year = 2005))
-        val agaetis = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós").copy(year = 1999))
-        val von = libraryDao.insertAlbum(album("Von", "Sigur Rós").copy(year = 1997))
-        val noYear = libraryDao.insertAlbum(album("Demo", "Sigur Rós").copy(year = 0))
-        val hidden = libraryDao.insertAlbum(album("Kveikur", "Sigur Rós").copy(year = 2013))
+        val takk = mergeDao.insertAlbum(album("Takk...", "Sigur Rós").copy(year = 2005))
+        val agaetis = mergeDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós").copy(year = 1999))
+        val von = mergeDao.insertAlbum(album("Von", "Sigur Rós").copy(year = 1997))
+        val noYear = mergeDao.insertAlbum(album("Demo", "Sigur Rós").copy(year = 0))
+        val hidden = mergeDao.insertAlbum(album("Kveikur", "Sigur Rós").copy(year = 2013))
         listOf(takk, agaetis, von, noYear).forEachIndexed { index, albumId ->
             val songId = insertSong(song(albumId, "Song $index", track = 1))
-            libraryDao.insertSongSource(songSource(songId, LOCAL, "$index"))
+            mergeDao.insertSongSource(songSource(songId, LOCAL, "$index"))
         }
         // Only on a disabled server: doesn't count.
         val hiddenSong = insertSong(song(hidden, "Brennisteinn", track = 1))
-        libraryDao.insertSongSource(songSource(hiddenSong, NAVIDROME, "k"))
+        mergeDao.insertSongSource(songSource(hiddenSong, NAVIDROME, "k"))
 
         val decades = libraryDao.observeDecadeRows().first()
         assertEquals(listOf(1990 to 2, 2000 to 1), decades.map { it.startYear to it.albumCount })
@@ -224,14 +230,14 @@ class LibraryDaoTest {
     @Test
     fun `albums, artists and songs follow the chosen order`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
-        val beatles = libraryDao.insertArtist(ArtistEntity(name = "The Beatles", sortName = "Beatles", normName = "thebeatles"))
-        val abba = libraryDao.insertArtist(ArtistEntity(name = "ABBA", sortName = "ABBA", normName = "abba"))
-        val help = libraryDao.insertAlbum(album("Help!", "The Beatles").copy(year = 1965))
-        val arrival = libraryDao.insertAlbum(album("Arrival", "ABBA").copy(year = 1976))
-        val abbeyRoad = libraryDao.insertAlbum(album("Abbey Road", "The Beatles").copy(year = 1969))
-        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(help, beatles, 0))
-        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(abbeyRoad, beatles, 0))
-        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(arrival, abba, 0))
+        val beatles = mergeDao.insertArtist(ArtistEntity(name = "The Beatles", sortName = "Beatles", normName = "thebeatles"))
+        val abba = mergeDao.insertArtist(ArtistEntity(name = "ABBA", sortName = "ABBA", normName = "abba"))
+        val help = mergeDao.insertAlbum(album("Help!", "The Beatles").copy(year = 1965))
+        val arrival = mergeDao.insertAlbum(album("Arrival", "ABBA").copy(year = 1976))
+        val abbeyRoad = mergeDao.insertAlbum(album("Abbey Road", "The Beatles").copy(year = 1969))
+        mergeDao.insertAlbumArtist(AlbumArtistCrossRef(help, beatles, 0))
+        mergeDao.insertAlbumArtist(AlbumArtistCrossRef(abbeyRoad, beatles, 0))
+        mergeDao.insertAlbumArtist(AlbumArtistCrossRef(arrival, abba, 0))
         val songs = listOf(
             Triple(help, "Yesterday", beatles) to 3L,
             Triple(arrival, "Dancing Queen", abba) to 1L,
@@ -239,8 +245,8 @@ class LibraryDaoTest {
         ).mapIndexed { index, (song, added) ->
             val (albumId, title, artistId) = song
             val songId = insertSong(song(albumId, title, track = 1).copy(dateAdded = added))
-            libraryDao.insertSongSource(songSource(songId, LOCAL, "$index"))
-            libraryDao.insertSongArtist(SongArtistCrossRef(songId, artistId, 0))
+            mergeDao.insertSongSource(songSource(songId, LOCAL, "$index"))
+            mergeDao.insertSongArtist(SongArtistCrossRef(songId, artistId, 0))
             songId
         }
 
@@ -268,12 +274,12 @@ class LibraryDaoTest {
     @Test
     fun `most played albums count plays in the period`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
-        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
-        val agaetis = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
+        val takk = mergeDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        val agaetis = mergeDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
         val glosoli = insertSong(song(takk, "Glósóli", track = 2))
         val hoppipolla = insertSong(song(takk, "Hoppípolla", track = 3))
         val svefn = insertSong(song(agaetis, "Svefn-g-englar", track = 1))
-        listOf(glosoli, hoppipolla, svefn).forEachIndexed { index, songId -> libraryDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
+        listOf(glosoli, hoppipolla, svefn).forEachIndexed { index, songId -> mergeDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
         val playback = db.playbackDao()
         // Takk: three plays in the period, one before; Ágætis: four, but only two in the period.
         listOf(glosoli to 1_000L, hoppipolla to 1_100L, glosoli to 1_200L, glosoli to 10L, svefn to 1_300L, svefn to 1_400L, svefn to 5L, svefn to 6L)
@@ -289,11 +295,11 @@ class LibraryDaoTest {
     fun `most played albums do not count songs of a switched off server`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
-        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        val takk = mergeDao.insertAlbum(album("Takk...", "Sigur Rós"))
         val glosoli = insertSong(song(takk, "Glósóli", track = 2))
         val hidden = insertSong(song(takk, "Hoppípolla", track = 3))
-        libraryDao.insertSongSource(songSource(glosoli, LOCAL, "1"))
-        libraryDao.insertSongSource(songSource(hidden, NAVIDROME, "a"))
+        mergeDao.insertSongSource(songSource(glosoli, LOCAL, "1"))
+        mergeDao.insertSongSource(songSource(hidden, NAVIDROME, "a"))
         val playback = db.playbackDao()
         playback.insertPlayEventIfSongExists(PlayEventEntity(songId = glosoli, playedAt = 1_000, listenedMs = 1))
 
@@ -306,25 +312,25 @@ class LibraryDaoTest {
     @Test
     fun `artist page lists all songs, most played and appearances`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
-        val jonsi = libraryDao.insertArtist(ArtistEntity(name = "Jónsi", sortName = "Jónsi", normName = "jonsi"))
-        val sigur = libraryDao.insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"))
-        val go = libraryDao.insertAlbum(album("Go", "Jónsi").copy(year = 2010))
-        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós").copy(year = 2005))
-        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(go, jonsi, 0))
-        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(takk, sigur, 0))
+        val jonsi = mergeDao.insertArtist(ArtistEntity(name = "Jónsi", sortName = "Jónsi", normName = "jonsi"))
+        val sigur = mergeDao.insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"))
+        val go = mergeDao.insertAlbum(album("Go", "Jónsi").copy(year = 2010))
+        val takk = mergeDao.insertAlbum(album("Takk...", "Sigur Rós").copy(year = 2005))
+        mergeDao.insertAlbumArtist(AlbumArtistCrossRef(go, jonsi, 0))
+        mergeDao.insertAlbumArtist(AlbumArtistCrossRef(takk, sigur, 0))
         val boyLilikoi = insertSong(song(go, "Boy Lilikoi", track = 2))
         val goDo = insertSong(song(go, "Go Do", track = 1))
         val glosoli = insertSong(song(takk, "Glósóli", track = 2))
         val hoppipolla = insertSong(song(takk, "Hoppípolla", track = 3))
         listOf(boyLilikoi, goDo, glosoli, hoppipolla).forEachIndexed { index, songId ->
-            libraryDao.insertSongSource(songSource(songId, LOCAL, "$index"))
+            mergeDao.insertSongSource(songSource(songId, LOCAL, "$index"))
         }
-        libraryDao.insertSongArtist(SongArtistCrossRef(goDo, jonsi, 0))
-        libraryDao.insertSongArtist(SongArtistCrossRef(boyLilikoi, jonsi, 0))
-        libraryDao.insertSongArtist(SongArtistCrossRef(glosoli, sigur, 0))
+        mergeDao.insertSongArtist(SongArtistCrossRef(goDo, jonsi, 0))
+        mergeDao.insertSongArtist(SongArtistCrossRef(boyLilikoi, jonsi, 0))
+        mergeDao.insertSongArtist(SongArtistCrossRef(glosoli, sigur, 0))
         // Jónsi also sings on "Takk..." (only this one song).
-        libraryDao.insertSongArtist(SongArtistCrossRef(hoppipolla, sigur, 0))
-        libraryDao.insertSongArtist(SongArtistCrossRef(hoppipolla, jonsi, 1))
+        mergeDao.insertSongArtist(SongArtistCrossRef(hoppipolla, sigur, 0))
+        mergeDao.insertSongArtist(SongArtistCrossRef(hoppipolla, jonsi, 1))
 
         // By year: first "Takk..." (2005) with only Hoppípolla, then "Go" in album order.
         assertEquals(listOf("Hoppípolla", "Go Do", "Boy Lilikoi"), libraryDao.getSongRowsOfArtist(jonsi).map { it.title })
@@ -343,23 +349,23 @@ class LibraryDaoTest {
     fun `mix candidates match genre, artist or year and carry the play history`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
-        val jonsi = libraryDao.insertArtist(ArtistEntity(name = "Jónsi", sortName = "Jónsi", normName = "jonsi"))
-        val sigur = libraryDao.insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"))
-        val go = libraryDao.insertAlbum(album("Go", "Jónsi").copy(year = 2010))
-        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós").copy(year = 2005))
-        val old = libraryDao.insertAlbum(album("Old", "Someone").copy(year = 1970))
-        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(go, jonsi, 0))
-        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(takk, sigur, 0))
+        val jonsi = mergeDao.insertArtist(ArtistEntity(name = "Jónsi", sortName = "Jónsi", normName = "jonsi"))
+        val sigur = mergeDao.insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"))
+        val go = mergeDao.insertAlbum(album("Go", "Jónsi").copy(year = 2010))
+        val takk = mergeDao.insertAlbum(album("Takk...", "Sigur Rós").copy(year = 2005))
+        val old = mergeDao.insertAlbum(album("Old", "Someone").copy(year = 1970))
+        mergeDao.insertAlbumArtist(AlbumArtistCrossRef(go, jonsi, 0))
+        mergeDao.insertAlbumArtist(AlbumArtistCrossRef(takk, sigur, 0))
         val goDo = insertSong(song(go, "Go Do", track = 1).copy(genre = "Post-Rock"))
         val glosoli = insertSong(song(takk, "Glósóli", track = 2).copy(genre = "post-rock"))
         val hoppipolla = insertSong(song(takk, "Hoppípolla", track = 3).copy(genre = "Ambient"))
         val oldSong = insertSong(song(old, "Old Song", track = 1).copy(genre = "Jazz", year = 2008))
         val hidden = insertSong(song(old, "Hidden", track = 2).copy(genre = "Post-Rock"))
         listOf(goDo, glosoli, hoppipolla, oldSong).forEachIndexed { index, songId ->
-            libraryDao.insertSongSource(songSource(songId, LOCAL, "$index"))
+            mergeDao.insertSongSource(songSource(songId, LOCAL, "$index"))
         }
-        libraryDao.insertSongSource(songSource(hidden, NAVIDROME, "h"))
-        libraryDao.insertSongArtist(SongArtistCrossRef(goDo, jonsi, 0))
+        mergeDao.insertSongSource(songSource(hidden, NAVIDROME, "h"))
+        mergeDao.insertSongArtist(SongArtistCrossRef(goDo, jonsi, 0))
         db.playbackDao().insertPlayEventIfSongExists(PlayEventEntity(songId = goDo, playedAt = 5, listenedMs = 1))
         db.playbackDao().insertPlayEventIfSongExists(PlayEventEntity(songId = goDo, playedAt = 9, listenedMs = 1))
 
@@ -388,13 +394,13 @@ class LibraryDaoTest {
     fun `offline mix candidates are local files and finished downloads only`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome"))
-        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        val takk = mergeDao.insertAlbum(album("Takk...", "Sigur Rós"))
         val local = insertSong(song(takk, "Glósóli", track = 2))
         val downloaded = insertSong(song(takk, "Hoppípolla", track = 3))
         val queued = insertSong(song(takk, "Með blóðnasir", track = 4))
         val streamOnly = insertSong(song(takk, "Sæglopur", track = 5))
-        libraryDao.insertSongSource(songSource(local, LOCAL, "1"))
-        listOf(downloaded, queued, streamOnly).forEach { libraryDao.insertSongSource(songSource(it, NAVIDROME, "$it")) }
+        mergeDao.insertSongSource(songSource(local, LOCAL, "1"))
+        listOf(downloaded, queued, streamOnly).forEach { mergeDao.insertSongSource(songSource(it, NAVIDROME, "$it")) }
         db.downloadDao().insertIfAbsent(
             listOf(
                 DownloadEntity("$NAVIDROME:$downloaded", downloaded, DownloadState.DONE, filePath = "/dl/a"),
@@ -409,20 +415,20 @@ class LibraryDaoTest {
     fun `music statistics rank songs, albums, artists and genres in the period`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
-        val jonsi = libraryDao.insertArtist(ArtistEntity(name = "Jónsi", sortName = "Jónsi", normName = "jonsi"))
-        val sigur = libraryDao.insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"))
-        val go = libraryDao.insertAlbum(album("Go", "Jónsi"))
-        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
-        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(go, jonsi, 0))
-        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(takk, sigur, 0))
+        val jonsi = mergeDao.insertArtist(ArtistEntity(name = "Jónsi", sortName = "Jónsi", normName = "jonsi"))
+        val sigur = mergeDao.insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"))
+        val go = mergeDao.insertAlbum(album("Go", "Jónsi"))
+        val takk = mergeDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        mergeDao.insertAlbumArtist(AlbumArtistCrossRef(go, jonsi, 0))
+        mergeDao.insertAlbumArtist(AlbumArtistCrossRef(takk, sigur, 0))
         val goDo = insertSong(song(go, "Go Do", track = 1).copy(genre = "Post-Rock"))
         val glosoli = insertSong(song(takk, "Glósóli", track = 2).copy(genre = "post-rock"))
         val hoppipolla = insertSong(song(takk, "Hoppípolla", track = 3))
         val hidden = insertSong(song(takk, "Hidden", track = 4).copy(genre = "Jazz"))
-        listOf(goDo, glosoli, hoppipolla).forEachIndexed { index, songId -> libraryDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
-        libraryDao.insertSongSource(songSource(hidden, NAVIDROME, "h"))
+        listOf(goDo, glosoli, hoppipolla).forEachIndexed { index, songId -> mergeDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
+        mergeDao.insertSongSource(songSource(hidden, NAVIDROME, "h"))
         // Hoppípolla: song artist Jónsi instead of album artist.
-        libraryDao.insertSongArtist(SongArtistCrossRef(hoppipolla, jonsi, 0))
+        mergeDao.insertSongArtist(SongArtistCrossRef(hoppipolla, jonsi, 0))
         val playback = db.playbackDao()
         // In the period [100, 200): Glósóli 3×, Go Do 2×, Hoppípolla 1×; before that Hoppípolla 5×, Hidden is hidden.
         (listOf(glosoli to 100L, glosoli to 110L, glosoli to 120L, goDo to 130L, goDo to 140L, hoppipolla to 150L, hidden to 160L, hidden to 170L) +
@@ -445,7 +451,7 @@ class LibraryDaoTest {
 
     /** Creates the song and, like the sync, its genres (`|` separates several). */
     private suspend fun insertSong(song: SongEntity): Long {
-        val songId = libraryDao.insertSong(song)
+        val songId = mergeDao.insertSong(song)
         val genres = song.genre?.split('|')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
         db.mergeDao().insertSongGenres(genres.mapIndexed { position, genre -> SongGenreEntity(songId, genre, Genre.key(genre), position) })
         return songId

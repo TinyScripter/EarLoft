@@ -16,6 +16,7 @@ import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.DownloadOverview
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
 import de.kleinabersmart.earloft.core.wearsync.WearClearScope
+import de.kleinabersmart.earloft.core.wearsync.WearDownloadError
 import de.kleinabersmart.earloft.core.wearsync.WearSettingsDto
 import de.kleinabersmart.earloft.core.wearsync.WearThumbnailFile
 import de.kleinabersmart.earloft.wear.download.SelectionItem
@@ -43,7 +44,7 @@ data class StorageUiState(
     /** Fixed upper limit for downloads (setting on the phone), otherwise `null`. */
     val limitBytes: Long? = null,
     val missingForStorage: Int = 0,
-    val lastError: String? = null,
+    val lastError: WearDownloadError? = null,
     /** Bytes still to be transferred via the phone (original); 0 if nothing is waiting. */
     val phoneBacklogBytes: Long = 0,
     /** Setting from the phone: downloads only on the charger. */

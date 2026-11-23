@@ -13,7 +13,7 @@ import de.kleinabersmart.earloft.core.model.FavoriteKind
 /** Columns of a song together with its key from the metadata (see [KeyedSong]). */
 private const val KEYED_SONG =
     "s.songId AS songId, a.normAlbumArtist AS albumArtist, a.normTitle AS album, " +
-        "s.discNumber AS disc, s.trackNumber AS track, s.normTitle AS title"
+        "s.discNumber AS disc, s.trackNumber AS track, s.normTitle AS title, s.albumId AS albumId, a.year AS year"
 
 /**
  * Reading and applying the music user data via keys that still match on a new device (backup, review K9):
@@ -24,7 +24,7 @@ abstract class BackupDao {
 
     // --- Songs ---
 
-    /** All songs of an album (same normalization as when merging); the caller decides which one matches. */
+    /** All songs of the albums with this artist and title, of every year (same normalization as when merging); the caller decides which one matches. */
     @Query("SELECT $KEYED_SONG FROM songs s JOIN albums a ON a.albumId = s.albumId WHERE a.normAlbumArtist = :albumArtist AND a.normTitle = :album")
     abstract suspend fun songsOfAlbum(albumArtist: String, album: String): List<KeyedSong>
 
@@ -43,29 +43,41 @@ abstract class BackupDao {
 
     /** Like [localFavorites] for albums and artists without a server source; for the key see `UserCollectionFavoriteEntity`. */
     @Query(
-        "SELECT 'ALBUM' AS kind, a.normAlbumArtist AS artist, a.normTitle AS title, a.favoriteChangedAt AS changedAt " +
+        "SELECT 'ALBUM' AS kind, a.normAlbumArtist AS artist, a.normTitle AS title, a.favoriteChangedAt AS changedAt, " +
+            "COALESCE(a.year, 0) AS year " +
             "FROM albums a WHERE a.isFavorite = 1 AND NOT EXISTS (SELECT 1 FROM album_sources als " +
             "JOIN sources src ON src.sourceId = als.sourceId WHERE als.albumId = a.albumId AND src.type NOT IN $NOT_SERVER_TYPES) " +
             "UNION ALL " +
-            "SELECT 'ARTIST' AS kind, ar.normName AS artist, '' AS title, ar.favoriteChangedAt AS changedAt " +
+            "SELECT 'ARTIST' AS kind, ar.normName AS artist, '' AS title, ar.favoriteChangedAt AS changedAt, 0 AS year " +
             "FROM artists ar WHERE ar.isFavorite = 1 AND NOT EXISTS (SELECT 1 FROM artist_sources ars " +
             "JOIN sources src ON src.sourceId = ars.sourceId WHERE ars.artistId = ar.artistId AND src.type NOT IN $NOT_SERVER_TYPES)",
     )
     abstract suspend fun localCollectionFavorites(): List<KeyedCollectionFavorite>
 
-    @Query("SELECT albumId AS id, isFavorite, favoriteChangedAt FROM albums WHERE normAlbumArtist = :albumArtist AND normTitle = :album ORDER BY albumId LIMIT 1")
-    abstract suspend fun albumFavoriteState(albumArtist: String, album: String): CollectionFavoriteState?
+    /** The albums with this artist and title, of every year; the caller picks by year. */
+    @Query("SELECT albumId AS id, isFavorite, favoriteChangedAt, year FROM albums WHERE normAlbumArtist = :albumArtist AND normTitle = :album ORDER BY albumId")
+    abstract suspend fun albumFavoriteStates(albumArtist: String, album: String): List<CollectionFavoriteState>
 
-    @Query("SELECT artistId AS id, isFavorite, favoriteChangedAt FROM artists WHERE normName = :name ORDER BY artistId LIMIT 1")
+    @Query("SELECT artistId AS id, isFavorite, favoriteChangedAt, NULL AS year FROM artists WHERE normName = :name ORDER BY artistId LIMIT 1")
     abstract suspend fun artistFavoriteState(name: String): CollectionFavoriteState?
 
     // --- Listening history ---
 
     @Query(
-        "SELECT $KEYED_SONG, pe.playedAt AS playedAt, pe.listenedMs AS listenedMs FROM play_events pe " +
+        "SELECT $KEYED_SONG, pe.playedAt AS playedAt, pe.listenedMs AS listenedMs, pe.id AS eventId FROM play_events pe " +
             "JOIN songs s ON s.songId = pe.songId JOIN albums a ON a.albumId = s.albumId",
     )
     abstract suspend fun playEvents(): List<KeyedPlayEvent>
+
+    /**
+     * Like [playEvents], only those added after the event [afterId]: IDs only grow (`AUTOINCREMENT`), and events are only
+     * removed together with their song.
+     */
+    @Query(
+        "SELECT $KEYED_SONG, pe.playedAt AS playedAt, pe.listenedMs AS listenedMs, pe.id AS eventId FROM play_events pe " +
+            "JOIN songs s ON s.songId = pe.songId JOIN albums a ON a.albumId = s.albumId WHERE pe.id > :afterId",
+    )
+    abstract suspend fun playEventsAfter(afterId: Long): List<KeyedPlayEvent>
 
     @Query("SELECT playedAt FROM play_events WHERE songId = :songId")
     abstract suspend fun playedAt(songId: Long): List<Long>
@@ -101,11 +113,12 @@ abstract class BackupDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     abstract suspend fun insertWearSelection(selection: WearSelectionEntity)
 
-    @Query("SELECT albumId, normAlbumArtist AS albumArtist, normTitle AS album FROM albums WHERE albumId IN (:albumIds)")
+    @Query("SELECT albumId, normAlbumArtist AS albumArtist, normTitle AS album, year FROM albums WHERE albumId IN (:albumIds)")
     abstract suspend fun albumKeys(albumIds: List<Long>): List<KeyedAlbum>
 
-    @Query("SELECT albumId FROM albums WHERE normAlbumArtist = :albumArtist AND normTitle = :album ORDER BY albumId LIMIT 1")
-    abstract suspend fun albumId(albumArtist: String, album: String): Long?
+    /** The albums with this artist and title, of every year; the caller picks by year. */
+    @Query("SELECT albumId, normAlbumArtist AS albumArtist, normTitle AS album, year FROM albums WHERE normAlbumArtist = :albumArtist AND normTitle = :album ORDER BY albumId")
+    abstract suspend fun albumsNamed(albumArtist: String, album: String): List<KeyedAlbum>
 
     @Query("SELECT * FROM playlists WHERE playlistId IN (:playlistIds)")
     abstract suspend fun playlists(playlistIds: List<Long>): List<PlaylistEntity>
@@ -116,7 +129,7 @@ abstract class BackupDao {
 
 /**
  * A song with its cross-device key: album artist, album, disc, track number and title, normalized as
- * when merging. It matches again as soon as the same music (files or server) is on the new device.
+ * when merging, and the [year] of its album ([albumId]). It matches again as soon as the same music (files or server) is on the new device.
  */
 data class KeyedSong(
     val songId: Long,
@@ -125,19 +138,22 @@ data class KeyedSong(
     val disc: Int,
     val track: Int,
     val title: String,
+    val albumId: Long,
+    val year: Int?,
 )
 
 data class FavoriteState(val songId: Long, val isFavorite: Boolean, val favoriteChangedAt: Long)
 
 data class KeyedFavorite(@Embedded val song: KeyedSong, val changedAt: Long)
 
-data class KeyedCollectionFavorite(val kind: FavoriteKind, val artist: String, val title: String, val changedAt: Long)
+/** [year] 0: unknown, or an artist. */
+data class KeyedCollectionFavorite(val kind: FavoriteKind, val artist: String, val title: String, val changedAt: Long, val year: Int)
 
-/** [id] is the `albumId` or `artistId`. */
-data class CollectionFavoriteState(val id: Long, val isFavorite: Boolean, val favoriteChangedAt: Long)
+/** [id] is the `albumId` or `artistId`; [year] only for albums. */
+data class CollectionFavoriteState(val id: Long, val isFavorite: Boolean, val favoriteChangedAt: Long, val year: Int?)
 
-data class KeyedPlayEvent(@Embedded val song: KeyedSong, val playedAt: Long, val listenedMs: Long)
+data class KeyedPlayEvent(@Embedded val song: KeyedSong, val playedAt: Long, val listenedMs: Long, val eventId: Long)
 
 data class KeyedPlaylistEntry(val playlistId: Long, @Embedded val song: KeyedSong)
 
-data class KeyedAlbum(val albumId: Long, val albumArtist: String, val album: String)
+data class KeyedAlbum(val albumId: Long, val albumArtist: String, val album: String, val year: Int?)

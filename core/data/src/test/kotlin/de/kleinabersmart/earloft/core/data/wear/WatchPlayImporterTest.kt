@@ -23,7 +23,9 @@ class WatchPlayImporterTest {
 
     private class RecordingReporter : PlayReporter {
         val reported = mutableListOf<Triple<Long, Long, Long>>()
+        var failAt: Long? = null
         override suspend fun report(songId: Long, playedAt: Long, listenedMs: Long, live: Boolean) {
+            if (playedAt == failAt) error("aborted")
             reported += Triple(songId, playedAt, listenedMs)
         }
     }
@@ -39,15 +41,16 @@ class WatchPlayImporterTest {
             .allowMainThreadQueries()
             .build()
         db.sourceDao().upsert(SourceEntity("home", SourceType.SUBSONIC, "home"))
-        val albumId = db.libraryDao().insertAlbum(
+        val albumId = db.mergeDao().insertAlbum(
             AlbumEntity(title = "A", sortTitle = "A", normTitle = "a", albumArtistDisplay = "B", normAlbumArtist = "b"),
         )
-        songId = db.libraryDao().insertSong(
+        songId = db.mergeDao().insertSong(
             SongEntity(albumId = albumId, title = "S", normTitle = "s", artistDisplay = "B", durationMs = 1, dateAdded = 0),
         )
-        db.libraryDao().insertSongSource(SongSourceEntity("home:h", songId, "home", "h", seenInGeneration = 1))
+        db.mergeDao().insertSongSource(SongSourceEntity("home:h", songId, "home", "h", seenInGeneration = 1))
         importer = WatchPlayImporter(
             ApplicationProvider.getApplicationContext(),
+            db,
             db.wearDao(),
             PlaybackStateRepository(db.playbackDao(), reporter),
         )
@@ -81,5 +84,18 @@ class WatchPlayImporterTest {
         assertEquals(1, importer.import("p1", plays))
         assertEquals(0, importer.import("p1", plays))
         assertEquals(1, reporter.reported.size)
+    }
+
+    @Test
+    fun `a packet aborted halfway counts its first plays only once when it arrives again`() = runTest {
+        val plays = listOf(WatchPlay("home:h", 1, 1), WatchPlay("home:h", 2, 2))
+        reporter.failAt = 2
+        runCatching { importer.import("p1", plays) }
+        reporter.failAt = null
+
+        assertEquals(2, importer.import("p1", plays))
+        assertEquals(listOf(1L, 2L), db.query("SELECT playedAt FROM play_events ORDER BY playedAt", null).use { cursor ->
+            buildList { while (cursor.moveToNext()) add(cursor.getLong(0)) }
+        })
     }
 }

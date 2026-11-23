@@ -58,7 +58,7 @@ class PlaybackSourceResolverTest {
         resolver = PlaybackSourceResolver(db.libraryDao(), db.downloadDao(), Sources, policy, mobile)
         db.sourceDao().upsert(SourceEntity("local", SourceType.LOCAL, "local"))
         db.sourceDao().upsert(SourceEntity("nd", SourceType.SUBSONIC, "nd"))
-        albumId = db.libraryDao().insertAlbum(AlbumEntity(title = "A", sortTitle = "A", normTitle = "a", albumArtistDisplay = "B", normAlbumArtist = "b"))
+        albumId = db.mergeDao().insertAlbum(AlbumEntity(title = "A", sortTitle = "A", normTitle = "a", albumArtistDisplay = "B", normAlbumArtist = "b"))
     }
 
     @After
@@ -177,12 +177,12 @@ class PlaybackSourceResolverTest {
         replayGain: Map<String, ReplayGain> = emptyMap(),
         bitRate: Map<String, Int> = emptyMap(),
     ): Long {
-        val songId = db.libraryDao().insertSong(
+        val songId = db.mergeDao().insertSong(
             SongEntity(albumId = albumId, title = "S", normTitle = "s", artistDisplay = "B", durationMs = 1, dateAdded = 0),
         )
         sources.forEach { (sourceId, remoteId) ->
             val rg = replayGain[sourceId]
-            db.libraryDao().insertSongSource(
+            db.mergeDao().insertSongSource(
                 SongSourceEntity(
                     uid = "$sourceId:$remoteId", songId = songId, sourceId = sourceId, remoteId = remoteId, seenInGeneration = 1,
                     rgTrackGainDb = rg?.trackGainDb, rgTrackPeak = rg?.trackPeak,

@@ -14,6 +14,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import dagger.Binds
@@ -38,6 +39,7 @@ import de.kleinabersmart.earloft.core.network.ServerApiException
 import de.kleinabersmart.earloft.core.network.UnexpectedResponseException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.withLock
 import java.io.IOException
@@ -58,7 +60,12 @@ interface SyncScheduler {
 internal class WorkManagerSyncScheduler @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) : SyncScheduler {
-    override suspend fun enqueue() = enqueue(ExistingWorkPolicy.APPEND_OR_REPLACE)
+    // A pass waiting in backoff (unreachable server, up to 5 h) is replaced: appended, a new favorite for a reachable server
+    // would wait behind it (review2 J17, like D5 for downloads). A waiting pass has not started, so nothing is cut off.
+    override suspend fun enqueue() = enqueue(if (waitsInBackoff()) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE)
+
+    private suspend fun waitsInBackoff(): Boolean = WorkManager.getInstance(context).getWorkInfosForUniqueWorkFlow(WORK_NAME).first()
+        .any { it.state == WorkInfo.State.ENQUEUED && it.runAttemptCount > 0 }
 
     // After every sync: otherwise APPEND would each time append another pass to one waiting in backoff.
     override suspend fun resume() = enqueue(ExistingWorkPolicy.KEEP)
@@ -114,8 +121,16 @@ class SyncQueueProcessor @Inject constructor(
             if (action.sourceId in unreachable) continue
             val remote = sources[action.sourceId] as? RemoteLibraryActions
             if (remote == null) {
-                // Server removed or no longer usable (e.g. password can't be decrypted).
-                syncDao.deleteAction(action.actionId)
+                // The server still exists (its removal deletes its actions), but is not usable right now: switched off or its
+                // password can't be decrypted (e.g. keystore after a system update, G43). Kept like for an unreachable server
+                // until the password is entered again (review2 Z8), dropped with a notice only after the same time.
+                if (System.currentTimeMillis() - action.createdAt < MAX_UNREACHABLE_AGE_MS) {
+                    unreachable += action.sourceId
+                } else {
+                    Log.w(TAG, "${action.actionType} to unusable ${action.sourceId} discarded")
+                    syncDao.deleteAction(action.actionId)
+                    noticeKind(action.actionType)?.let { notices.post(SyncNotice.ChangeDropped(it)) }
+                }
                 continue
             }
             try {

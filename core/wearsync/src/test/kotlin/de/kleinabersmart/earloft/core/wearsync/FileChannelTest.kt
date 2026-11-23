@@ -35,6 +35,15 @@ class FileChannelTest {
     }
 
     @Test
+    fun `a malformed file id is no file, not a crash`() {
+        assertNull(WearEpisodeFile.parse("episode:%zz:guid"))
+        assertNull(WearBookFile.parse("book:abs:%:0"))
+        assertNull(WearCoverFile.parse("cover:%g1:x"))
+        assertNull(WearThumbnailFile.parse("thumb:feed:%"))
+        assertEquals("a b" to "c/d", WearEpisodeFile.parse(WearEpisodeFile.uid("a b", "c/d")))
+    }
+
+    @Test
     fun `partial file with known length is resumed`() {
         val part = folder.newFile("a.phone.part").apply { writeBytes(ByteArray(300)) }
         val length = folder.newFile("a.phone.part.len").apply { writeText("1000") }

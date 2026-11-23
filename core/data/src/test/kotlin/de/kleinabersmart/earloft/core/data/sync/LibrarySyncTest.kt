@@ -56,7 +56,7 @@ class LibrarySyncTest {
 
         val songs = db.libraryDao().observeSongRows().first()
         assertEquals(1, songs.size)
-        assertEquals(2, db.libraryDao().getSourcesOfSong(songs.single().songId).size)
+        assertEquals(2, db.mergeDao().getSourcesOfSong(songs.single().songId).size)
     }
 
     @Test
@@ -199,7 +199,7 @@ class LibrarySyncTest {
         val songs = db.libraryDao().observeSongRows().first()
         assertEquals(2, songs.size)
         val newId = songs.single { it.title == "Gong" }.songId
-        assertEquals(listOf("nd:x2"), db.libraryDao().getSourcesOfSong(newId).map { it.uid })
+        assertEquals(listOf("nd:x2"), db.mergeDao().getSourcesOfSong(newId).map { it.uid })
         db.openHelper.readableDatabase.query("SELECT songId FROM play_events").use { cursor ->
             assertTrue(cursor.moveToFirst())
             assertEquals(newId, cursor.getLong(0))

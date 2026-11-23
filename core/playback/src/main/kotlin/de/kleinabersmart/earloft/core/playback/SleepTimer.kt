@@ -268,10 +268,17 @@ class SleepTimer internal constructor(
                 delay(minOf(untilFade, TICK_MS))
             }
         }
+        val wasPlaying = target.isPlaying
         target.pause()
         // The position stays; the next playback should start at full volume again.
         target.volume = 1f
         _state.value = null
+        if (!wasPlaying) {
+            // Already paused by the user: shaking afterwards must not rewind and start playback, maybe on the speaker (review2 J36).
+            this.plan = null
+            _shakeWindow.value = false
+            return
+        }
         firedAt = now()
         _shakeWindow.value = true
         afterJob = scope.launch {

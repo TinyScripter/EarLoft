@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.download
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.os.storage.StorageManager
@@ -33,6 +34,8 @@ import javax.inject.Singleton
  * threshold at which it stops download jobs (`setRequiresStorageNotLow`). The plain free space was too optimistic: a
  * download that fit by it ran into that threshold and was stopped again and again (review H7).
  */
+// The plain free space only if the system can't tell the allocatable space (review2 J100).
+@SuppressLint("UsableSpace")
 internal fun systemAllocatableBytes(context: Context, directory: File): Long {
     val manager = context.getSystemService(StorageManager::class.java) ?: return directory.usableSpace
     return try {

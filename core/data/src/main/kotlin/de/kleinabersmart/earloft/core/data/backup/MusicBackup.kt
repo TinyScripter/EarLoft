@@ -51,6 +51,12 @@ class MusicBackup @Inject constructor(
         )
     }
 
+    /** The listening history added after the event [afterId] (see [BackupDao.playEventsAfter]). */
+    suspend fun playEventsAfter(afterId: Long): List<KeyedPlayEvent> = backupDao.playEventsAfter(afterId)
+
+    /** The keys of the whole listening history here; what is in it needs no applying. */
+    suspend fun playKeys(): Set<PlayKey> = backupDao.playEvents().mapTo(HashSet()) { PlayKey(it.song.key, it.playedAt) }
+
     private suspend fun wearSelections(): List<UserWearSelectionEntity> {
         val selections = backupDao.wearSelections()
         val albums = selections.filter { it.kind == WearSelectionKind.ALBUM }.mapNotNull { it.refId }
@@ -60,7 +66,8 @@ class MusicBackup @Inject constructor(
         return selections.mapNotNull { selection ->
             when (selection.kind) {
                 WearSelectionKind.ALBUM -> albums[selection.refId]?.let { album ->
-                    UserWearSelectionEntity(albumKey(album.albumArtist, album.album), selection.kind, album.albumArtist, album.album, null, selection.addedAt)
+                    val year = album.year ?: 0
+                    UserWearSelectionEntity(albumKey(album.albumArtist, album.album, year), selection.kind, album.albumArtist, album.album, null, selection.addedAt, year)
                 }
                 WearSelectionKind.PLAYLIST -> playlists[selection.refId]?.playlistRef()?.let { ref ->
                     UserWearSelectionEntity("playlist:$ref", selection.kind, null, null, ref, selection.addedAt)
@@ -74,14 +81,16 @@ class MusicBackup @Inject constructor(
     suspend fun resolve(keys: Collection<UserSongKey>): Map<UserSongKey, Long> =
         keys.groupBy { it.albumArtist to it.album }.flatMap { (album, wanted) ->
             val songs = backupDao.songsOfAlbum(album.first, album.second)
+            val albums = songs.groupBy { it.albumId }
             wanted.mapNotNull { key ->
-                songs.firstOrNull { it.disc == key.disc && it.track == key.track && it.title == key.title }?.let { key to it.songId }
+                val albumId = pickAlbum(albums.keys, key.year) { albums.getValue(it).first().year } ?: return@mapNotNull null
+                albums.getValue(albumId).firstOrNull { it.disc == key.disc && it.track == key.track && it.title == key.title }?.let { key to it.songId }
             }
         }.toMap()
 
     /** Whether the selection's target exists here; otherwise it waits in the backup. */
     suspend fun wearTarget(selection: UserWearSelectionEntity): Long? = when (selection.kind) {
-        WearSelectionKind.ALBUM -> backupDao.albumId(selection.albumArtist.orEmpty(), selection.album.orEmpty())
+        WearSelectionKind.ALBUM -> pickAlbum(backupDao.albumsNamed(selection.albumArtist.orEmpty(), selection.album.orEmpty()), selection.year) { it.year }?.albumId
         WearSelectionKind.PLAYLIST -> selection.playlistRef?.let { playlistId(it) }
         WearSelectionKind.FAVORITES -> 0
     }
@@ -133,7 +142,7 @@ class MusicBackup @Inject constructor(
 
     /** The album or artist that exists here; otherwise the favorite waits in the backup. */
     suspend fun collectionState(favorite: UserCollectionFavoriteEntity): CollectionFavoriteState? = when (favorite.kind) {
-        FavoriteKind.ALBUM -> backupDao.albumFavoriteState(favorite.artist, favorite.title)
+        FavoriteKind.ALBUM -> pickAlbum(backupDao.albumFavoriteStates(favorite.artist, favorite.title), favorite.year) { it.year }
         FavoriteKind.ARTIST -> backupDao.artistFavoriteState(favorite.artist)
         FavoriteKind.SONG -> null
     }
@@ -185,13 +194,37 @@ class MusicBackup @Inject constructor(
 
     private companion object {
         const val MAX_ARGS = 500
-        const val LOCAL = "local"
-        const val SERVER = "server"
-        const val REF_SEPARATOR = "\u001F"
 
-        fun albumKey(albumArtist: String, album: String) = "album:$albumArtist$REF_SEPARATOR$album"
+        /** Without a known year as before version 20 of `user.db`, so that selections of such albums keep their key. */
+        fun albumKey(albumArtist: String, album: String, year: Int) =
+            "album:$albumArtist$REF_SEPARATOR$album" + if (year != 0) "$REF_SEPARATOR$year" else ""
     }
 }
+
+private const val LOCAL = "local"
+private const val SERVER = "server"
+private const val REF_SEPARATOR = "\u001F"
+
+/**
+ * The selection of a server playlist with the local ID of its server ([ids]: backed-up → local, see `UserDataBackup.import`);
+ * other selections unchanged.
+ */
+internal fun UserWearSelectionEntity.withLocalSourceIds(ids: Map<String, String>): UserWearSelectionEntity {
+    val parts = playlistRef?.split(REF_SEPARATOR) ?: return this
+    if (parts.size != 3 || parts[0] != SERVER) return this
+    val local = ids[parts[1]] ?: return this
+    val ref = SERVER + REF_SEPARATOR + local + REF_SEPARATOR + parts[2]
+    return copy(key = "playlist:$ref", playlistRef = ref)
+}
+
+/**
+ * The album a backed-up key with [year] (0 = unknown) means among the [candidates] with the same artist and title, by the rule of
+ * the merge (`MergeResolver`): the one with the same year, otherwise the only one if one of the two years is unknown. Among several
+ * albums of other years none: a favorite that waits is better than one on the wrong edition.
+ */
+internal fun <T> pickAlbum(candidates: Collection<T>, year: Int, yearOf: (T) -> Int?): T? =
+    candidates.firstOrNull { (yearOf(it) ?: 0) == year }
+        ?: candidates.singleOrNull()?.takeIf { yearOf(it) == null || year == 0 }
 
 /** Music user data of the main database, already with keys (see [UserDataSnapshot.ofMain]). */
 data class MusicData(

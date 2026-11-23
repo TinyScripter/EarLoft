@@ -51,7 +51,7 @@ class CollectionFavoritesSyncTest {
         syncer.syncAdding(db, nd)
 
         assertEquals(listOf("Takk..."), favorites.favoriteAlbums().first().map { it.title })
-        assertEquals(5_000L, db.libraryDao().observeAlbums().first().single().favoriteChangedAt)
+        assertEquals(5_000L, db.query("SELECT favoriteChangedAt FROM albums", null).use { it.moveToFirst(); it.getLong(0) })
         assertEquals(listOf("Sigur Rós"), favorites.favoriteArtists().first().map { it.name })
         assertEquals(0, db.syncDao().countActions())
     }

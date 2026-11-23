@@ -343,6 +343,19 @@ class SleepTimerTest {
     }
 
     @Test
+    fun `a timer running out while paused by the user opens no shake window`() {
+        timer.start(60_000)
+        advance(10_000)
+        target.pause()
+        advance(50_000)
+
+        assertFalse(timer.shakeWindow.value)
+        assertFalse(timer.extend())
+        assertEquals(0, target.playCount)
+        assertEquals(0L, target.rewound)
+    }
+
+    @Test
     fun `after two minutes shaking no longer helps`() {
         timer.start(60_000)
         advance(60_000)

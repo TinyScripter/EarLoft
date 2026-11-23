@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.Flow
 /** Downloaded episodes of a podcast: count and bytes used. */
 data class FeedDownloadRow(val feedId: String, val episodes: Int, val bytes: Long)
 
-/** Downloaded episode that has been listened to the end; [finishedAt] is the time of the last change to its progress. */
+/** Downloaded episode that has been listened to the end; [finishedAt] is when (before that was stored: the last change to its progress). */
 data class FinishedDownloadRow(val bookId: Long, val finishedAt: Long, val filePath: String?)
 
 /** Start of an episode's description (see [PodcastDao.descriptionStarts]). */
@@ -504,7 +504,7 @@ abstract class PodcastDao {
     abstract suspend fun downloadedTracks(): List<BookTrackEntity>
 
     @Query(
-        "SELECT t.bookId AS bookId, p.updatedAt AS finishedAt, t.filePath AS filePath FROM book_tracks t " +
+        "SELECT t.bookId AS bookId, COALESCE(p.finishedAt, p.updatedAt) AS finishedAt, t.filePath AS filePath FROM book_tracks t " +
             "JOIN books b ON b.bookId = t.bookId JOIN book_progress p ON p.bookId = t.bookId " +
             "WHERE b.kind = 'EPISODE' AND t.downloadState = 'DONE' AND p.finished = 1 AND b.starredAt IS NULL",
     )

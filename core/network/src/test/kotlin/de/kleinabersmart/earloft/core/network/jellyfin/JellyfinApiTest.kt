@@ -1,6 +1,8 @@
 package de.kleinabersmart.earloft.core.network.jellyfin
 
 import de.kleinabersmart.earloft.core.network.HttpStatusException
+import de.kleinabersmart.earloft.core.network.podcast.FeedAuth
+import de.kleinabersmart.earloft.core.network.podcast.FeedAuthRegistry
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -20,6 +22,7 @@ class JellyfinApiTest {
 
     private lateinit var mockServer: MockWebServer
     private lateinit var registry: JellyfinServerRegistry
+    private val feedAuth = FeedAuthRegistry()
     private lateinit var client: OkHttpClient
     private lateinit var api: JellyfinApi
     private lateinit var server: JellyfinServer
@@ -29,7 +32,7 @@ class JellyfinApiTest {
     fun setUp() {
         mockServer = MockWebServer().apply { start() }
         registry = JellyfinServerRegistry()
-        client = OkHttpClient.Builder().addNetworkInterceptor(JellyfinAuthInterceptor(registry, clientInfo)).build()
+        client = OkHttpClient.Builder().addNetworkInterceptor(JellyfinAuthInterceptor(registry, clientInfo, feedAuth)).build()
         api = JellyfinApi(client, clientInfo)
         server = JellyfinServer("jf", mockServer.url("/jellyfin/"), userId = "u1", token = "tok")
     }
@@ -77,6 +80,25 @@ class JellyfinApiTest {
         assertEquals("/jellyfin/Audio/s1/stream", stream.url.encodedPath)
         assertEquals("true", stream.url.queryParameter("static"))
         assertNull(stream.url.queryParameter("ApiKey"))
+    }
+
+    @Test
+    fun `a protected feed on the host of a jellyfin at the root gets no jellyfin token`() = runTest {
+        val root = JellyfinServer("root", mockServer.url("/"), "u1", "tok")
+        registry.replaceAll(listOf(root))
+        val feedUrl = mockServer.url("/feeds/private/feed.xml")
+        val auth = FeedAuth(feedUrl, "name", "secret")
+        feedAuth.replaceAll(mapOf("feed" to auth))
+        repeat(3) { mockServer.enqueue(MockResponse.Builder().body("x").build()) }
+
+        client.newCall(Request.Builder().url(feedUrl).tag(FeedAuth::class.java, auth).build()).execute().close()
+        assertNull(mockServer.takeRequest().headers["Authorization"])
+        // A download next to the feed, without a tag.
+        client.newCall(Request.Builder().url(mockServer.url("/feeds/private/1.mp3")).build()).execute().close()
+        assertNull(mockServer.takeRequest().headers["Authorization"])
+        // Jellyfin's own files keep their token.
+        client.newCall(Request.Builder().url(mockServer.url("/Audio/s1/stream")).build()).execute().close()
+        assertTrue("Token=\"tok\"" in mockServer.takeRequest().headers["Authorization"]!!)
     }
 
     @Test

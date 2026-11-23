@@ -1,7 +1,11 @@
 package de.kleinabersmart.earloft.wear.ui
 
+import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -194,7 +198,7 @@ private fun NowPlayingHost(
             onSkipForward = model::skipForward,
             onShuffle = model::toggleShuffle,
             onRepeat = model::cycleRepeat,
-            onOutput = { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },
+            onOutput = { openBluetoothSettings(context) },
             onCrown = model::onCrown,
             onSeek = { ms -> model.seekTo(window?.toBook(ms) ?: ms) },
             chapterRing = window != null,
@@ -763,3 +767,26 @@ private fun NowPlayingBookPreview() {
         }
     }
 }
+
+/**
+ * The watch's Bluetooth page to connect headphones, closing again once one is connected (Wear extras, as the system's own
+ * output switcher does); without such a page a hint instead of a crash (review2 J91).
+ */
+private fun openBluetoothSettings(context: Context) {
+    val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
+        .putExtra(EXTRA_CONNECTION_ONLY, true)
+        .putExtra(EXTRA_CLOSE_ON_CONNECT, true)
+        .putExtra(EXTRA_BLUETOOTH_FILTER_TYPE, FILTER_TYPE_AUDIO)
+    try {
+        context.startActivity(intent)
+    } catch (e: ActivityNotFoundException) {
+        Log.w("NowPlayingScreen", "No Bluetooth settings on this watch", e)
+        Toast.makeText(context, R.string.output_settings_missing, Toast.LENGTH_LONG).show()
+    }
+}
+
+// Extras of the Wear OS Bluetooth settings (documented for `ACTION_BLUETOOTH_SETTINGS` on Wear OS, "Audio" in the guidelines).
+private const val EXTRA_CONNECTION_ONLY = "EXTRA_CONNECTION_ONLY"
+private const val EXTRA_CLOSE_ON_CONNECT = "EXTRA_CLOSE_ON_CONNECT"
+private const val EXTRA_BLUETOOTH_FILTER_TYPE = "android.bluetooth.devicepicker.extra.FILTER_TYPE"
+private const val FILTER_TYPE_AUDIO = 1

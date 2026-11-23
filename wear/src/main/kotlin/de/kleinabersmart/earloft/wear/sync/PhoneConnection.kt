@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.wear.sync
 
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.net.toUri
 import androidx.wear.remote.interactions.RemoteActivityHelper
@@ -82,8 +83,19 @@ class PhoneConnection @Inject constructor(
         return phoneStatusOf(connected, withApp = byCapability.toSet() + byPhoneInfo)
     }
 
-    /** The connected phone with the app, otherwise `null` (for file transfers, Wear concept 8.4). */
-    suspend fun connectedPhoneNodeId(): String? = (resolve() as? PhoneStatus.Connected)?.nodeId
+    /** Last answer of [connectedPhoneNodeId] and when (`elapsedRealtime`). */
+    @Volatile
+    private var cachedNode: Pair<String?, Long>? = null
+
+    /**
+     * The connected phone with the app, otherwise `null` (for file transfers, Wear concept 8.4). Kept for [NODE_CACHE_MS]: each
+     * lookup costs three calls to Play services, and the crown asks on every step (review2 J94).
+     */
+    suspend fun connectedPhoneNodeId(): String? {
+        val now = SystemClock.elapsedRealtime()
+        cachedNode?.let { (nodeId, at) -> if (now - at < NODE_CACHE_MS) return nodeId }
+        return (resolve() as? PhoneStatus.Connected)?.nodeId.also { cachedNode = it to now }
+    }
 
     /** Opens the app's Play Store page on the phone. @return `false` if that did not work. */
     suspend fun openStoreOnPhone(nodeId: String): Boolean {
@@ -104,6 +116,7 @@ class PhoneConnection @Inject constructor(
     private companion object {
         const val TAG = "PhoneConnection"
         const val CLOUD_NODE_ID = "cloud"
+        const val NODE_CACHE_MS = 5_000L
     }
 }
 

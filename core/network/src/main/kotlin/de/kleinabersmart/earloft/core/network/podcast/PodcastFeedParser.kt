@@ -324,8 +324,13 @@ object PodcastFeedParser {
         fun children(name: String, namespace: String? = null): List<Node> =
             children.filter { it.name == name && (namespace == null || it.namespace == namespace) }
 
-        /** Without a namespace, any namespace matches, but the feed's own is preferred. */
-        fun child(name: String, namespace: String? = null): Node? = children(name, namespace).firstOrNull()
+        /**
+         * Without a namespace, any namespace matches, but the feed's own (that of this element) is preferred: `<itunes:title>`
+         * before `<title>` must not win (review2 J43).
+         */
+        fun child(name: String, namespace: String? = null): Node? = children(name, namespace).let { found ->
+            if (namespace == null) found.firstOrNull { it.namespace == this.namespace } ?: found.firstOrNull() else found.firstOrNull()
+        }
 
         /**
          * Elements of the Podcasting 2.0 namespace. Feeds name it differently (`https://podcastindex.org/namespace/1.0`,

@@ -40,6 +40,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import de.kleinabersmart.earloft.core.model.ARD_BOOK_SERVER_ID
+import de.kleinabersmart.earloft.core.model.BookKind
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
@@ -120,6 +121,9 @@ class UserDataBackup @Inject constructor(
     /** When all parts were last read (`elapsedRealtime`). */
     private var fullReadAt = 0L
 
+    /** The newest event of the listening history in [mirrored]; if only that changed, only newer events are read. */
+    private var mirroredPlayEventId = 0L
+
     fun start() {
         if (!started.compareAndSet(false, true)) return
         scope.launch {
@@ -137,8 +141,15 @@ class UserDataBackup @Inject constructor(
                 } finally {
                     restoreFinished.complete(Unit)
                 }
-                val saved = readUser()
-                mutex.withLock { applyAndWait(saved, pendingOf(saved)) }
+                try {
+                    val saved = readUser()
+                    mutex.withLock { applyAndWait(saved, pendingOf(saved)) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Like in [applyWhenLibraryChanges]: mirroring must go on (e.g. after a full disk at startup).
+                    Log.e(TAG, "User data could not be applied", e)
+                }
             } finally {
                 firstApplied.complete(Unit)
             }
@@ -186,12 +197,17 @@ class UserDataBackup @Inject constructor(
     /**
      * Everything from [saved] as still to be applied; plus the restored subscriptions that have never been synced and have
      * no episodes yet: after their first sync the automation only downloads there what was downloaded on the old device.
+     * Without the listening history that is already here: otherwise every start would look up each of its songs again.
      */
-    private suspend fun pendingOf(saved: UserDataSnapshot): Pending = Pending.of(saved).copy(
-        restoredFeeds = saved.podcasts.keys.filter { feedId ->
-            podcastDao.feed(feedId)?.lastRefreshAt == 0L && podcastDao.episodeCount(feedId) == 0
-        },
-    )
+    private suspend fun pendingOf(saved: UserDataSnapshot): Pending {
+        val played = if (saved.playEvents.isEmpty()) emptySet() else music.playKeys()
+        return Pending.of(saved).copy(
+            playEvents = saved.playEvents.filterKeys { it !in played }.values.toList(),
+            restoredFeeds = saved.podcasts.keys.filter { feedId ->
+                podcastDao.feed(feedId)?.lastRefreshAt == 0L && podcastDao.episodeCount(feedId) == 0
+            },
+        )
+    }
 
     /** Under [mutex]: applies and remembers the rest for later. */
     private suspend fun applyAndWait(saved: UserDataSnapshot, pending: Pending) {
@@ -210,7 +226,7 @@ class UserDataBackup @Inject constructor(
                 mirror()
                 readUser()
             } else {
-                readMain(null, emptySet()).plusMissing(readUser())
+                readMain(null, emptySet()).first.plusMissing(readUser())
             }
         }
     }
@@ -279,10 +295,20 @@ class UserDataBackup @Inject constructor(
 
     /**
      * Removes from [saved] the servers and subscriptions that exist here under a different ID, and attaches their progress,
-     * bookmarks and downloads to the local ID.
+     * bookmarks, downloads, book statistics (grouped by server) and the watch's server playlists to the local ID.
      */
     private fun withLocalIds(saved: UserDataSnapshot, ids: Map<String, String>): UserDataSnapshot {
+        if (ids.isEmpty()) return saved
         return saved.copy(
+            listeningStats = saved.listeningStats.values
+                .map { if (it.kind == BookKind.BOOK) it.copy(groupKey = ids[it.groupKey] ?: it.groupKey) else it }
+                .groupBy { StatKey(it.source, it.groupKey, it.itemKey) }
+                .mapValues { (_, rows) -> rows.maxBy { it.listenedMs } },
+            listeningDays = saved.listeningDays.values
+                .map { if (it.kind == BookKind.BOOK) it.copy(groupKey = ids[it.groupKey] ?: it.groupKey) else it }
+                .groupBy { DayKey(it.day, it.kind.name, it.groupKey) }
+                .mapValues { (_, rows) -> rows.maxBy { it.listenedMs } },
+            wearSelections = saved.wearSelections.values.map { it.withLocalSourceIds(ids) }.associateBy { it.key },
             servers = saved.servers.filterKeys { it !in ids },
             spokenServers = saved.spokenServers.filterKeys { it !in ids },
             podcasts = saved.podcasts.filterKeys { it !in ids },
@@ -635,7 +661,8 @@ class UserDataBackup @Inject constructor(
         val now = SystemClock.elapsedRealtime()
         val base = mirrored.takeIf { changedTables != null && now - fullReadAt < FULL_READ_INTERVAL_MS }
         if (base == null) fullReadAt = now
-        val current = readMain(base, changedTables.orEmpty()).keepingUnchangedPlaylists(previous)
+        val (main, playEventId) = readMain(base, changedTables.orEmpty(), mirroredPlayEventId)
+        val current = main.keepingUnchangedPlaylists(previous)
         if (mirrored == null && previous.hasServersFeedsOrStats && !current.hasServersFeedsOrStats) {
             Log.w(TAG, "Main database has no servers, subscriptions or statistics, the backup has; restoring instead of mirroring")
             restoreInsteadOfMirroring()
@@ -651,11 +678,19 @@ class UserDataBackup @Inject constructor(
         val waitingStars = stillWaiting?.episodeStars.orEmpty().map { BookKey(it.serverId, it.remoteId) }.toSet()
         val waitingArdBooks = stillWaiting?.ardBooks.orEmpty().map { it.remoteId }.toSet()
         val changes = current.changesSince(previous).let { changes ->
+            // A book from ARD Sounds that has not been fetched back yet stays backed up, otherwise it would be dropped before fetching.
+            val ardBookDeletes = changes.ardBooks.deletes.filter { it.remoteId !in waitingArdBooks }
+            // Removing a book from ARD Sounds takes its progress and bookmarks along (review2 Z10): there is no server whose
+            // removal would, and otherwise they would apply again if the book is added months later.
+            val removedArd = ardBookDeletes.mapTo(HashSet()) { it.remoteId }
+            fun removedWithArdBook(serverId: String, remoteId: String) = serverId == ARD_BOOK_SERVER_ID && remoteId in removedArd
             val progressDeletes = changes.progress.deletes.filter {
-                BookKey(it.serverId, it.remoteId) !in waitingProgress && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
+                removedWithArdBook(it.serverId, it.remoteId) ||
+                    BookKey(it.serverId, it.remoteId) !in waitingProgress && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
             }
             val bookmarkDeletes = changes.bookmarks.deletes.filter {
-                it.key !in waitingBookmarks && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
+                removedWithArdBook(it.serverId, it.remoteId) ||
+                    it.key !in waitingBookmarks && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
             }
             val downloadDeletes = changes.episodeDownloads.deletes.filter {
                 BookKey(it.serverId, it.remoteId) !in waitingDownloads && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
@@ -663,8 +698,6 @@ class UserDataBackup @Inject constructor(
             val starDeletes = changes.episodeStars.deletes.filter {
                 BookKey(it.serverId, it.remoteId) !in waitingStars && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
             }
-            // A book from ARD Sounds that has not been fetched back yet stays backed up, otherwise it would be dropped before fetching.
-            val ardBookDeletes = changes.ardBooks.deletes.filter { it.remoteId !in waitingArdBooks }
             val songs = music.resolve((changes.favorites.deletes.map { it.song } + changes.playEvents.deletes.map { it.song }).toSet())
             changes.copy(
                 progress = changes.progress.copy(deletes = progressDeletes),
@@ -682,10 +715,14 @@ class UserDataBackup @Inject constructor(
         }
         if (!changes.isEmpty) userDao.apply(changes)
         mirrored = current
+        mirroredPlayEventId = playEventId
     }
 
-    /** Re-reads the parts whose tables are in [changed] and takes the others from [base]; without [base], everything. */
-    private suspend fun readMain(base: UserDataSnapshot?, changed: Set<String>): UserDataSnapshot {
+    /**
+     * Re-reads the parts whose tables are in [changed] and takes the others from [base]; without [base], everything. Along with it
+     * the newest event of the listening history read; if only that history changed, only events after [basePlayEventId] are read.
+     */
+    private suspend fun readMain(base: UserDataSnapshot?, changed: Set<String>, basePlayEventId: Long = 0): Pair<UserDataSnapshot, Long> {
         fun read(vararg tables: String) = base == null || tables.any { it in changed }
         val servers = read("sources")
         val spokenServers = read("spoken_servers")
@@ -700,7 +737,11 @@ class UserDataBackup @Inject constructor(
         val stars = read("books")
         // The parts of the books from ARD Sounds change on sync.
         val ards = read("books", "book_tracks")
-        val musicData = if (read(*MUSIC_TABLES)) music.read() else null
+        // While music plays, only the listening history grows: then only its new events are read, not all of it (J18 in review2).
+        val newPlaysOnly = base != null && MUSIC_TABLES.filter { it in changed } == listOf("play_events")
+        val musicData = if (read(*MUSIC_TABLES) && !newPlaysOnly) music.read() else null
+        val newPlays = if (newPlaysOnly) music.playEventsAfter(basePlayEventId) else null
+        val playEventId = maxOf(basePlayEventId, (musicData?.playEvents ?: newPlays).orEmpty().maxOfOrNull { it.eventId } ?: 0)
         val fresh = UserDataSnapshot.ofMain(
             sources = if (servers) sourceDao.getServers() else emptyList(),
             spokenServers = if (spokenServers || progress || bookmarks) bookDao.servers() else emptyList(),
@@ -720,7 +761,7 @@ class UserDataBackup @Inject constructor(
             ardBooks = if (ards) bookDao.keyedBooksOf(ARD_BOOK_SERVER_ID) else emptyList(),
             ardParts = if (ards) bookDao.keyedPartsOf(ARD_BOOK_SERVER_ID) else emptyList(),
         )
-        if (base == null) return fresh
+        if (base == null) return fresh to playEventId
         return UserDataSnapshot(
             servers = if (servers) fresh.servers else base.servers,
             spokenServers = if (spokenServers) fresh.spokenServers else base.spokenServers,
@@ -731,14 +772,19 @@ class UserDataBackup @Inject constructor(
             playlists = if (musicData != null) fresh.playlists else base.playlists,
             playlistEntries = if (musicData != null) fresh.playlistEntries else base.playlistEntries,
             favorites = if (musicData != null) fresh.favorites else base.favorites,
-            playEvents = if (musicData != null) fresh.playEvents else base.playEvents,
+            playEvents = when {
+                musicData != null -> fresh.playEvents
+                newPlays != null -> base.playEvents + newPlays.map { UserPlayEventEntity(it.song.key, it.playedAt, it.listenedMs) }
+                    .associateBy { PlayKey(it.song, it.playedAt) }
+                else -> base.playEvents
+            },
             wearSelections = if (musicData != null) fresh.wearSelections else base.wearSelections,
             episodeDownloads = if (downloads) fresh.episodeDownloads else base.episodeDownloads,
             collectionFavorites = if (musicData != null) fresh.collectionFavorites else base.collectionFavorites,
             bookmarks = if (bookmarks) fresh.bookmarks else base.bookmarks,
             episodeStars = if (stars) fresh.episodeStars else base.episodeStars,
             ardBooks = if (ards) fresh.ardBooks else base.ardBooks,
-        )
+        ) to playEventId
     }
 
     private suspend fun readUser() = userDao.snapshot()

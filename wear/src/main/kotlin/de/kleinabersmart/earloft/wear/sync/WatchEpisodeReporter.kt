@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearEpisodeReportDto
 import de.kleinabersmart.earloft.core.wearsync.WearEpisodeStateDto
 import de.kleinabersmart.earloft.core.wearsync.WearPaths
 import de.kleinabersmart.earloft.core.wearsync.putPayload
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
@@ -54,7 +55,16 @@ class WatchEpisodeReporter @Inject constructor(
             merge(
                 bookDao.observeAllProgress().debounce(QUIET_MS).map { },
                 progressSync.held.debounce(HELD_SETTLE_MS).map { },
-            ).onStart { emit(Unit) }.collect { report() }
+            ).onStart { emit(Unit) }.collect {
+                // One failed report must not end the reports to the phone until the next start (review2 J92).
+                try {
+                    report()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(TAG, "Progress not sent to the phone", e)
+                }
+            }
         }
     }
 
@@ -65,8 +75,9 @@ class WatchEpisodeReporter @Inject constructor(
         // The watch only has mirrored items: every episode and every book comes from the phone.
         val progress = bookDao.keyedProgress()
             .filter { it.progress.updatedAt > reported.progressAt(it.serverId, it.remoteId) }
-        val listening = statsDao.all()
-            .filter { it.source == ListeningStatEntity.SOURCE_APP }
+        // Only entries listened to since the last report (with slack for the clock): the delta is per entry anyway (review2 J95).
+        val checkedAt = System.currentTimeMillis()
+        val listening = statsDao.listenedSince(ListeningStatEntity.SOURCE_APP, reported.listeningCheckedAt() - CLOCK_SLACK_MS)
             .mapNotNull { stat ->
                 // Episodes count under the feed address, books under their `serverId` (StatsRepository).
                 val feedId = when (stat.kind) {
@@ -78,7 +89,10 @@ class WatchEpisodeReporter @Inject constructor(
                 if (delta < 0) reported.markListened(stat.groupKey, stat.itemKey, stat.listenedMs)
                 if (delta <= 0) null else stat to WearEpisodeListeningDto(feedId, stat.itemKey, delta, stat.lastListenedAt)
             }
-        if (progress.isEmpty() && listening.isEmpty()) return@withLock
+        if (progress.isEmpty() && listening.isEmpty()) {
+            reported.markReported(emptyList(), emptyList(), checkedAt)
+            return@withLock
+        }
 
         val packet = WearEpisodeReportDto(
             packetId = UUID.randomUUID().toString(),
@@ -89,14 +103,18 @@ class WatchEpisodeReporter @Inject constructor(
             listening = listening.map { it.second },
         )
         if (!dataClient.putPayload(WearPaths.episodes(packet.packetId), WearCodec.encode(packet))) return@withLock
-        progress.forEach { reported.markProgress(it.serverId, it.remoteId, it.progress.updatedAt) }
-        listening.forEach { (stat, _) -> reported.markListened(stat.groupKey, stat.itemKey, stat.listenedMs) }
+        reported.markReported(
+            progress.map { Triple(it.serverId, it.remoteId, it.progress.updatedAt) },
+            listening.map { (stat, _) -> Triple(stat.groupKey, stat.itemKey, stat.listenedMs) },
+            checkedAt,
+        )
         Log.d(TAG, "Episodes and books reported: ${progress.size} progress entries, ${listening.size} listening times")
     }
 
     private companion object {
         const val TAG = "WatchEpisodeReporter"
         const val QUIET_MS = 30_000L
+        const val CLOCK_SLACK_MS = 60 * 60_000L
 
         /** Wait briefly until the player has also booked the listened time on pause; it goes out in the same package. */
         const val HELD_SETTLE_MS = 1_000L

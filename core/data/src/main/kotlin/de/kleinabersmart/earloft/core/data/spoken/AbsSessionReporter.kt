@@ -69,13 +69,15 @@ class AbsSessionReporter @Inject constructor(
         durationMs: Long?,
         force: Boolean = false,
         now: Long = System.currentTimeMillis(),
-    ) {
-        if (listenedMs <= 0) return
+        /** `false`: the caller pushes the returned session itself, e.g. only after its transaction. */
+        push: Boolean = true,
+    ): String? {
+        if (listenedMs <= 0) return null
         // Watch: the listening time goes to the server via the phone (Wear concept 16.2), which builds its own sessions from it.
-        if (!policy.syncsWithBookServers) return
+        if (!policy.syncsWithBookServers) return null
         val sessionId = mutex.withLock {
-            val book = bookDao.book(bookId) ?: return
-            if (book.kind != BookKind.BOOK || hasNoBookServer(book.serverId)) return
+            val book = bookDao.book(bookId) ?: return null
+            if (book.kind != BookKind.BOOK || hasNoBookServer(book.serverId)) return null
             val existing = activeSession[bookId]?.let { dao.session(it) }?.takeIf { now - it.updatedAt <= SESSION_GAP_MS }
             val session = existing?.copy(
                 updatedAt = now,
@@ -98,7 +100,8 @@ class AbsSessionReporter @Inject constructor(
             session.sessionId
         }
         val sinceLastPush = now - (lastPush[sessionId] ?: 0)
-        if (force || sinceLastPush >= PUSH_INTERVAL_MS) push(sessionId)
+        if (push && (force || sinceLastPush >= PUSH_INTERVAL_MS)) push(sessionId)
+        return sessionId
     }
 
     /** `true` if the session is reported (or there is nothing to report). */

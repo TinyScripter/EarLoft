@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.wear.download
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import de.kleinabersmart.earloft.core.wearsync.WearDownloadError
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -28,15 +29,15 @@ class WatchStateTest {
 
     @Test
     fun `a full storage error goes once there is room, other errors stay`() {
-        state.setStorageFullError("full")
-        assertEquals("full", WatchState(ApplicationProvider.getApplicationContext()).lastError.value)
+        state.setStorageFullError()
+        assertEquals(WearDownloadError.STORAGE_FULL, WatchState(ApplicationProvider.getApplicationContext()).lastError.value)
         state.clearStorageFullError()
         assertEquals(null, state.lastError.value)
 
-        state.setStorageFullError("full")
-        state.setLastError("phone unreachable")
+        state.setStorageFullError()
+        state.setLastError(WearDownloadError.PHONE_UNREACHABLE)
         state.clearStorageFullError()
-        assertEquals("a later error replaces the full storage", "phone unreachable", state.lastError.value)
+        assertEquals("a later error replaces the full storage", WearDownloadError.PHONE_UNREACHABLE, state.lastError.value)
     }
 
     @Test

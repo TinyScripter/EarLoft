@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsBridgeUrl
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsShowId
 import kotlinx.coroutines.Dispatchers
@@ -98,7 +99,7 @@ class DatabaseExporter @Inject constructor(
         val stats = statsDao.all().filter { it.kind == BookKind.EPISODE }.groupBy { it.groupKey to it.itemKey }.toMutableMap()
 
         val result = LinkedHashMap<String, OutFeed>()
-        for (feed in podcastDao.keptFeeds().filter { !it.feedId.startsWith(LOCAL_FEED_PREFIX) }.sortedBy { it.title.lowercase() }) {
+        for (feed in podcastDao.keptFeeds().filter { !it.feedId.startsWith(LOCAL_PODCAST_PREFIX) }.sortedBy { it.title.lowercase() }) {
             // No other app can subscribe to `ardsounds:`: as a bridge feed, archived without a bridge (with episodes and progress).
             val bridgeUrl = ardSoundsShowId(feed.url)?.let { show -> rssBridge?.let { ardSoundsBridgeUrl(it, show) } }
             val out = OutFeed(
@@ -242,7 +243,6 @@ class DatabaseExporter @Inject constructor(
     private fun List<ListeningStatEntity>?.lastAt(): Long = this?.maxOfOrNull { it.lastListenedAt } ?: 0
 
     private companion object {
-        const val LOCAL_FEED_PREFIX = "local:"
         const val STATE_ACTIVE = 0
         const val STATE_ARCHIVED = 2
 

@@ -664,8 +664,24 @@ class PodcastRepository @Inject constructor(
         )
         // Before creating: the download automation of a new subscription needs them immediately.
         if (auth != null) credentials.set(feed.feedId, auth)
-        mutex.withLock { apply(feed, fetched, create = true) }
-        return SubscribeResult.Added(feed.feedId)
+        val existing = mutex.withLock {
+            // Checked again under the lock: while loading, a parallel subscribe, OPML import or preview may have created the
+            // address, and the replacing write would silently delete that subscription (review2 J29).
+            dao.feedByUrl(url) ?: run {
+                apply(feed, fetched, create = true)
+                null
+            }
+        } ?: return SubscribeResult.Added(feed.feedId)
+        if (auth != null) credentials.set(feed.feedId, null)
+        return when {
+            existing.archived -> SubscribeResult.Archived(existing.feedId, existing.title)
+            existing.subscribed -> SubscribeResult.AlreadySubscribed(existing.feedId)
+            subscribed -> {
+                subscribeTrial(existing.feedId)
+                SubscribeResult.Added(existing.feedId)
+            }
+            else -> SubscribeResult.Added(existing.feedId)
+        }
     }
 
     suspend fun unsubscribe(feedId: String) = dao.deleteFeed(feedId)

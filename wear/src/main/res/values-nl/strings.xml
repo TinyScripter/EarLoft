@@ -66,6 +66,7 @@
     <string name="player_repeat_all">Alles herhalen</string>
     <string name="player_repeat_one">Track herhalen</string>
     <string name="player_output">Bluetooth-uitvoer</string>
+    <string name="output_settings_missing">Dit horloge heeft geen Bluetooth-instellingen.</string>
     <string name="player_position">Positie in track</string>
     <string name="player_position_spoken">Afspeelpositie</string>
     <string name="player_position_chapter">Positie in hoofdstuk</string>
@@ -93,6 +94,8 @@
     <string name="sleep_timer_chapter_end">Einde van hoofdstuk</string>
     <string name="sleep_timer_episode_end">Einde van aflevering</string>
     <string name="sleep_timer_start">Starten</string>
+    <string name="sleep_timer_shorter">Korter</string>
+    <string name="sleep_timer_longer">Langer</string>
 
     <!-- Downloads -->
     <string name="download_channel_name">Downloads</string>

@@ -284,6 +284,23 @@ class BookLibrariesSyncTest {
     }
 
     @Test
+    fun `a server removed during its sync does not come back, neither do its books`() = runTest {
+        val id = connect()
+        var removed = false
+        afterItems = { library, _, _ ->
+            if (library == "lib-b" && !removed) {
+                removed = true
+                kotlinx.coroutines.runBlocking { servers.remove(id) }
+            }
+        }
+
+        sync(id)
+
+        assertEquals(null, dao.server(id))
+        assertTrue(dao.booksOf(id).isEmpty())
+    }
+
+    @Test
     fun `a library that keeps shifting stops the sync without deleting anything`() = runTest {
         items["lib-a"] = manyBooks(150)
         items.remove("lib-b")

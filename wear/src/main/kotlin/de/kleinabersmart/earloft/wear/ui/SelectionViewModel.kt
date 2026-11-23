@@ -33,6 +33,15 @@ sealed interface SelectionUiState {
     data class Ready(val details: PlaylistDetails, val offline: SongOfflineLookup) : SelectionUiState {
         val downloadedCount: Int get() = details.entries.map { it.song.id }.distinct().count { isLoaded(it) }
 
+        /**
+         * [downloadedCount] against all entries: a song twice in the playlist is downloaded once, so complete means all
+         * entries, not "N−1 of N" for good (review2 J88, as G49 in the storage view).
+         */
+        val loadedEntries: Int get() {
+            val distinct = details.entries.map { it.song.id }.distinct().size
+            return downloadedCount.let { if (it >= distinct) details.playlist.songCount else it }
+        }
+
         fun isLoaded(songId: Long) = offline[songId].state == SongOfflineState.DOWNLOADED
     }
 }

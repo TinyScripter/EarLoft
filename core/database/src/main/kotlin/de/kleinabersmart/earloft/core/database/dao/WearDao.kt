@@ -218,10 +218,12 @@ interface WearDao {
                COUNT(DISTINCT CASE WHEN d.state = 'DONE' THEN e.songId END) AS done,
                COUNT(DISTINCT CASE WHEN d.state = 'FAILED' THEN e.songId END) AS failed,
                (SELECT COALESCE(SUM(d2.bytesTotal), 0) FROM downloads d2
-                WHERE d2.state = 'DONE' AND d2.songId IN (SELECT songId FROM playlist_entries WHERE playlistId = w.refId)) AS bytes,
+                WHERE d2.state = 'DONE' AND d2.sourceUid IN (SELECT ss2.uid FROM song_sources ss2
+                  JOIN playlist_entries e2 ON e2.songId = ss2.songId WHERE e2.playlistId = w.refId)) AS bytes,
                (SELECT COALESCE(SUM(CAST(d3.bytesDone AS REAL) / d3.bytesTotal), 0) FROM downloads d3
                 WHERE d3.state = 'RUNNING' AND d3.bytesTotal > 0
-                  AND d3.songId IN (SELECT songId FROM playlist_entries WHERE playlistId = w.refId)) AS runningFraction
+                  AND d3.sourceUid IN (SELECT ss3.uid FROM song_sources ss3
+                    JOIN playlist_entries e3 ON e3.songId = ss3.songId WHERE e3.playlistId = w.refId)) AS runningFraction
         FROM wear_selections w
         LEFT JOIN playlist_entries e ON e.playlistId = w.refId
         LEFT JOIN song_sources ss ON ss.songId = e.songId

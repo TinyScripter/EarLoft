@@ -111,6 +111,10 @@ abstract class BookDao {
     @Query("DELETE FROM books WHERE serverId = :serverId")
     abstract suspend fun deleteBooksOf(serverId: String)
 
+    /** After a full sync of an Audiobookshelf server; `0` if it was removed in the meantime (an upsert would bring it back). */
+    @Query("UPDATE spoken_servers SET libraryId = :libraryId, syncGeneration = :generation, lastFullSyncAt = :syncedAt WHERE serverId = :serverId")
+    abstract suspend fun finishFullSync(serverId: String, libraryId: String, generation: Long, syncedAt: Long): Int
+
     @Transaction
     open suspend fun deleteServer(serverId: String) {
         deleteBooksOf(serverId)

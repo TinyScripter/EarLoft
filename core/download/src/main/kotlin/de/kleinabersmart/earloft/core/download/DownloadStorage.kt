@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.download
 
+import android.annotation.SuppressLint
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
@@ -11,6 +12,9 @@ import javax.inject.Singleton
  * Storage for downloaded files. They live in `noBackupFilesDir` and are therefore neither
  * backed up nor copied by device transfer (concept 10, security).
  */
+// `usableSpace` only as the default for tests and for [freeBytes] (shown free space); what a download may use goes through
+// `systemAllocatableBytes` (`getAllocatableBytes`, review H7). Suppressed so that real cases stand out (review2 J100).
+@SuppressLint("UsableSpace")
 @Singleton
 class DownloadStorage internal constructor(
     val directory: File,

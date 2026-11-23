@@ -66,6 +66,7 @@
     <string name="player_repeat_all">Upprepa alla</string>
     <string name="player_repeat_one">Upprepa spår</string>
     <string name="player_output">Bluetooth-utgång</string>
+    <string name="output_settings_missing">Den här klockan har inga Bluetooth-inställningar.</string>
     <string name="player_position">Position i spåret</string>
     <string name="player_position_spoken">Uppspelningsposition</string>
     <string name="player_position_chapter">Position i kapitlet</string>
@@ -93,6 +94,8 @@
     <string name="sleep_timer_chapter_end">Slutet av kapitlet</string>
     <string name="sleep_timer_episode_end">Slutet av avsnittet</string>
     <string name="sleep_timer_start">Starta</string>
+    <string name="sleep_timer_shorter">Kortare</string>
+    <string name="sleep_timer_longer">Längre</string>
 
     <!-- Downloads -->
     <string name="download_channel_name">Nedladdningar</string>

@@ -28,8 +28,34 @@ class ReportedEpisodes @Inject constructor(@ApplicationContext context: Context)
         prefs.edit { putLong(listeningKey(groupKey, itemKey), listenedMs) }
     }
 
+    /**
+     * Marks what one report sent, in a single write (review2 J95). [checkedAt]: the statistics up to then are reported; the next
+     * report only reads entries listened to since ([listeningCheckedAt]).
+     */
+    fun markReported(progress: List<Triple<String, String, Long>>, listening: List<Triple<String, String, Long>>, checkedAt: Long) {
+        prefs.edit {
+            progress.forEach { (feedId, guid, updatedAt) -> putLong(progressKey(feedId, guid), updatedAt) }
+            listening.forEach { (groupKey, itemKey, listenedMs) -> putLong(listeningKey(groupKey, itemKey), listenedMs) }
+            putLong(KEY_CHECKED_AT, checkedAt)
+        }
+    }
+
+    fun listeningCheckedAt(): Long = prefs.getLong(KEY_CHECKED_AT, 0)
+
+    /** Forgets the progress of episodes and books no longer on the watch; [kept] as (feedId or serverId, guid or remoteId). */
+    fun retainProgress(kept: Collection<Pair<String, String>>) {
+        val keep = kept.mapTo(HashSet()) { (feedId, guid) -> progressKey(feedId, guid) }
+        val stale = prefs.all.keys.filter { it.startsWith(PROGRESS_PREFIX) && it !in keep }
+        if (stale.isNotEmpty()) prefs.edit { stale.forEach(::remove) }
+    }
+
     // Separator that occurs in no address and no guid.
-    private fun progressKey(feedId: String, guid: String) = "p\u0000$feedId\u0000$guid"
+    private fun progressKey(feedId: String, guid: String) = "$PROGRESS_PREFIX$feedId\u0000$guid"
 
     private fun listeningKey(groupKey: String, itemKey: String) = "l\u0000$groupKey\u0000$itemKey"
+
+    private companion object {
+        const val PROGRESS_PREFIX = "p\u0000"
+        const val KEY_CHECKED_AT = "listening_checked_at"
+    }
 }

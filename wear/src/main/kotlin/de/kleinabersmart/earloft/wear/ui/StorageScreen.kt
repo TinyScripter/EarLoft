@@ -35,8 +35,10 @@ import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import androidx.wear.compose.ui.tooling.preview.WearPreviewFontScales
 import de.kleinabersmart.earloft.core.model.DownloadOverview
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
+import de.kleinabersmart.earloft.core.wearsync.WearDownloadError
 import de.kleinabersmart.earloft.wear.R
 import de.kleinabersmart.earloft.wear.download.estimatePhoneTransferMinutes
+import de.kleinabersmart.earloft.wear.download.textRes
 
 /**
  * Storage & downloads (Wear concept 11): used/free/limit, progress, hints and "Retry"; below that albums,
@@ -131,7 +133,7 @@ private fun StorageContent(
                 line(transformationSpec) {
                     pluralStringResource(R.plurals.storage_failed, overview.failedSongs, overview.failedSongs)
                 }
-                state.lastError?.let { error -> line(transformationSpec, maxLines = LAST_ERROR_MAX_LINES) { stringResource(R.string.storage_last_error, error) } }
+                state.lastError?.let { error -> line(transformationSpec, maxLines = LAST_ERROR_MAX_LINES) { stringResource(R.string.storage_last_error, stringResource(error.textRes)) } }
                 item {
                     Button(
                         onClick = onRetry,
@@ -142,7 +144,7 @@ private fun StorageContent(
                 }
             } else {
                 // E.g. "Phone unreachable" while the tracks are waiting, or "Storage full" after the last one did not fit.
-                state.lastError?.let { error -> line(transformationSpec, maxLines = LAST_ERROR_MAX_LINES) { stringResource(R.string.storage_last_error, error) } }
+                state.lastError?.let { error -> line(transformationSpec, maxLines = LAST_ERROR_MAX_LINES) { stringResource(R.string.storage_last_error, stringResource(error.textRes)) } }
             }
             if (removeFailed) {
                 line(transformationSpec) { stringResource(R.string.storage_clear_no_phone) }
@@ -295,7 +297,7 @@ private fun StoragePreview() {
                 overview = DownloadOverview(12, 5, 2, 420_000_000, 3_100_000_000, 0.4f),
                 limitBytes = 2_000_000_000,
                 missingForStorage = 3,
-                lastError = "Server unreachable",
+                lastError = WearDownloadError.PHONE_UNREACHABLE,
             ),
             entries = listOf(
                 StoredEntry("album:1", StoredSection.MUSIC, "Moonlight", 48_000_000, loaded = true, StoredRef.Music(WearSelectionKind.ALBUM, 1)),

@@ -262,6 +262,23 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `a subscription created elsewhere while the feed loads is kept instead of replaced`() = runTest {
+        var parallel = true
+        duringFetch = {
+            if (parallel) {
+                parallel = false
+                kotlinx.coroutines.runBlocking { repository.importOpml(listOf(OpmlFeed("Imported", "https://example.com/feed.xml")), replace = false) }
+            }
+        }
+
+        val result = repository.subscribe("https://example.com/feed.xml")
+
+        val feed = db.podcastDao().feeds().single()
+        assertEquals("Imported", feed.title)
+        assertEquals(SubscribeResult.AlreadySubscribed(feed.feedId), result)
+    }
+
+    @Test
     fun `opml import skips known and repeated feeds and replacing keeps matches and device podcasts`() = runTest {
         val kept = subscribe()
         val dropped = (repository.subscribe("https://example.com/other.xml") as SubscribeResult.Added).feedId

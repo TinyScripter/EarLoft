@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.network.subsonic
 
+import de.kleinabersmart.earloft.core.network.acceptsCredentialsOf
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
@@ -26,12 +27,12 @@ data class SubsonicServer(
 ) {
     fun endpoint(name: String): HttpUrl.Builder = baseUrl.newBuilder().addPathSegments("rest/$name")
 
-    /** Does [url] belong to this server's REST API? */
+    /**
+     * Does [url] belong to this server's REST API? Like Jellyfin (review G33) also after a proxy redirected http to https on the
+     * same host ([acceptsCredentialsOf]); otherwise the credentials were missing there (review2 J39).
+     */
     fun owns(url: HttpUrl): Boolean =
-        url.scheme == baseUrl.scheme &&
-            url.host == baseUrl.host &&
-            url.port == baseUrl.port &&
-            url.encodedPath.startsWith(baseUrl.encodedPath + "rest/")
+        url.acceptsCredentialsOf(baseUrl) && url.encodedPath.startsWith(baseUrl.encodedPath + "rest/")
 
     companion object {
         /**

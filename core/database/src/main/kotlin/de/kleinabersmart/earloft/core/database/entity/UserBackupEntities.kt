@@ -174,7 +174,8 @@ data class UserArdBookEntity(
 
 /**
  * A song via its metadata instead of the `songId` (see `KeyedSong`): album artist, album, disc, track number and title,
- * normalized as when merging.
+ * normalized as when merging, and the album's [year] (since version 20; 0 = unknown, also for rows backed up before):
+ * like the merge, the backup tells an original and its remaster apart.
  */
 data class UserSongKey(
     val albumArtist: String,
@@ -182,6 +183,7 @@ data class UserSongKey(
     val disc: Int,
     val track: Int,
     val title: String,
+    @ColumnInfo(defaultValue = "0") val year: Int = 0,
 )
 
 /** A playlist only on this device (`playlists` without a server); server playlists come with the sync. */
@@ -202,7 +204,7 @@ data class UserPlaylistEntryEntity(
 )
 
 /** Favorite of a song without a server source; server favorites come with the sync. */
-@Entity(tableName = "favorites", primaryKeys = ["song_albumArtist", "song_album", "song_disc", "song_track", "song_title"])
+@Entity(tableName = "favorites", primaryKeys = ["song_albumArtist", "song_album", "song_disc", "song_track", "song_title", "song_year"])
 data class UserFavoriteEntity(
     @Embedded(prefix = "song_") val song: UserSongKey,
     val changedAt: Long,
@@ -210,20 +212,22 @@ data class UserFavoriteEntity(
 
 /**
  * Favorite of an album or artist without a server source; the server holds the others. Albums via [artist] =
- * album artist and [title], artists via [artist] = name (and empty [title]), normalized as when merging.
+ * album artist, [title] and [year] (see [UserSongKey.year]), artists via [artist] = name (and empty [title], [year] 0),
+ * normalized as when merging.
  */
-@Entity(tableName = "collection_favorites", primaryKeys = ["kind", "artist", "title"])
+@Entity(tableName = "collection_favorites", primaryKeys = ["kind", "artist", "title", "year"])
 data class UserCollectionFavoriteEntity(
     val kind: FavoriteKind,
     val artist: String,
     val title: String,
     val changedAt: Long,
+    @ColumnInfo(defaultValue = "0") val year: Int = 0,
 )
 
 /** Music listening history (`play_events`): "Recently played", "Rediscover". */
 @Entity(
     tableName = "play_events",
-    primaryKeys = ["song_albumArtist", "song_album", "song_disc", "song_track", "song_title", "playedAt"],
+    primaryKeys = ["song_albumArtist", "song_album", "song_disc", "song_track", "song_title", "song_year", "playedAt"],
 )
 data class UserPlayEventEntity(
     @Embedded(prefix = "song_") val song: UserSongKey,
@@ -232,8 +236,8 @@ data class UserPlayEventEntity(
 )
 
 /**
- * What should go onto the watch (`wear_selections`). Target via [albumArtist]/[album] (normalized) or [playlistRef]
- * (`local` + `backupKey` or server + `remotePlaylistId`) instead of the `albumId`/`playlistId`.
+ * What should go onto the watch (`wear_selections`). Target via [albumArtist]/[album] (normalized) and [year] (see
+ * [UserSongKey.year]) or [playlistRef] (`local` + `backupKey` or server + `remotePlaylistId`) instead of the `albumId`/`playlistId`.
  */
 @Entity(tableName = "wear_selections")
 data class UserWearSelectionEntity(
@@ -243,4 +247,5 @@ data class UserWearSelectionEntity(
     val album: String?,
     val playlistRef: String?,
     val addedAt: Long,
+    @ColumnInfo(defaultValue = "0") val year: Int = 0,
 )

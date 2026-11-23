@@ -1,6 +1,9 @@
 package de.kleinabersmart.earloft.wear.sync
 
+import android.content.Context
+import android.util.Log
 import com.google.android.gms.wearable.DataClient
+import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.WearDao
 import de.kleinabersmart.earloft.core.download.DownloadStorage
@@ -14,6 +17,8 @@ import de.kleinabersmart.earloft.wear.download.budgetReference
 import de.kleinabersmart.earloft.wear.download.WearDownloadPlanner
 import de.kleinabersmart.earloft.wear.download.downloadBudget
 import de.kleinabersmart.earloft.wear.download.shouldReplanForRoom
+import de.kleinabersmart.earloft.wear.download.textRes
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -30,6 +35,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class WatchStatusPublisher @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val dataClient: DataClient,
     private val wearDao: WearDao,
     private val storage: DownloadStorage,
@@ -50,7 +56,14 @@ class WatchStatusPublisher @Inject constructor(
             }
                 .conflate()
                 .collect { progress ->
-                    publish(progress.map { WearSelectionStatusDto(it.key, it.done, it.total, it.failed) })
+                    // One failed report must not end the reports to the phone until the next start (review2 J92).
+                    try {
+                        publish(progress.map { WearSelectionStatusDto(it.key, it.done, it.total, it.failed) })
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Status not sent to the phone", e)
+                    }
                     delay(THROTTLE_MS)
                 }
         }
@@ -81,8 +94,10 @@ class WatchStatusPublisher @Inject constructor(
             limitBytes = settings.storageLimitBytes,
             selections = selections,
             missingForStorage = state.missingForStorage.value,
-            lastError = state.lastError.value,
+            // The text only for phones of an older version; a newer one shows the code in its own language (review2 Z20).
+            lastError = state.lastError.value?.let { context.getString(it.textRes) },
             updatedAt = System.currentTimeMillis(),
+            lastErrorCode = state.lastError.value?.name,
         )
         // While a file is being written, the free space and the progress of the running file (not in the report) change
         // all the time: without a real change the phone isn't woken every 10 s.
@@ -97,6 +112,7 @@ class WatchStatusPublisher @Inject constructor(
     }
 
     private companion object {
+        const val TAG = "WatchStatusPublisher"
         const val THROTTLE_MS = 10_000L
         const val FREE_BYTES_STEP = 50L * 1024 * 1024
     }

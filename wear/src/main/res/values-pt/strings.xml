@@ -68,6 +68,7 @@
     <string name="player_repeat_all">Repetir tudo</string>
     <string name="player_repeat_one">Repetir faixa</string>
     <string name="player_output">Saída Bluetooth</string>
+    <string name="output_settings_missing">Este relógio não tem configurações de Bluetooth.</string>
     <string name="player_position">Posição na faixa</string>
     <string name="player_position_spoken">Posição da reprodução</string>
     <string name="player_position_chapter">Posição no capítulo</string>
@@ -98,6 +99,8 @@
     <string name="sleep_timer_chapter_end">Fim do capítulo</string>
     <string name="sleep_timer_episode_end">Fim do episódio</string>
     <string name="sleep_timer_start">Iniciar</string>
+    <string name="sleep_timer_shorter">Mais curto</string>
+    <string name="sleep_timer_longer">Mais longo</string>
 
     <!-- Downloads -->
     <string name="download_channel_name">Downloads</string>

@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.wearsync.WearCodec
+import de.kleinabersmart.earloft.core.wearsync.WearDownloadError
 import de.kleinabersmart.earloft.core.wearsync.WearSettingsDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -64,8 +65,9 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     /** Tracks not queued because of the storage limit (Wear concept 8.1). */
     val missingForStorage: StateFlow<Int> = _missingForStorage.asStateFlow()
 
-    private val _lastError = MutableStateFlow(prefs.getString(KEY_LAST_ERROR, null))
-    val lastError: StateFlow<String?> = _lastError.asStateFlow()
+    /** Stored as a code, not as text: the phone shows it in its own language (review2 Z20). A text of an older version is dropped. */
+    private val _lastError = MutableStateFlow(WearDownloadError.of(prefs.getString(KEY_LAST_ERROR_CODE, null)))
+    val lastError: StateFlow<WearDownloadError?> = _lastError.asStateFlow()
 
     private val _waitingForWifi = MutableStateFlow(prefs.getBoolean(KEY_WAITING_WIFI, false))
 
@@ -151,26 +153,23 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         _missingForStorage.value = count
     }
 
-    fun setLastError(message: String?) {
-        prefs.edit { putString(KEY_LAST_ERROR, message).remove(KEY_LAST_ERROR_STORAGE_FULL) }
-        _lastError.value = message
+    fun setLastError(error: WearDownloadError?) {
+        prefs.edit { putString(KEY_LAST_ERROR_CODE, error?.name).remove(KEY_LAST_ERROR).remove(KEY_LAST_ERROR_STORAGE_FULL) }
+        _lastError.value = error
     }
 
     /**
      * The storage ran full during a transfer. Unlike the other errors this describes a state: [clearStorageFullError] removes it
      * as soon as there is room again, otherwise the phone kept showing it after space was freed.
      */
-    fun setStorageFullError(message: String) {
-        prefs.edit { putString(KEY_LAST_ERROR, message).putBoolean(KEY_LAST_ERROR_STORAGE_FULL, true) }
-        _lastError.value = message
-    }
+    fun setStorageFullError() = setLastError(WearDownloadError.STORAGE_FULL)
 
     /** The last error is the full storage ([setStorageFullError]). */
-    val isStorageFull: Boolean get() = prefs.getBoolean(KEY_LAST_ERROR_STORAGE_FULL, false)
+    val isStorageFull: Boolean get() = _lastError.value == WearDownloadError.STORAGE_FULL
 
     /** Removes the last error if it is the full storage ([setStorageFullError]); any other error stays. */
     fun clearStorageFullError() {
-        if (prefs.getBoolean(KEY_LAST_ERROR_STORAGE_FULL, false)) setLastError(null)
+        if (isStorageFull) setLastError(null)
     }
 
     /**
@@ -263,6 +262,7 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         private const val KEY_MISSING = "missing_for_storage"
         private const val KEY_LAST_ERROR = "last_error"
         private const val KEY_LAST_ERROR_STORAGE_FULL = "last_error_storage_full"
+        private const val KEY_LAST_ERROR_CODE = "last_error_code"
         private const val KEY_WAITING_WIFI = "waiting_wifi"
         private const val KEY_APPLIED_STAMP = "applied_phone_stamp"
         private const val KEY_PHONE_FAILURES = "phone_unreachable_runs"

@@ -74,6 +74,18 @@ class AbsApi @Inject constructor(
         return decode(execute(authorized(server, url)))
     }
 
+    /** The [limit] entries added last, newest first; to see whether an upload has been scanned without a whole sync. */
+    suspend fun newestItems(server: AbsServer, libraryId: String, limit: Int): List<AbsItemDto> {
+        val url = server.endpoint("api/libraries/$libraryId/items")
+            .addQueryParameter("limit", limit.toString())
+            .addQueryParameter("page", "0")
+            .addQueryParameter("sort", "addedAt")
+            .addQueryParameter("desc", "1")
+            .addQueryParameter("minified", "1")
+            .build()
+        return decode<AbsItemsPage>(execute(authorized(server, url))).results
+    }
+
     /** Single entry with chapters and files. */
     suspend fun item(server: AbsServer, itemId: String): AbsItemDto {
         val url = server.endpoint("api/items/$itemId").addQueryParameter("expanded", "1").build()

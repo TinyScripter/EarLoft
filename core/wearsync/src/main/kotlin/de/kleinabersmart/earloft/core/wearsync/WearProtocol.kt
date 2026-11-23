@@ -159,13 +159,13 @@ object WearEpisodeFile {
         if (!uid.startsWith(PREFIX)) return null
         val parts = uid.removePrefix(PREFIX).split(':')
         if (parts.size != 2) return null
-        return decode(parts[0]) to decode(parts[1])
+        return (decode(parts[0]) ?: return null) to (decode(parts[1]) ?: return null)
     }
 
     // The variants with `Charset` only exist from API 33.
     private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
 
-    private fun decode(value: String) = java.net.URLDecoder.decode(value, "UTF-8")
+    private fun decode(value: String): String? = decodePart(value)
 }
 
 /** Identifier of a book file in the file channel (16.2): `book:<serverId>:<remoteId>:<index>`, the first two parts URL-encoded. */
@@ -182,12 +182,12 @@ object WearBookFile {
         val parts = uid.removePrefix(PREFIX).split(':')
         if (parts.size != 3) return null
         val index = parts[2].toIntOrNull() ?: return null
-        return Ref(decode(parts[0]), decode(parts[1]), index)
+        return Ref(decode(parts[0]) ?: return null, decode(parts[1]) ?: return null, index)
     }
 
     private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
 
-    private fun decode(value: String) = java.net.URLDecoder.decode(value, "UTF-8")
+    private fun decode(value: String): String? = decodePart(value)
 }
 
 /**
@@ -205,12 +205,12 @@ object WearCoverFile {
         if (!uid.startsWith(PREFIX)) return null
         val parts = uid.removePrefix(PREFIX).split(':')
         if (parts.size != 2) return null
-        return decode(parts[0]) to decode(parts[1])
+        return (decode(parts[0]) ?: return null) to (decode(parts[1]) ?: return null)
     }
 
     private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
 
-    private fun decode(value: String) = java.net.URLDecoder.decode(value, "UTF-8")
+    private fun decode(value: String): String? = decodePart(value)
 }
 
 /**
@@ -244,15 +244,25 @@ object WearThumbnailFile {
         val parts = uid.removePrefix(PREFIX).split(':')
         return when {
             parts.size == 2 && parts[0] == "album" -> parts[1].toLongOrNull()?.let { Ref.Album(it) }
-            parts.size == 2 && parts[0] == "feed" -> Ref.Feed(decode(parts[1]))
-            parts.size == 3 && parts[0] == "book" -> Ref.Book(decode(parts[1]), decode(parts[2]))
+            parts.size == 2 && parts[0] == "feed" -> decode(parts[1])?.let { Ref.Feed(it) }
+            parts.size == 3 && parts[0] == "book" -> Ref.Book(decode(parts[1]) ?: return null, decode(parts[2]) ?: return null)
             else -> null
         }
     }
 
     private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
 
-    private fun decode(value: String) = java.net.URLDecoder.decode(value, "UTF-8")
+    private fun decode(value: String): String? = decodePart(value)
+}
+
+/**
+ * A URL-encoded part of a file identifier; `null` if it is malformed (`%` without two hex digits): the phone then answers
+ * "no file" instead of leaving the channel open (review2 J80).
+ */
+private fun decodePart(value: String): String? = try {
+    java.net.URLDecoder.decode(value, "UTF-8")
+} catch (e: IllegalArgumentException) {
+    null
 }
 
 /** Capabilities from `res/values/wear.xml` of both apps. */

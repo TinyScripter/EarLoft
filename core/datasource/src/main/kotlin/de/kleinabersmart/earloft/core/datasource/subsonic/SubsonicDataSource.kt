@@ -176,7 +176,7 @@ class SubsonicDataSource internal constructor(
     override suspend fun playlists(): List<RemotePlaylistInfo> {
         val username = (server.credentials as? SubsonicCredentials.Password)?.username
         return api.playlists(server)
-            .filter { !it.readonly && (username == null || it.owner == null || it.owner == username) }
+            .filter { !it.readonly && (username == null || it.owner == null || it.owner.equals(username, ignoreCase = true)) }
             .map(SubsonicTrackMapper::playlistInfo)
     }
 

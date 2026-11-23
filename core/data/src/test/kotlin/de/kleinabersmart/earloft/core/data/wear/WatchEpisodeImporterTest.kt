@@ -60,6 +60,7 @@ class WatchEpisodeImporterTest {
         val stats = StatsRepository(db.statsDao(), db.bookDao(), db.podcastDao())
         importer = WatchEpisodeImporter(
             context,
+            db,
             db.bookDao(),
             stats,
             BookProgressSync(context, db.bookDao(), servers, api, policy),

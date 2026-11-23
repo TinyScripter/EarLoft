@@ -170,7 +170,7 @@ class ArdBookUploader @Inject constructor(
         val sentMs = dao.tracks(bookId).filterNot { it.isUnavailable }.sumOf { it.durationMs }
         // The book is on the server: the carry-over must not get lost anymore.
         withContext(NonCancellable) { adoption.remember(book, target.serverId, target.libraryId, sentMs, onServer) }
-        return UploadResult.Done(awaitOnServer(bookId, server))
+        return UploadResult.Done(awaitOnServer(book, server, target.libraryId))
     }
 
     /**
@@ -212,15 +212,28 @@ class ArdBookUploader @Inject constructor(
 
     /**
      * Waits until the server reports the uploaded book (it only scans it after the upload); the sync then carries over the state.
-     * The book on the server, `null` if it doesn't report it yet.
+     * The book on the server, `null` if it doesn't report it yet. Each attempt only looks at the newest entries of the library;
+     * a whole sync only once the book is there, or in the last attempt (review2 J31: otherwise up to 12 full syncs in a minute,
+     * which also hold up all other syncs).
      */
-    private suspend fun awaitOnServer(bookId: Long, server: AbsServer): Long? {
+    private suspend fun awaitOnServer(book: BookEntity, server: AbsServer, libraryId: String): Long? {
         repeat(ATTEMPTS) { attempt ->
             if (attempt > 0) delay(RETRY_MS)
+            if (attempt < ATTEMPTS - 1 && !scanned(book, server, libraryId)) return@repeat
             syncer.syncSafely(server)
-            adoption.adoptedTo(bookId)?.let { return it }
+            adoption.adoptedTo(book.bookId)?.let { return it }
         }
         return null
+    }
+
+    /** Whether the server lists [book] among the entries added last to [libraryId]. */
+    private suspend fun scanned(book: BookEntity, server: AbsServer, libraryId: String): Boolean = try {
+        api.newestItems(server, libraryId, NEWEST_ITEMS).any { it.media.metadata.title.normalizeForMerge() == book.normTitle }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: IOException) {
+        Log.w(TAG, "Newest entries of $libraryId not available", e)
+        false
     }
 
     private fun sameAuthor(a: String, b: String): Boolean = a.normalizeForMerge() == b.normalizeForMerge()
@@ -241,6 +254,7 @@ class ArdBookUploader @Inject constructor(
         const val COVER_QUALITY = 90
         const val SERVER_ERROR = 500
         const val ATTEMPTS = 12
+        const val NEWEST_ITEMS = 10
         const val RETRY_MS = 5_000L
     }
 }

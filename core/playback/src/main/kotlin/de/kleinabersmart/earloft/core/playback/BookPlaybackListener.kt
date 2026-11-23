@@ -162,7 +162,10 @@ internal class BookPlaybackListener(
         timeline = null
         updateTimers()
         scope.launch {
-            timeline = books.timeline(bookId)
+            val loaded = books.timeline(bookId)
+            // Switched to another book while loading: chapters, position and sleep timer of this one must not apply to it (review2 J35).
+            if (timelineBookId != bookId) return@launch
+            timeline = loaded
             updateTimers()
             if (rewindWhenLoaded == bookId) {
                 rewindWhenLoaded = null

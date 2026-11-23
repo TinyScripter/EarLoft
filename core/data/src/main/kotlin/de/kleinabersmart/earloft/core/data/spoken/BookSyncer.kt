@@ -122,14 +122,24 @@ class BookSyncer @Inject constructor(
         // An aborted sync never gets this far and therefore deletes nothing.
         if (hidden.isEmpty()) dao.deleteUnseen(server.serverId, generation)
         else dao.deleteUnseenOutside(server.serverId, generation, hidden.map { it.id })
-        // Re-read: switch and selection may have changed during the sync.
-        val current = dao.server(server.serverId) ?: entity
-        dao.upsertServer(current.copy(libraryId = shown.first().id, syncGeneration = generation, lastFullSyncAt = System.currentTimeMillis()))
+        // Only an update: switch and selection may have changed during the sync, and an upsert would bring back a server
+        // removed in the meantime (`AudiobookshelfServers.remove` doesn't wait for the sync, review2 J27).
+        if (dao.finishFullSync(server.serverId, shown.first().id, generation, System.currentTimeMillis()) == 0) {
+            return@withLock removedDuringSync(server.serverId)
+        }
         bookmarks.pull(server.serverId) { progressSync.pullAll(server).bookmarks }
         syncAuthors(server, shown.map { it.id })
         loadMissingDetails(server)
+        if (dao.server(server.serverId) == null) return@withLock removedDuringSync(server.serverId)
         if (fresh.isEmpty()) emptyList()
         else dao.booksOf(server.serverId).filter { it.remoteId in fresh }.map { NewBook(it.bookId, it.title, it.author) }
+    }
+
+    /** Clears what this sync wrote after [serverId] was removed (books, authors). */
+    private suspend fun removedDuringSync(serverId: String): List<NewBook> {
+        Log.i(TAG, "$serverId removed during the sync")
+        dao.deleteServer(serverId)
+        return emptyList()
     }
 
     /**

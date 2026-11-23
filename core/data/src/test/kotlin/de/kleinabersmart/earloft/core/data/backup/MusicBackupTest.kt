@@ -73,19 +73,27 @@ class MusicBackupTest {
         db.sourceDao().upsert(SourceEntity(sourceId = "nav", type = SourceType.SUBSONIC, name = "Navidrome"))
     }
 
-    private suspend fun album(db: EarLoftDatabase, artist: String, title: String) = db.mergeDao().insertAlbum(
-        AlbumEntity(title = title, sortTitle = title, normTitle = title, albumArtistDisplay = artist, normAlbumArtist = artist),
+    private suspend fun album(db: EarLoftDatabase, artist: String, title: String, year: Int? = null) = db.mergeDao().insertAlbum(
+        AlbumEntity(title = title, sortTitle = title, normTitle = title, albumArtistDisplay = artist, normAlbumArtist = artist, year = year),
     )
 
     /** A song with one source; [sourceId] `local` = file, `nav` = server. */
-    private suspend fun song(db: EarLoftDatabase, albumId: Long, track: Int, title: String, sourceId: String = "local", favorite: Boolean = false): Long {
+    private suspend fun song(
+        db: EarLoftDatabase,
+        albumId: Long,
+        track: Int,
+        title: String,
+        sourceId: String = "local",
+        favorite: Boolean = false,
+        remoteId: String = title,
+    ): Long {
         val songId = db.mergeDao().insertSong(
             SongEntity(
                 albumId = albumId, title = title, normTitle = title, artistDisplay = "", trackNumber = track, durationMs = 1_000,
                 dateAdded = 0, isFavorite = favorite, favoriteChangedAt = if (favorite) 500 else 0,
             ),
         )
-        db.mergeDao().insertSongSource(SongSourceEntity(uid = "$sourceId:$title", songId = songId, sourceId = sourceId, remoteId = title, seenInGeneration = 0))
+        db.mergeDao().insertSongSource(SongSourceEntity(uid = "$sourceId:$remoteId", songId = songId, sourceId = sourceId, remoteId = remoteId, seenInGeneration = 0))
         return songId
     }
 
@@ -119,6 +127,53 @@ class MusicBackupTest {
         assertEquals(listOf("damals hinterm mond"), dao.favorites().map { it.song.title })
         assertEquals(2, dao.playEvents().size)
         assertEquals(setOf(WearSelectionKind.ALBUM, WearSelectionKind.PLAYLIST), dao.wearSelections().map { it.kind }.toSet())
+    }
+
+    @Test
+    fun `an original and its remaster keep their favorites, history and watch selection apart on a new device`() = runTest {
+        sources(main)
+        album(main, "element of crime", "damals hinterm mond", year = 1991)
+        val remaster = album(main, "element of crime", "damals hinterm mond", year = 2016)
+        val song = song(main, remaster, 1, "damals hinterm mond", favorite = true, remoteId = "remaster")
+        main.backupDao().insertPlayEvents(listOf(PlayEventEntity(songId = song, playedAt = 1_000, listenedMs = 1)))
+        main.wearDao().upsert(WearSelectionEntity(WearSelectionKind.ALBUM.key(remaster), WearSelectionKind.ALBUM, remaster, addedAt = 7))
+        backupFor(main).mirror()
+        val saved = user.userDataDao().snapshot()
+
+        // The original comes first here, so it has the lower id.
+        val newDevice = newDatabase()
+        try {
+            sources(newDevice)
+            val original = album(newDevice, "element of crime", "damals hinterm mond", year = 1991)
+            val originalSong = song(newDevice, original, 1, "damals hinterm mond")
+            val remasterHere = album(newDevice, "element of crime", "damals hinterm mond", year = 2016)
+            val remasterSong = song(newDevice, remasterHere, 1, "damals hinterm mond", remoteId = "remaster")
+            backupFor(newDevice).applySaved(saved, Pending.of(saved))
+
+            assertEquals(listOf(false, true), newDevice.backupDao().favoriteStates(listOf(originalSong, remasterSong)).sortedBy { it.songId }.map { it.isFavorite })
+            assertTrue(newDevice.backupDao().playedAt(originalSong).isEmpty())
+            assertEquals(listOf(1_000L), newDevice.backupDao().playedAt(remasterSong))
+            assertEquals(listOf(remasterHere), newDevice.wearDao().getSelections().map { it.refId })
+        } finally {
+            newDevice.close()
+        }
+    }
+
+    @Test
+    fun `while music plays only the new plays are read, and the next full read keeps them`() = runTest {
+        fillOldDevice()
+        val backup = backupFor(main)
+        backup.mirror()
+        val song = main.backupDao().songsOfAlbum("element of crime", "damals hinterm mond").first { it.track == 2 }.songId
+
+        main.backupDao().insertPlayEvents(listOf(PlayEventEntity(songId = song, playedAt = 3_000, listenedMs = 5)))
+        backup.mirror(setOf("play_events"))
+        assertEquals(listOf(1_000L, 2_000L, 3_000L), user.userDataDao().playEvents().map { it.playedAt }.sorted())
+
+        main.backupDao().insertPlayEvents(listOf(PlayEventEntity(songId = song, playedAt = 4_000, listenedMs = 5)))
+        backup.mirror(setOf("play_events"))
+        backup.mirror()
+        assertEquals(listOf(1_000L, 2_000L, 3_000L, 4_000L), user.userDataDao().playEvents().map { it.playedAt }.sorted())
     }
 
     @Test

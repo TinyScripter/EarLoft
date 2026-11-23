@@ -98,6 +98,10 @@ abstract class StatsDao {
     @Query("SELECT * FROM listening_stats")
     abstract suspend fun all(): List<ListeningStatEntity>
 
+    /** Entries of [source] listened to at [sinceMs] or later (watch: only what changed since its last report). */
+    @Query("SELECT * FROM listening_stats WHERE source = :source AND lastListenedAt >= :sinceMs")
+    abstract suspend fun listenedSince(source: String, sinceMs: Long): List<ListeningStatEntity>
+
     @Query(
         "SELECT day, SUM(listenedMs) AS listenedMs, SUM(savedMs) AS savedMs FROM listening_days " +
             "WHERE kind = :kind AND day >= :sinceDay GROUP BY day",

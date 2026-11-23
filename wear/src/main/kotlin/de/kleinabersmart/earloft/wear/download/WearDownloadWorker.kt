@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.net.Network
 import android.os.BatteryManager
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
 import android.util.Log
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
@@ -42,6 +43,7 @@ import de.kleinabersmart.earloft.core.download.ProgressThrottle
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.model.isArdSoundsBook
 import de.kleinabersmart.earloft.core.wearsync.WearBookFile
+import de.kleinabersmart.earloft.core.wearsync.WearDownloadError
 import de.kleinabersmart.earloft.core.wearsync.WearEpisodeFile
 import de.kleinabersmart.earloft.core.wearsync.WearQuality
 import de.kleinabersmart.earloft.wear.EXTRA_OPEN_STORAGE
@@ -138,6 +140,7 @@ class WearDownloadWorker(
         val phoneReachable = drainPhoneQueue()
         if (stoppedForStorage) return finish()
 
+        var coversCached = false
         try {
             val profile = state.settings.value.quality.toProfile()
             while (true) {
@@ -200,7 +203,7 @@ class WearDownloadWorker(
                             state.markViaPhone(listOf(uid))
                             // The reason is in the log; the display gets no internal text, but what happens now. The
                             // server was reachable but did not deliver the file (Review V16).
-                            state.setLastError(applicationContext.getString(R.string.download_error_server_refused_via_phone))
+                            state.setLastError(WearDownloadError.SERVER_REFUSED_VIA_PHONE)
                             if (!viaPhone(next, serverFailed = true)) return waitForPhone()
                         }
                     }
@@ -307,12 +310,29 @@ class WearDownloadWorker(
                     DownloadOutcome.Cancelled -> Unit
                 }
             }
+            // While the Wi-Fi of the downloads is still held: over the Bluetooth proxy the home server is often unreachable, and
+            // a missing cover is only asked for again hours later (review2 J90).
+            lease?.network?.let { network ->
+                cacheCoversOver(network)
+                coversCached = true
+            }
         } finally {
             releaseWifi()
         }
-        cacheCovers()
+        if (!coversCached) cacheCovers()
         if (!phoneReachable) return waitForPhone()
         return finish()
+    }
+
+    /** [cacheCovers] with the process bound to [network]: the cover loading doesn't know the network of the downloads. */
+    private suspend fun cacheCoversOver(network: Network) {
+        val connectivity = applicationContext.getSystemService(ConnectivityManager::class.java)
+        val bound = connectivity.bindProcessToNetwork(network)
+        try {
+            cacheCovers()
+        } finally {
+            if (bound) connectivity.bindProcessToNetwork(null)
+        }
     }
 
     /**
@@ -435,7 +455,7 @@ class WearDownloadWorker(
             is DownloadOutcome.Retry -> {
                 Log.i(TAG, "Phone unreachable for episode ${track.bookId} (attempt ${state.retryRuns + 1})", outcome.cause)
                 podcastDao.requeueDownload(track.bookId)
-                state.setLastError(applicationContext.getString(R.string.download_error_phone_unreachable))
+                state.setLastError(WearDownloadError.PHONE_UNREACHABLE)
                 false
             }
             DownloadOutcome.Cancelled -> true
@@ -466,7 +486,7 @@ class WearDownloadWorker(
             is DownloadOutcome.Retry -> {
                 Log.i(TAG, "Phone unreachable for book ${track.bookId} (attempt ${state.retryRuns + 1})", outcome.cause)
                 bookDao.requeueBookTrack(track.bookId, track.trackIndex)
-                state.setLastError(applicationContext.getString(R.string.download_error_phone_unreachable))
+                state.setLastError(WearDownloadError.PHONE_UNREACHABLE)
                 false
             }
             DownloadOutcome.Cancelled -> true
@@ -511,7 +531,7 @@ class WearDownloadWorker(
 
     private fun storageFull() {
         Log.i(TAG, "Storage full, ending the run; the planner queues the rest again once there is room")
-        state.setStorageFullError(applicationContext.getString(R.string.download_error_storage_full))
+        state.setStorageFullError()
         stoppedForStorage = true
         StorageRoomWorker.schedule(applicationContext)
     }
@@ -539,9 +559,13 @@ class WearDownloadWorker(
         val pending = wearDao.getPendingCandidates()
         val free = withContext(Dispatchers.IO) { storage.freeBytes() }
         val budget = downloadBudget(settings, free, wearDao.getDoneBytes() + bookDao.trackTotals().doneBytes, reservedBytes = 0)
-        if (hasRoomForAny(pending.map { estimateBytes(it, settings.quality) }, budget)) return true
+        // Episodes and book files count too: a small episode may fit where no song does (review2 J89).
+        val spoken = (podcastDao.pendingTracks() + bookDao.pendingBookTracks())
+            .filter { it.downloadState == TrackDownload.QUEUED }
+            .map { estimateEpisodeBytes(it.durationMs) }
+        if (hasRoomForAny(pending.map { estimateBytes(it, settings.quality) } + spoken, budget)) return true
+        // [WatchState.missingForStorage] stays as the planner counted it: these tracks are queued, not left out.
         Log.i(TAG, "Storage full: no waiting track fits (budget $budget bytes), not starting")
-        state.setMissingForStorage(pending.size)
         return false
     }
 
@@ -574,7 +598,7 @@ class WearDownloadWorker(
         val uid = download.sourceUid
         val sourceId = downloadDao.getSongSource(uid)?.sourceId
         state.markViaPhone(listOf(uid) + sourceId?.let { downloadDao.queuedUidsOfSource(it) }.orEmpty())
-        state.setLastError(applicationContext.getString(R.string.download_error_server_via_phone))
+        state.setLastError(WearDownloadError.SERVER_VIA_PHONE)
         return viaPhone(download, serverFailed = true)
     }
 
@@ -613,8 +637,8 @@ class WearDownloadWorker(
                 state.clearPhoneUnreachable()
                 Log.w(TAG, "$uid not loaded from the phone: ${outcome.reason}")
                 when {
-                    serverFailed -> state.setLastError(applicationContext.getString(R.string.download_error_server_no_phone_copy))
-                    else -> state.setLastError(applicationContext.getString(R.string.download_error_phone_no_copy))
+                    serverFailed -> state.setLastError(WearDownloadError.SERVER_NO_PHONE_COPY)
+                    else -> state.setLastError(WearDownloadError.PHONE_NO_COPY)
                 }
                 true
             }
@@ -626,7 +650,7 @@ class WearDownloadWorker(
             is DownloadOutcome.Retry -> {
                 Log.i(TAG, "Phone unreachable for $uid (attempt ${state.retryRuns + 1})", outcome.cause)
                 downloadDao.requeue(uid)
-                state.setLastError(applicationContext.getString(R.string.download_error_phone_unreachable))
+                state.setLastError(WearDownloadError.PHONE_UNREACHABLE)
                 false
             }
             DownloadOutcome.Cancelled -> true

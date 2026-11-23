@@ -409,16 +409,23 @@ class UserDataBackupTest {
     }
 
     @Test
-    fun `removing an ARD book here also removes it from the backup`() = runTest {
+    fun `removing an ARD book here also removes it, its progress and bookmarks from the backup`() = runTest {
         val ardKey = "group:urn:ard:show:gs"
         val bookId = book(main, ARD_BOOK_SERVER_ID, ardKey, BookKind.BOOK)
+        main.bookDao().upsertProgress(progress(bookId, 5_000, updatedAt = 10))
+        main.bookDao().insertBookmark(BookmarkEntity(bookId = bookId, positionMs = 4_000, title = "Here", createdAt = 1, updatedAt = 1))
         val backup = backupFor(main)
         backup.mirror()
+        assertEquals(1, user.userDataDao().progress().size)
+        assertEquals(1, user.userDataDao().bookmarks().size)
 
         main.bookDao().deleteBook(bookId)
         backup.mirror()
 
         assertTrue(user.userDataDao().ardBooks().isEmpty())
+        // Otherwise they would apply again if the book is added months later (review2 J24).
+        assertTrue(user.userDataDao().progress().isEmpty())
+        assertTrue(user.userDataDao().bookmarks().isEmpty())
     }
 
     private suspend fun book(db: EarLoftDatabase, serverId: String, remoteId: String, kind: BookKind = BookKind.EPISODE) =

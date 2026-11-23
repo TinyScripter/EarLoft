@@ -70,6 +70,7 @@
     <string name="player_repeat_all">Opakovat vše</string>
     <string name="player_repeat_one">Opakovat skladbu</string>
     <string name="player_output">Výstup Bluetooth</string>
+    <string name="output_settings_missing">Tyto hodinky nemají nastavení Bluetooth.</string>
     <string name="player_position">Pozice ve skladbě</string>
     <string name="player_position_spoken">Pozice přehrávání</string>
     <string name="player_position_chapter">Pozice v kapitole</string>
@@ -103,6 +104,8 @@
     <string name="sleep_timer_chapter_end">Konec kapitoly</string>
     <string name="sleep_timer_episode_end">Konec epizody</string>
     <string name="sleep_timer_start">Spustit</string>
+    <string name="sleep_timer_shorter">Kratší</string>
+    <string name="sleep_timer_longer">Delší</string>
 
     <!-- Downloads -->
     <string name="download_channel_name">Stahování</string>

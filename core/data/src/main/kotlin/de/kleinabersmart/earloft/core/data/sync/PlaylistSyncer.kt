@@ -52,7 +52,12 @@ class PlaylistSyncer @Inject constructor(
             if (local != null && (local.remoteUpdatedAt == info.changedAt || local.playlistId.toString() in retried)) continue
             if (local != null && local.remoteUpdatedAt == null && !afterFullSync) continue
             val playlist = remote.playlist(info.remoteId)
-            database.withTransaction { applyRemote(sourceId, local?.playlistId, playlist) }
+            database.withTransaction {
+                // Server removed during the sync (`ServerRepository.removeServer` doesn't wait for it): a playlist created
+                // now would stay behind without its server, as `boundSourceId` has no foreign key (review2 J22).
+                if (database.sourceDao().get(sourceId) == null) return@withTransaction
+                applyRemote(sourceId, local?.playlistId, playlist)
+            }
         }
 
         val remoteIds = infos.mapTo(HashSet()) { it.remoteId }

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.download
 
+import android.annotation.SuppressLint
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -13,6 +14,9 @@ import javax.inject.Singleton
  * An interrupted file stays as `.part` while the episode is waiting; next to it the server file's fingerprint
  * (`.part.meta`, see [ResumableTransfer]).
  */
+// `usableSpace` only as the default for tests and for [freeBytes] (shown free space); what a download may use goes through
+// `systemAllocatableBytes` (`getAllocatableBytes`, review H7). Suppressed so that real cases stand out (review2 J100).
+@SuppressLint("UsableSpace")
 @Singleton
 class EpisodeStorage internal constructor(
     val directory: File,

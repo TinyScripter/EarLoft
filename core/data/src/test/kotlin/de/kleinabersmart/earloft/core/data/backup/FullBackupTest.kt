@@ -26,9 +26,11 @@ import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
+import de.kleinabersmart.earloft.core.database.entity.PlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
+import de.kleinabersmart.earloft.core.database.entity.WearSelectionEntity
 import de.kleinabersmart.earloft.core.datasource.jellyfin.JellyfinDataSourceFactory
 import de.kleinabersmart.earloft.core.datasource.local.AudioPermission
 import de.kleinabersmart.earloft.core.datasource.local.LocalDataSource
@@ -36,6 +38,7 @@ import de.kleinabersmart.earloft.core.datasource.subsonic.SubsonicDataSourceFact
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.model.TrackDownload
+import de.kleinabersmart.earloft.core.model.WearSelectionKind
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinApi
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinClientInfo
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinServerRegistry
@@ -295,6 +298,33 @@ class FullBackupTest {
         assertEquals(BackupCounts(), result.added)
         assertEquals(listOf("abs-here"), new.main.bookDao().servers().map { it.serverId })
         assertEquals(7_000L, new.main.bookDao().progressOf(listOf(here)).single().positionMs)
+    }
+
+    @Test
+    fun `book statistics and the watch's server playlists move to the server ids known here`() = runTest {
+        val old = Device(backgroundScope)
+        old.main.addNavidrome("nav")
+        old.main.addAbs("abs")
+        old.main.statsDao().addListening(
+            ListeningStatEntity(
+                source = ListeningStatEntity.SOURCE_APP, kind = BookKind.BOOK, groupKey = "abs", groupTitle = "ABS",
+                itemKey = "li_1", itemTitle = "Thriller", listenedMs = 60_000, lastListenedAt = 1_000,
+            ),
+            day = 20_000,
+        )
+        val playlist = old.main.playlistDao().insertPlaylist(PlaylistEntity(name = "Mix", boundSourceId = "nav", remotePlaylistId = "p1", updatedAt = 1))
+        old.main.wearDao().upsert(WearSelectionEntity(WearSelectionKind.PLAYLIST.key(playlist), WearSelectionKind.PLAYLIST, playlist, addedAt = 8))
+        val file = ByteArrayOutputStream().also { old.backup.export(it) }.toByteArray()
+
+        val new = Device(backgroundScope)
+        new.main.addNavidrome("nav-here")
+        new.main.addAbs("abs-here")
+        val here = new.main.playlistDao().insertPlaylist(PlaylistEntity(name = "Mix", boundSourceId = "nav-here", remotePlaylistId = "p1", updatedAt = 1))
+        new.backup.import(ByteArrayInputStream(file))
+
+        assertEquals(listOf("abs-here"), new.main.statsDao().all().map { it.groupKey })
+        assertEquals(listOf("abs-here"), new.main.statsDao().allDays().map { it.groupKey })
+        assertEquals(listOf(here), new.main.wearDao().getSelections().map { it.refId })
     }
 
     @Test

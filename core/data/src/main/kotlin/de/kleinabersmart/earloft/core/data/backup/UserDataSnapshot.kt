@@ -240,7 +240,7 @@ data class UserDataSnapshot(
             favorites = favorites.map { UserFavoriteEntity(it.song.key, it.changedAt) },
             playEvents = playEvents.map { UserPlayEventEntity(it.song.key, it.playedAt, it.listenedMs) },
             wearSelections = wearSelections,
-            collectionFavorites = collectionFavorites.map { UserCollectionFavoriteEntity(it.kind, it.artist, it.title, it.changedAt) },
+            collectionFavorites = collectionFavorites.map { UserCollectionFavoriteEntity(it.kind, it.artist, it.title, it.changedAt, it.year) },
         )
     }
 }
@@ -264,13 +264,13 @@ val UserBookmarkEntity.key: BookmarkKey get() = BookmarkKey(serverId, remoteId, 
 /** The server has it as it is here; it doesn't know the note. */
 private val BookmarkEntity.knownToServer: Boolean get() = remoteTime != null && !dirty && note.isEmpty()
 
-/** An album (album artist, title) or an artist (name, empty title), normalized. */
-data class CollectionKey(val kind: FavoriteKind, val artist: String, val title: String)
+/** An album (album artist, title, year; 0 = unknown) or an artist (name, empty title, 0), normalized. */
+data class CollectionKey(val kind: FavoriteKind, val artist: String, val title: String, val year: Int = 0)
 
-val UserCollectionFavoriteEntity.key: CollectionKey get() = CollectionKey(kind, artist, title)
+val UserCollectionFavoriteEntity.key: CollectionKey get() = CollectionKey(kind, artist, title, year)
 
 /** The cross-device key of the song. */
-val KeyedSong.key: UserSongKey get() = UserSongKey(albumArtist, album, disc, track, title)
+val KeyedSong.key: UserSongKey get() = UserSongKey(albumArtist, album, disc, track, title, year ?: 0)
 
 /** The contents of `user.db`. */
 suspend fun UserDataDao.snapshot() = UserDataSnapshot.ofUser(

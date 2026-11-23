@@ -59,6 +59,17 @@ class PlaylistSyncTest {
     }
 
     @Test
+    fun `a server removed while its playlists sync leaves none behind`() = runTest {
+        nd.putPlaylist("Mix", listOf("a"))
+        // Removing the server doesn't wait for its sync: by the time the playlists are written, it is gone.
+        db.sourceDao().delete("nd")
+
+        PlaylistSyncer(db, db.playlistDao(), db.syncDao(), notices).sync("nd", nd)
+
+        assertTrue(db.playlistDao().getBoundTo("nd").isEmpty())
+    }
+
+    @Test
     fun `a playlist adopted while songs were missing is completed later and never sent shortened`() = runTest {
         nd.putPlaylist("Mix", listOf("a", "d"))
         syncer.syncAdding(db, nd)

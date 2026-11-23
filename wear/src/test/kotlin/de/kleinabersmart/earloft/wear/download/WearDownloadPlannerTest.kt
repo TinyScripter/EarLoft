@@ -72,7 +72,7 @@ class WearDownloadPlannerTest {
         )
         db.sourceDao().upsert(SourceEntity("nd", SourceType.SUBSONIC, "Navidrome"))
         db.sourceDao().upsert(SourceEntity("phone", SourceType.PHONE, "Phone"))
-        albumId = db.libraryDao().insertAlbum(
+        albumId = db.mergeDao().insertAlbum(
             AlbumEntity(title = "Moonlight", sortTitle = "Moonlight", normTitle = "moonlight", albumArtistDisplay = "Band", normAlbumArtist = "band"),
         )
     }
@@ -271,7 +271,7 @@ class WearDownloadPlannerTest {
     /** A 200 s song with one source [uid] (`<sourceId>:<remoteId>`); returns the songId. */
     private suspend fun song(uid: String, sourceId: String = "nd", sizeBytes: Long? = null): Long {
         songCounter++
-        val songId = db.libraryDao().insertSong(
+        val songId = db.mergeDao().insertSong(
             SongEntity(
                 albumId = albumId,
                 title = "Track $songCounter",
@@ -281,7 +281,7 @@ class WearDownloadPlannerTest {
                 dateAdded = 0,
             ),
         )
-        db.libraryDao().insertSongSource(
+        db.mergeDao().insertSongSource(
             SongSourceEntity(
                 uid = uid,
                 songId = songId,

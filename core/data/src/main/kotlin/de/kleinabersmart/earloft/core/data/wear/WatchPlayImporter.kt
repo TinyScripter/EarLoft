@@ -2,8 +2,10 @@ package de.kleinabersmart.earloft.core.data.wear
 
 import android.content.Context
 import android.util.Log
+import androidx.room.withTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.repository.PlaybackStateRepository
+import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.WearDao
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -16,11 +18,13 @@ data class WatchPlay(val songUid: String, val playedAt: Long, val listenedMs: Lo
 /**
  * Adopts the watch's plays into the phone's listening history and scrobbles them like its own (Wear concept 10).
  * A packet is imported only once: if the phone crashes between import and deleting the DataItem,
- * it arrives again ([ImportedPackets]).
+ * it arrives again ([ImportedPackets]). All plays of a packet are written in one transaction: a packet aborted halfway arrives
+ * again and must not count its first plays twice.
  */
 @Singleton
 class WatchPlayImporter @Inject constructor(
     @ApplicationContext context: Context,
+    private val database: EarLoftDatabase,
     private val wearDao: WearDao,
     private val playbackState: PlaybackStateRepository,
 ) {
@@ -37,15 +41,17 @@ class WatchPlayImporter @Inject constructor(
             .flatMap { wearDao.getSongIdsOfSources(it) }
             .associate { it.uid to it.songId }
         var imported = 0
-        for (play in plays) {
-            val songId = songIds[play.songUid]
-            if (songId == null) {
-                Log.d(TAG, "Play of ${play.songUid} skipped: song unknown")
-                continue
+        database.withTransaction {
+            for (play in plays) {
+                val songId = songIds[play.songUid]
+                if (songId == null) {
+                    Log.d(TAG, "Play of ${play.songUid} skipped: song unknown")
+                    continue
+                }
+                // Not live: otherwise every report would wait up to 10 s for the network, and the packet would only count as adopted afterwards.
+                playbackState.recordPlay(songId, play.playedAt, play.listenedMs, live = false)
+                imported++
             }
-            // Not live: otherwise every report would wait up to 10 s for the network, and the packet would only count as adopted afterwards.
-            playbackState.recordPlay(songId, play.playedAt, play.listenedMs, live = false)
-            imported++
         }
         importedPackets.remember(packetId)
         imported

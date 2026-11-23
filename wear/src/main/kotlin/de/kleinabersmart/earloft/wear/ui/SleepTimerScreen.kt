@@ -23,6 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
@@ -153,8 +155,15 @@ fun SleepTimerCustomScreen(onDone: () -> Unit, viewModel: SleepTimerModel = hilt
                 value = minutes,
                 onValueChange = { minutes = it },
                 valueProgression = CUSTOM_RANGE,
-                decreaseIcon = { Text("−", style = MaterialTheme.typography.titleLarge) },
-                increaseIcon = { Text("+", style = MaterialTheme.typography.titleLarge) },
+                // Described: TalkBack would read "minus sign" and "plus" (review2 J96).
+                decreaseIcon = {
+                    val label = stringResource(R.string.sleep_timer_shorter)
+                    Text("−", style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { contentDescription = label })
+                },
+                increaseIcon = {
+                    val label = stringResource(R.string.sleep_timer_longer)
+                    Text("+", style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { contentDescription = label })
+                },
             ) {
                 Button(
                     onClick = {

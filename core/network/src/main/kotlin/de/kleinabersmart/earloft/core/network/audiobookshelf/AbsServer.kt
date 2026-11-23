@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.network.audiobookshelf
 
+import de.kleinabersmart.earloft.core.network.acceptsCredentialsOf
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import javax.inject.Inject
@@ -18,12 +19,12 @@ data class AbsServer(
 
     fun endpoint(path: String): HttpUrl.Builder = baseUrl.newBuilder().addPathSegments(path.trimStart('/'))
 
-    /** Does [url] belong to this server (API, files, covers)? */
+    /**
+     * Does [url] belong to this server (API, files, covers)? Also after a proxy redirected http to https on the same host
+     * ([acceptsCredentialsOf], review2 J39).
+     */
     fun owns(url: HttpUrl): Boolean =
-        url.scheme == baseUrl.scheme &&
-            url.host == baseUrl.host &&
-            url.port == baseUrl.port &&
-            url.encodedPath.startsWith(baseUrl.encodedPath + "api/")
+        url.acceptsCredentialsOf(baseUrl) && url.encodedPath.startsWith(baseUrl.encodedPath + "api/")
 
     companion object {
         /** Adds `https://`, removes path remnants after the base and ensures the trailing `/`. */

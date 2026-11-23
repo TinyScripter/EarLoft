@@ -1,15 +1,11 @@
 package de.kleinabersmart.earloft.core.database.dao
 
 import androidx.room.Dao
-import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import de.kleinabersmart.earloft.core.database.entity.AlbumArtistCrossRef
-import de.kleinabersmart.earloft.core.database.entity.AlbumEntity
 import de.kleinabersmart.earloft.core.database.entity.ArtistEntity
-import de.kleinabersmart.earloft.core.database.entity.SongArtistCrossRef
 import de.kleinabersmart.earloft.core.database.entity.SongEntity
-import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.model.AlbumGenreRow
 import de.kleinabersmart.earloft.core.database.model.AlbumLookupRow
 import de.kleinabersmart.earloft.core.database.model.AlbumRow
@@ -94,36 +90,6 @@ private const val SELECT_MIX_CANDIDATES = """
 /** Read access to the library for UI and playback. */
 @Dao
 abstract class LibraryDao {
-
-    @Insert
-    abstract suspend fun insertArtist(artist: ArtistEntity): Long
-
-    @Insert
-    abstract suspend fun insertAlbum(album: AlbumEntity): Long
-
-    @Insert
-    abstract suspend fun insertSong(song: SongEntity): Long
-
-    @Insert
-    abstract suspend fun insertSongSource(songSource: SongSourceEntity)
-
-    @Insert
-    abstract suspend fun insertSongArtist(crossRef: SongArtistCrossRef)
-
-    @Insert
-    abstract suspend fun insertAlbumArtist(crossRef: AlbumArtistCrossRef)
-
-    @Query("SELECT * FROM albums ORDER BY sortTitle")
-    abstract fun observeAlbums(): Flow<List<AlbumEntity>>
-
-    @Query("SELECT * FROM artists ORDER BY sortName")
-    abstract fun observeArtists(): Flow<List<ArtistEntity>>
-
-    @Query("SELECT * FROM songs WHERE albumId = :albumId ORDER BY discNumber, trackNumber, title")
-    abstract fun observeSongsOfAlbum(albumId: Long): Flow<List<SongEntity>>
-
-    @Query("SELECT * FROM song_sources WHERE songId = :songId")
-    abstract suspend fun getSourcesOfSong(songId: Long): List<SongSourceEntity>
 
     // --- Lists for the UI ---
 

@@ -325,9 +325,28 @@ data class WearStatusDto(
     val selections: List<WearSelectionStatusDto> = emptyList(),
     /** Titles not enqueued because of the storage limit. */
     val missingForStorage: Int = 0,
+    /** The last error as text in the watch's language: only for phones that don't know [lastErrorCode] yet. */
     val lastError: String? = null,
     val updatedAt: Long = 0,
+    /** The last error as [WearDownloadError] name; the phone shows it in its own language (review2 Z20). */
+    val lastErrorCode: String? = null,
 )
+
+/** Download errors of the watch, as reported to the phone ([WearStatusDto.lastErrorCode]); new ones only at the end. */
+enum class WearDownloadError {
+    SERVER_VIA_PHONE,
+    SERVER_REFUSED_VIA_PHONE,
+    SERVER_NO_PHONE_COPY,
+    PHONE_NO_COPY,
+    STORAGE_FULL,
+    PHONE_UNREACHABLE,
+    ;
+
+    companion object {
+        /** `null` for a code of a newer watch app; the phone then shows its text. */
+        fun of(code: String?): WearDownloadError? = entries.firstOrNull { it.name == code }
+    }
+}
 
 @Serializable
 data class WearSelectionStatusDto(

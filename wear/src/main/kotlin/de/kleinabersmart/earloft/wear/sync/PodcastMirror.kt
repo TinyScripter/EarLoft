@@ -40,6 +40,8 @@ class PodcastMirror @Inject constructor(
     /** @return the IDs of the episodes and books on the watch in the phone's order (for the queue). */
     suspend fun apply(manifest: WearPodcastManifest): List<Long> {
         val result = applyRows(manifest)
+        // What is no longer on the watch needs no mark of what was reported (review2 J95).
+        reported.retainProgress(manifest.episodes.map { it.feedId to it.guid } + manifest.books.map { it.serverId to it.remoteId })
         // Only after the transaction: a running transfer of a removed episode discards its file itself.
         result.removedEpisodeFiles.forEach { (bookId, path) -> episodeStorage.delete(bookId, path) }
         result.removedBooks.forEach { bookStorage.delete(it) }

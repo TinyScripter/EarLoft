@@ -29,7 +29,7 @@ internal class TestLibrary {
         db.sourceDao().upsert(SourceEntity(sourceId = sourceId, type = type, name = sourceId, priority = priority))
     }
 
-    suspend fun album(title: String): Long = db.libraryDao().insertAlbum(
+    suspend fun album(title: String): Long = db.mergeDao().insertAlbum(
         AlbumEntity(
             title = title,
             sortTitle = title,
@@ -40,7 +40,7 @@ internal class TestLibrary {
     )
 
     suspend fun song(albumId: Long, title: String, vararg sources: Pair<String, String>, dateAdded: Long = 0): Long {
-        val songId = db.libraryDao().insertSong(
+        val songId = db.mergeDao().insertSong(
             SongEntity(
                 albumId = albumId,
                 title = title,
@@ -51,7 +51,7 @@ internal class TestLibrary {
             ),
         )
         sources.forEach { (sourceId, remoteId) ->
-            db.libraryDao().insertSongSource(
+            db.mergeDao().insertSongSource(
                 SongSourceEntity(
                     uid = "$sourceId:$remoteId",
                     songId = songId,

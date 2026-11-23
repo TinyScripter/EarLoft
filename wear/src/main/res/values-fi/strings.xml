@@ -66,6 +66,7 @@
     <string name="player_repeat_all">Toista kaikki uudelleen</string>
     <string name="player_repeat_one">Toista raita uudelleen</string>
     <string name="player_output">Bluetooth-ulostulo</string>
+    <string name="output_settings_missing">Tässä kellossa ei ole Bluetooth-asetuksia.</string>
     <string name="player_position">Kohta raidassa</string>
     <string name="player_position_spoken">Toistokohta</string>
     <string name="player_position_chapter">Kohta luvussa</string>
@@ -93,6 +94,8 @@
     <string name="sleep_timer_chapter_end">Luvun loppu</string>
     <string name="sleep_timer_episode_end">Jakson loppu</string>
     <string name="sleep_timer_start">Käynnistä</string>
+    <string name="sleep_timer_shorter">Lyhyempi</string>
+    <string name="sleep_timer_longer">Pidempi</string>
 
     <!-- Downloads -->
     <string name="download_channel_name">Lataukset</string>

@@ -195,6 +195,23 @@ class PodcastFeedParserTest {
     }
 
     @Test
+    fun `the feed's own title wins over a foreign one before it`() {
+        val feed = parse(
+            """
+            <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+              <channel>
+                <itunes:title>Short</itunes:title>
+                <title>The whole title</title>
+                <item><itunes:title>Ep</itunes:title><title>Episode 1</title><enclosure url="https://example.com/a.mp3"/></item>
+              </channel>
+            </rss>
+            """,
+        )
+        assertEquals("The whole title", feed.title)
+        assertEquals("Episode 1", feed.episodes.single().title)
+    }
+
+    @Test
     fun `any namespace prefix works`() {
         val feed = parse(
             """

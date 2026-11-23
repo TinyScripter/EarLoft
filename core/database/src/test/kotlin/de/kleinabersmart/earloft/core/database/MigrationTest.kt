@@ -735,6 +735,34 @@ class UserMigrationTest {
         }
     }
 
+    @Test
+    fun `v19 to v20 keeps music keys with an unknown album year`() {
+        helper.createDatabase(DB_NAME, 19).use { db ->
+            db.execSQL(
+                "INSERT INTO favorites (song_albumArtist, song_album, song_disc, song_track, song_title, changedAt) " +
+                    "VALUES ('element of crime', 'damals hinterm mond', 1, 2, 'kaffee', 5)",
+            )
+            db.execSQL("INSERT INTO collection_favorites (kind, artist, title, changedAt) VALUES ('ALBUM', 'element of crime', 'damals hinterm mond', 6)")
+            db.execSQL(
+                "INSERT INTO wear_selections (key, kind, albumArtist, album, playlistRef, addedAt) " +
+                    "VALUES ('album:x', 'ALBUM', 'element of crime', 'damals hinterm mond', NULL, 7)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 20, true).use { db ->
+            for (query in listOf(
+                "SELECT song_year FROM favorites",
+                "SELECT year FROM collection_favorites",
+                "SELECT year FROM wear_selections",
+            )) {
+                db.query(query).use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals(0, cursor.getInt(0))
+                }
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "user-migration-test"
     }
