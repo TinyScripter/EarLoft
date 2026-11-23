@@ -27,4 +27,13 @@ class CredentialScopeTest {
         assertTrue("https://192.168.1.5/rest/ping".toHttpUrl().acceptsCredentialsOf(plain))
         assertFalse("http://music.example.org/jellyfin/Items".toHttpUrl().acceptsCredentialsOf(base))
     }
+
+    @Test
+    fun `an edited address keeps the stored credentials only on the same host`() {
+        assertTrue("https://music.example.org/emby/".toHttpUrl().keepsCredentialsOf(base.toString()))
+        assertTrue("https://192.168.1.5/".toHttpUrl().keepsCredentialsOf("http://192.168.1.5:4533/"))
+        assertFalse("https://music.exmaple.org/jellyfin/".toHttpUrl().keepsCredentialsOf(base.toString()))
+        assertFalse("http://music.example.org/jellyfin/".toHttpUrl().keepsCredentialsOf(base.toString()))
+        assertFalse(base.keepsCredentialsOf(null))
+    }
 }

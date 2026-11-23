@@ -321,6 +321,7 @@
     <string name="add_server_success">Connected to %1$s %2$s</string>
     <string name="add_server_invalid_url">The address is invalid.</string>
     <string name="add_server_wrong_credentials">Wrong username or password.</string>
+    <string name="add_server_credentials_needed">This address belongs to another server. Enter the password again.</string>
     <string name="add_server_not_subsonic">No Subsonic server responds at this address.</string>
     <string name="add_server_not_jellyfin">No Jellyfin server responds at this address.</string>
     <string name="add_server_not_emby">No Emby server responds at this address.</string>
@@ -677,6 +678,7 @@
     <string name="spoken_abs_error_url">That address is not valid.</string>
     <string name="spoken_abs_error_unreachable">The server could not be reached.</string>
     <string name="spoken_abs_error_auth">The API key was rejected.</string>
+    <string name="spoken_abs_error_credentials_needed">This address belongs to another server. Enter the API key again or sign in again.</string>
     <string name="spoken_abs_error_library">The server has no book library.</string>
     <string name="spoken_abs_openid">Sign in with OpenID</string>
     <string name="spoken_abs_openid_keep">Signed in with OpenID. Leave empty to keep the sign-in; an API key replaces it.</string>

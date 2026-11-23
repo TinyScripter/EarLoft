@@ -314,6 +314,7 @@
     <string name="add_server_success">Yhdistetty: %1$s %2$s</string>
     <string name="add_server_invalid_url">Osoite on virheellinen.</string>
     <string name="add_server_wrong_credentials">Väärä käyttäjänimi tai salasana.</string>
+    <string name="add_server_credentials_needed">Tämä osoite kuuluu toiselle palvelimelle. Anna salasana uudelleen.</string>
     <string name="add_server_not_subsonic">Tässä osoitteessa ei vastaa Subsonic-palvelin.</string>
     <string name="add_server_not_jellyfin">Tässä osoitteessa ei vastaa Jellyfin-palvelin.</string>
     <string name="add_server_not_emby">Tässä osoitteessa ei vastaa Emby-palvelin.</string>
@@ -667,6 +668,7 @@
     <string name="spoken_abs_error_url">Osoite ei kelpaa.</string>
     <string name="spoken_abs_error_unreachable">Palvelimeen ei saatu yhteyttä.</string>
     <string name="spoken_abs_error_auth">API-avain hylättiin.</string>
+    <string name="spoken_abs_error_credentials_needed">Tämä osoite kuuluu toiselle palvelimelle. Anna API-avain uudelleen tai kirjaudu sisään uudelleen.</string>
     <string name="spoken_abs_error_library">Palvelimella ei ole kirjakirjastoa.</string>
     <string name="spoken_abs_openid">Kirjaudu OpenID:llä</string>
     <string name="spoken_abs_openid_keep">Kirjauduttu OpenID:llä. Jätä tyhjäksi, niin kirjautuminen säilyy; API-avain korvaa sen.</string>

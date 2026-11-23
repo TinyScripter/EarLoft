@@ -348,6 +348,7 @@
     <string name="add_server_success">Połączono z: %1$s %2$s</string>
     <string name="add_server_invalid_url">Adres jest nieprawidłowy.</string>
     <string name="add_server_wrong_credentials">Nieprawidłowa nazwa użytkownika lub hasło.</string>
+    <string name="add_server_credentials_needed">Ten adres należy do innego serwera. Wprowadź hasło ponownie.</string>
     <string name="add_server_not_subsonic">Pod tym adresem nie odpowiada żaden serwer Subsonic.</string>
     <string name="add_server_not_jellyfin">Pod tym adresem nie odpowiada żaden serwer Jellyfin.</string>
     <string name="add_server_not_emby">Pod tym adresem nie odpowiada żaden serwer Emby.</string>
@@ -727,6 +728,7 @@
     <string name="spoken_abs_error_url">Ten adres jest nieprawidłowy.</string>
     <string name="spoken_abs_error_unreachable">Nie udało się połączyć z serwerem.</string>
     <string name="spoken_abs_error_auth">Klucz API został odrzucony.</string>
+    <string name="spoken_abs_error_credentials_needed">Ten adres należy do innego serwera. Wprowadź ponownie klucz API lub zaloguj się ponownie.</string>
     <string name="spoken_abs_error_library">Serwer nie ma biblioteki książek.</string>
     <string name="spoken_abs_openid">Zaloguj się przez OpenID</string>
     <string name="spoken_abs_openid_keep">Zalogowano przez OpenID. Zostaw puste, aby zachować logowanie; klucz API je zastąpi.</string>

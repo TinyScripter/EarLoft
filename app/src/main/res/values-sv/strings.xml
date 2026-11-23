@@ -314,6 +314,7 @@
     <string name="add_server_success">Ansluten till %1$s %2$s</string>
     <string name="add_server_invalid_url">Adressen är ogiltig.</string>
     <string name="add_server_wrong_credentials">Fel användarnamn eller lösenord.</string>
+    <string name="add_server_credentials_needed">Den här adressen tillhör en annan server. Ange lösenordet igen.</string>
     <string name="add_server_not_subsonic">Ingen Subsonic-server svarar på den här adressen.</string>
     <string name="add_server_not_jellyfin">Ingen Jellyfin-server svarar på den här adressen.</string>
     <string name="add_server_not_emby">Ingen Emby-server svarar på den här adressen.</string>
@@ -667,6 +668,7 @@
     <string name="spoken_abs_error_url">Adressen är inte giltig.</string>
     <string name="spoken_abs_error_unreachable">Det gick inte att nå servern.</string>
     <string name="spoken_abs_error_auth">API-nyckeln avvisades.</string>
+    <string name="spoken_abs_error_credentials_needed">Den här adressen tillhör en annan server. Ange API-nyckeln igen eller logga in igen.</string>
     <string name="spoken_abs_error_library">Servern har inget bokbibliotek.</string>
     <string name="spoken_abs_openid">Logga in med OpenID</string>
     <string name="spoken_abs_openid_keep">Inloggad med OpenID. Lämna tomt för att behålla inloggningen. En API-nyckel ersätter den.</string>

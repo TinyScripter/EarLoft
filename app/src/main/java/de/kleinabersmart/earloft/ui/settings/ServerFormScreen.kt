@@ -307,6 +307,7 @@ private fun ResultText(result: ConnectionResult, type: SourceType) {
             stringResource(R.string.add_server_success, result.serverName, result.serverVersion.orEmpty()) to false
         ConnectionResult.InvalidUrl -> stringResource(R.string.add_server_invalid_url) to true
         ConnectionResult.WrongCredentials -> stringResource(R.string.add_server_wrong_credentials) to true
+        ConnectionResult.CredentialsNeeded -> stringResource(R.string.add_server_credentials_needed) to true
         ConnectionResult.UnexpectedServer -> stringResource(notServerText(type)) to true
         is ConnectionResult.Unreachable -> stringResource(R.string.add_server_unreachable, result.reason.orEmpty()) to true
         is ConnectionResult.ServerError ->

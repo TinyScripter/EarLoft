@@ -151,6 +151,7 @@ class AudiobookshelfViewModel @Inject constructor(
         AddServerResult.InvalidUrl -> ConnectState.Failed(R.string.spoken_abs_error_url)
         AddServerResult.Unreachable -> ConnectState.Failed(R.string.spoken_abs_error_unreachable)
         AddServerResult.AuthFailed -> ConnectState.Failed(R.string.spoken_abs_error_auth)
+        AddServerResult.CredentialsNeeded -> ConnectState.Failed(R.string.spoken_abs_error_credentials_needed)
         AddServerResult.OpenIdFailed -> ConnectState.Failed(R.string.spoken_abs_error_openid)
         AddServerResult.NoBookLibrary -> ConnectState.Failed(R.string.spoken_abs_error_library)
     }

@@ -331,6 +331,7 @@
     <string name="add_server_success">Conectado a %1$s %2$s</string>
     <string name="add_server_invalid_url">O endereço é inválido.</string>
     <string name="add_server_wrong_credentials">Nome de usuário ou senha incorretos.</string>
+    <string name="add_server_credentials_needed">Este endereço pertence a outro servidor. Digite a senha novamente.</string>
     <string name="add_server_not_subsonic">Nenhum servidor Subsonic responde neste endereço.</string>
     <string name="add_server_not_jellyfin">Nenhum servidor Jellyfin responde neste endereço.</string>
     <string name="add_server_not_emby">Nenhum servidor Emby responde neste endereço.</string>
@@ -697,6 +698,7 @@
     <string name="spoken_abs_error_url">Esse endereço não é válido.</string>
     <string name="spoken_abs_error_unreachable">Não foi possível acessar o servidor.</string>
     <string name="spoken_abs_error_auth">A chave de API foi recusada.</string>
+    <string name="spoken_abs_error_credentials_needed">Este endereço pertence a outro servidor. Digite a chave de API novamente ou entre de novo.</string>
     <string name="spoken_abs_error_library">O servidor não tem biblioteca de livros.</string>
     <string name="spoken_abs_openid">Fazer login com OpenID</string>
     <string name="spoken_abs_openid_keep">Conectado com OpenID. Deixe em branco para manter o login; uma chave de API o substitui.</string>

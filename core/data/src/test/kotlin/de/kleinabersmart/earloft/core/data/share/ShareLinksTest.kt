@@ -84,6 +84,18 @@ class ShareLinksTest {
     }
 
     @Test
+    fun `web pages at home, with a key or on an own server are not shared`() {
+        listOf(
+            "http://192.168.0.10/podcast",
+            "http://nas.local/show",
+            "https://example.com/show?token=abc",
+            "https://user:pw@example.com/show",
+        ).forEach { assertEquals(it, null, ShareLinks.publicPage(it)) }
+        assertEquals(null, ShareLinks.publicPage("https://music.example.org/show", ownHosts = setOf("music.example.org")))
+        assertEquals("https://example.com/show", ShareLinks.publicPage("https://example.com/show", ownHosts = setOf("music.example.org")))
+    }
+
+    @Test
     fun `feeds and audio files are shared wherever they are`() {
         assertEquals("https://anchor.fm/s/1/podcast/rss", ShareLinks.sourceUrl(" https://anchor.fm/s/1/podcast/rss "))
         assertEquals(null, ShareLinks.sourceUrl("ardsounds:urn:ard:show:1"))

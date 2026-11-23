@@ -348,6 +348,7 @@
     <string name="add_server_success">Připojeno: %1$s %2$s</string>
     <string name="add_server_invalid_url">Adresa je neplatná.</string>
     <string name="add_server_wrong_credentials">Nesprávné uživatelské jméno nebo heslo.</string>
+    <string name="add_server_credentials_needed">Tato adresa patří jinému serveru. Zadejte heslo znovu.</string>
     <string name="add_server_not_subsonic">Na této adrese neodpovídá žádný server Subsonic.</string>
     <string name="add_server_not_jellyfin">Na této adrese neodpovídá žádný server Jellyfin.</string>
     <string name="add_server_not_emby">Na této adrese neodpovídá žádný server Emby.</string>
@@ -727,6 +728,7 @@
     <string name="spoken_abs_error_url">Tato adresa není platná.</string>
     <string name="spoken_abs_error_unreachable">Server se nepodařilo zastihnout.</string>
     <string name="spoken_abs_error_auth">Klíč API byl odmítnut.</string>
+    <string name="spoken_abs_error_credentials_needed">Tato adresa patří jinému serveru. Zadejte znovu klíč API nebo se znovu přihlaste.</string>
     <string name="spoken_abs_error_library">Server nemá žádnou knihovnu knih.</string>
     <string name="spoken_abs_openid">Přihlásit se přes OpenID</string>
     <string name="spoken_abs_openid_keep">Přihlášeno přes OpenID. Ponechte prázdné, chcete-li přihlášení zachovat; klíč API ho nahradí.</string>

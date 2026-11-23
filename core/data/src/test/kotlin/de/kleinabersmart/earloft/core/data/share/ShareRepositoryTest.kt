@@ -82,6 +82,21 @@ class ShareRepositoryTest {
     }
 
     @Test
+    fun `web pages on the home network or of a protected feed are left out`() = runTest {
+        feed("a", "https://example.com/feed.xml", website = "http://192.168.0.10/podcast")
+        val episode = episode("a", "One", "http://192.168.0.10/1", "https://cdn.example.com/1.mp3")
+        feed("b", "https://members.example.com/feed.xml", website = "https://members.example.com/show")
+        feedAuth.replaceAll(mapOf("b" to FeedAuth("https://members.example.com/feed.xml".toHttpUrl(), "user", "pass")))
+
+        assertEquals("Podcast a\nRSS: https://example.com/feed.xml", repository.content(ShareTarget.Feed("a"))?.text)
+        assertEquals(
+            "One\nPodcast a\nhttps://cdn.example.com/1.mp3\nRSS: https://example.com/feed.xml",
+            repository.content(ShareTarget.Book(episode))?.text,
+        )
+        assertEquals("Podcast b", repository.content(ShareTarget.Feed("b"))?.text)
+    }
+
+    @Test
     fun `an ard sounds show shares its page`() = runTest {
         feed("a", "ardsounds:urn:ard:show:1")
         assertEquals("Podcast a\nhttps://www.ardsounds.de/sendung/urn:ard:show:1/", repository.content(ShareTarget.Feed("a"))?.text)

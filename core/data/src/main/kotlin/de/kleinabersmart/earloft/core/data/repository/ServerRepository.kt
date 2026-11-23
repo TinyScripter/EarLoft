@@ -17,6 +17,7 @@ import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.network.HttpStatusException
 import de.kleinabersmart.earloft.core.network.ServerApiException
 import de.kleinabersmart.earloft.core.network.UnexpectedResponseException
+import de.kleinabersmart.earloft.core.network.keepsCredentialsOf
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinApi
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinFlavor
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinServer
@@ -45,6 +46,9 @@ sealed interface ConnectionResult {
     data class Success(val serverName: String, val serverVersion: String?, val sourceId: String? = null) : ConnectionResult
     data object InvalidUrl : ConnectionResult
     data object WrongCredentials : ConnectionResult
+
+    /** Editing: the new address is on another host, so the stored password or sign-in doesn't go there (review J28). */
+    data object CredentialsNeeded : ConnectionResult
 
     /** No server of the chosen type responds at this address. */
     data object UnexpectedServer : ConnectionResult
@@ -185,11 +189,12 @@ class ServerRepository @Inject constructor(
         newPassword: String?,
     ): ConnectionResult {
         val sourceId = existing.sourceId
+        val baseUrl = SubsonicServer.normalizeBaseUrl(url) ?: return ConnectionResult.InvalidUrl
+        if (newPassword == null && !baseUrl.keepsCredentialsOf(existing.baseUrl)) return ConnectionResult.CredentialsNeeded
         val password = newPassword ?: storedPassword(sourceId) ?: return ConnectionResult.WrongCredentials
         val result = testSubsonic(url, username, password)
         if (result !is ConnectionResult.Success) return result
 
-        val baseUrl = SubsonicServer.normalizeBaseUrl(url) ?: return ConnectionResult.InvalidUrl
         val server = SubsonicServer(sourceId, baseUrl, SubsonicCredentials.Password(username, password))
         val capabilities = capabilitiesOrFailure(server) ?: return ConnectionResult.Unreachable(null)
         if (newPassword != null) secretStore.put(DataSourceRegistry.passwordKey(sourceId), newPassword)
@@ -281,6 +286,7 @@ class ServerRepository @Inject constructor(
             }
             result
         } else {
+            if (!baseUrl.keepsCredentialsOf(existing.baseUrl)) return ConnectionResult.CredentialsNeeded
             val stored = storedJellyfinSecret(sourceId) ?: return ConnectionResult.WrongCredentials
             try {
                 val info = jellyfinApi.publicInfo(baseUrl, flavor)

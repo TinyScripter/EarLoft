@@ -222,6 +222,19 @@ class AbsOpenIdTest {
     }
 
     @Test
+    fun `saving without a key at another host asks for it again and sends nothing there`() = runTest {
+        val id = signIn()
+        val requests = server.requestCount
+
+        val result = servers.update(id, "Audiobooks", "https://audiobooks.example.invalid/", "")
+
+        assertEquals(AddServerResult.CredentialsNeeded, result)
+        assertEquals(requests, server.requestCount)
+        assertEquals(baseUrl, db.bookDao().server(id)!!.baseUrl)
+        assertEquals(jwt("access-1"), secrets.values[AbsSecrets.token(id)])
+    }
+
+    @Test
     fun `switching to an API key drops the refresh token`() = runTest {
         val id = signIn()
         validAccess += "api-key"

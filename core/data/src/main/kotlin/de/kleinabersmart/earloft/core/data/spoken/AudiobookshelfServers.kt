@@ -14,6 +14,7 @@ import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsOpenIdLogin
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServer
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServerRegistry
 import de.kleinabersmart.earloft.core.network.acceptsCredentialsOf
+import de.kleinabersmart.earloft.core.network.keepsCredentialsOf
 import de.kleinabersmart.earloft.core.model.SpokenLibrary
 import de.kleinabersmart.earloft.core.model.SpokenServer
 import kotlinx.coroutines.flow.Flow
@@ -33,6 +34,8 @@ sealed interface AddServerResult {
     data object InvalidUrl : AddServerResult
     data object Unreachable : AddServerResult
     data object AuthFailed : AddServerResult
+    /** Editing: the new address is on another host, so the stored key or sign-in doesn't go there (review J28). */
+    data object CredentialsNeeded : AddServerResult
     /** The server did not complete the OpenID sign-in (rejected, expired, foreign redirect). */
     data object OpenIdFailed : AddServerResult
     data object NoBookLibrary : AddServerResult
@@ -230,6 +233,7 @@ class AudiobookshelfServers @Inject constructor(
         val existing = existingId?.let { bookDao.server(it) }
         if (existingId != null && existing == null) return AddServerResult.InvalidUrl
         val keep = credentials is Credentials.ApiKey && credentials.key.isBlank()
+        if (keep && existing != null && !baseUrl.keepsCredentialsOf(existing.baseUrl)) return AddServerResult.CredentialsNeeded
         // So that an access token that expired while keeping it gets renewed during the check (AbsTokenAuthenticator).
         if (keep) ensureLoaded()
         val key = when (credentials) {

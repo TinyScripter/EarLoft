@@ -73,10 +73,13 @@ object ShareLinks {
 
     private val TRAILING_NOTE = Regex("""\s*[(\[][^()\[\]]*[)\]]$""")
 
-    /** A web page to share: absolute http(s) address that doesn't belong to a platform ([isPlatform]). */
-    fun publicPage(url: String?): String? {
+    /**
+     * A web page to share: absolute http(s) address that neither belongs to a platform ([isPlatform]) nor is private
+     * like a feed ([isPrivateSource]: credentials, home network, own server; review J23).
+     */
+    fun publicPage(url: String?, ownHosts: Set<String> = emptySet()): String? {
         val parsed = url?.trim()?.toHttpUrlOrNull() ?: return null
-        return url.trim().takeUnless { isPlatform(parsed.host) }
+        return url.trim().takeUnless { isPlatform(parsed.host) || isPrivateSource(it, ownHosts) }
     }
 
     /** Feed or audio file: the open source itself, wherever it is; only absolute http(s) addresses. */

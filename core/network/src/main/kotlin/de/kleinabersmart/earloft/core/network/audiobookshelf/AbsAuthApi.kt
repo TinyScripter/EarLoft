@@ -33,7 +33,9 @@ import javax.inject.Singleton
 data class AbsLoginOptions(val openId: Boolean)
 
 /** Result of a login or refresh. [refreshToken] `null`: server before 2.26, [accessToken] doesn't expire. */
-data class AbsTokens(val accessToken: String, val refreshToken: String?)
+data class AbsTokens(val accessToken: String, val refreshToken: String?) {
+    override fun toString() = "AbsTokens(***)"
+}
 
 /**
  * A started OpenID login (concept 12.11): the user signs in to the identity provider at [authorizationUrl],

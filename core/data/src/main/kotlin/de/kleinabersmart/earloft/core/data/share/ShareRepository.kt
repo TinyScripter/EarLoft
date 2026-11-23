@@ -54,7 +54,8 @@ class ShareRepository @Inject constructor(
             content(artist.name, ShareLinks.musicBrainz(MusicBrainzKind.ARTIST, artist.mbid, artist.name))
         }
         is ShareTarget.Feed -> podcastDao.feed(target.feedId)?.takeIf(::isShareable)?.let { feed ->
-            content(feed.title, *feedLinks(feed, ShareLinks.publicPage(feed.websiteUrl), ownHosts()))
+            val ownHosts = ownHosts()
+            content(feed.title, *feedLinks(feed, ShareLinks.publicPage(feed.websiteUrl, ownHosts), ownHosts))
         }
         is ShareTarget.Book -> bookDao.book(target.bookId)?.let { book ->
             when (book.kind) {
@@ -77,7 +78,7 @@ class ShareRepository @Inject constructor(
         val feed = podcastDao.feed(book.serverId)?.takeIf(::isShareable) ?: return null
         val ownHosts = ownHosts()
         val audio = bookDao.tracks(book.bookId).firstOrNull()?.remoteFileId?.takeUnless { ShareLinks.isPrivateSource(it, ownHosts) }
-        val website = ShareLinks.publicPage(book.webUrl)
+        val website = ShareLinks.publicPage(book.webUrl, ownHosts)
         val page = website ?: audio?.let(ShareLinks::sourceUrl)?.let { url ->
             if (at == null) url else "${url.substringBefore('#')}#t=${at.positionMs / 1000}"
         }

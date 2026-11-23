@@ -314,6 +314,7 @@
     <string name="add_server_success">Verbonden met %1$s %2$s</string>
     <string name="add_server_invalid_url">Het adres is ongeldig.</string>
     <string name="add_server_wrong_credentials">Onjuiste gebruikersnaam of onjuist wachtwoord.</string>
+    <string name="add_server_credentials_needed">Dit adres hoort bij een andere server. Voer het wachtwoord opnieuw in.</string>
     <string name="add_server_not_subsonic">Op dit adres reageert geen Subsonic-server.</string>
     <string name="add_server_not_jellyfin">Op dit adres reageert geen Jellyfin-server.</string>
     <string name="add_server_not_emby">Op dit adres reageert geen Emby-server.</string>
@@ -667,6 +668,7 @@
     <string name="spoken_abs_error_url">Dat adres is niet geldig.</string>
     <string name="spoken_abs_error_unreachable">De server kan niet worden bereikt.</string>
     <string name="spoken_abs_error_auth">De API-sleutel is geweigerd.</string>
+    <string name="spoken_abs_error_credentials_needed">Dit adres hoort bij een andere server. Voer de API-sleutel opnieuw in of meld je opnieuw aan.</string>
     <string name="spoken_abs_error_library">De server heeft geen boekenbibliotheek.</string>
     <string name="spoken_abs_openid">Inloggen met OpenID</string>
     <string name="spoken_abs_openid_keep">Ingelogd met OpenID. Laat leeg om ingelogd te blijven; een API-sleutel vervangt de aanmelding.</string>

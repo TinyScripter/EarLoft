@@ -314,6 +314,7 @@
     <string name="add_server_success">Forbundet til %1$s %2$s</string>
     <string name="add_server_invalid_url">Adressen er ugyldig.</string>
     <string name="add_server_wrong_credentials">Forkert brugernavn eller adgangskode.</string>
+    <string name="add_server_credentials_needed">Denne adresse tilhører en anden server. Indtast adgangskoden igen.</string>
     <string name="add_server_not_subsonic">Ingen Subsonic-server svarer på denne adresse.</string>
     <string name="add_server_not_jellyfin">Ingen Jellyfin-server svarer på denne adresse.</string>
     <string name="add_server_not_emby">Ingen Emby-server svarer på denne adresse.</string>
@@ -667,6 +668,7 @@
     <string name="spoken_abs_error_url">Adressen er ikke gyldig.</string>
     <string name="spoken_abs_error_unreachable">Serveren kunne ikke nås.</string>
     <string name="spoken_abs_error_auth">API-nøglen blev afvist.</string>
+    <string name="spoken_abs_error_credentials_needed">Denne adresse tilhører en anden server. Indtast API-nøglen igen, eller log ind igen.</string>
     <string name="spoken_abs_error_library">Serveren har intet bogbibliotek.</string>
     <string name="spoken_abs_openid">Log ind med OpenID</string>
     <string name="spoken_abs_openid_keep">Logget ind med OpenID. Lad feltet være tomt for at beholde login; en API-nøgle erstatter det.</string>
