@@ -88,6 +88,13 @@ abstract class PodcastDao {
     @Query("SELECT feedId FROM podcast_feeds WHERE subscribed = 0")
     abstract fun observeTrialFeedIds(): Flow<List<String>>
 
+    /** Those of [bookIds] that are episodes of a trial subscription. */
+    @Query(
+        "SELECT b.bookId FROM books b JOIN podcast_feeds f ON f.feedId = b.serverId AND f.subscribed = 0 " +
+            "WHERE b.bookId IN (:bookIds)",
+    )
+    abstract suspend fun trialEpisodeIds(bookIds: List<Long>): List<Long>
+
     @Query(
         "SELECT b.bookId AS bookId, b.serverId AS feedId, COALESCE(p.finished, 0) AS finished, " +
             "(p.bookId IS NOT NULL) AS hasProgress, t.downloadState AS downloadState FROM books b " +

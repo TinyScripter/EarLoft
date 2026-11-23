@@ -113,7 +113,9 @@ fun EpisodeSelectionBar(
     val resources = LocalResources.current
     val selected = shown.filter { it.book.id in selection }
     val count = selected.size
-    val allPlayed = selected.isNotEmpty() && selected.all { it.progress?.finished == true }
+    // Episodes of trial subscriptions would forget "played" right away (review2 J4): the button only acts on the others.
+    val markable = selected.filter { it.book.serverId !in trialFeeds }
+    val allPlayed = markable.isNotEmpty() && markable.all { it.progress?.finished == true }
     var menu by remember { mutableStateOf(false) }
 
     BackHandler(enabled = selection.active) { selection.clear() }
@@ -135,10 +137,10 @@ fun EpisodeSelectionBar(
             IconButton(onClick = { selection.toggleAll(shown.map { it.book.id }) }) {
                 Icon(painterResource(DesignR.drawable.ic_done_all), contentDescription = stringResource(R.string.episode_select_all))
             }
-            IconButton(onClick = {
+            if (markable.isNotEmpty()) IconButton(onClick = {
                 val played = !allPlayed
-                val text = quantity(resources, if (played) R.plurals.episodes_marked_played else R.plurals.episodes_marked_unplayed, count)
-                viewModel.setPlayed(selected, played) { restore ->
+                val text = quantity(resources, if (played) R.plurals.episodes_marked_played else R.plurals.episodes_marked_unplayed, markable.size)
+                viewModel.setPlayed(markable, played) { restore ->
                     snackbars.show(text, SnackbarDuration.Long, resources.getString(R.string.spoken_bookmark_undo)) { viewModel.undo(restore) }
                 }
                 selection.clear()
@@ -262,6 +264,7 @@ fun EpisodeSwipeBox(
     val viewModel: EpisodeMenuViewModel = hiltViewModel()
     val queued by viewModel.queued.collectAsStateWithLifecycle()
     val loadedBookId by viewModel.loadedBookId.collectAsStateWithLifecycle()
+    val trialFeeds by viewModel.trialFeeds.collectAsStateWithLifecycle()
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -303,6 +306,8 @@ fun EpisodeSwipeBox(
     SwipeToDismissBox(
         state = state,
         onDismiss = onDismiss,
+        // "Played" on a trial subscription would be forgotten right away (review2 J4); the queue swipe stays.
+        enableDismissFromEndToStart = item.book.serverId !in trialFeeds,
         backgroundContent = {
             val direction = state.dismissDirection
             if (direction == SwipeToDismissBoxValue.Settled) return@SwipeToDismissBox

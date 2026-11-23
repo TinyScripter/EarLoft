@@ -4,7 +4,6 @@ import kotlinx.coroutines.flow.first
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
@@ -13,7 +12,6 @@ import de.kleinabersmart.earloft.core.data.spoken.BookDownload
 import de.kleinabersmart.earloft.core.data.spoken.BookProgressSync
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.download.BookDownloads
-import de.kleinabersmart.earloft.core.download.DownloadStart
 import de.kleinabersmart.earloft.core.download.EpisodeDownloads
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.model.BookWithProgress
@@ -29,6 +27,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import de.kleinabersmart.earloft.ui.orOnError
 import javax.inject.Inject
 
 @HiltViewModel
@@ -43,6 +42,7 @@ class EpisodeMenuViewModel @Inject constructor(
     private val servicePlayer: ServicePlayer,
     private val launcher: BookLauncher,
     private val ardBooks: ArdBooks,
+    private val rows: EpisodeRowActions,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -55,6 +55,7 @@ class EpisodeMenuViewModel @Inject constructor(
     /** The book or episode in the player; a book from ARD Sounds can't be removed then. */
     val loadedBookId: StateFlow<Long?> = playback.state
         .map { it.spoken?.bookId }
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Download state of a book with its size, for the question before deleting it (review G61). */
@@ -74,8 +75,7 @@ class EpisodeMenuViewModel @Inject constructor(
     }
 
     /** Episodes currently in the "Continue listening" row (the queue). */
-    val queued: StateFlow<Set<Long>> = continueListening.episodes
-        .map { list -> list.mapTo(HashSet()) { it.book.id } }
+    val queued: StateFlow<Set<Long>> = rows.queued
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     /**
@@ -91,25 +91,30 @@ class EpisodeMenuViewModel @Inject constructor(
             }.keys
         },
     ) { episodes, bookIds -> episodes + bookIds }
+        .orOnError(emptySet())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     /** Episodes with a fully downloaded file; only those can be shared as a file. */
     val downloadedEpisodes: StateFlow<Set<Long>> = podcasts.downloadedIds()
+        .orOnError(emptySet())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     /** The frontmost episode of the row (the current one or the one playback continues with); "Play next" goes after it. */
     val queueHead: StateFlow<Long?> = continueListening.episodes
         .map { it.firstOrNull()?.book?.id }
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** If the episode is already the second in the row, nothing changes. */
     val queueSecond: StateFlow<Long?> = continueListening.episodes
         .map { it.getOrNull(1)?.book?.id }
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Trial subscriptions from the preview: their episodes can't be starred (the subscription disappears when leaving the page). */
     val trialFeeds: StateFlow<Set<String>> = podcasts.trialFeedIds
         .map { it.toSet() }
+        .orOnError(emptySet())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     fun playNext(bookId: Long) {
@@ -288,29 +293,25 @@ class EpisodeMenuViewModel @Inject constructor(
         act { items.filter { it.book.id in present }.forEach { downloads.remove(it.book.id) } }
     }
 
-    /** Downloads all episodes not yet downloaded (not those from the device); [onHint] as with [download], at most once. */
+    /**
+     * Downloads all episodes not yet downloaded (not those from the device); [onHint] as with [download], at most once. Episodes
+     * of a trial subscription go into the queue as well, like with the row's download button (review2 J4).
+     */
     fun download(items: List<BookWithProgress>, onHint: (Int) -> Unit) {
         val present = downloaded.value
-        val missing = items.filter { !it.book.isLocal && it.book.id !in present }
-        act {
-            val starts = missing.map { downloads.download(it.book.id) }
-            when {
-                DownloadStart.OFFLINE in starts -> onHint(R.string.podcast_download_offline)
-                DownloadStart.WAITING_FOR_WIFI in starts -> onHint(R.string.podcast_download_waiting_wifi)
-            }
-        }
+        val missing = items.filter { !it.book.isLocal && it.book.id !in present }.map { it.book.id }
+        act { rows.download(missing)?.let(onHint) }
     }
 
     /** [onHint] receives a text if the download doesn't start right away (offline, waiting for Wi-Fi). */
     fun download(item: BookWithProgress, onHint: (Int) -> Unit) {
         act {
-            val start = if (item.isEpisode) downloads.download(item.book.id) else bookDownloads.download(item.book.id)
-            when (start) {
-                DownloadStart.OFFLINE -> onHint(R.string.podcast_download_offline)
-                DownloadStart.WAITING_FOR_WIFI ->
-                    onHint(if (item.isEpisode) R.string.podcast_download_waiting_wifi else R.string.book_download_waiting_wifi)
-                DownloadStart.STARTED -> Unit
+            val hint = if (item.isEpisode) {
+                rows.download(item.book.id)
+            } else {
+                downloadHint(listOf(bookDownloads.download(item.book.id)), book = true)
             }
+            hint?.let(onHint)
         }
     }
 }

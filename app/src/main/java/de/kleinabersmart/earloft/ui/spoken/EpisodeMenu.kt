@@ -113,6 +113,9 @@ fun EpisodeMenu(
     val id = item.book.id
     val inQueue = id in queued
     val played = item.progress?.finished == true
+    // An episode of a trial subscription keeps its progress only while it is in the queue: "played", "unplayed" and "reset"
+    // would be forgotten right away, as with "Mark all as played" (H10, review2 J4).
+    val trial = item.isEpisode && item.book.serverId in trialFeeds
     val undoLabel = stringResource(R.string.action_undo)
     // Single changes happen right away and can be undone from the snackbar (as when swiping); only "all" asks first.
     val offerUndo: (Int) -> (suspend () -> Unit) -> Unit = { text ->
@@ -153,7 +156,7 @@ fun EpisodeMenu(
                 onDismiss()
             },
         )
-        if (item.isEpisode && item.book.serverId !in trialFeeds) DropdownMenuItem(
+        if (item.isEpisode && !trial) DropdownMenuItem(
             text = { Text(stringResource(if (item.book.starred) R.string.episode_unstar else R.string.episode_star)) },
             onClick = {
                 viewModel.setStarred(listOf(item), !item.book.starred)
@@ -169,7 +172,7 @@ fun EpisodeMenu(
                 onDismiss()
             },
         )
-        DropdownMenuItem(
+        if (!trial) DropdownMenuItem(
             text = { Text(stringResource(if (played) R.string.episode_mark_unplayed else R.string.episode_mark_played)) },
             onClick = {
                 viewModel.setPlayed(item, !played, offerUndo(if (played) R.string.episode_marked_unplayed else R.string.episode_marked_played))
@@ -177,14 +180,14 @@ fun EpisodeMenu(
             },
         )
         // Only if another episode is still in the queue.
-        if (item.isEpisode && !played && (queued - id).isNotEmpty()) DropdownMenuItem(
+        if (item.isEpisode && !trial && !played && (queued - id).isNotEmpty()) DropdownMenuItem(
             text = { Text(stringResource(R.string.episode_mark_played_play_next)) },
             onClick = {
                 viewModel.setPlayedAndPlayNext(item)
                 onDismiss()
             },
         )
-        DropdownMenuItem(
+        if (!trial) DropdownMenuItem(
             text = { Text(stringResource(R.string.episode_reset_position)) },
             onClick = {
                 viewModel.resetPosition(item, offerUndo(R.string.episode_position_reset))

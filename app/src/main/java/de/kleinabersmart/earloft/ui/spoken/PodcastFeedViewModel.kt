@@ -8,14 +8,11 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.R
-import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRefresher
 import de.kleinabersmart.earloft.core.data.podcast.TrialPodcastPages
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.model.BookWithProgress
-import de.kleinabersmart.earloft.core.playback.PlaybackConnection
-import de.kleinabersmart.earloft.core.download.DownloadStart
 import de.kleinabersmart.earloft.core.download.EpisodeDownloadProgress
 import de.kleinabersmart.earloft.core.download.EpisodeDownloads
 import de.kleinabersmart.earloft.core.model.EffectOverrides
@@ -54,12 +51,10 @@ import kotlinx.coroutines.launch
 class PodcastFeedViewModel @AssistedInject constructor(
     @Assisted private val feedId: String,
     private val podcasts: PodcastRepository,
-    private val launcher: BookLauncher,
-    private val playback: PlaybackConnection,
+    private val rows: EpisodeRowActions,
     private val downloads: EpisodeDownloads,
     downloadProgress: EpisodeDownloadProgress,
     private val refresher: PodcastRefresher,
-    private val continueListening: ContinueListening,
     private val trialPages: TrialPodcastPages,
     private val effects: SpokenEffectsRepository,
     spokenSettings: SpokenSettings,
@@ -81,8 +76,7 @@ class PodcastFeedViewModel @AssistedInject constructor(
     fun refresh() = refresher.refreshFeed(feedId)
 
     /** The episode currently playing (not: paused). */
-    val playingBookId: StateFlow<Long?> = playback.state
-        .map { if (it.isPlaying) it.spoken?.bookId else null }
+    val playingBookId: StateFlow<Long?> = rows.playingBookId
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Fraction of the episodes currently downloading (0..1, [EpisodeDownloadProgress.UNKNOWN] without known size). */
@@ -98,15 +92,13 @@ class PodcastFeedViewModel @AssistedInject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     /** Episodes currently in "Continue listening" (the queue), including those that got there automatically. */
-    val queued: StateFlow<Set<Long>> = continueListening.episodes
-        .map { list -> list.mapTo(HashSet()) { it.book.id } }
-        .orOnError(emptySet())
+    val queued: StateFlow<Set<Long>> = rows.queued
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     /** To the end of the queue or out of it, as in the episode menu. */
     fun toggleQueued(bookId: Long) {
         val inQueue = bookId in queued.value
-        viewModelScope.launch { if (inQueue) continueListening.remove(bookId) else continueListening.append(bookId) }
+        viewModelScope.launch { rows.setQueued(bookId, !inQueue) }
     }
 
     private val searchQuery = MutableStateFlow("")
@@ -145,7 +137,10 @@ class PodcastFeedViewModel @AssistedInject constructor(
         val list = state.valueOrNull ?: return@combine state
         val done = downloads.filterValues { it == TrackDownload.DONE }.keys
         LoadState.Ready(list.filterEpisodes(feed?.episodeFilter ?: EpisodeFilter.ALL, feed?.listOldestFirst == true, done))
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
+    }
+        // The second query of the feed had no error handling: a database error ended the app (review2 J49).
+        .orOnError(LoadState.Failed)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     fun setEpisodeFilter(filter: EpisodeFilter) {
         val feed = feed.value.valueOrNull ?: return
@@ -183,20 +178,13 @@ class PodcastFeedViewModel @AssistedInject constructor(
     /** Messages for the user (string resource), e.g. that a download is waiting for a connection. */
     val messages: SharedFlow<Int> = _messages.asSharedFlow()
 
+    /** On a trial subscription the episode also goes into the queue ([EpisodeRowActions.download]). */
     fun download(bookId: Long) {
-        viewModelScope.launch {
-            // Trial subscription: whatever is downloaded goes into the queue and stays only as long as it is there.
-            if (feed.value.valueOrNull?.subscribed == false) continueListening.append(bookId)
-            when (downloads.download(bookId)) {
-                DownloadStart.OFFLINE -> _messages.emit(R.string.podcast_download_offline)
-                DownloadStart.WAITING_FOR_WIFI -> _messages.emit(R.string.podcast_download_waiting_wifi)
-                DownloadStart.STARTED -> Unit
-            }
-        }
+        viewModelScope.launch { rows.download(bookId)?.let { _messages.emit(it) } }
     }
 
     fun removeDownload(bookId: Long) {
-        viewModelScope.launch { downloads.remove(bookId) }
+        viewModelScope.launch { rows.removeDownload(bookId) }
     }
 
     fun removeHeardDownloads() {
@@ -287,9 +275,7 @@ class PodcastFeedViewModel @AssistedInject constructor(
     }
 
     /** Like [PodcastViewModel.playOrPause]. */
-    fun playOrPause(bookId: Long) {
-        if (playback.state.value.spoken?.bookId == bookId) playback.togglePlayPause() else launcher.play(bookId)
-    }
+    fun playOrPause(bookId: Long) = rows.playOrPause(bookId)
 
     @AssistedFactory
     interface Factory {

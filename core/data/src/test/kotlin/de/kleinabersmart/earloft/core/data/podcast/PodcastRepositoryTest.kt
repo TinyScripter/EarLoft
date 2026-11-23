@@ -791,6 +791,20 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `trial episode ids name only the episodes of trial feeds`() = runTest {
+        val trialId = (repository.openPreview("https://example.com/feed.xml") as SubscribeResult.Added).feedId
+        val trialB = idOf(trialId, "B")
+        val trialC = idOf(trialId, "C")
+        served = feed("X" to "Thu, 30 Oct 2025 06:00:00 GMT")
+        val subscribedX = idOf((repository.subscribe("https://example.org/other.xml") as SubscribeResult.Added).feedId, "X")
+
+        assertEquals(setOf(trialB, trialC), repository.trialEpisodeIds(listOf(trialB, subscribedX, trialC, trialB)))
+
+        repository.subscribeTrial(trialId)
+        assertEquals(emptySet<Long>(), repository.trialEpisodeIds(listOf(trialB, subscribedX)))
+    }
+
+    @Test
     fun `subscribing a trial feed keeps its episodes and progress`() = runTest {
         val trialId = (repository.openPreview("https://example.com/feed.xml") as SubscribeResult.Added).feedId
         val b = idOf(trialId, "B")

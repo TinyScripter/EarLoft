@@ -7,16 +7,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import de.kleinabersmart.earloft.R
-import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
-import de.kleinabersmart.earloft.core.download.DownloadStart
 import de.kleinabersmart.earloft.core.download.EpisodeDownloadProgress
-import de.kleinabersmart.earloft.core.download.EpisodeDownloads
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.model.TrackDownload
-import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.asLoadState
 import de.kleinabersmart.earloft.ui.orOnError
@@ -35,11 +30,8 @@ import javax.inject.Inject
 @HiltViewModel
 class PodcastNewViewModel @Inject constructor(
     podcasts: PodcastRepository,
-    private val continueListening: ContinueListening,
-    private val downloads: EpisodeDownloads,
+    private val rows: EpisodeRowActions,
     downloadProgress: EpisodeDownloadProgress,
-    private val launcher: BookLauncher,
-    private val playback: PlaybackConnection,
     spokenSettings: SpokenSettings,
 ) : ViewModel() {
 
@@ -61,9 +53,7 @@ class PodcastNewViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** Episodes currently in "Continue listening" (the queue), including those that got there automatically. */
-    val queued: StateFlow<Set<Long>> = continueListening.episodes
-        .map { list -> list.mapTo(HashSet()) { it.book.id } }
-        .orOnError(emptySet())
+    val queued: StateFlow<Set<Long>> = rows.queued
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     private val _filter = MutableStateFlow(EpisodeFilter.ALL)
@@ -86,8 +76,7 @@ class PodcastNewViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     /** The episode currently playing (not: paused). */
-    val playingBookId: StateFlow<Long?> = playback.state
-        .map { if (it.isPlaying) it.spoken?.bookId else null }
+    val playingBookId: StateFlow<Long?> = rows.playingBookId
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val _messages = MutableSharedFlow<Int>(extraBufferCapacity = 2)
@@ -96,27 +85,19 @@ class PodcastNewViewModel @Inject constructor(
     val messages: SharedFlow<Int> = _messages.asSharedFlow()
 
     /** Like [PodcastViewModel.playOrPause]. */
-    fun playOrPause(bookId: Long) {
-        if (playback.state.value.spoken?.bookId == bookId) playback.togglePlayPause() else launcher.play(bookId)
-    }
+    fun playOrPause(bookId: Long) = rows.playOrPause(bookId)
 
     /** To the end of the queue or out of it, as in the episode menu. */
     fun toggleQueued(bookId: Long) {
         val inQueue = bookId in queued.value
-        viewModelScope.launch { if (inQueue) continueListening.remove(bookId) else continueListening.append(bookId) }
+        viewModelScope.launch { rows.setQueued(bookId, !inQueue) }
     }
 
     fun download(bookId: Long) {
-        viewModelScope.launch {
-            when (downloads.download(bookId)) {
-                DownloadStart.OFFLINE -> _messages.emit(R.string.podcast_download_offline)
-                DownloadStart.WAITING_FOR_WIFI -> _messages.emit(R.string.podcast_download_waiting_wifi)
-                DownloadStart.STARTED -> Unit
-            }
-        }
+        viewModelScope.launch { rows.download(bookId)?.let { _messages.emit(it) } }
     }
 
     fun removeDownload(bookId: Long) {
-        viewModelScope.launch { downloads.remove(bookId) }
+        viewModelScope.launch { rows.removeDownload(bookId) }
     }
 }

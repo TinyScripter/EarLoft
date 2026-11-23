@@ -688,6 +688,13 @@ class PodcastRepository @Inject constructor(
     /** IDs of the trial subscriptions (concept 12.10). */
     val trialFeedIds: Flow<List<String>> = dao.observeTrialFeedIds()
 
+    /**
+     * Those of [bookIds] that belong to a trial subscription: they keep a download and their progress only while they are in the
+     * queue (`planTrialCleanup`).
+     */
+    suspend fun trialEpisodeIds(bookIds: Collection<Long>): Set<Long> =
+        bookIds.distinct().chunked(MAX_ARGS).flatMapTo(HashSet()) { dao.trialEpisodeIds(it) }
+
     /** Episodes of the trial subscriptions with progress and download state, for cleanup. */
     val trialEpisodes: Flow<List<TrialEpisode>> = dao.observeTrialEpisodeStates().map { rows ->
         rows.map { TrialEpisode(it.bookId, it.feedId, it.finished, it.hasProgress, it.downloadState.isDownloadPresent()) }
