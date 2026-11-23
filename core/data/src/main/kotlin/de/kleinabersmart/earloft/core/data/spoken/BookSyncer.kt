@@ -234,6 +234,9 @@ class BookSyncer @Inject constructor(
                 return false
             }
             result.results.forEach {
+                // Only an e-book, nothing to play (review J11, Z6): not taken over, and not marked as seen, so a known entry
+                // that lost its audio files disappears like one deleted on the server.
+                if (it.media.numAudioFiles == 0) return@forEach
                 if (it.isMissing || it.isInvalid) {
                     // If the files are only temporarily missing (share not mounted during the scan), a known book stays
                     // along with its download and progress; new ones only come once they are playable.

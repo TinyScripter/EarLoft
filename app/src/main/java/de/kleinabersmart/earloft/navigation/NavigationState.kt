@@ -59,7 +59,7 @@ class NavigationState(
         entryProvider: (NavKey) -> NavEntry<NavKey>,
     ): List<NavEntry<NavKey>> {
         // Separate decorators per stack so UI state and ViewModels are kept per tab.
-        val decoratedEntries = backStacks.mapValues { (_, stack) ->
+        val decoratedEntries = backStacks.mapValues { (tab, stack) ->
             rememberDecoratedNavEntries(
                 backStack = stack,
                 entryDecorators = listOf(
@@ -67,7 +67,7 @@ class NavigationState(
                     rememberViewModelStoreNavEntryDecorator(),
                     rememberRoundedCornerNavEntryDecorator(),
                 ),
-                entryProvider = entryProvider,
+                entryProvider = { key -> entryProvider(key).inTab(key, tab) },
             )
         }
         return topLevelRoutesInUse().flatMap { decoratedEntries[it].orEmpty() }
@@ -76,3 +76,15 @@ class NavigationState(
     private fun topLevelRoutesInUse(): List<NavKey> =
         if (topLevelRoute == startRoute) listOf(startRoute) else listOf(startRoute, topLevelRoute)
 }
+
+/**
+ * [this] entry with a content key unique across tabs. The Home stack and the selected tab are shown together, and a page
+ * without an instance ID (player, queue, a settings page, a form) can lie in both. With the same content key, `NavDisplay`
+ * would give both one slot, and the page in one tab would take over or lose the state of the other (review J69).
+ */
+internal fun NavEntry<NavKey>.inTab(key: NavKey, tab: NavKey): NavEntry<NavKey> {
+    val entry = this
+    return NavEntry(key, contentKey = tabContentKey(tab, entry.contentKey), metadata = entry.metadata) { entry.Content() }
+}
+
+internal fun tabContentKey(tab: NavKey, contentKey: Any): String = "$tab/$contentKey"

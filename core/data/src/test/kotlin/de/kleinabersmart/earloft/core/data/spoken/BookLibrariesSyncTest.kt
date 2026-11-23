@@ -228,6 +228,25 @@ class BookLibrariesSyncTest {
         assertEquals(null, books.authorDescription("Anna Author").first())
     }
 
+    @Test
+    fun `an entry with only an e-book is not taken over, a known one that lost its audio disappears`() = runTest {
+        items["lib-a"] = items.getValue("lib-a") + Triple("ebook", "Only text", emptyList())
+        audioFiles["ebook"] = 0
+        audioFiles["li_2"] = 3
+        val id = connect()
+
+        assertTrue(sync(id).ok)
+        assertEquals(listOf("Crime", "Drama", "Novel"), titles())
+
+        // Its audio files were removed on the server, only the e-book is left.
+        audioFiles["li_2"] = 0
+        assertTrue(sync(id).ok)
+        assertEquals(listOf("Crime", "Drama"), titles())
+    }
+
+    /** `numAudioFiles` per entry in the list; without one the field is left out, as it may be on other server versions. */
+    private val audioFiles = ConcurrentHashMap<String, Int>()
+
     @Volatile
     private var authorsFail = false
 
@@ -325,7 +344,8 @@ class BookLibrariesSyncTest {
 
         private fun item(id: String, title: String, genres: List<String>): String {
             val genreList = genres.joinToString(",") { "\"$it\"" }
-            return """{"id":"$id","addedAt":1,"updatedAt":1,"media":{"metadata":{"title":"$title","authorName":"A","genres":[$genreList]},"duration":60}}"""
+            val count = audioFiles[id]?.let { ",\"numAudioFiles\":$it" }.orEmpty()
+            return """{"id":"$id","addedAt":1,"updatedAt":1,"media":{"metadata":{"title":"$title","authorName":"A","genres":[$genreList]},"duration":60$count}}"""
         }
 
         private fun json(body: String) = MockResponse.Builder().addHeader("Content-Type", "application/json").body(body).build()

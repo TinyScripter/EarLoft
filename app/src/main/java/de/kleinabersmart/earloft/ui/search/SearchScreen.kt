@@ -14,6 +14,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilterChip
@@ -184,10 +185,22 @@ fun SearchScreen(
         }
 
         val results = state.results
+        // New results (another query or "Search everywhere") start at the top: the list would otherwise hold on to its first
+        // visible hit, and hits added above it (the music after "Search everywhere", review J14) would stay out of sight.
+        // The rows get new keys for the same reason. Saved, so coming back from a hit keeps the position.
+        val resultsKey = "${state.scope.name}:${state.query}"
+        val listState = rememberLazyListState()
+        var shownKey by rememberSaveable { mutableStateOf(resultsKey) }
+        LaunchedEffect(resultsKey) {
+            if (state.query.isNotEmpty() && resultsKey != shownKey) {
+                shownKey = resultsKey
+                listState.scrollToItem(0)
+            }
+        }
         when {
             state.query.isEmpty() -> Unit
             state.isEmpty -> EmptyHint(stringResource(R.string.search_no_results, state.query))
-            else -> FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+            else -> FastScrollLazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
                 // Order like the app's areas: music, podcasts, books; within each from the general to the specific.
                 if (results.artists.isNotEmpty()) {
                     item(key = "artists") { SectionHeader(stringResource(R.string.library_artists)) }
@@ -220,7 +233,7 @@ fun SearchScreen(
                     }
                 }
                 if (state.feeds.isNotEmpty()) {
-                    item(key = "feeds") {
+                    item(key = "feeds-$resultsKey") {
                         Shelf(stringResource(R.string.spoken_search_feeds), Modifier.padding(top = 8.dp)) {
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = ShelfInset),
@@ -238,7 +251,7 @@ fun SearchScreen(
                         }
                     }
                 }
-                spokenSection("episodes", R.string.spoken_search_episodes, state.episodes, onBookClick, playControl, playingBookId)
+                spokenSection("episodes-$resultsKey", R.string.spoken_search_episodes, state.episodes, onBookClick, playControl, playingBookId)
                 if (state.series.isNotEmpty()) {
                     item(key = "series") { SectionHeader(stringResource(R.string.spoken_search_series)) }
                     groupedItems(state.series, key = { "series-${it.name}" }) { series ->
@@ -272,7 +285,7 @@ fun SearchScreen(
                         )
                     }
                 }
-                spokenSection("books", R.string.spoken_search_books, state.books, onBookClick, playControl, playingBookId)
+                spokenSection("books-$resultsKey", R.string.spoken_search_books, state.books, onBookClick, playControl, playingBookId)
             }
         }
     }

@@ -373,7 +373,7 @@ fun EarLoftApp(
             // "Play" starts or resumes the book and then opens the playback screen.
             BookScreen(
                 bookId = route.bookId,
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onOpenPlayer = navigator::showNowPlaying,
                 onOpenFeed = navigator::showFeed,
                 onOpenGroup = { kind, name -> navigator.navigate(BookGroupRoute(kind, name)) },
@@ -381,9 +381,9 @@ fun EarLoftApp(
                 onReplaceBook = { navigator.replaceTop(BookRoute(it)) },
             )
         }
-        entry<ArdSoundsRoute>(metadata = detailPane()) {
+        entry<ArdSoundsRoute>(metadata = detailPane()) { route ->
             ArdSoundsScreen(
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onShow = { navigator.navigate(ArdShowRoute(it.id, it.title)) },
                 onBook = { navigator.navigate(ArdBookRoute(it.key, it.title)) },
                 onOpenBook = openBook,
@@ -393,7 +393,7 @@ fun EarLoftApp(
             ArdShowScreen(
                 showId = route.showId,
                 title = route.title,
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onBook = { navigator.navigate(ArdBookRoute(it.key, it.title)) },
                 onOpenBook = openBook,
             )
@@ -403,7 +403,7 @@ fun EarLoftApp(
             ArdBookPreviewScreen(
                 key = route.key,
                 title = route.title,
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onAdded = { bookId, openPlayer ->
                     navigator.replaceTop(BookRoute(bookId))
                     if (openPlayer) navigator.showNowPlaying()
@@ -413,7 +413,7 @@ fun EarLoftApp(
         entry<PodcastRoute>(metadata = detailPane()) { route ->
             PodcastScreen(
                 feedId = route.feedId,
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onEpisodeClick = openBook,
                 onInfo = { navigator.navigate(PodcastInfoRoute(route.feedId)) },
                 onSettings = { navigator.navigate(PodcastSettingsRoute(route.feedId)) },
@@ -422,9 +422,9 @@ fun EarLoftApp(
                 onSubscribed = { if (navigator.inSetup) navigator.returnToSetup() },
             )
         }
-        entry<AddPodcastRoute>(metadata = detailPane()) {
+        entry<AddPodcastRoute>(metadata = detailPane()) { route ->
             AddPodcastScreen(
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 // The new subscription takes the place of the page, as after the dialog previously. In the wizard it goes back to
                 // its podcast page instead, which counts the subscriptions.
                 onFeedAdded = { if (navigator.inSetup) navigator.returnToSetup() else navigator.replaceTop(PodcastRoute(it)) },
@@ -440,17 +440,17 @@ fun EarLoftApp(
                 title = route.title,
                 author = route.author,
                 imageUrl = route.imageUrl,
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onOpened = { navigator.replaceTop(PodcastRoute(it)) },
             )
         }
         entry<PodcastInfoRoute>(metadata = nestedDetailPane()) { route ->
-            PodcastInfoScreen(feedId = route.feedId, onBack = navigator::goBack)
+            PodcastInfoScreen(feedId = route.feedId, onBack = { navigator.goBack(route) })
         }
         entry<PodcastSettingsRoute>(metadata = nestedDetailPane()) { route ->
             PodcastSettingsScreen(
                 feedId = route.feedId,
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 // The subscription is gone: close all its pages (the settings can also be opened directly from the long-press menu).
                 onUnsubscribed = { navigator.closeFeed(route.feedId) },
             )
@@ -459,31 +459,31 @@ fun EarLoftApp(
             BookGroupScreen(
                 kind = route.kind,
                 name = route.name,
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onBookClick = openBook,
                 onGroupClick = { kind, name -> navigator.navigate(BookGroupRoute(kind, name)) },
             )
         }
-        entry<AddAudiobookshelfRoute>(metadata = detailPane()) { AudiobookshelfFormScreen(serverId = null, onDone = navigator::goBack) }
+        entry<AddAudiobookshelfRoute>(metadata = detailPane()) { route -> AudiobookshelfFormScreen(serverId = null, onDone = { navigator.goBack(route) }) }
         entry<EditAudiobookshelfRoute>(metadata = detailPane()) { route ->
-            AudiobookshelfFormScreen(serverId = route.serverId, onDone = navigator::goBack)
+            AudiobookshelfFormScreen(serverId = route.serverId, onDone = { navigator.goBack(route) })
         }
-        entry<FavoritesRoute>(metadata = detailPane()) {
-            FavoritesScreen(onBack = navigator::goBack, onAlbumClick = openAlbum, onArtistClick = openArtist)
+        entry<FavoritesRoute>(metadata = detailPane()) { route ->
+            FavoritesScreen(onBack = { navigator.goBack(route) }, onAlbumClick = openAlbum, onArtistClick = openArtist)
         }
         entry<BookmarksRoute>(metadata = detailPane()) { route ->
-            BookmarksScreen(kind = route.kind, onBack = navigator::goBack, onBookClick = openBook)
+            BookmarksScreen(kind = route.kind, onBack = { navigator.goBack(route) }, onBookClick = openBook)
         }
-        entry<PodcastHistoryRoute>(metadata = detailPane()) {
-            PodcastHistoryScreen(onBack = navigator::goBack, onEpisodeClick = openBook, onFeedClick = openPodcast)
+        entry<PodcastHistoryRoute>(metadata = detailPane()) { route ->
+            PodcastHistoryScreen(onBack = { navigator.goBack(route) }, onEpisodeClick = openBook, onFeedClick = openPodcast)
         }
         entry<PlaylistRoute>(metadata = detailPane()) { route ->
-            PlaylistScreen(playlistId = route.playlistId, onBack = navigator::goBack)
+            PlaylistScreen(playlistId = route.playlistId, onBack = { navigator.goBack(route) })
         }
-        entry<SearchRoute> {
+        entry<SearchRoute> { route ->
             // The area of Home or Library determines where to search.
             SearchScreen(
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onAlbumClick = openAlbum,
                 onArtistClick = openArtist,
                 onGenreClick = openGenre,
@@ -496,31 +496,31 @@ fun EarLoftApp(
             )
         }
         entry<PodcastSearchRoute>(metadata = nestedDetailPane()) { route ->
-            PodcastSearchScreen(feedId = route.feedId, onBack = navigator::goBack, onEpisodeClick = openBook)
+            PodcastSearchScreen(feedId = route.feedId, onBack = { navigator.goBack(route) }, onEpisodeClick = openBook)
         }
-        entry<DownloadsRoute>(metadata = detailPane()) { DownloadsScreen(
-                onBack = navigator::goBack,
+        entry<DownloadsRoute>(metadata = detailPane()) { route -> DownloadsScreen(
+                onBack = { navigator.goBack(route) },
                 onAlbumClick = openAlbum,
                 onBookClick = openBook,
                 onPodcastClick = openPodcast,
             ) }
         entry<AlbumRoute>(metadata = nestedDetailPane()) { route ->
-            AlbumScreen(albumId = route.albumId, onBack = navigator::goBack, onArtistClick = openArtist)
+            AlbumScreen(albumId = route.albumId, onBack = { navigator.goBack(route) }, onArtistClick = openArtist)
         }
         entry<GenreRoute>(metadata = detailPane()) { route ->
-            GenreScreen(genre = route.name, onBack = navigator::goBack, onAlbumClick = openAlbum)
+            GenreScreen(genre = route.name, onBack = { navigator.goBack(route) }, onAlbumClick = openAlbum)
         }
         entry<ArtistRoute>(metadata = detailPane()) { route ->
-            ArtistScreen(artistId = route.artistId, onBack = navigator::goBack, onAlbumClick = openAlbum)
+            ArtistScreen(artistId = route.artistId, onBack = { navigator.goBack(route) }, onAlbumClick = openAlbum)
         }
-        entry<NowPlayingRoute> {
+        entry<NowPlayingRoute> { route ->
             // The playing item decides, not the mode: an audiobook has its own screen.
             if (playsSpoken) {
-                BookPlayerScreen(onClose = navigator::goBack, onEpisodeClick = openBook)
+                BookPlayerScreen(onClose = { navigator.goBack(route) }, onEpisodeClick = openBook)
             } else {
                 // Album and artist close the player and open on the page beneath it.
                 NowPlayingScreen(
-                    onClose = navigator::goBack,
+                    onClose = { navigator.goBack(route) },
                     onOpenQueue = { navigator.navigate(QueueRoute(overPlayer = true)) },
                     onOpenAlbum = {
                         navigator.closeFullScreenPlayer()
@@ -533,16 +533,16 @@ fun EarLoftApp(
                 )
             }
         }
-        entry<QueueRoute> { QueueScreen(onBack = navigator::goBack) }
-        entry<PodcastQueueRoute> {
+        entry<QueueRoute> { route -> QueueScreen(onBack = { navigator.goBack(route) }) }
+        entry<PodcastQueueRoute> { route ->
             PodcastQueueScreen(
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onSearch = { navigator.navigate(PodcastQueueSearchRoute) },
                 onEpisodeClick = openBook,
             )
         }
-        entry<PodcastQueueSearchRoute> { PodcastQueueSearchScreen(onBack = navigator::goBack, onEpisodeClick = openBook) }
-        entry<BookQueueRoute> { BookQueueScreen(onBack = navigator::goBack, onBookClick = openBook) }
+        entry<PodcastQueueSearchRoute> { route -> PodcastQueueSearchScreen(onBack = { navigator.goBack(route) }, onEpisodeClick = openBook) }
+        entry<BookQueueRoute> { route -> BookQueueScreen(onBack = { navigator.goBack(route) }, onBookClick = openBook) }
         entry<SettingsRoute>(metadata = listPane()) {
             CompositionLocalProvider(LocalScrollToTop provides scrollToTop.getValue(SettingsRoute).events) {
                 SettingsScreen(
@@ -555,53 +555,53 @@ fun EarLoftApp(
                 )
             }
         }
-        entry<SettingsGeneralRoute>(metadata = detailPane()) {
+        entry<SettingsGeneralRoute>(metadata = detailPane()) { route ->
             GeneralSettingsScreen(
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onOpenDownloads = { navigator.navigate(DownloadsRoute) },
                 onOpenSetup = navigator::showSetup,
             )
         }
-        entry<SettingsMusicRoute>(metadata = detailPane()) {
+        entry<SettingsMusicRoute>(metadata = detailPane()) { route ->
             MusicSettingsScreen(
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onAddServer = { navigator.navigate(AddServerRoute) },
                 onEditServer = { navigator.navigate(EditServerRoute(it)) },
             )
         }
-        entry<SettingsPodcastsRoute>(metadata = detailPane()) { PodcastsSettingsScreen(onBack = navigator::goBack, onOpenFeed = openPodcast) }
-        entry<SettingsAudiobooksRoute>(metadata = detailPane()) {
+        entry<SettingsPodcastsRoute>(metadata = detailPane()) { route -> PodcastsSettingsScreen(onBack = { navigator.goBack(route) }, onOpenFeed = openPodcast) }
+        entry<SettingsAudiobooksRoute>(metadata = detailPane()) { route ->
             AudiobookSettingsScreen(
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onAddServer = setupAudiobookshelf,
                 onEditServer = { navigator.navigate(EditAudiobookshelfRoute(it)) },
             )
         }
-        entry<WatchSettingsRoute>(metadata = detailPane()) { WatchSettingsScreen(onBack = navigator::goBack) }
-        entry<AboutRoute>(metadata = detailPane()) {
+        entry<WatchSettingsRoute>(metadata = detailPane()) { route -> WatchSettingsScreen(onBack = { navigator.goBack(route) }) }
+        entry<AboutRoute>(metadata = detailPane()) { route ->
             AboutScreen(
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onOpenLicenses = { navigator.navigate(LicensesRoute) },
                 onOpenPrivacy = { navigator.navigate(PrivacyRoute) },
             )
         }
-        entry<LicensesRoute>(metadata = detailPane()) { LicensesScreen(onBack = navigator::goBack) }
-        entry<PrivacyRoute>(metadata = detailPane()) { PrivacyScreen(onBack = navigator::goBack) }
-        entry<AddServerRoute>(metadata = detailPane()) {
+        entry<LicensesRoute>(metadata = detailPane()) { route -> LicensesScreen(onBack = { navigator.goBack(route) }) }
+        entry<PrivacyRoute>(metadata = detailPane()) { route -> PrivacyScreen(onBack = { navigator.goBack(route) }) }
+        entry<AddServerRoute>(metadata = detailPane()) { route ->
             ServerFormScreen(
                 sourceId = null,
-                onDone = navigator::goBack,
+                onDone = { navigator.goBack(route) },
                 onAlreadySetUp = { navigator.replaceTop(EditServerRoute(it, alreadySetUp = true)) },
             )
         }
         entry<EditServerRoute>(metadata = detailPane()) { route ->
-            ServerFormScreen(sourceId = route.sourceId, onDone = navigator::goBack, alreadySetUp = route.alreadySetUp)
+            ServerFormScreen(sourceId = route.sourceId, onDone = { navigator.goBack(route) }, alreadySetUp = route.alreadySetUp)
         }
         entry<SetupRoute> { route ->
             SetupScreen(
                 page = route.page,
                 onNext = { navigator.navigate(SetupRoute(it)) },
-                onBack = navigator::goBack,
+                onBack = { navigator.goBack(route) },
                 onSkip = { confirmSetupExit = true },
                 onFinish = finishSetup,
                 onAddMusicServer = addMusicServer,

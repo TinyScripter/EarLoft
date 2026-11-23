@@ -54,7 +54,8 @@ data class AbsMediaDto(
     val metadata: AbsMetadataDto,
     val duration: Double = 0.0,
     val numChapters: Int = 0,
-    val numAudioFiles: Int = 0,
+    /** `0` for an entry with only an e-book (EPUB, PDF); `null` if the server doesn't say, which counts as playable. */
+    val numAudioFiles: Int? = null,
     /** Only with `expanded=1`. */
     val chapters: List<AbsChapterDto> = emptyList(),
     val audioFiles: List<AbsAudioFileDto> = emptyList(),

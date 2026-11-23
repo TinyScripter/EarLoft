@@ -57,6 +57,26 @@ class NavigatorTest {
     }
 
     @Test
+    fun `back from a page acts only while that page is on top`() {
+        navigator.navigate(SettingsRoute)
+        navigator.navigate(AboutRoute)
+        navigator.navigate(LicensesRoute)
+
+        // Double tap on the back button of "Licenses": the second tap hits the page while it fades out.
+        navigator.goBack(LicensesRoute)
+        navigator.goBack(LicensesRoute)
+
+        assertEquals(listOf(SettingsRoute, AboutRoute), state.backStacks.getValue(SettingsRoute).toList())
+        assertEquals(SettingsRoute, state.topLevelRoute)
+    }
+
+    @Test
+    fun `the same page in two tabs gets two content keys`() {
+        assertNotEquals(tabContentKey(HomeRoute, NowPlayingRoute), tabContentKey(LibraryRoute, NowPlayingRoute))
+        assertEquals(tabContentKey(HomeRoute, NowPlayingRoute), tabContentKey(HomeRoute, NowPlayingRoute))
+    }
+
+    @Test
     fun `programmatic tab navigation shows its root`() {
         navigator.navigate(LibraryRoute)
         navigator.navigate(AlbumDetail)

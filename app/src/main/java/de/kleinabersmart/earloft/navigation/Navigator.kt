@@ -119,6 +119,15 @@ class Navigator(private val state: NavigationState) {
         if (below is PodcastRoute && below.feedId == feedId) stack.removeLastOrNull() else stack.add(PodcastRoute(feedId))
     }
 
+    /**
+     * "Back" from page [from] (its back button, "Close", a form that is done): only while it is still on top. A second tap
+     * during the exit animation would otherwise close the page beneath as well (review J70, on the watch H6).
+     */
+    fun goBack(from: NavKey) {
+        if (currentRoute == from) goBack()
+    }
+
+    /** System back (gesture, key): one page per event, so it isn't tied to a page. */
     fun goBack() {
         val stack = currentStack()
         if (stack.last() == state.topLevelRoute) {

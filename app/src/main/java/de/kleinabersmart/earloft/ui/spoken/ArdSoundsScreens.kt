@@ -319,7 +319,10 @@ fun ArdBookPreviewScreen(
     val working by viewModel.working.collectAsStateWithLifecycle()
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
-    LaunchedEffect(library[key]) { library[key]?.let { onAdded(it, false) } }
+    // Already in the library: the book page right away. Not while play or download is running: that action adds the book
+    // first and leads on itself through [ArdBookPreviewViewModel.added]; replacing the preview here would clear the
+    // ViewModel before it opens the player or tells about the download (review J13).
+    LaunchedEffect(library[key]) { library[key]?.let { if (!viewModel.working.value) onAdded(it, false) } }
     LaunchedEffect(viewModel) {
         viewModel.added.collect { added ->
             added.message?.let { snackbars.show(resources.getString(it), SnackbarDuration.Long) }
