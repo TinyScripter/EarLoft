@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -193,7 +194,11 @@ class AudiobookshelfViewModel @Inject constructor(
         if (redirect == null) return
         // Any app can send `earloft://oauth?…`: a redirect without this sign-in's `state` doesn't end it (review H37).
         if (!login.isAnsweredBy(redirect)) {
-            Log.w(TAG, "OpenID redirect without the state of the running sign-in, ignored")
+            // Names and lengths only: code and state are secrets of the sign-in.
+            val uri = redirect.toUri()
+            val params = runCatching { uri.queryParameterNames.joinToString() }.getOrDefault("?")
+            val received = runCatching { uri.getQueryParameter("state")?.length }.getOrNull()
+            Log.w(TAG, "OpenID redirect without the state of the running sign-in, ignored (${uri.scheme}://${uri.host}${uri.path}, parameters: $params, state length $received)")
             return
         }
         pendingLogin = null
