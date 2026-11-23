@@ -199,20 +199,12 @@ internal class LibrarySessionCallback(
     override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
         val trusted = session.isTrustedController(controller)
         Log.d(TAG, "Controller ${controller.packageName}: ${if (trusted) "trusted" else "playback control only"}")
-        if (!trusted) {
-            return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
-                .setAvailableSessionCommands(SessionCommands.EMPTY)
-                .setAvailablePlayerCommands(UNTRUSTED_PLAYER_COMMANDS)
-                .build()
-        }
-        grantCoverAccess(controller.packageName)
-        val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
-            .add(SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY))
-            .add(SessionCommand(ACTION_CHAPTER_PREVIOUS, Bundle.EMPTY))
-            .add(SessionCommand(ACTION_CHAPTER_NEXT, Bundle.EMPTY))
-            .add(SessionCommand(ACTION_VOICE_CHECK, Bundle.EMPTY))
+        if (trusted) grantCoverAccess(controller.packageName)
+        val commands = controllerCommands(trusted)
+        return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
+            .setAvailableSessionCommands(commands.session)
+            .setAvailablePlayerCommands(commands.player)
             .build()
-        return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller).setAvailableSessionCommands(commands).build()
     }
 
     /**
@@ -353,20 +345,15 @@ internal class LibrarySessionCallback(
             throw UnsupportedOperationException("None of the tracks is playable")
         }
         val items = resolved.map { it.second }
-        val newIndex = resolved.indexOfFirst { it.first >= requestedStart }.takeIf { requestedStart != C.INDEX_UNSET }
-        val position = when {
-            newIndex == null -> startPositionMs
-            newIndex >= 0 && resolved[newIndex].first == requestedStart -> startPositionMs
-            else -> 0
-        }
+        val start = queueStart(resolved.map { it.first }, requestedStart, startPositionMs)
         val maxSize = maxQueueSize(player)
         if (items.size <= maxSize) {
             playerFactory?.onQueueReplaced(emptyList(), emptyList())
-            return@future MediaItemsWithStartPosition(items, newIndex?.coerceAtLeast(0) ?: C.INDEX_UNSET, position)
+            return@future MediaItemsWithStartPosition(items, start.index, start.positionMs)
         }
-        val window = queueWindow(items, newIndex?.coerceAtLeast(0) ?: 0, maxSize, player.shuffleModeEnabled)
+        val window = queueWindow(items, start.index.takeIf { it != C.INDEX_UNSET } ?: 0, maxSize, player.shuffleModeEnabled)
         playerFactory?.onQueueReplaced(window.before, window.after)
-        MediaItemsWithStartPosition(window.items, window.startIndex, position)
+        MediaItemsWithStartPosition(window.items, window.startIndex, start.positionMs)
     }
 
     /**
@@ -520,10 +507,48 @@ internal class LibrarySessionCallback(
     private companion object {
         const val TAG = "LibrarySession"
         const val DEFAULT_SYSTEM_UI_PACKAGE = "com.android.systemui"
-
-        /** Play, seek, change title, volume – but no setting of titles or changing the queue. */
-        val UNTRUSTED_PLAYER_COMMANDS: Player.Commands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
-            .removeAll(Player.COMMAND_SET_MEDIA_ITEM, Player.COMMAND_CHANGE_MEDIA_ITEMS)
-            .build()
     }
+}
+
+/** What a controller may do on the session ([LibrarySessionCallback.onConnect]). */
+internal class ControllerCommands(val session: SessionCommands, val player: Player.Commands)
+
+/**
+ * Trusted controllers get the library, the queue and the app's own commands; foreign apps only play, seek, change title and
+ * volume, but neither browse, replace the queue nor set favorites (those would go to the server via the sync queue).
+ */
+@OptIn(UnstableApi::class)
+internal fun controllerCommands(trusted: Boolean): ControllerCommands = if (trusted) {
+    ControllerCommands(
+        MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
+            .add(SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY))
+            .add(SessionCommand(ACTION_CHAPTER_PREVIOUS, Bundle.EMPTY))
+            .add(SessionCommand(ACTION_CHAPTER_NEXT, Bundle.EMPTY))
+            .add(SessionCommand(ACTION_VOICE_CHECK, Bundle.EMPTY))
+            .build(),
+        MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS,
+    )
+} else {
+    ControllerCommands(
+        SessionCommands.EMPTY,
+        MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
+            .removeAll(Player.COMMAND_SET_MEDIA_ITEM, Player.COMMAND_CHANGE_MEDIA_ITEMS)
+            .build(),
+    )
+}
+
+/** Start of a replaced queue: index in the kept titles and position in it. */
+internal data class QueueStart(val index: Int, val positionMs: Long)
+
+/**
+ * Where a replaced queue starts once unknown and unplayable titles are dropped ([LibrarySessionCallback.onSetMediaItems]).
+ * [kept] are the positions of the remaining titles in the request. The requested title keeps its position; if it was dropped,
+ * the next remaining one starts from the beginning (the first one if none follows). Without a requested start
+ * ([C.INDEX_UNSET]) the player decides.
+ */
+internal fun queueStart(kept: List<Int>, requestedStart: Int, startPositionMs: Long): QueueStart {
+    if (requestedStart == C.INDEX_UNSET) return QueueStart(C.INDEX_UNSET, startPositionMs)
+    val index = kept.indexOfFirst { it >= requestedStart }
+    val position = if (index >= 0 && kept[index] == requestedStart) startPositionMs else 0
+    return QueueStart(index.coerceAtLeast(0), position)
 }
