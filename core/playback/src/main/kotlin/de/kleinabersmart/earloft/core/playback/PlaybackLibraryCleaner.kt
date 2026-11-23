@@ -45,8 +45,7 @@ internal class PlaybackLibraryCleaner @Inject constructor(
         // The queue first, so that the player has ideally already released the cache files.
         removals.notifyRemoved()
         val keys = withContext(Dispatchers.IO) { streamCache.keys.toList() }
-        val existing = libraryRepository.existingSourceUids(keys)
-        val stale = keys.filterNot { it in existing }
+        val stale = staleStreamCacheKeys(keys) { libraryRepository.existingSourceUids(it) }
         withContext(Dispatchers.IO) {
             stale.forEach { key ->
                 runCatching { streamCache.removeResource(key) }
@@ -60,6 +59,31 @@ internal class PlaybackLibraryCleaner @Inject constructor(
         const val TAG = "PlaybackLibraryCleaner"
     }
 }
+
+/**
+ * The stream cache keys among [keys] whose song source is gone. Only song keys count: books and episodes
+ * (`book:…`, [BookMediaItems]) are not songs and stay, and a transcoded stream (`<uid>:<codec>-<kbps>`) stays as long as
+ * its source does. Before, one song gone during a sync deleted the cached part of the audiobook just being streamed
+ * (review2 J34).
+ */
+internal suspend fun staleStreamCacheKeys(
+    keys: Collection<String>,
+    existingSourceUids: suspend (Collection<String>) -> Set<String>,
+): List<String> {
+    val songKeys = keys.filterNot { it.startsWith(BOOK_CACHE_KEY_PREFIX) }
+    if (songKeys.isEmpty()) return emptyList()
+    val sources = songKeys.associateWith { key -> listOfNotNull(key, transcodedSource(key)) }
+    val existing = existingSourceUids(sources.values.flatten().toSet())
+    return songKeys.filterNot { key -> sources.getValue(key).any { it in existing } }
+}
+
+internal const val BOOK_CACHE_KEY_PREFIX = "book:"
+
+/** `<uid>:<codec>-<kbps>` (see the data sources' `transcodedPlayback`) → `<uid>`; `null` for any other key. */
+private fun transcodedSource(key: String): String? =
+    if (TRANSCODE_SUFFIX.containsMatchIn(key)) key.substringBeforeLast(':') else null
+
+private val TRANSCODE_SUFFIX = Regex(":[A-Za-z0-9]+-\\d+$")
 
 @Module
 @InstallIn(SingletonComponent::class)

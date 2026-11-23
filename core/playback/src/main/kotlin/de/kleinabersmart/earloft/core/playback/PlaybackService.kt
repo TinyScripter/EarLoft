@@ -75,6 +75,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.CacheControl
 import okhttp3.OkHttpClient
 import java.util.Optional
 import javax.inject.Inject
@@ -153,7 +154,13 @@ class PlaybackService : MediaLibraryService() {
         val streamFactory = CacheDataSource.Factory()
             .setCache(streamCache)
             // Own user agent: some podcast hosters reject OkHttp's with 403 (downloads already send it).
-            .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(okHttpClient).setUserAgent(PODCAST_USER_AGENT))
+            // no-store: the stream cache above already holds the audio; without it a stream starting at 0 (answered with
+            // 200) ran through the shared HTTP cache as well and pushed covers and images out of it (review2 J8).
+            .setUpstreamDataSourceFactory(
+                OkHttpDataSource.Factory(okHttpClient)
+                    .setUserAgent(PODCAST_USER_AGENT)
+                    .setCacheControl(CacheControl.Builder().noStore().build()),
+            )
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
         val dataSourceFactory = SongDataSource.Factory(
             DefaultDataSource.Factory(this, streamFactory),

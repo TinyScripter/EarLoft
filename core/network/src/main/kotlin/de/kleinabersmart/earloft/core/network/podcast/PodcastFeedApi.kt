@@ -63,7 +63,7 @@ class PodcastFeedApi @Inject constructor(
             .tag(FeedAuth::class.java, auth)
             .header("User-Agent", USER_AGENT)
             .header("Accept", "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.5")
-            .cacheControl(CacheControl.FORCE_NETWORK)
+            .cacheControl(NETWORK_NOT_STORED)
             .apply {
                 etag?.let { header("If-None-Match", it) }
                 lastModified?.let { header("If-Modified-Since", it) }
@@ -84,7 +84,7 @@ class PodcastFeedApi @Inject constructor(
 
     suspend fun chapters(url: String): List<ParsedChapter> = withContext(Dispatchers.IO) {
         val httpUrl = url.toHttpUrlOrNull() ?: throw IOException("Invalid chapters URL")
-        val request = Request.Builder().url(httpUrl).header("User-Agent", USER_AGENT).cacheControl(CacheControl.FORCE_NETWORK).build()
+        val request = Request.Builder().url(httpUrl).header("User-Agent", USER_AGENT).cacheControl(NETWORK_NOT_STORED).build()
         val text = client.newCall(request).await().use { response ->
             if (!response.isSuccessful) throw HttpStatusException(response.code)
             response.peekBody(MAX_CHAPTERS_BYTES).string()
@@ -141,6 +141,12 @@ class PodcastFeedApi @Inject constructor(
         /** Feeds offer 3000 px PNGs of well over 10 MB; they are scaled down before storing. */
         const val MAX_IMAGE_BYTES = 40L * 1024 * 1024
         const val MAX_TRANSCRIPT_BYTES = 5L * 1024 * 1024
+
+        /**
+         * Always from the network and not written to the HTTP cache either: a feed of up to 20 MB was stored again at every
+         * refresh and pushed covers and images out of the cache (review2 J8). Feeds revalidate with their own ETag.
+         */
+        val NETWORK_NOT_STORED: CacheControl = CacheControl.Builder().noCache().noStore().build()
     }
 }
 

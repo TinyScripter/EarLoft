@@ -53,7 +53,7 @@ internal fun PreparedBook.toMediaItems(): List<MediaItem> {
             .setMediaId(BookIds.mediaId(book.id, index))
             .setUri(url)
             // Same cache key for the same file, whether server URL or a proxy in front of it.
-            .setCustomCacheKey("book:${book.serverId}:${book.remoteId}:${timeline.tracks[index].remoteFileId}")
+            .setCustomCacheKey("$BOOK_CACHE_KEY_PREFIX${book.serverId}:${book.remoteId}:${timeline.tracks[index].remoteFileId}")
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(book.title)

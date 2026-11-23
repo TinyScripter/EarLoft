@@ -105,7 +105,9 @@ class BookDownloadWorker(
                     dao.requeueBookTrack(next.bookId, next.trackIndex)
                     space.short(DownloadKind.BOOKS)
                     space.retryLater(DownloadKind.BOOKS)
-                    return finish()
+                    // No follow-up job here: it would start right away and hit the same wall again, round after round
+                    // (review2 J3). The space retry hands the queue over once there is room.
+                    return finish(noRoom = true)
                 }
                 DownloadOutcome.Done, DownloadOutcome.Cancelled -> Unit
             }
@@ -114,14 +116,12 @@ class BookDownloadWorker(
     }
 
     /** Removes files that no longer have an entry (book deleted on the server or rescanned). */
-    private suspend fun finish(): Result {
+    private suspend fun finish(noRoom: Boolean = false): Result {
         storage.deleteOrphans(dao.downloadedBookTracks().mapNotNull { it.filePath })
+        val pending = dao.countPendingBookDownloads()
         // If nothing is waiting anymore (not even after an error), nobody resumes a partial file.
-        if (dao.countPendingBookDownloads() == 0) {
-            storage.deleteParts()
-        } else if (manualOnly) {
-            entryPoint.bookDownloads().continueOnWifi()
-        }
+        if (pending == 0) storage.deleteParts()
+        if (handsOverAfterRun(manualOnly, pending, noRoom)) entryPoint.bookDownloads().continueOnWifi()
         return Result.success()
     }
 
@@ -202,3 +202,10 @@ class BookDownloadWorker(
         private const val MAX_ATTEMPTS = 5
     }
 }
+
+/**
+ * Whether a finished book download run enqueues the next job: only a mobile data run hands the remaining (automatic)
+ * files to a Wi-Fi job, and never after running out of room, where [DownloadSpace.retryLater] takes over (review2 J3).
+ */
+internal fun handsOverAfterRun(manualOnly: Boolean, pending: Int, noRoom: Boolean): Boolean =
+    manualOnly && pending > 0 && !noRoom
