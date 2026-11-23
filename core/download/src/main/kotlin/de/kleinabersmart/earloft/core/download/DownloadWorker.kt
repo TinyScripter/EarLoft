@@ -11,13 +11,17 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import dagger.Binds
+import dagger.Module
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
 import de.kleinabersmart.earloft.core.database.dao.DownloadDao
+import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
 import kotlinx.coroutines.CancellationException
+import javax.inject.Inject
 
 /**
  * Works through the download queue one by one (concept 5.3), running as a
@@ -25,16 +29,18 @@ import kotlinx.coroutines.CancellationException
  * let WorkManager retry with backoff; after [MAX_ATTEMPTS] it counts as failed (at most one per run,
  * [RetryBudget]).
  */
-class DownloadWorker(
+class DownloadWorker internal constructor(
     context: Context,
     params: WorkerParameters,
+    entryPoint: DownloadEntryPoint,
 ) : CoroutineWorker(context, params) {
 
-    private val entryPoint = EntryPointAccessors.fromApplication(context, DownloadEntryPoint::class.java)
+    constructor(context: Context, params: WorkerParameters) :
+        this(context, params, EntryPointAccessors.fromApplication(context, DownloadEntryPoint::class.java))
+
     private val downloadDao = entryPoint.downloadDao()
-    private val downloader = entryPoint.downloader()
+    private val edges = entryPoint.musicEdges()
     private val storage = entryPoint.storage()
-    private val artwork = entryPoint.artwork()
     private val space = entryPoint.space()
 
     override suspend fun doWork(): Result {
@@ -58,7 +64,7 @@ class DownloadWorker(
         while (true) {
             val next = downloadDao.nextQueued() ?: break
             val throttle = ProgressThrottle()
-            val outcome = downloader.download(next) { done, total ->
+            val outcome = edges.download(next) { done, total ->
                 val percent = throttle.next(done, total)
                 if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
             }
@@ -103,7 +109,7 @@ class DownloadWorker(
     private suspend fun cacheCovers() {
         for (albumId in downloadDao.getAlbumIdsWithDoneDownload()) {
             try {
-                artwork.cacheAlbumCover(albumId, COVER_SIZE_PX)
+                edges.cacheAlbumCover(albumId, COVER_SIZE_PX)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -166,14 +172,14 @@ class DownloadWorker(
             .build()
     }
 
+    /** Database, files and state; the servers go through [musicEdges]. */
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     internal interface DownloadEntryPoint {
         fun downloadDao(): DownloadDao
-        fun downloader(): Downloader
         fun storage(): DownloadStorage
-        fun artwork(): ArtworkRepository
         fun space(): DownloadSpace
+        fun musicEdges(): MusicDownloadEdges
     }
 
     private companion object {
@@ -183,4 +189,33 @@ class DownloadWorker(
         const val MAX_ATTEMPTS = 5
         const val COVER_SIZE_PX = 1024
     }
+}
+
+/**
+ * The ways out of the [DownloadWorker]: the music servers. What the worker decides on top of them (retries, giving up, rejected
+ * credentials, running out of room) is tested against a fake, with the real database and files (review2 section 5).
+ */
+internal interface MusicDownloadEdges {
+    /** Like [Downloader.download]: updates the state of the entry itself. */
+    suspend fun download(download: DownloadEntity, onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit): DownloadOutcome
+
+    /** Caches the album cover as a file; `false` if there is none. */
+    suspend fun cacheAlbumCover(albumId: Long, sizePx: Int): Boolean
+}
+
+internal class MusicDownloadEdgesImpl @Inject constructor(
+    private val downloader: Downloader,
+    private val artwork: ArtworkRepository,
+) : MusicDownloadEdges {
+    override suspend fun download(download: DownloadEntity, onProgress: suspend (Long, Long?) -> Unit) =
+        downloader.download(download, onProgress = onProgress)
+
+    override suspend fun cacheAlbumCover(albumId: Long, sizePx: Int): Boolean = artwork.cacheAlbumCover(albumId, sizePx)
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+internal interface MusicDownloadEdgesModule {
+    @Binds
+    fun bindMusicDownloadEdges(edges: MusicDownloadEdgesImpl): MusicDownloadEdges
 }

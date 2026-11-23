@@ -11,15 +11,19 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import dagger.Binds
+import dagger.Module
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.core.database.dao.BookDao
+import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
+import javax.inject.Inject
 
 /**
  * Works through the queue of book downloads file by file. Structured like the [EpisodeDownloadWorker]:
@@ -28,14 +32,17 @@ import kotlinx.coroutines.CancellationException
  * manually enqueued files and then hands the automation's files to a Wi-Fi job ([BookDownloads.continueOnWifi]);
  * WorkManager stops that one as soon as Wi-Fi is gone.
  */
-class BookDownloadWorker(
+class BookDownloadWorker internal constructor(
     context: Context,
     params: WorkerParameters,
+    entryPoint: BookEntryPoint,
 ) : CoroutineWorker(context, params) {
 
-    private val entryPoint = EntryPointAccessors.fromApplication(context, BookEntryPoint::class.java)
+    constructor(context: Context, params: WorkerParameters) :
+        this(context, params, EntryPointAccessors.fromApplication(context, BookEntryPoint::class.java))
+
     private val dao = entryPoint.bookDao()
-    private val downloader = entryPoint.bookDownloader()
+    private val edges = entryPoint.bookEdges()
     private val storage = entryPoint.bookStorage()
     private val progress = entryPoint.bookProgress()
     private val space = entryPoint.space()
@@ -75,7 +82,7 @@ class BookDownloadWorker(
             val throttle = ProgressThrottle()
             progress.report(next.bookId, filesDone, files.size, finishedBytes, 0, null)
             val outcome = try {
-                downloader.download(next) { done, total ->
+                edges.download(next) { done, total ->
                     progress.report(next.bookId, filesDone, files.size, finishedBytes, done, total)
                     val percent = throttle.next(done, total)
                     if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
@@ -121,7 +128,7 @@ class BookDownloadWorker(
         val pending = dao.countPendingBookDownloads()
         // If nothing is waiting anymore (not even after an error), nobody resumes a partial file.
         if (pending == 0) storage.deleteParts()
-        if (handsOverAfterRun(manualOnly, pending, noRoom)) entryPoint.bookDownloads().continueOnWifi()
+        if (handsOverAfterRun(manualOnly, pending, noRoom)) edges.continueOnWifi()
         return Result.success()
     }
 
@@ -179,15 +186,15 @@ class BookDownloadWorker(
             .build()
     }
 
+    /** Database, files and state; the server and the follow-up job go through [bookEdges]. */
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     internal interface BookEntryPoint {
         fun bookDao(): BookDao
-        fun bookDownloader(): BookDownloader
         fun bookStorage(): BookStorage
         fun bookProgress(): BookDownloadProgress
-        fun bookDownloads(): BookDownloads
         fun space(): DownloadSpace
+        fun bookEdges(): BookDownloadEdges
     }
 
     internal companion object {
@@ -201,6 +208,38 @@ class BookDownloadWorker(
         private const val NOTIFICATION_ID = 2003
         private const val MAX_ATTEMPTS = 5
     }
+}
+
+/**
+ * The ways out of the [BookDownloadWorker]: the server and the follow-up job. What the worker decides on top of them (retries,
+ * giving up, running out of room, handing over to Wi-Fi) is tested against a fake, with the real database and files
+ * (review2 section 5).
+ */
+internal interface BookDownloadEdges {
+    /** Like [BookDownloader.download]: updates the state of the file itself. */
+    suspend fun download(track: BookTrackEntity, onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit): DownloadOutcome
+
+    /** Hands the remaining files to a Wi-Fi job ([BookDownloads.continueOnWifi]). */
+    suspend fun continueOnWifi()
+}
+
+internal class BookDownloadEdgesImpl @Inject constructor(
+    private val downloader: BookDownloader,
+    private val downloads: BookDownloads,
+) : BookDownloadEdges {
+    override suspend fun download(track: BookTrackEntity, onProgress: suspend (Long, Long?) -> Unit) =
+        downloader.download(track, onProgress = onProgress)
+
+    override suspend fun continueOnWifi() {
+        downloads.continueOnWifi()
+    }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+internal interface BookDownloadEdgesModule {
+    @Binds
+    fun bindBookDownloadEdges(edges: BookDownloadEdgesImpl): BookDownloadEdges
 }
 
 /**

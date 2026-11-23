@@ -11,6 +11,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import dagger.Binds
+import dagger.Module
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -28,25 +30,26 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import javax.inject.Inject
 
 /**
  * Works through the queue of episode downloads, newest episode first and [PARALLEL] at a time. Structured like the
  * [DownloadWorker]: foreground worker with progress, network errors put the entry back and retry with backoff,
  * then from the point where the partial file ends.
  */
-class EpisodeDownloadWorker(
+class EpisodeDownloadWorker internal constructor(
     context: Context,
     params: WorkerParameters,
+    entryPoint: EpisodeEntryPoint,
 ) : CoroutineWorker(context, params) {
 
-    private val entryPoint = EntryPointAccessors.fromApplication(context, EpisodeEntryPoint::class.java)
+    constructor(context: Context, params: WorkerParameters) :
+        this(context, params, EntryPointAccessors.fromApplication(context, EpisodeEntryPoint::class.java))
+
     private val dao = entryPoint.podcastDao()
-    private val downloader = entryPoint.episodeDownloader()
+    private val edges = entryPoint.episodeEdges()
     private val storage = entryPoint.episodeStorage()
     private val progress = entryPoint.episodeProgress()
-    private val podcasts = entryPoint.podcastRepository()
-    private val episodeDownloads = entryPoint.episodeDownloads()
-    private val transcripts = entryPoint.podcastTranscripts()
     private val space = entryPoint.space()
 
     /** Episodes one of the parallel runs has just taken (until the downloader sets them to `RUNNING`, they are still `QUEUED`). */
@@ -111,7 +114,7 @@ class EpisodeDownloadWorker(
     private suspend fun load(next: BookTrackEntity): Boolean {
         progress.report(next.bookId, 0, null)
         val outcome = try {
-            downloader.download(next) { done, total ->
+            edges.download(next) { done, total ->
                 progress.report(next.bookId, done, total)
                 running[next.bookId] = done to total
                 reportOverall()
@@ -140,13 +143,7 @@ class EpisodeDownloadWorker(
                     space.retryLater(DownloadKind.EPISODES)
                 }
             }
-            // If the feed lists no chapters, they may be in the file (concept 12.5 "chapter sources").
-            DownloadOutcome.Done -> {
-                podcasts.chaptersFromFile(next.bookId)
-                // Fetch the transcript too, so it's available offline (concept 12.5 "transcripts").
-                transcripts.prefetch(next.bookId)
-                episodeDownloads.onDownloaded(next.bookId)
-            }
+            DownloadOutcome.Done -> edges.downloaded(next.bookId)
             DownloadOutcome.Cancelled -> Unit
         }
         return true
@@ -222,17 +219,15 @@ class EpisodeDownloadWorker(
             .build()
     }
 
+    /** Database, files and state; the feed hosts and what follows a download go through [episodeEdges]. */
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     internal interface EpisodeEntryPoint {
         fun podcastDao(): PodcastDao
-        fun episodeDownloader(): EpisodeDownloader
         fun episodeStorage(): EpisodeStorage
         fun episodeProgress(): EpisodeDownloadProgress
-        fun podcastRepository(): PodcastRepository
-        fun episodeDownloads(): EpisodeDownloads
-        fun podcastTranscripts(): PodcastTranscripts
         fun space(): DownloadSpace
+        fun episodeEdges(): EpisodeDownloadEdges
     }
 
     private companion object {
@@ -246,4 +241,42 @@ class EpisodeDownloadWorker(
         /** Episodes live on many hosts; two at a time use the connection better without overloading a server. */
         const val PARALLEL = 2
     }
+}
+
+/**
+ * The ways out of the [EpisodeDownloadWorker]: the feed hosts and what follows a finished download. What the worker decides on
+ * top of them (parallel runs, retries, running out of room) is tested against a fake, with the real database and files
+ * (review2 section 5).
+ */
+internal interface EpisodeDownloadEdges {
+    /** Like [EpisodeDownloader.download]: updates the state of the episode itself. */
+    suspend fun download(track: BookTrackEntity, onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit): DownloadOutcome
+
+    /** After a download: chapters from the file, the transcript for offline use and the automation's bookkeeping. */
+    suspend fun downloaded(bookId: Long)
+}
+
+internal class EpisodeDownloadEdgesImpl @Inject constructor(
+    private val downloader: EpisodeDownloader,
+    private val podcasts: PodcastRepository,
+    private val transcripts: PodcastTranscripts,
+    private val downloads: EpisodeDownloads,
+) : EpisodeDownloadEdges {
+    override suspend fun download(track: BookTrackEntity, onProgress: suspend (Long, Long?) -> Unit) =
+        downloader.download(track, onProgress = onProgress)
+
+    override suspend fun downloaded(bookId: Long) {
+        // If the feed lists no chapters, they may be in the file (concept 12.5 "chapter sources").
+        podcasts.chaptersFromFile(bookId)
+        // Fetch the transcript too, so it's available offline (concept 12.5 "transcripts").
+        transcripts.prefetch(bookId)
+        downloads.onDownloaded(bookId)
+    }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+internal interface EpisodeDownloadEdgesModule {
+    @Binds
+    fun bindEpisodeDownloadEdges(edges: EpisodeDownloadEdgesImpl): EpisodeDownloadEdges
 }

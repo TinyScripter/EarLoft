@@ -21,23 +21,17 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
-import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
 import de.kleinabersmart.earloft.core.data.repository.CoverFiles
-import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
-import de.kleinabersmart.earloft.core.data.spoken.BookCovers
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.DownloadDao
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.dao.WearDao
 import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
-import de.kleinabersmart.earloft.core.download.BookDownloader
 import de.kleinabersmart.earloft.core.download.BookStorage
 import de.kleinabersmart.earloft.core.download.DownloadOutcome
 import de.kleinabersmart.earloft.core.download.DownloadProfile
 import de.kleinabersmart.earloft.core.download.DownloadStorage
-import de.kleinabersmart.earloft.core.download.Downloader
-import de.kleinabersmart.earloft.core.download.EpisodeDownloader
 import de.kleinabersmart.earloft.core.download.EpisodeStorage
 import de.kleinabersmart.earloft.core.download.ProgressThrottle
 import de.kleinabersmart.earloft.core.model.TrackDownload
@@ -48,8 +42,6 @@ import de.kleinabersmart.earloft.core.wearsync.WearEpisodeFile
 import de.kleinabersmart.earloft.core.wearsync.WearQuality
 import de.kleinabersmart.earloft.wear.EXTRA_OPEN_STORAGE
 import de.kleinabersmart.earloft.wear.R
-import de.kleinabersmart.earloft.wear.sync.CredentialsRequester
-import de.kleinabersmart.earloft.wear.sync.PhoneReturn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -65,22 +57,22 @@ import kotlin.coroutines.cancellation.CancellationException
  * three failed attempts via the phone. Then the audiobooks (16.2): directly from Audiobookshelf over the same Wi-Fi (an
  * interrupted file resumes on the next run), books from the phone's device and after three failed attempts via the phone.
  */
-class WearDownloadWorker(
+class WearDownloadWorker internal constructor(
     context: Context,
     params: WorkerParameters,
+    private val entryPoint: WearDownloadEntryPoint,
 ) : CoroutineWorker(context, params) {
 
-    private val entryPoint = EntryPointAccessors.fromApplication(context, WearDownloadEntryPoint::class.java)
+    constructor(context: Context, params: WorkerParameters) :
+        this(context, params, EntryPointAccessors.fromApplication(context, WearDownloadEntryPoint::class.java))
+
     private val downloadDao = entryPoint.downloadDao()
     private val wearDao = entryPoint.wearDao()
-    private val downloader = entryPoint.downloader()
     private val storage = entryPoint.storage()
     private val state = entryPoint.state()
-    private val artwork = entryPoint.artwork()
     private val coverFiles = entryPoint.coverFiles()
-    private val phoneFetcher = entryPoint.phoneFetcher()
+    private val edges = entryPoint.edges()
     private val podcastDao = entryPoint.podcastDao()
-    private val episodeDownloader = entryPoint.episodeDownloader()
     private val bookDao = entryPoint.bookDao()
 
     /**
@@ -91,7 +83,7 @@ class WearDownloadWorker(
     private var lease: WifiLease? = null
 
     private suspend fun wifiNetwork(): Network? =
-        (lease ?: entryPoint.wifi().acquire()?.also { lease = it })?.network
+        (lease ?: edges.acquireWifi()?.also { lease = it })?.network
 
     private fun releaseWifi() {
         lease?.close()
@@ -152,7 +144,7 @@ class WearDownloadWorker(
                     if (!viaPhone(next, serverFailed = true)) return waitForPhone()
                     continue
                 }
-                if (!downloader.knowsSource(uid)) {
+                if (!edges.knowsSource(uid)) {
                     // The watch does not know the server (no credentials yet): go via the phone right away, without Wi-Fi (Review V4).
                     Log.i(TAG, "Source of $uid unknown here, via the phone")
                     if (!viaPhoneForUnknownSource(next)) return waitForPhone()
@@ -161,7 +153,7 @@ class WearDownloadWorker(
                 val network = wifiNetwork() ?: return waitForWifi()
                 state.setWaitingForWifi(false)
                 val throttle = ProgressThrottle()
-                val outcome = downloader.download(next, profile, network) { done, total ->
+                val outcome = edges.downloadSong(next, profile, network) { done, total ->
                     val percent = throttle.next(done, total)
                     if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
                 }
@@ -184,7 +176,7 @@ class WearDownloadWorker(
                         if (sourceId != null) {
                             state.recordServerFailures(downloadDao.queuedUidsOfSource(sourceId).filter { it != uid })
                             // New password or token on the phone: the answer replaces the credentials before the next attempt.
-                            if (outcome.isAuthRejection) entryPoint.credentials().request(listOf(sourceId))
+                            if (outcome.isAuthRejection) edges.requestCredentials(listOf(sourceId))
                         }
                         // The text is logged explicitly: Log.w with a Throwable prints no stack trace for UnknownHostException.
                         Log.w(TAG, "Download $uid interrupted (failed attempt $failures of ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
@@ -225,7 +217,7 @@ class WearDownloadWorker(
                 }
                 val network = wifiNetwork() ?: return waitForWifi()
                 state.setWaitingForWifi(false)
-                val outcome = downloadSpoken(track) { onProgress -> episodeDownloader.download(track, network, onProgress) }
+                val outcome = downloadSpoken(track) { onProgress -> edges.downloadEpisode(track, network, onProgress) }
                 when (outcome) {
                     is DownloadOutcome.NoSpace -> spokenDidNotFit(track, outcome)
                     is DownloadOutcome.Retry -> {
@@ -268,7 +260,7 @@ class WearDownloadWorker(
                 }
                 val book = bookDao.book(track.bookId) ?: break
                 // Books from ARD Sounds are downloaded by the watch directly from their address like episodes, without a key.
-                if (!isArdSoundsBook(book.serverId) && entryPoint.audiobookshelf().server(book.serverId) == null) {
+                if (!isArdSoundsBook(book.serverId) && !edges.hasBookServer(book.serverId)) {
                     // The key is still on its way (request to the phone running) or missing there; counts as a failed attempt.
                     val failures = state.recordServerFailure(key)
                     Log.w(TAG, "Book ${track.bookId}: Audiobookshelf without key (failed attempt $failures of ${WatchState.SERVER_ATTEMPTS})")
@@ -278,7 +270,7 @@ class WearDownloadWorker(
                 }
                 val network = wifiNetwork() ?: return waitForWifi()
                 state.setWaitingForWifi(false)
-                val outcome = downloadSpoken(track) { onProgress -> entryPoint.bookDownloader().download(track, network, onProgress) }
+                val outcome = downloadSpoken(track) { onProgress -> edges.downloadBookTrack(track, network, onProgress) }
                 when (outcome) {
                     is DownloadOutcome.NoSpace -> spokenDidNotFit(track, outcome)
                     is DownloadOutcome.Retry -> {
@@ -291,7 +283,7 @@ class WearDownloadWorker(
                         // The partial file stays; the next run resumes there.
                         bookDao.requeueBookTrack(track.bookId, track.trackIndex)
                         // New key on the phone: the answer replaces it before the next attempt.
-                        if (outcome.isAuthRejection) entryPoint.credentials().request(listOf(book.serverId))
+                        if (outcome.isAuthRejection) edges.requestCredentials(listOf(book.serverId))
                         if (failures < WatchState.SERVER_ATTEMPTS) return retryLater()
                         if (!bookViaPhone(track)) return waitForPhone()
                     }
@@ -341,27 +333,26 @@ class WearDownloadWorker(
      * phone does not answer, continue with the old one; a refusal then asks again as before.
      */
     private suspend fun renewExpiringBookKeys() {
-        val audiobookshelf = entryPoint.audiobookshelf()
-        val expiring = audiobookshelf.withExpiringToken(KEY_MARGIN_SECONDS)
+        val expiring = edges.expiringBookKeys(KEY_MARGIN_SECONDS)
         if (expiring.isEmpty()) return
         Log.i(TAG, "Key for ${expiring.size} Audiobookshelf servers expiring, requesting a fresh one from the phone")
-        entryPoint.credentials().request(expiring)
+        edges.requestCredentials(expiring)
         withTimeoutOrNull(KEY_WAIT_MS) {
-            while (audiobookshelf.withExpiringToken(KEY_MARGIN_SECONDS).any { it in expiring }) delay(KEY_POLL_MS)
+            while (edges.expiringBookKeys(KEY_MARGIN_SECONDS).any { it in expiring }) delay(KEY_POLL_MS)
         }
     }
 
     /**
      * The phone was unreachable for a download: at most [WatchState.PHONE_ATTEMPTS] runs, then the job waits for the
      * charger; if the phone checks in earlier, `PhoneLibrarySync` reschedules right away (Review V1). Otherwise every run starts the
-     * foreground service and transmits over Bluetooth. The watch learns that it checked in via [PhoneReturn].
+     * foreground service and transmits over Bluetooth. The watch learns that it checked in via [de.kleinabersmart.earloft.wear.sync.PhoneReturn].
      */
     private suspend fun waitForPhone(): Result {
         val runs = state.recordPhoneUnreachable()
         val step = phoneWaitStep(runs, pluggedIn = isPluggedIn())
         if (step != PhoneWaitStep.RETRY && !state.waitingForPhone) {
             state.waitingForPhone = true
-            entryPoint.phoneReturn().announce()
+            edges.announcePhoneWait()
         }
         return when (step) {
             PhoneWaitStep.RETRY -> {
@@ -434,7 +425,7 @@ class WearDownloadWorker(
      */
     private suspend fun episodeViaPhone(track: BookTrackEntity): Boolean {
         releaseWifi()
-        return when (val outcome = downloadSpoken(track) { onProgress -> phoneFetcher.fetchEpisode(track, onProgress) }) {
+        return when (val outcome = downloadSpoken(track) { onProgress -> edges.episodeFromPhone(track, onProgress) }) {
             DownloadOutcome.Done -> {
                 state.deliveredViaPhone(episodeFailureKey(track.bookId), moreToCome = false)
                 state.clearPhoneUnreachable()
@@ -465,7 +456,7 @@ class WearDownloadWorker(
     /** Like [episodeViaPhone] for a book file. */
     private suspend fun bookViaPhone(track: BookTrackEntity): Boolean {
         releaseWifi()
-        return when (val outcome = downloadSpoken(track) { onProgress -> phoneFetcher.fetchBookTrack(track, onProgress) }) {
+        return when (val outcome = downloadSpoken(track) { onProgress -> edges.bookTrackFromPhone(track, onProgress) }) {
             DownloadOutcome.Done -> {
                 state.deliveredViaPhone(bookFailureKey(track.bookId), moreToCome = bookDao.hasWaitingTracks(track.bookId))
                 state.clearPhoneUnreachable()
@@ -623,7 +614,7 @@ class WearDownloadWorker(
         downloadDao.requeue(uid)
         downloadDao.retryFailed(listOf(uid))
         val throttle = ProgressThrottle()
-        return when (val outcome = phoneFetcher.fetch(download) { done, total ->
+        return when (val outcome = edges.songFromPhone(download) { done, total ->
             val percent = throttle.next(done, total)
             if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
         }) {
@@ -659,22 +650,21 @@ class WearDownloadWorker(
 
     /**
      * For each album with downloaded songs, the cover once as a file (Wear concept 8.2), likewise the image of every downloaded episode
-     * and every downloaded book (16.1/16.2, in the cache of [BookCovers]; episodes without their own image show the subscription's).
+     * and every downloaded book (16.1/16.2, in the cache of [de.kleinabersmart.earloft.core.data.spoken.BookCovers]; episodes without their own image show the subscription's).
      * What the watch cannot load itself (files from the phone's device, server unreachable) is sent by the phone.
      * If it is missing, playback works anyway.
      */
     private suspend fun cacheCovers() {
-        val bookCovers = entryPoint.bookCovers()
         // Once per book, even with several files.
         for (bookId in (podcastDao.downloadedTracks() + bookDao.downloadedBookTracks()).map { it.bookId }.distinct()) {
             try {
                 val key = WatchState.bookCoverKey(bookId)
-                if (bookCovers.ensureCached(bookId)) {
+                if (edges.ensureBookCover(bookId)) {
                     state.clearCoverMissing(key)
                 } else if (!state.coverRecentlyMissing(key)) {
                     // A channel to the phone per book on every run: only again after a while if the phone had none either.
-                    val cover = phoneFetcher.fetchCover(bookId)
-                    if (cover != null) bookCovers.store(bookId, cover) else state.recordCoverMissing(key)
+                    val cover = edges.coverFromPhone(bookId)
+                    if (cover != null) edges.storeBookCover(bookId, cover) else state.recordCoverMissing(key)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -685,7 +675,7 @@ class WearDownloadWorker(
         for (albumId in downloadDao.getAlbumIdsWithDoneDownload()) {
             try {
                 val key = WatchState.albumCoverKey(albumId)
-                if (artwork.cacheAlbumCover(albumId, COVER_SIZE_PX)) state.clearCoverMissing(key) else state.recordCoverMissing(key)
+                if (edges.cacheAlbumCover(albumId, COVER_SIZE_PX)) state.clearCoverMissing(key) else state.recordCoverMissing(key)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -784,29 +774,21 @@ class WearDownloadWorker(
         )
     }
 
+    /** Database, files and state; whatever leaves the watch goes through [edges]. */
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     internal interface WearDownloadEntryPoint {
         fun downloadDao(): DownloadDao
         fun wearDao(): WearDao
-        fun downloader(): Downloader
         fun storage(): DownloadStorage
-        fun wifi(): WifiNetwork
         fun state(): WatchState
-        fun artwork(): ArtworkRepository
         fun coverFiles(): CoverFiles
-        fun phoneFetcher(): PhoneFileFetcher
         fun scheduler(): WearDownloadScheduler
         fun podcastDao(): PodcastDao
-        fun episodeDownloader(): EpisodeDownloader
         fun episodeStorage(): EpisodeStorage
-        fun bookCovers(): BookCovers
         fun bookDao(): BookDao
-        fun bookDownloader(): BookDownloader
         fun bookStorage(): BookStorage
-        fun audiobookshelf(): AudiobookshelfServers
-        fun credentials(): CredentialsRequester
-        fun phoneReturn(): PhoneReturn
+        fun edges(): WearDownloadEdges
     }
 
     companion object {
