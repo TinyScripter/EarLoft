@@ -157,6 +157,8 @@
     <string name="cast_volume">Volumen</string>
     <string name="cast_volume_percent">%1$d %%</string>
     <string name="cast_load_failed">El dispositivo Cast no pudo cargar las pistas. La reproducción vuelve a este teléfono.</string>
+    <string name="cast_vpn_blocks_phone_back">El dispositivo Cast no puede acceder a este teléfono: tu VPN también desvía la red doméstica. En la app de VPN, excluye EarLoft o las redes locales. La reproducción vuelve a este teléfono.</string>
+    <string name="cast_vpn_blocks_phone_skipped">El dispositivo Cast no puede acceder a este teléfono: tu VPN también desvía la red doméstica. En la app de VPN, excluye EarLoft o las redes locales. Se omiten las pistas de este teléfono.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">Esta pista no se puede enviar (formato no compatible o el teléfono no está conectado a una red Wi‑Fi).</item>
         <item quantity="many">Estas pistas no se pueden enviar (formato no compatible o el teléfono no está conectado a una red Wi‑Fi).</item>

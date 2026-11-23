@@ -163,6 +163,8 @@
     <string name="cast_volume">Hlasitost</string>
     <string name="cast_volume_percent">%1$d %%</string>
     <string name="cast_load_failed">Zařízení Cast nemohlo skladby načíst. Přehrávání se vrátilo do tohoto telefonu.</string>
+    <string name="cast_vpn_blocks_phone_back">Zařízení Cast se k tomuto telefonu nedostane: vaše VPN směruje i domácí síť. V aplikaci VPN vyjměte EarLoft nebo místní sítě. Přehrávání se vrátilo do tohoto telefonu.</string>
+    <string name="cast_vpn_blocks_phone_skipped">Zařízení Cast se k tomuto telefonu nedostane: vaše VPN směruje i domácí síť. V aplikaci VPN vyjměte EarLoft nebo místní sítě. Skladby z tohoto telefonu se přeskočí.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">Tuto skladbu nelze odeslat (formát není podporován nebo telefon není připojen k Wi‑Fi).</item>
         <item quantity="few">Tyto skladby nelze odeslat (formát není podporován nebo telefon není připojen k Wi‑Fi).</item>

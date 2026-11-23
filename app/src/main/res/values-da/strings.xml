@@ -151,6 +151,8 @@
     <string name="cast_volume">Lydstyrke</string>
     <string name="cast_volume_percent">%1$d %%</string>
     <string name="cast_load_failed">Cast-enheden kunne ikke indlæse numrene. Afspilningen er tilbage på denne telefon.</string>
+    <string name="cast_vpn_blocks_phone_back">Cast-enheden kan ikke nå denne telefon: Din VPN sender også hjemmenetværket gennem tunnelen. Undtag EarLoft eller lokale netværk i VPN-appen. Afspilningen er tilbage på denne telefon.</string>
+    <string name="cast_vpn_blocks_phone_skipped">Cast-enheden kan ikke nå denne telefon: Din VPN sender også hjemmenetværket gennem tunnelen. Undtag EarLoft eller lokale netværk i VPN-appen. Numre fra denne telefon springes over.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">Dette nummer kan ikke castes (formatet understøttes ikke, eller telefonen er ikke på Wi‑Fi).</item>
         <item quantity="other">Disse numre kan ikke castes (formatet understøttes ikke, eller telefonen er ikke på Wi‑Fi).</item>

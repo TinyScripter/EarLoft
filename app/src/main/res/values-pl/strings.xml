@@ -163,6 +163,8 @@
     <string name="cast_volume">Głośność</string>
     <string name="cast_volume_percent">%1$d%%</string>
     <string name="cast_load_failed">Urządzenie Cast nie mogło wczytać utworów. Odtwarzanie wróciło na ten telefon.</string>
+    <string name="cast_vpn_blocks_phone_back">Urządzenie Cast nie może połączyć się z tym telefonem: VPN przekierowuje także sieć domową. W aplikacji VPN wyklucz EarLoft lub sieci lokalne. Odtwarzanie wróciło na ten telefon.</string>
+    <string name="cast_vpn_blocks_phone_skipped">Urządzenie Cast nie może połączyć się z tym telefonem: VPN przekierowuje także sieć domową. W aplikacji VPN wyklucz EarLoft lub sieci lokalne. Utwory z tego telefonu zostaną pominięte.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">Tego utworu nie można przesłać (nieobsługiwany format lub telefon nie jest połączony z Wi‑Fi).</item>
         <item quantity="few">Tych utworów nie można przesłać (nieobsługiwany format lub telefon nie jest połączony z Wi‑Fi).</item>

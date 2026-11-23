@@ -6,8 +6,10 @@ import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.RouteInfo
 import android.net.Uri
 import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelFileDescriptor
@@ -191,6 +193,28 @@ internal class PhoneMediaServer @Inject constructor(
         }
         return CastLanAddress.pick(candidates, receiver)?.hostAddress.also {
             Log.i(TAG, "Announcing $it to receiver $receiver (candidates: ${candidates.joinToString { c -> "${c.address.hostAddress}/${c.prefixLength} local=${c.local} vpn=${c.vpn}" }})")
+        }
+    }
+
+    /**
+     * Whether the app's traffic goes through a VPN that also takes the receiver's address into its tunnel. The receiver then
+     * can't load anything from the phone, whichever address is announced; the user can only change it in the VPN app (exclude
+     * EarLoft or local networks). `false` without a session, receiver or VPN.
+     */
+    fun receiverBehindVpn(): Boolean {
+        val receiver = receiver ?: return false
+        val connectivity = context.getSystemService(ConnectivityManager::class.java)
+        val network = connectivity.activeNetwork ?: return false
+        val capabilities = connectivity.getNetworkCapabilities(network) ?: return false
+        if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return false
+        val routes = connectivity.getLinkProperties(network)?.routes.orEmpty().mapNotNull { route ->
+            val destination = route.destination.address as? Inet4Address ?: return@mapNotNull null
+            // Excluded routes (`VpnService.Builder.excludeRoute`) only exist from API 33 on, like the route type.
+            val captures = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || route.type != RouteInfo.RTN_THROW
+            VpnRoute(destination, route.destination.prefixLength, captures)
+        }
+        return CastLanAddress.vpnCapturesReceiver(routes, receiver).also {
+            Log.i(TAG, "Receiver $receiver ${if (it) "is" else "is not"} routed through the VPN")
         }
     }
 

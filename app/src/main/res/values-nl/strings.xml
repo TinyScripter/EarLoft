@@ -151,6 +151,8 @@
     <string name="cast_volume">Volume</string>
     <string name="cast_volume_percent">%1$d%%</string>
     <string name="cast_load_failed">Het Cast-apparaat kan de tracks niet laden. Het afspelen gaat verder op deze telefoon.</string>
+    <string name="cast_vpn_blocks_phone_back">Het Cast-apparaat kan deze telefoon niet bereiken: je VPN leidt ook het thuisnetwerk om. Sluit in de VPN-app EarLoft of lokale netwerken uit. Het afspelen gaat verder op deze telefoon.</string>
+    <string name="cast_vpn_blocks_phone_skipped">Het Cast-apparaat kan deze telefoon niet bereiken: je VPN leidt ook het thuisnetwerk om. Sluit in de VPN-app EarLoft of lokale netwerken uit. Tracks van deze telefoon worden overgeslagen.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">Deze track kan niet worden gecast (indeling niet ondersteund of de telefoon is niet verbonden met wifi).</item>
         <item quantity="other">Deze tracks kunnen niet worden gecast (indeling niet ondersteund of de telefoon is niet verbonden met wifi).</item>

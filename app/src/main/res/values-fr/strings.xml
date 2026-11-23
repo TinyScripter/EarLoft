@@ -157,6 +157,8 @@
     <string name="cast_volume">Volume</string>
     <string name="cast_volume_percent">%1$d %%</string>
     <string name="cast_load_failed">L’appareil Cast n’a pas pu charger les morceaux. La lecture a repris sur ce téléphone.</string>
+    <string name="cast_vpn_blocks_phone_back">L’appareil Cast ne peut pas joindre ce téléphone : votre VPN fait aussi passer le réseau domestique par le tunnel. Dans l’app VPN, excluez EarLoft ou les réseaux locaux. La lecture a repris sur ce téléphone.</string>
+    <string name="cast_vpn_blocks_phone_skipped">L’appareil Cast ne peut pas joindre ce téléphone : votre VPN fait aussi passer le réseau domestique par le tunnel. Dans l’app VPN, excluez EarLoft ou les réseaux locaux. Les morceaux de ce téléphone sont ignorés.</string>
     <plurals name="cast_nothing_castable" tools:ignore="ImpliedQuantity">
         <item quantity="one">Impossible de caster ce morceau (format non pris en charge, ou le téléphone n’est pas connecté au Wi‑Fi).</item>
         <item quantity="many">Impossible de caster ces morceaux (format non pris en charge, ou le téléphone n’est pas connecté au Wi‑Fi).</item>

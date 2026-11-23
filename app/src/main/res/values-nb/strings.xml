@@ -151,6 +151,8 @@
     <string name="cast_volume">Volum</string>
     <string name="cast_volume_percent">%1$d %%</string>
     <string name="cast_load_failed">Cast-enheten kunne ikke laste inn sporene. Avspillingen er tilbake på denne telefonen.</string>
+    <string name="cast_vpn_blocks_phone_back">Cast-enheten når ikke denne telefonen: VPN-en sender også hjemmenettet gjennom tunnelen. Unnta EarLoft eller lokale nettverk i VPN-appen. Avspillingen er tilbake på denne telefonen.</string>
+    <string name="cast_vpn_blocks_phone_skipped">Cast-enheten når ikke denne telefonen: VPN-en sender også hjemmenettet gjennom tunnelen. Unnta EarLoft eller lokale nettverk i VPN-appen. Spor fra denne telefonen hoppes over.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">Dette sporet kan ikke castes (formatet støttes ikke, eller telefonen er ikke på Wi‑Fi).</item>
         <item quantity="other">Disse sporene kan ikke castes (formatet støttes ikke, eller telefonen er ikke på Wi‑Fi).</item>

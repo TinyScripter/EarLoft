@@ -157,6 +157,8 @@
     <string name="cast_volume">Volume</string>
     <string name="cast_volume_percent">%1$d%%</string>
     <string name="cast_load_failed">O dispositivo de transmissão não conseguiu carregar as faixas. A reprodução voltou para este smartphone.</string>
+    <string name="cast_vpn_blocks_phone_back">O dispositivo de transmissão não consegue acessar este smartphone: sua VPN também redireciona a rede doméstica. No app de VPN, exclua o EarLoft ou as redes locais. A reprodução voltou para este smartphone.</string>
+    <string name="cast_vpn_blocks_phone_skipped">O dispositivo de transmissão não consegue acessar este smartphone: sua VPN também redireciona a rede doméstica. No app de VPN, exclua o EarLoft ou as redes locais. As faixas deste smartphone serão puladas.</string>
     <plurals name="cast_nothing_castable" tools:ignore="ImpliedQuantity">
         <item quantity="one">Não é possível transmitir esta faixa (formato incompatível ou o smartphone não está no Wi‑Fi).</item>
         <item quantity="many">Não é possível transmitir estas faixas (formato incompatível ou o smartphone não está no Wi‑Fi).</item>

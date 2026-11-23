@@ -151,6 +151,8 @@
     <string name="cast_volume">Volym</string>
     <string name="cast_volume_percent">%1$d %%</string>
     <string name="cast_load_failed">Cast-enheten kunde inte läsa in spåren. Uppspelningen sker nu på den här telefonen igen.</string>
+    <string name="cast_vpn_blocks_phone_back">Cast-enheten når inte den här telefonen: ditt VPN leder även hemnätverket genom tunneln. Undanta EarLoft eller lokala nätverk i VPN-appen. Uppspelningen sker nu på den här telefonen igen.</string>
+    <string name="cast_vpn_blocks_phone_skipped">Cast-enheten når inte den här telefonen: ditt VPN leder även hemnätverket genom tunneln. Undanta EarLoft eller lokala nätverk i VPN-appen. Spår från den här telefonen hoppas över.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">Det här spåret kan inte castas (formatet stöds inte, eller telefonen är inte ansluten till wifi).</item>
         <item quantity="other">De här spåren kan inte castas (formatet stöds inte, eller telefonen är inte ansluten till wifi).</item>

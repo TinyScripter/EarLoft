@@ -151,6 +151,8 @@
     <string name="cast_volume">Äänenvoimakkuus</string>
     <string name="cast_volume_percent">%1$d %%</string>
     <string name="cast_load_failed">Cast-laite ei voinut ladata raitoja. Toisto jatkuu taas tällä puhelimella.</string>
+    <string name="cast_vpn_blocks_phone_back">Cast-laite ei tavoita tätä puhelinta: VPN ohjaa myös kotiverkon tunneliin. Rajaa VPN-sovelluksessa EarLoft tai paikalliset verkot tunnelin ulkopuolelle. Toisto jatkuu taas tällä puhelimella.</string>
+    <string name="cast_vpn_blocks_phone_skipped">Cast-laite ei tavoita tätä puhelinta: VPN ohjaa myös kotiverkon tunneliin. Rajaa VPN-sovelluksessa EarLoft tai paikalliset verkot tunnelin ulkopuolelle. Tämän puhelimen raidat ohitetaan.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">Tätä raitaa ei voi toistaa Cast-laitteella (muotoa ei tueta tai puhelin ei ole Wi‑Fi-verkossa).</item>
         <item quantity="other">Näitä raitoja ei voi toistaa Cast-laitteella (muotoa ei tueta tai puhelin ei ole Wi‑Fi-verkossa).</item>

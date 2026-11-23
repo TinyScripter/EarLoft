@@ -18,6 +18,17 @@ internal data class LocalAddress(
     val default: Boolean,
 )
 
+/**
+ * An IPv4 route of the VPN the app's traffic goes through.
+ *
+ * @property captures `false` for a route the VPN leaves out of the tunnel (`RTN_THROW`, e.g. "exclude private IPs").
+ */
+internal data class VpnRoute(
+    val destination: Inet4Address,
+    val prefixLength: Int,
+    val captures: Boolean,
+)
+
 /** Which of the phone's addresses the cast server announces to the receiver (review J12, decision Z7 B). */
 internal object CastLanAddress {
 
@@ -35,11 +46,23 @@ internal object CastLanAddress {
         return (usable.firstOrNull { it.default } ?: usable.firstOrNull())?.address
     }
 
-    private fun LocalAddress.contains(other: Inet4Address): Boolean {
+    /**
+     * Whether the VPN with [routes] takes the traffic to the [receiver] into its tunnel: then the phone's answers to the receiver
+     * don't go out over Wi-Fi, and the receiver can't load anything from the phone (seen with WireGuard routing the home network,
+     * review2 9.8). The most specific route decides, as in the kernel; no matching route means the traffic bypasses the VPN.
+     */
+    fun vpnCapturesReceiver(routes: List<VpnRoute>, receiver: InetAddress?): Boolean {
+        if (receiver !is Inet4Address) return false
+        return routes.filter { inSubnet(it.destination, it.prefixLength, receiver) }.maxByOrNull { it.prefixLength }?.captures == true
+    }
+
+    private fun LocalAddress.contains(other: Inet4Address) = inSubnet(address, prefixLength, other)
+
+    private fun inSubnet(network: Inet4Address, prefixLength: Int, other: Inet4Address): Boolean {
         val prefix = prefixLength.coerceIn(0, 32)
         if (prefix == 0) return true
         val mask = -1 shl (32 - prefix)
-        return address.toInt() and mask == other.toInt() and mask
+        return network.toInt() and mask == other.toInt() and mask
     }
 
     private fun Inet4Address.toInt(): Int = address.fold(0) { acc, byte -> (acc shl 8) or (byte.toInt() and 0xff) }

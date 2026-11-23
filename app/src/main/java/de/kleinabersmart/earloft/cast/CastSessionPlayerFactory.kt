@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.annotation.StringRes
 import androidx.compose.material3.SnackbarDuration
 import androidx.media3.cast.Cast
 import androidx.media3.cast.CastPlayer
@@ -36,6 +37,7 @@ import de.kleinabersmart.earloft.core.playback.oldestPlayed
 import de.kleinabersmart.earloft.core.playback.queueWindow
 import de.kleinabersmart.earloft.core.playback.restoreOrder
 import de.kleinabersmart.earloft.core.playback.songId
+import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
 import de.kleinabersmart.earloft.ui.snackbar.Snackbars
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -416,25 +418,32 @@ internal class CastSessionPlayerFactory @Inject constructor(
         val queueWatch = RemoteQueueWatch()
         fun isRemote() = player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
         fun itemIds() = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
-        fun rescue(handedOver: PlayerTransferState) {
+        /** [behindVpn]: the receiver failed on the phone's files because a VPN takes its address into the tunnel. */
+        fun rescue(handedOver: PlayerTransferState, behindVpn: Boolean = false) {
             queueWatch.stop()
             handOver.rescue = handedOver
-            snackbars.show(appContext.getString(R.string.cast_load_failed), SnackbarDuration.Long)
+            if (behindVpn) {
+                showVpnHint(R.string.cast_vpn_blocks_phone_back)
+            } else {
+                snackbars.show(appContext.getString(R.string.cast_load_failed), SnackbarDuration.Long)
+            }
             Cast.getSingletonInstance(appContext).endCurrentSession(true)
         }
         lateinit var watch: (PlayerTransferState) -> Unit
 
-        fun retryElsewhere(handedOver: PlayerTransferState, failedSource: String) {
+        fun retryElsewhere(handedOver: PlayerTransferState, failedSource: String, behindVpn: Boolean) {
             val expected = ++generation
             scope.launch {
                 cache.prepare(handedOver.mediaItems.mapNotNull { it.songId })
                 withContext(Dispatchers.Main) {
                     if (expected != generation || !isRemote() || handOver.state !== handedOver) return@withContext
                     if (handedOver.mediaItems.none(cache::isCastable)) {
-                        rescue(handedOver)
+                        rescue(handedOver, behindVpn)
                         return@withContext
                     }
                     Log.i(TAG, "Receiver cannot reach $failedSource, sending the queue from another server")
+                    // First the cause; the count of skipped titles that follows waits behind it.
+                    if (behindVpn) showVpnHint(R.string.cast_vpn_blocks_phone_skipped)
                     reserve.clear()
                     val retry = castableState(handedOver, cache, reserve, ::showSkipped)
                     awaitQueue(retry.mediaItems)
@@ -448,7 +457,13 @@ internal class CastSessionPlayerFactory @Inject constructor(
             val handedOver = handOver.state ?: return
             queueWatch.stop()
             val failedSource = handedOver.mediaItems.getOrNull(handedOver.currentMediaItemIndex)?.let(cache::get)?.sourceId
-            if (failedSource != null && cache.exclude(failedSource)) retryElsewhere(handedOver, failedSource) else rescue(handedOver)
+            // Only for the phone's own files: a server the receiver can't reach has nothing to do with the phone's VPN.
+            val behindVpn = failedSource == PhoneCastServer.SOURCE_ID && phone.receiverBehindVpn()
+            if (failedSource != null && cache.exclude(failedSource)) {
+                retryElsewhere(handedOver, failedSource, behindVpn)
+            } else {
+                rescue(handedOver, behindVpn)
+            }
         }
         val timeout = Runnable { if (queueWatch.onTimeout(player.mediaItemCount) && isRemote()) onLoadFailed() }
         watch = { state ->
@@ -485,6 +500,11 @@ internal class CastSessionPlayerFactory @Inject constructor(
                 }
             }
         })
+    }
+
+    /** Stays until dismissed: the user has to act in the VPN app (review2 9.8). */
+    private fun showVpnHint(@StringRes text: Int) {
+        snackbars.show(SnackbarMessage(appContext.getString(text), duration = SnackbarDuration.Indefinite, keep = true))
     }
 
     /** Main thread. */

@@ -157,6 +157,8 @@
     <string name="cast_volume">Volume</string>
     <string name="cast_volume_percent">%1$d%%</string>
     <string name="cast_load_failed">Il dispositivo Cast non è riuscito a caricare i brani. La riproduzione è tornata su questo telefono.</string>
+    <string name="cast_vpn_blocks_phone_back">Il dispositivo Cast non riesce a raggiungere questo telefono: la VPN instrada anche la rete di casa. Nell’app VPN escludi EarLoft o le reti locali. La riproduzione è tornata su questo telefono.</string>
+    <string name="cast_vpn_blocks_phone_skipped">Il dispositivo Cast non riesce a raggiungere questo telefono: la VPN instrada anche la rete di casa. Nell’app VPN escludi EarLoft o le reti locali. I brani di questo telefono vengono saltati.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">Questo brano non può essere trasmesso (formato non supportato o telefono non connesso al Wi‑Fi).</item>
         <item quantity="many">Questi brani non possono essere trasmessi (formato non supportato o telefono non connesso al Wi‑Fi).</item>

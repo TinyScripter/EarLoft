@@ -151,6 +151,8 @@
     <string name="cast_volume">Lautstärke</string>
     <string name="cast_volume_percent">%1$d %%</string>
     <string name="cast_load_failed">Das Cast-Gerät konnte die Titel nicht laden. Die Wiedergabe ist wieder auf dem Handy.</string>
+    <string name="cast_vpn_blocks_phone_back">Das Cast-Gerät erreicht das Handy nicht: Dein VPN leitet auch das Heimnetz um. Nimm in der VPN-App EarLoft oder lokale Netze aus. Die Wiedergabe ist wieder auf dem Handy.</string>
+    <string name="cast_vpn_blocks_phone_skipped">Das Cast-Gerät erreicht das Handy nicht: Dein VPN leitet auch das Heimnetz um. Nimm in der VPN-App EarLoft oder lokale Netze aus. Titel vom Handy werden übersprungen.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">Dieser Titel lässt sich nicht casten (Format nicht unterstützt oder Handy nicht im WLAN).</item>
         <item quantity="other">Diese Titel lassen sich nicht casten (Format nicht unterstützt oder Handy nicht im WLAN).</item>
