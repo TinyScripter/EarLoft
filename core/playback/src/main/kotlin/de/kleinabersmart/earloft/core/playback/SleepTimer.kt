@@ -35,6 +35,9 @@ internal interface SleepTimerTarget {
     var volume: Float
     val isPlaying: Boolean
 
+    /** Playback is wanted, also while buffering (where [isPlaying] is `false`); `false` only when paused. */
+    val playWhenReady: Boolean get() = isPlaying
+
     /** A book or episode is loaded (even if [spokenSpot] is still missing because the timeline is loading). */
     val isSpoken: Boolean
 
@@ -57,6 +60,7 @@ internal fun Player.asSleepTimerTarget(spot: () -> SpokenSpot?, rewind: (Long) -
             this@asSleepTimerTarget.volume = value
         }
     override val isPlaying: Boolean get() = this@asSleepTimerTarget.isPlaying
+    override val playWhenReady: Boolean get() = this@asSleepTimerTarget.playWhenReady
     // During the handover to the cast device the queue is empty for a few seconds: not an end, "until the end" waits (review D9).
     override val isSpoken: Boolean get() = currentMediaItem?.isSpoken == true || awaitsRemoteQueue
     override val hasMusic: Boolean get() = currentMediaItem?.let { !it.isSpoken } == true
@@ -256,7 +260,7 @@ class SleepTimer internal constructor(
             if (remaining <= plan.slackMs) break
             _state.value = SleepTimerState(remaining, toEnd = plan is Plan.ToEnd)
             // Only during playback: when paused the sensor would only drain battery, and every movement would rewind.
-            _shakeWindow.value = remaining <= SHAKE_WINDOW_MS && target.isPlaying
+            _shakeWindow.value = remaining <= SHAKE_WINDOW_MS && target.playWhenReady
             // When paused "until the end" doesn't continue; fading out only happens once it plays again.
             val fading = remaining <= FADE_MS && (plan is Plan.Duration || target.isPlaying)
             if (fading) {
@@ -268,7 +272,8 @@ class SleepTimer internal constructor(
                 delay(minOf(untilFade, TICK_MS))
             }
         }
-        val wasPlaying = target.isPlaying
+        // Buffering (e.g. at the start of the next episode) is not a pause by the user (review3 Q22).
+        val wasPlaying = target.playWhenReady
         target.pause()
         // The position stays; the next playback should start at full volume again.
         target.volume = 1f

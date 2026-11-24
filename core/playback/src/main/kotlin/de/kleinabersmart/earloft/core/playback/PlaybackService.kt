@@ -550,11 +550,12 @@ class PlaybackService : MediaLibraryService() {
         val songIds = (0 until player.mediaItemCount).mapNotNull { player.getMediaItemAt(it).songId }.distinct()
         if (songIds.isEmpty()) return
         val existing = libraryRepository.songs(songIds).mapTo(HashSet()) { it.id }
+        val lookedUp = songIds.toHashSet()
         // Only the songs looked up: titles queued while waiting stay (review2 J37). Removed in runs of neighbors, because
         // every removal saves the queue.
         var end = player.mediaItemCount
         for (index in player.mediaItemCount - 1 downTo -1) {
-            val missing = index >= 0 && player.getMediaItemAt(index).songId.let { it != null && it in songIds && it !in existing }
+            val missing = index >= 0 && player.getMediaItemAt(index).songId.let { it != null && it in lookedUp && it !in existing }
             if (missing) continue
             if (index + 1 < end) player.removeMediaItems(index + 1, end)
             end = index

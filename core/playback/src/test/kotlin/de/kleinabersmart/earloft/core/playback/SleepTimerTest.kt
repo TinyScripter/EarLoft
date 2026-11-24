@@ -38,7 +38,11 @@ class SleepTimerTest {
                 since = scope.currentTime
             }
 
-        override val isPlaying: Boolean get() = playing
+        /** Buffering: playback is wanted, but `isPlaying` is `false` (like Media3). */
+        var buffering = false
+
+        override val isPlaying: Boolean get() = playing && !buffering
+        override val playWhenReady: Boolean get() = playing
         override val isSpoken: Boolean get() = spoken
         override val hasMusic: Boolean get() = music
 
@@ -353,6 +357,19 @@ class SleepTimerTest {
         assertFalse(timer.extend())
         assertEquals(0, target.playCount)
         assertEquals(0L, target.rewound)
+    }
+
+    @Test
+    fun `a timer running out while buffering still opens the shake window`() {
+        timer.start(60_000)
+        advance(59_000)
+        target.buffering = true
+        advance(1_000)
+
+        assertEquals(1, target.pauseCount)
+        assertTrue(timer.shakeWindow.value)
+        assertTrue(timer.extend())
+        assertEquals(1, target.playCount)
     }
 
     @Test
