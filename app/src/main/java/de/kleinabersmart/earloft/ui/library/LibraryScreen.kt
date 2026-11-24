@@ -188,6 +188,7 @@ fun LibraryScreen(
                         onAlbumClick = onAlbumClick,
                         scrollLabel = albumSort.scrollLabel(),
                         pinHeader = true,
+                        resetKey = Triple(albumSort, selectedDecades, FavoritesChip.ALBUMS in favoritesOnly),
                         header = {
                             if (decades.isNotEmpty() || favorites != null) {
                                 FilterHeader(
@@ -216,6 +217,7 @@ fun LibraryScreen(
                         onArtistClick = onArtistClick,
                         byName = artistSort == ArtistSort.NAME,
                         pinHeader = true,
+                        resetKey = artistSort to (FavoritesChip.ARTISTS in favoritesOnly),
                         header = {
                             favorites?.let {
                                 FilterHeader(
@@ -237,6 +239,7 @@ fun LibraryScreen(
                         onShuffle = viewModel::shuffleSongs,
                         actions = viewModel,
                         scrollLabel = songSort.scrollLabel(),
+                        resetKey = songSort to (FavoritesChip.SONGS in favoritesOnly),
                         // Always there (empty without favorites), like the albums' header: if it only appeared with the first
                         // favorite, the list would keep its first row anchored and the chip would sit out of view above.
                         header = {
@@ -263,6 +266,7 @@ fun LibraryScreen(
                             onAlbumClick = onAlbumClick,
                             scrollLabel = albumSort.scrollLabel(),
                             pinHeader = true,
+                            resetKey = Triple(albumSort, selectedGenres, FavoritesChip.GENRES in favoritesOnly),
                             header = {
                                 FilterHeader(
                                     chips = {
@@ -486,11 +490,13 @@ fun AlbumGrid(
     header: (@Composable () -> Unit)? = null,
     /** [header] (the library's chip bar) stays pinned above while scrolling, see [PinnableHeaderBox]. */
     pinHeader: Boolean = false,
+    /** Sort and filter: if they change, the grid shows its start ([ShowStartOnNewFront]). */
+    resetKey: Any? = null,
 ) {
     val state = rememberLazyGridState()
     ScrollToTopEffect(state)
     // An album found by a sync ("Recently added") or just played ("Recently played") appears at the top in view.
-    ShowStartOnNewFront(albums, state, { it.id })
+    ShowStartOnNewFront(albums, state, { it.id }, resetKey = resetKey)
     val playControl: PlayControlViewModel = hiltViewModel()
     val playingAlbumId by playControl.playingAlbumId.collectAsStateWithLifecycle()
     PinnableHeaderBox(header, pinHeader, modifier.fillMaxSize()) { inlineHeader ->
@@ -587,10 +593,12 @@ internal fun ArtistGrid(
     header: (@Composable () -> Unit)? = null,
     /** [header] stays pinned above while scrolling, see [PinnableHeaderBox]. */
     pinHeader: Boolean = false,
+    /** Sort and filter: if they change, the grid shows its start ([ShowStartOnNewFront]). */
+    resetKey: Any? = null,
 ) {
     val state = rememberLazyGridState()
     ScrollToTopEffect(state)
-    ShowStartOnNewFront(artists, state, { it.id })
+    ShowStartOnNewFront(artists, state, { it.id }, resetKey = resetKey)
     PinnableHeaderBox(header, pinHeader, Modifier.fillMaxSize()) { inlineHeader ->
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 150.dp),
@@ -651,11 +659,13 @@ fun SongList(
     /** Fast scroller label for each song (e.g. the initial letter); `null`: thumb only. */
     scrollLabel: ((Song) -> String)? = null,
     header: (@Composable () -> Unit)? = null,
+    /** Sort and filter: if they change, the list shows its start ([ShowStartOnNewFront]). */
+    resetKey: Any? = null,
 ) {
     val state = rememberLazyListState()
     ScrollToTopEffect(state)
     // A song found by a sync ("Recently added") appears at the top in view.
-    ShowStartOnNewFront(songs, state, { it.id })
+    ShowStartOnNewFront(songs, state, { it.id }, resetKey = resetKey)
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 16.dp)) {
             if (header != null) {

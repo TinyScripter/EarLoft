@@ -59,7 +59,7 @@ fun NewEpisodes(
         val listState = rememberLazyListState()
         ScrollToTopEffect(listState)
         // When a new episode arrives, it appears at the top in view instead of above the edge.
-        ShowStartOnNewFront(list, listState, { it.book.id })
+        ShowStartOnNewFront(list, listState, { it.book.id }, resetKey = filter)
         val sameDay = remember(list) { episodesSharingDay(list.map { it.book }) }
         Column(Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         // The filter chips of the subscription page; they stay even if the filter leaves nothing, so it can be cleared.

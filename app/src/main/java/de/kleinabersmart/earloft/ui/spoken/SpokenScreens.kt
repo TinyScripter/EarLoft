@@ -961,18 +961,22 @@ fun <T> rememberFrontRow(items: List<T>, announce: Boolean = true, key: (T) -> L
  * entry that wasn't in the list before, a snackbar offers to show the start ([rememberNewFrontHint]; not with [announce] off,
  * for lists of shelves). If only the frontmost drops out and the next moves up, nothing happens. Survives leaving the screen:
  * back on it, the list shows its start if it was there and something arrived at the front in the meantime.
+ *
+ * [resetKey]: the sort and filter of the list. If it changes, the list goes to its start without a hint, wherever it stood: the
+ * user chose another order or selection, and its first entries would otherwise lie above the edge (review3 Q4), or a
+ * filter that lets more through would be announced as new (Q5).
  */
 @Composable
-fun <T> ShowStartOnNewFront(items: List<T>, state: LazyListState, key: (T) -> Any, announce: Boolean = true) {
+fun <T> ShowStartOnNewFront(items: List<T>, state: LazyListState, key: (T) -> Any, announce: Boolean = true, resetKey: Any? = null) {
     val atStart = remember(state) { derivedStateOf { state.atStart() } }
-    ShowStartOnNewFront(items, key, atStart, announce, { state.atStart() }, { state.scrollToItem(0) }) { state.animateScrollToItem(0) }
+    ShowStartOnNewFront(items, key, atStart, announce, resetKey, { state.atStart() }, { state.scrollToItem(0) }) { state.animateScrollToItem(0) }
 }
 
 /** [ShowStartOnNewFront] for a grid. */
 @Composable
-fun <T> ShowStartOnNewFront(items: List<T>, state: LazyGridState, key: (T) -> Any, announce: Boolean = true) {
+fun <T> ShowStartOnNewFront(items: List<T>, state: LazyGridState, key: (T) -> Any, announce: Boolean = true, resetKey: Any? = null) {
     val atStart = remember(state) { derivedStateOf { state.atStart() } }
-    ShowStartOnNewFront(items, key, atStart, announce, { state.atStart() }, { state.scrollToItem(0) }) { state.animateScrollToItem(0) }
+    ShowStartOnNewFront(items, key, atStart, announce, resetKey, { state.atStart() }, { state.scrollToItem(0) }) { state.animateScrollToItem(0) }
 }
 
 @Composable
@@ -981,6 +985,7 @@ private fun <T> ShowStartOnNewFront(
     key: (T) -> Any,
     atStart: State<Boolean>,
     announce: Boolean,
+    resetKey: Any?,
     isAtStart: () -> Boolean,
     jumpToStart: suspend () -> Unit,
     glideToStart: suspend () -> Unit,
@@ -995,16 +1000,22 @@ private fun <T> ShowStartOnNewFront(
     SideEffect { previous.ids = known }
     // Read before the list has laid out the new entries: afterwards it has already shifted to the previous first one.
     val startBefore = remember(ids) { atStart.value }
+    // Sort and filter of the previous draw; a new screen starts with the current ones. From `null` (still loading) is no change:
+    // otherwise a restored scroll position would be lost as soon as the settings arrive.
+    val lastReset = remember { LastResetKey(resetKey) }
+    val reset = lastReset.key != null && lastReset.key != resetKey
+    SideEffect { lastReset.key = resetKey }
     val hint = rememberNewFrontHint(glideToStart)
-    LaunchedEffect(front) {
+    LaunchedEffect(front, resetKey) {
         // All IDs, not just the front two: whether the previous first one moved further back or is gone decides.
         val change = frontChange(shown, ids)
         shown = front
         when {
+            reset -> jumpToStart()
             change == FrontChange.NONE -> Unit
             startBefore -> jumpToStart()
             announce && before != null && ids.first() !in before -> {
-                // A sort or filter change takes the list to its start itself (ResetScroll); then there is nothing to offer.
+                // Another sort or filter took the list to its start ([resetKey], ResetScroll); then nothing is offered here.
                 delay(NEW_FRONT_SETTLE)
                 if (!isAtStart()) hint()
             }
@@ -1014,6 +1025,9 @@ private fun <T> ShowStartOnNewFront(
 
 /** All IDs of a list at its last draw (for [ShowStartOnNewFront]). */
 private class LastIds(var ids: Set<String>? = null)
+
+/** The sort and filter of a list at its last draw (for [ShowStartOnNewFront]). */
+private class LastResetKey(var key: Any?)
 
 /**
  * Snackbar for a list or row the user had scrolled away from when something new arrived at its start: it says so and

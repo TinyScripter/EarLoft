@@ -239,7 +239,7 @@ fun PodcastHomeScreen(
                     LoadFailedHint()
                 } else {
                     val rowState = rememberLazyListState()
-                    ShowStartOnNewFront(list.orEmpty(), rowState, { it.id })
+                    ShowStartOnNewFront(list.orEmpty(), rowState, { it.id }, resetKey = feedSort)
                     LazyRow(
                         state = rowState,
                         modifier = Modifier.keepHorizontalScroll(rowState),
@@ -392,6 +392,7 @@ fun PodcastLibraryScreen(
                     onAdd = onAddPodcast,
                     empty = empty,
                     byName = feedSort == FeedSort.NAME,
+                    sort = feedSort,
                 )
                 PodcastTab.STARRED -> if (feeds.valueOrNull?.isEmpty() == true) empty() else StarredEpisodes(onEpisodeClick, selection, starredViewModel)
                 PodcastTab.STATS -> PodcastStatsScreen(onFeedClick, onEpisodeClick, onOpenHistory)
@@ -413,12 +414,13 @@ private fun FeedGrid(
     onAdd: () -> Unit,
     empty: @Composable () -> Unit,
     byName: Boolean,
+    sort: FeedSort,
 ) {
     Box(Modifier.fillMaxSize()) {
         LoadableList(state, empty) { feeds ->
             val gridState = rememberLazyGridState()
             ScrollToTopEffect(gridState)
-            ShowStartOnNewFront(feeds, gridState, { it.id })
+            ShowStartOnNewFront(feeds, gridState, { it.id }, resetKey = sort)
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 state = gridState,
@@ -612,7 +614,7 @@ fun PodcastScreen(
                     if (episodes == LoadState.Loading) LoadingIndicator()
                     val listState = rememberLazyListState()
                     // New episodes from a refresh appear at the top in view instead of above the edge.
-                    ShowStartOnNewFront(list, listState, { it.book.id })
+                    ShowStartOnNewFront(list, listState, { it.book.id }, resetKey = current?.let { it.episodeFilter to it.listOldestFirst })
                     // Several episodes on the same day: time of day next to the date.
                     val sameDay = remember(list) { episodesSharingDay(list.map { it.book }) }
                     // If the feed names several seasons (`itunes:season`), each gets its header and group.
