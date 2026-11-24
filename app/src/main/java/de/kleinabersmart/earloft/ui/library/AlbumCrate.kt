@@ -74,6 +74,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.filter
 import kotlin.math.floor
 import kotlin.math.roundToInt
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -167,6 +172,21 @@ internal fun AlbumCrate(
             if (touching || sliding || position.isRunning) haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
         }
     }
+    // Never at rest between two records: whenever nothing moves the crate (no finger, no slider, no animation) and it stands
+    // between two albums, it settles on the nearer one. Interrupted by a new touch, it waits for the next rest.
+    LaunchedEffect(Unit) {
+        snapshotFlow { !touching && !sliding && !position.isRunning && position.value != position.value.roundToInt().toFloat() }
+            .filter { it }
+            .collect {
+                val nearest = position.value.roundToInt().coerceIn(0, (currentAlbums.size - 1).coerceAtLeast(0))
+                try {
+                    position.animateTo(nearest.toFloat(), settleSpring())
+                } catch (_: CancellationException) {
+                    // Only the settling was interrupted (a touch, a jump); if the crate itself is gone, end here.
+                    currentCoroutineContext().ensureActive()
+                }
+            }
+    }
     // Tapping the tab again: back to the first album.
     val scrollToTop = LocalScrollToTop.current
     LaunchedEffect(scrollToTop) {
@@ -196,8 +216,12 @@ internal fun AlbumCrate(
                     .fillMaxHeight()
                     .draggable(
                         orientation = Orientation.Vertical,
+                        // Applied right away and in order: a move still queued when the finger lifts would cancel the settling
+                        // and leave the crate between two records (as with the mini player, 2026-11-19).
                         state = rememberDraggableState { delta ->
-                            scope.launch { position.snapTo((position.value - delta / dragStepPx).coerceIn(0f, lastIndex.toFloat())) }
+                            scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                                position.snapTo((position.value - delta / dragStepPx).coerceIn(0f, lastIndex.toFloat()))
+                            }
                         },
                         onDragStarted = { touching = true },
                         onDragStopped = { velocity ->
