@@ -141,15 +141,16 @@ class UserDataBackup @Inject constructor(
                 } finally {
                     restoreFinished.complete(Unit)
                 }
-                try {
-                    val saved = readUser()
-                    mutex.withLock { applyAndWait(saved, pendingOf(saved)) }
+                val saved = try {
+                    readUser()
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    // Like in [applyWhenLibraryChanges]: mirroring must go on (e.g. after a full disk at startup).
-                    Log.e(TAG, "User data could not be applied", e)
+                    // Without the backup nothing can be held back from mirroring: as with a failed restore, no mirroring.
+                    Log.e(TAG, "User data could not be read", e)
+                    return@launch
                 }
+                applyFirst(saved)
             } finally {
                 firstApplied.complete(Unit)
             }
@@ -207,6 +208,23 @@ class UserDataBackup @Inject constructor(
                 podcastDao.feed(feedId)?.lastRefreshAt == 0L && podcastDao.episodeCount(feedId) == 0
             },
         )
+    }
+
+    /**
+     * The first apply after startup. If it fails, mirroring must still go on (e.g. after a full disk at startup, review2 J15),
+     * but with all of [saved] as still waiting: otherwise the mirror would delete from `user.db` what isn't here yet (ARD books
+     * not fetched yet, progress of books not synced yet), and [applyWhenLibraryChanges] would never apply it (review3 Q7).
+     * [pending] only for tests.
+     */
+    internal suspend fun applyFirst(saved: UserDataSnapshot, pending: suspend () -> Pending = { pendingOf(saved) }) {
+        try {
+            mutex.withLock { applyAndWait(saved, pending()) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "User data could not be applied", e)
+            mutex.withLock { waiting = Waiting(saved, Pending.of(saved)) }
+        }
     }
 
     /** Under [mutex]: applies and remembers the rest for later. */

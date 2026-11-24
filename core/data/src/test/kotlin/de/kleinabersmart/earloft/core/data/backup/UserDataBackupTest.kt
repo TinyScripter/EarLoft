@@ -428,6 +428,28 @@ class UserDataBackupTest {
         assertTrue(user.userDataDao().bookmarks().isEmpty())
     }
 
+    @Test
+    fun `a first apply that fails keeps the backup waiting, the mirror deletes nothing that isn't here yet`() = runTest {
+        val ardKey = "group:urn:ard:show:gs"
+        val bookId = book(main, ARD_BOOK_SERVER_ID, ardKey, BookKind.BOOK)
+        main.bookDao().upsertProgress(progress(bookId, 5_000, updatedAt = 10))
+        backupFor(main).mirror()
+
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            val backup = backupFor(newDevice)
+            // The ARD book isn't fetched yet, and the first apply at startup fails (e.g. full disk).
+            backup.applyFirst(user.userDataDao().snapshot()) { throw android.database.sqlite.SQLiteFullException("full") }
+            backup.mirror()
+
+            // review3 Q7: without anything waiting the mirror deleted the book along with its progress.
+            assertEquals(listOf(ardKey), user.userDataDao().ardBooks().map { it.remoteId })
+            assertEquals(5_000L, user.userDataDao().progress().single().positionMs)
+        } finally {
+            newDevice.close()
+        }
+    }
+
     private suspend fun book(db: EarLoftDatabase, serverId: String, remoteId: String, kind: BookKind = BookKind.EPISODE) =
         db.bookDao().upsertBook(
             BookEntity(serverId = serverId, kind = kind, remoteId = remoteId, title = remoteId, normTitle = remoteId, author = "", durationMs = 1_000_000),
