@@ -154,13 +154,16 @@ class PodcastRefresher @Inject constructor(
     }
 }
 
-class PodcastRefreshWorker(
+class PodcastRefreshWorker internal constructor(
     context: Context,
     params: WorkerParameters,
+    private val entryPoint: RefreshEntryPoint,
 ) : CoroutineWorker(context, params) {
 
+    constructor(context: Context, params: WorkerParameters) :
+        this(context, params, EntryPointAccessors.fromApplication(context, RefreshEntryPoint::class.java))
+
     override suspend fun doWork(): Result {
-        val entryPoint = EntryPointAccessors.fromApplication(applicationContext, RefreshEntryPoint::class.java)
         // Hidden podcasts (General → Sections): no fetches, no downloads, no notifications.
         if (SpokenMode.PODCASTS !in entryPoint.spokenSettings().areas.first()) return Result.success()
         val summary = entryPoint.repository().refreshAll()
