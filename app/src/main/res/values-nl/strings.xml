@@ -607,6 +607,12 @@
     </plurals>
     <string name="spoken_continue">Verder luisteren</string>
     <string name="spoken_recent">Recent toegevoegd</string>
+    <string name="recent_remove">Verwijderen uit Recent toegevoegd</string>
+    <string name="recent_removed">‘%1$s’ verwijderd uit Recent toegevoegd</string>
+    <string name="recent_clear">Recent toegevoegd wissen</string>
+    <string name="recent_clear_title">Recent toegevoegd wissen?</string>
+    <string name="recent_clear_message">Alle afleveringen verdwijnen uit deze rij tot er nieuwe verschijnen. Verder luisteren blijft zoals het is; het tabblad Nieuw in de bibliotheek toont nog steeds alle afleveringen.</string>
+    <string name="recent_clear_confirm">Wissen</string>
     <string name="spoken_continue_series">Serie voortzetten</string>
     <string name="spoken_no_server">Nog geen Audiobookshelf-server ingesteld.</string>
     <string name="spoken_no_books">Nog geen boeken.</string>

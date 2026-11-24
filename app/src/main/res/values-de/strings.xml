@@ -608,6 +608,12 @@
     </plurals>
     <string name="spoken_continue">Weiterhören</string>
     <string name="spoken_recent">Zuletzt hinzugefügt</string>
+    <string name="recent_remove">Aus „Zuletzt hinzugefügt“ entfernen</string>
+    <string name="recent_removed">„%1$s“ aus „Zuletzt hinzugefügt“ entfernt</string>
+    <string name="recent_clear">„Zuletzt hinzugefügt“ leeren</string>
+    <string name="recent_clear_title">„Zuletzt hinzugefügt“ leeren?</string>
+    <string name="recent_clear_message">Alle Folgen verlassen diese Zeile, bis neue erscheinen. „Weiterhören“ bleibt, wie es ist; der Reiter „Neu“ der Bibliothek zeigt weiter alle Folgen.</string>
+    <string name="recent_clear_confirm">Leeren</string>
     <string name="spoken_continue_series">Serie fortsetzen</string>
     <string name="spoken_no_server">Noch kein Audiobookshelf-Server eingerichtet.</string>
     <string name="spoken_no_books">Noch keine Bücher.</string>

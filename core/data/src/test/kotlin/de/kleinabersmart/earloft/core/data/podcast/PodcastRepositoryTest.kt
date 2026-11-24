@@ -1012,8 +1012,67 @@ class PodcastRepositoryTest {
         listen(idOf(feedId, "B"), positionMs = 600_000, updatedAt = 100, finished = true)
         listen(idOf(feedId, "C"), positionMs = 30_000, updatedAt = 200)
 
-        assertEquals(listOf("A", "C"), repository.recentEpisodes().first().map { it.book.title })
-        assertEquals(listOf("A"), repository.recentEpisodes(limit = 1).first().map { it.book.title })
+        assertEquals(listOf("A", "C"), repository.recentEpisodes { now }.first().map { it.book.title })
+        assertEquals(listOf("A"), repository.recentEpisodes(limit = 1) { now }.first().map { it.book.title })
+    }
+
+    @Test
+    fun `recently added drops episodes published more than 30 days ago`() = runTest {
+        subscribe()
+        // 30 days back from here is 29 Oct, 00:00: B (06:00 that day) is still in, C (28 Oct) is not.
+        val later = Instant.parse("2025-11-28T00:00:00Z").toEpochMilli()
+
+        assertEquals(listOf("A", "B"), repository.recentEpisodes { later }.first().map { it.book.title })
+    }
+
+    @Test
+    fun `recently added drops never started episodes behind a newer started or played one of the subscription`() = runTest {
+        val feedId = subscribe()
+        listen(idOf(feedId, "B"), positionMs = 30_000, updatedAt = 100)
+
+        assertEquals(listOf("A", "B"), repository.recentEpisodes { now }.first().map { it.book.title })
+
+        listen(idOf(feedId, "B"), positionMs = 600_000, updatedAt = 200, finished = true)
+
+        assertEquals(listOf("A"), repository.recentEpisodes { now }.first().map { it.book.title })
+    }
+
+    @Test
+    fun `recently added leaves out hidden episodes and those not newer than the last clearing`() = runTest {
+        val feedId = subscribe()
+        val b = db.bookDao().booksOf(feedId).single { it.title == "B" }
+
+        val hidden = repository.recentEpisodes(hidden = flowOf(setOf(idOf(feedId, "A")))) { now }.first()
+        val cleared = repository.recentEpisodes(clearedUntil = flowOf(b.addedAt)) { now }.first()
+
+        assertEquals(listOf("B", "C"), hidden.map { it.book.title })
+        assertEquals(listOf("A"), cleared.map { it.book.title })
+    }
+
+    @Test
+    fun `a cleared recently added row comes back with a newer episode, a hidden episode with undo`() = runTest {
+        val queue = EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao())
+        val feedId = subscribe()
+        val a = db.bookDao().booksOf(feedId).single { it.title == "A" }
+        val c = idOf(feedId, "C")
+        val recent = { repository.recentEpisodes(queue.hidden, queue.recentClearedUntil) { now } }
+        try {
+            queue.remove(c)
+            assertEquals(listOf("A", "B"), recent().first().map { it.book.title })
+            queue.unhide(c)
+            assertEquals(listOf("A", "B", "C"), recent().first().map { it.book.title })
+
+            queue.setRecentClearedUntil(a.addedAt)
+            assertTrue(recent().first().isEmpty())
+
+            served = feed("D" to "Thu, 30 Oct 2025 18:00:00 GMT", "A" to "Thu, 30 Oct 2025 06:00:00 GMT")
+            repository.refresh(feedId)
+            assertEquals(listOf("D"), recent().first().map { it.book.title })
+        } finally {
+            // The DataStore outlives the test.
+            queue.unhide(c)
+            queue.setRecentClearedUntil(0)
+        }
     }
 
     @Test
@@ -1035,7 +1094,7 @@ class PodcastRepositoryTest {
 
         assertEquals(notes.take(2_000), repository.latestEpisodes().first().single().book.description)
         assertEquals(notes.take(2_000), repository.starredEpisodes().first().single().book.description)
-        assertEquals("", repository.recentEpisodes().first().single().book.description)
+        assertEquals("", repository.recentEpisodes { now }.first().single().book.description)
     }
 
     @Test

@@ -874,6 +874,8 @@ internal fun BookRow(
     onPlay: ((Long) -> Unit)? = null,
     /** Volume per book at the top left of the cover ("Continue series" shelf). */
     volumes: Map<Long, String> = emptyMap(),
+    /** "Recently added" of the podcasts: the long-press menu offers to remove an episode from it. */
+    inRecent: Boolean = false,
 ) {
     val sameDay = remember(books) { episodesSharingDay(books.map { it.book }) }
     LazyRow(
@@ -891,6 +893,7 @@ internal fun BookRow(
                 playing = item.book.id == playingId,
                 withTime = item.book.id in sameDay,
                 volume = volumes[item.book.id],
+                inRecent = inRecent,
             )
         }
     }
@@ -1119,6 +1122,8 @@ fun BookCard(
     selection: EpisodeSelection? = null,
     /** Finished: full bar instead of none (series page). */
     markFinished: Boolean = false,
+    /** The tile stands in "Recently added" of the podcasts ([EpisodeMenu]). */
+    inRecent: Boolean = false,
 ) {
     // Context menu via long press, for episodes and books.
     var menu by remember { mutableStateOf(false) }
@@ -1134,7 +1139,13 @@ fun BookCard(
             )
             .padding(contentPadding),
     ) {
-        EpisodeMenu(item, expanded = menu, onDismiss = { menu = false }, onSelect = selection?.let { { it.toggle(item.book.id) } })
+        EpisodeMenu(
+            item,
+            expanded = menu,
+            onDismiss = { menu = false },
+            onSelect = selection?.let { { it.toggle(item.book.id) } },
+            inRecent = inRecent,
+        )
         Box {
             BookArt(item.book.id, Modifier.fillMaxWidth())
             SelectedMark(selected, RoundedCornerShape(8.dp), Modifier.matchParentSize())

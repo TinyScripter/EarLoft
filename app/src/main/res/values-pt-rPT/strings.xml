@@ -638,6 +638,12 @@
     </plurals>
     <string name="spoken_continue">Continuar a ouvir</string>
     <string name="spoken_recent">Adicionados recentemente</string>
+    <string name="recent_remove">Remover de «Adicionados recentemente»</string>
+    <string name="recent_removed">«%1$s» removido de «Adicionados recentemente»</string>
+    <string name="recent_clear">Limpar «Adicionados recentemente»</string>
+    <string name="recent_clear_title">Limpar «Adicionados recentemente»?</string>
+    <string name="recent_clear_message">Todos os episódios saem desta fila até aparecerem novos. «Continuar a ouvir» mantém-se; o separador «Novos» da biblioteca continua a mostrar todos os episódios.</string>
+    <string name="recent_clear_confirm">Limpar</string>
     <string name="spoken_continue_series">Continuar série</string>
     <string name="spoken_no_server">Ainda não há nenhum servidor Audiobookshelf configurado.</string>
     <string name="spoken_no_books">Ainda não há livros.</string>

@@ -607,6 +607,12 @@
     </plurals>
     <string name="spoken_continue">Fortsätt lyssna</string>
     <string name="spoken_recent">Senast tillagda</string>
+    <string name="recent_remove">Ta bort från ”Senast tillagda”</string>
+    <string name="recent_removed">”%1$s” har tagits bort från ”Senast tillagda”</string>
+    <string name="recent_clear">Töm ”Senast tillagda”</string>
+    <string name="recent_clear_title">Vill du tömma ”Senast tillagda”?</string>
+    <string name="recent_clear_message">Alla avsnitt försvinner från den här raden tills nya dyker upp. ”Fortsätt lyssna” förblir oförändrat; fliken ”Nytt” i biblioteket visar fortfarande alla avsnitt.</string>
+    <string name="recent_clear_confirm">Töm</string>
     <string name="spoken_continue_series">Fortsätt serien</string>
     <string name="spoken_no_server">Ingen Audiobookshelf-server har konfigurerats än.</string>
     <string name="spoken_no_books">Inga böcker än.</string>

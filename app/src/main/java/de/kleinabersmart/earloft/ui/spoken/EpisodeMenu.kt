@@ -88,7 +88,8 @@ fun StarredMark(modifier: Modifier = Modifier) {
 
 /**
  * Context menu of a podcast episode or a book (long press); the first row names the title for orientation. With
- * [onSelect], "Select" starts the list's multi-selection with this episode (concept 12.5).
+ * [onSelect], "Select" starts the list's multi-selection with this episode (concept 12.5). [inRecent]: the tile stands in
+ * "Recently added" on the podcast Home, which offers to remove it from there.
  */
 @Composable
 fun EpisodeMenu(
@@ -97,6 +98,7 @@ fun EpisodeMenu(
     onDismiss: () -> Unit,
     withShareAndWatch: Boolean = true,
     onSelect: (() -> Unit)? = null,
+    inRecent: Boolean = false,
     viewModel: EpisodeMenuViewModel = hiltViewModel(),
 ) {
     val queued by viewModel.queued.collectAsStateWithLifecycle()
@@ -160,6 +162,13 @@ fun EpisodeMenu(
             text = { Text(stringResource(if (item.book.starred) R.string.episode_unstar else R.string.episode_star)) },
             onClick = {
                 viewModel.setStarred(listOf(item), !item.book.starred)
+                onDismiss()
+            },
+        )
+        if (inRecent && item.isEpisode) DropdownMenuItem(
+            text = { Text(stringResource(R.string.recent_remove)) },
+            onClick = {
+                viewModel.hideFromRecent(id, offerUndo(R.string.recent_removed))
                 onDismiss()
             },
         )

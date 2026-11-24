@@ -669,6 +669,12 @@
     </plurals>
     <string name="spoken_continue">Słuchaj dalej</string>
     <string name="spoken_recent">Ostatnio dodane</string>
+    <string name="recent_remove">Usuń z listy „Ostatnio dodane”</string>
+    <string name="recent_removed">Usunięto „%1$s” z listy „Ostatnio dodane”</string>
+    <string name="recent_clear">Wyczyść „Ostatnio dodane”</string>
+    <string name="recent_clear_title">Wyczyścić „Ostatnio dodane”?</string>
+    <string name="recent_clear_message">Wszystkie odcinki znikną z tego wiersza, dopóki nie pojawią się nowe. „Słuchaj dalej” pozostaje bez zmian; karta „Nowe” w bibliotece nadal pokazuje wszystkie odcinki.</string>
+    <string name="recent_clear_confirm">Wyczyść</string>
     <string name="spoken_continue_series">Kontynuuj serię</string>
     <string name="spoken_no_server">Nie skonfigurowano jeszcze serwera Audiobookshelf.</string>
     <string name="spoken_no_books">Brak książek.</string>

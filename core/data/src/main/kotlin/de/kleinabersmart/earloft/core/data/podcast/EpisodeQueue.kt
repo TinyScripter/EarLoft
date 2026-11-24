@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -58,9 +59,22 @@ class EpisodeQueue @Inject constructor(
     val order: Flow<List<Long>> =
         combine(prefs, idsByKey) { prefs, ids -> prefs.read(KEY_ORDER).mapNotNull { ids[it] } }.distinctUntilChanged()
 
-    /** Episodes removed from the row by hand; they no longer appear until they are played or inserted again. */
+    /**
+     * Episodes removed by hand from this row or from "Recently added" on Home (one list for both); they no longer appear
+     * there until they are played or inserted again.
+     */
     val hidden: Flow<Set<Long>> =
         combine(prefs, idsByKey) { prefs, ids -> prefs.read(KEY_HIDDEN).mapNotNullTo(HashSet()) { ids[it] } }.distinctUntilChanged()
+
+    /**
+     * "Clear" on the "Recently added" shelf: publication time of the newest episode it showed; only newer episodes appear there.
+     * Leaves "Continue listening" alone.
+     */
+    val recentClearedUntil: Flow<Long> = prefs.map { it[KEY_RECENT_CLEARED] ?: 0L }.distinctUntilChanged()
+
+    suspend fun setRecentClearedUntil(addedAt: Long) {
+        context.episodeQueueDataStore.edit { it[KEY_RECENT_CLEARED] = addedAt }
+    }
 
     /**
      * The IDs (guid) of the episodes of [feedId] in the fixed order: the sync doesn't remove them, even if the
@@ -134,6 +148,13 @@ class EpisodeQueue @Inject constructor(
             val hidden = prefs.read(KEY_HIDDEN)
             if (key !in hidden) prefs.write(KEY_HIDDEN, hidden + key)
         }
+    }
+
+    /** Undoes [remove] for an episode that wasn't in the fixed order: it appears on its own again where its rules allow. */
+    suspend fun unhide(bookId: Long) {
+        val key = keysOf(listOf(bookId))[bookId] ?: return
+        migrateLegacyIds()
+        context.episodeQueueDataStore.edit { prefs -> prefs.write(KEY_HIDDEN, prefs.read(KEY_HIDDEN) - key) }
     }
 
     /** Removes the episodes from the row, like [remove] for each, in one step. */
@@ -213,6 +234,7 @@ class EpisodeQueue @Inject constructor(
     companion object {
         private val KEY_ORDER = stringPreferencesKey("order_keys")
         private val KEY_HIDDEN = stringPreferencesKey("hidden_keys")
+        private val KEY_RECENT_CLEARED = longPreferencesKey("recent_cleared_until")
         private val LEGACY_ORDER = stringPreferencesKey("order")
         private val LEGACY_HIDDEN = stringPreferencesKey("hidden")
 

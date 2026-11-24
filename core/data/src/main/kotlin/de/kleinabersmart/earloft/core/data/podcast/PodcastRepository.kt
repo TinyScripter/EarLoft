@@ -284,15 +284,53 @@ class PodcastRepository @Inject constructor(
         }
     }
 
-    /**
-     * "Recently added" on Home: the newest episodes of all subscriptions by publication, without those played to the end. Episodes from
-     * "Continue listening" stay in, because new episodes appear there on their own anyway, just in queue order.
-     */
-    fun recentEpisodes(limit: Int = RECENT_LIMIT): Flow<List<BookWithProgress>> =
+    /** The newest episodes of all subscriptions by publication without those played to the end ("New episodes" in Android Auto). */
+    fun newestOpenEpisodes(limit: Int): Flow<List<BookWithProgress>> =
         combine(dao.observeFeeds(), dao.observeEpisodes(), bookDao.observeAllProgress()) { feeds, episodes, progress ->
             val byBook = progress.associateBy { it.bookId }
             episodes.visibleIn(feeds, byBook).asSequence()
                 .filter { byBook[it.bookId]?.finished != true }
+                .sortedByDescending { it.addedAt }
+                .take(limit)
+                .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
+                .toList()
+        }
+
+    /**
+     * "Recently added" on Home: the newest episodes of all subscriptions by publication, without those played to the end. Episodes from
+     * "Continue listening" stay in, because new episodes appear there on their own anyway, just in queue order.
+     *
+     * So that old episodes nobody wants don't pile up, these are missing as well (concept 12.5):
+     * - episodes published more than [RECENT_DAYS] days ago or not after [clearedUntil] ("Clear" on the shelf);
+     * - never started episodes behind a newer started or played one of the same subscription (the user has moved past them,
+     *   the same rule as the count of new episodes on the subscription's tile, [feedStats]);
+     * - episodes in [hidden], removed by hand from this row or from "Continue listening" (one list for both).
+     */
+    fun recentEpisodes(
+        hidden: Flow<Set<Long>> = flowOf(emptySet()),
+        clearedUntil: Flow<Long> = flowOf(0L),
+        limit: Int = RECENT_LIMIT,
+        now: () -> Long = System::currentTimeMillis,
+    ): Flow<List<BookWithProgress>> =
+        combine(
+            combine(dao.observeFeeds(), dao.observeEpisodes(), bookDao.observeAllProgress(), ::Triple),
+            hidden,
+            clearedUntil,
+        ) { (feeds, episodes, progress), hiddenIds, cleared ->
+            val byBook = progress.associateBy { it.bookId }
+            val since = now() - RECENT_DAYS * DAY_MS
+            // Subscriptions for which a started or played episode was already passed (the list is newest first).
+            val movedPast = HashSet<String>()
+            episodes.visibleIn(feeds, byBook)
+                .filter { e ->
+                    val p = byBook[e.bookId]
+                    val untouched = p.isUntouched
+                    val keep = if (untouched) e.serverId !in movedPast else !p!!.finished
+                    if (!untouched) movedPast += e.serverId
+                    keep
+                }
+                .asSequence()
+                .filter { it.bookId !in hiddenIds && it.addedAt >= since && it.addedAt > cleared }
                 .sortedByDescending { it.addedAt }
                 .take(limit)
                 .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
@@ -1166,6 +1204,9 @@ class PodcastRepository @Inject constructor(
 
         /** As for books (`BookRepository.recentlyAdded`). */
         const val RECENT_LIMIT = 12
+
+        /** "Recently added" shows only episodes published within this many days. */
+        const val RECENT_DAYS = 30L
 
         /** "New" tab: enough to browse through without loading an archive with thousands of episodes into one list. */
         const val LATEST_LIMIT = 100

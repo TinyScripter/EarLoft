@@ -7,6 +7,7 @@ import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRefresher
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
+import de.kleinabersmart.earloft.core.data.podcast.RecentlyAdded
 import de.kleinabersmart.earloft.core.model.FeedSort
 import de.kleinabersmart.earloft.core.model.sortedFeeds
 import de.kleinabersmart.earloft.core.model.BookWithProgress
@@ -30,6 +31,7 @@ class PodcastViewModel @Inject constructor(
     private val launcher: BookLauncher,
     private val playback: PlaybackConnection,
     continueListening: ContinueListening,
+    private val recentlyAdded: RecentlyAdded,
     private val settings: PodcastSettings,
 ) : ViewModel() {
 
@@ -39,9 +41,14 @@ class PodcastViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** "Recently added" on start; like "Continue listening" without its own hint on error. */
-    val recent: StateFlow<List<BookWithProgress>> = podcasts.recentEpisodes()
+    val recent: StateFlow<List<BookWithProgress>> = recentlyAdded.episodes
         .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Empties "Recently added" until newer episodes arrive (after the confirmation on the shelf). */
+    fun clearRecent() {
+        viewModelScope.launch { recentlyAdded.clear() }
+    }
 
     /** How the subscriptions are ordered (start and "Subscriptions" tab). */
     val feedSort: StateFlow<FeedSort> = settings.feedSort

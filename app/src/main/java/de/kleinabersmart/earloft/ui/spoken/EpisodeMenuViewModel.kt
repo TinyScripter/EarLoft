@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
+import de.kleinabersmart.earloft.core.data.podcast.RecentlyAdded
 import de.kleinabersmart.earloft.core.data.spoken.ArdBooks
 import de.kleinabersmart.earloft.core.data.spoken.BookDownload
 import de.kleinabersmart.earloft.core.data.spoken.BookProgressSync
@@ -34,6 +35,7 @@ import javax.inject.Inject
 class EpisodeMenuViewModel @Inject constructor(
     private val podcasts: PodcastRepository,
     private val continueListening: ContinueListening,
+    private val recentlyAdded: RecentlyAdded,
     private val downloads: EpisodeDownloads,
     private val playback: PlaybackConnection,
     private val books: BookRepository,
@@ -138,6 +140,22 @@ class EpisodeMenuViewModel @Inject constructor(
                     continueListening.append(bookId)
                     if (before.size > 1) continueListening.reorder(before, bookId)
                 }
+            }
+        }
+    }
+
+    /**
+     * "Remove from Recently added": also out of "Continue listening" (one list for both, concept 12.5). [onUndo] puts it back; if
+     * it stood in "Continue listening", there at its old place.
+     */
+    fun hideFromRecent(bookId: Long, onUndo: (suspend () -> Unit) -> Unit = {}) {
+        act {
+            val before = continueListening.episodes.first().map { it.book.id }
+            if (bookId in before) {
+                setQueued(bookId, queued = false, onUndo)
+            } else {
+                recentlyAdded.hide(bookId)
+                onUndo { recentlyAdded.unhide(bookId) }
             }
         }
     }

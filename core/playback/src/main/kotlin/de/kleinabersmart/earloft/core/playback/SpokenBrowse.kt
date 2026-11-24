@@ -27,7 +27,7 @@ internal class PodcastBrowse @Inject constructor(
     /** Content of a podcast folder; `null` if [parentId] isn't one. */
     suspend fun children(parentId: String): List<MediaItem>? = when {
         parentId == MediaIds.EPISODES_CONTINUE -> continueEpisodes(Int.MAX_VALUE)
-        parentId == MediaIds.EPISODES_NEW -> episodeItems(podcastRepository.recentEpisodes(NEW_LIMIT).first())
+        parentId == MediaIds.EPISODES_NEW -> episodeItems(podcastRepository.newestOpenEpisodes(NEW_LIMIT).first())
         parentId == MediaIds.FEEDS -> podcastRepository.feeds.first().map { it.toBrowsableMediaItem(context) }
         parentId == MediaIds.EPISODES_DOWNLOADED -> episodeItems(downloadedEpisodes())
         MediaIds.feedId(parentId) != null -> episodeItems(podcastRepository.episodes(MediaIds.feedId(parentId)!!).first())

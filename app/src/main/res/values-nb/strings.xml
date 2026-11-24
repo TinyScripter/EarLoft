@@ -607,6 +607,12 @@
     </plurals>
     <string name="spoken_continue">Fortsett å lytte</string>
     <string name="spoken_recent">Nylig lagt til</string>
+    <string name="recent_remove">Fjern fra «Nylig lagt til»</string>
+    <string name="recent_removed">«%1$s» er fjernet fra «Nylig lagt til»</string>
+    <string name="recent_clear">Tøm «Nylig lagt til»</string>
+    <string name="recent_clear_title">Vil du tømme «Nylig lagt til»?</string>
+    <string name="recent_clear_message">Alle episoder forsvinner fra denne raden til det kommer nye. «Fortsett å lytte» forblir uendret; fanen «Nytt» i biblioteket viser fortsatt alle episoder.</string>
+    <string name="recent_clear_confirm">Tøm</string>
     <string name="spoken_continue_series">Fortsett serien</string>
     <string name="spoken_no_server">Ingen Audiobookshelf-server er konfigurert ennå.</string>
     <string name="spoken_no_books">Ingen bøker ennå.</string>

@@ -669,6 +669,12 @@
     </plurals>
     <string name="spoken_continue">Pokračovat v poslechu</string>
     <string name="spoken_recent">Nedávno přidané</string>
+    <string name="recent_remove">Odebrat z „Nedávno přidané“</string>
+    <string name="recent_removed">Odebráno z „Nedávno přidané“: „%1$s“</string>
+    <string name="recent_clear">Vymazat „Nedávno přidané“</string>
+    <string name="recent_clear_title">Vymazat „Nedávno přidané“?</string>
+    <string name="recent_clear_message">Všechny epizody z tohoto řádku zmizí, dokud nepřibudou nové. „Pokračovat v poslechu“ zůstane beze změny; karta „Nové“ v knihovně dál ukazuje všechny epizody.</string>
+    <string name="recent_clear_confirm">Vymazat</string>
     <string name="spoken_continue_series">Pokračovat v sérii</string>
     <string name="spoken_no_server">Zatím není nastaven žádný server Audiobookshelf.</string>
     <string name="spoken_no_books">Zatím žádné knihy.</string>

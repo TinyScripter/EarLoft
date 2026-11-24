@@ -213,8 +213,15 @@ fun PodcastHomeScreen(
         }
         if (recent.isNotEmpty()) {
             item(key = "recent") {
-                Shelf(stringResource(R.string.spoken_recent)) {
-                    BookRow(recentRow.items, onEpisodeClick, state = recentRow.state, playingId = playingId, onPlay = viewModel::playOrPause)
+                Shelf(stringResource(R.string.spoken_recent), action = { ClearRecentButton(viewModel::clearRecent) }) {
+                    BookRow(
+                        recentRow.items,
+                        onEpisodeClick,
+                        state = recentRow.state,
+                        playingId = playingId,
+                        onPlay = viewModel::playOrPause,
+                        inRecent = true,
+                    )
                 }
             }
         }
@@ -749,6 +756,32 @@ private fun FeedHeaderTitle(title: String, fraction: () -> Float) {
 @Composable
 private fun FeedSortButton(sort: FeedSort, onSelect: (FeedSort) -> Unit) {
     SortButton(sort, FeedSort.entries, { stringResource(it.label) }, onSelect)
+}
+
+/**
+ * At the right of "Recently added": empties the row after confirmation, until newer episodes arrive (concept 12.5). The shelf
+ * disappears with its last episode, and with it this button.
+ */
+@Composable
+private fun ClearRecentButton(onClear: () -> Unit) {
+    var confirm by rememberSaveable { mutableStateOf(false) }
+    IconButton(onClick = { confirm = true }) {
+        Icon(painterResource(DesignR.drawable.ic_clear_all), contentDescription = stringResource(R.string.recent_clear))
+    }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text(stringResource(R.string.recent_clear_title)) },
+            text = { Text(stringResource(R.string.recent_clear_message)) },
+            confirmButton = {
+                DestructiveTextButton(onClick = {
+                    confirm = false
+                    onClear()
+                }) { Text(stringResource(R.string.recent_clear_confirm)) }
+            },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
 }
 
 private val FeedSort.label: Int

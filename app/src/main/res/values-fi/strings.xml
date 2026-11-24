@@ -607,6 +607,12 @@
     </plurals>
     <string name="spoken_continue">Jatka kuuntelua</string>
     <string name="spoken_recent">Viimeksi lisätyt</string>
+    <string name="recent_remove">Poista listalta ”Viimeksi lisätyt”</string>
+    <string name="recent_removed">”%1$s” poistettu listalta ”Viimeksi lisätyt”</string>
+    <string name="recent_clear">Tyhjennä ”Viimeksi lisätyt”</string>
+    <string name="recent_clear_title">Tyhjennetäänkö ”Viimeksi lisätyt”?</string>
+    <string name="recent_clear_message">Kaikki jaksot poistuvat tältä riviltä, kunnes uusia ilmestyy. ”Jatka kuuntelua” pysyy ennallaan; kirjaston ”Uudet”-välilehti näyttää edelleen kaikki jaksot.</string>
+    <string name="recent_clear_confirm">Tyhjennä</string>
     <string name="spoken_continue_series">Jatka sarjaa</string>
     <string name="spoken_no_server">Audiobookshelf-palvelinta ei ole vielä määritetty.</string>
     <string name="spoken_no_books">Ei vielä kirjoja.</string>

@@ -617,6 +617,12 @@
     </plurals>
     <string name="spoken_continue">Continue listening</string>
     <string name="spoken_recent">Recently added</string>
+    <string name="recent_remove">Remove from Recently added</string>
+    <string name="recent_removed">“%1$s” removed from Recently added</string>
+    <string name="recent_clear">Clear Recently added</string>
+    <string name="recent_clear_title">Clear Recently added?</string>
+    <string name="recent_clear_message">All episodes leave this row until new ones appear. Continue listening stays as it is; the New tab of the library still lists every episode.</string>
+    <string name="recent_clear_confirm">Clear</string>
     <string name="spoken_continue_series">Continue series</string>
     <string name="spoken_no_server">No Audiobookshelf server set up yet.</string>
     <string name="spoken_no_books">No books yet.</string>
