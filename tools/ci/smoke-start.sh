@@ -50,8 +50,12 @@ adb install "$apk"
 adb logcat -c
 adb logcat -b crash -c
 
+# Read the whole buffer first: with `adb … | grep -q` under pipefail, grep ends at the first match, adb dies of SIGPIPE on a
+# large buffer, and the pipeline counted as "no crash" (review3 Q34).
 crashed() {
-    adb logcat -b crash -d | grep -qF "Process: $package, PID"
+    local buffer
+    buffer="$(adb logcat -b crash -d || true)"
+    [[ "$buffer" == *"Process: $package, PID"* ]]
 }
 
 report() {
@@ -74,12 +78,24 @@ fi
 
 # A fixed seed, so a failure can be repeated; only touches and navigation inside the app.
 echo "Touching around ($monkey_events events)…"
-adb shell monkey -p "$package" -s 4711 --throttle 100 --pct-syskeys 0 --pct-appswitch 0 \
-    --ignore-timeouts --ignore-security-exceptions --kill-process-after-error "$monkey_events" >/dev/null 2>&1 || true
+monkey_output="$(adb shell monkey -v -p "$package" -s 4711 --throttle 100 --pct-syskeys 0 --pct-appswitch 0 \
+    --ignore-timeouts --ignore-security-exceptions --kill-process-after-error "$monkey_events" 2>&1 || true)"
 sleep 3
 
 if crashed; then
     echo "FAILED: $package crashed while being used." >&2
+    report
+    exit 1
+fi
+# A monkey that gave up right away ("No activities found", aborted) proves nothing.
+if [[ "$monkey_output" != *"Events injected: $monkey_events"* ]]; then
+    echo "FAILED: monkey did not inject all $monkey_events events." >&2
+    echo "$monkey_output" | tail -20 >&2
+    report
+    exit 1
+fi
+if [ -z "$(adb shell pidof "$package" | tr -d '\r')" ]; then
+    echo "FAILED: $package is no longer running after being used." >&2
     report
     exit 1
 fi
