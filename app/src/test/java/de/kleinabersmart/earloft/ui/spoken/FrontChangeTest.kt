@@ -33,4 +33,10 @@ class FrontChangeTest {
         assertEquals(FrontChange.REPLACED, frontChange(listOf(1, 2, 3), listOf(3)))
         assertEquals(FrontChange.REPLACED, frontChange(listOf(1, 2), listOf(9, 2)))
     }
+
+    @Test
+    fun `a shelf appearing above the first one moves forward, its disappearing does not`() {
+        assertEquals(FrontChange.MOVED, frontChange(listOf("recent", "subscriptions"), listOf("continue", "recent", "subscriptions")))
+        assertEquals(FrontChange.NONE, frontChange(listOf("continue", "recent"), listOf("recent", "subscriptions")))
+    }
 }

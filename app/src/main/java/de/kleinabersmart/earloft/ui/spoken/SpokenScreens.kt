@@ -176,6 +176,14 @@ fun SpokenHomeScreen(
             else -> {
                 val listState = rememberLazyListState()
                 ScrollToTopEffect(listState)
+                // A shelf that appears above the first one (e.g. "Continue listening" after loading or the first started book)
+                // comes into view instead of lying above the edge.
+                val shelves = listOfNotNull(
+                    "continue".takeIf { continueListening.isNotEmpty() },
+                    "series".takeIf { continueSeries.isNotEmpty() },
+                    "recent".takeIf { recent.isNotEmpty() },
+                )
+                ShowStartOnNewFront(shelves, { it }) { listState.scrollToItem(0) }
                 LazyColumn(state = listState, contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
                     if (continueListening.isNotEmpty()) {
                         item(key = "continue") {
@@ -380,6 +388,8 @@ private fun BookGrid(
 ) {
     val state = rememberLazyGridState()
     ScrollToTopEffect(state)
+    val ordered = remember(books, sections) { sections?.flatMap { it.books } ?: books }
+    ShowStartOnNewFront(ordered, { it.book.id }) { state.scrollToItem(0) }
     var shownKey by rememberSaveable { mutableStateOf(resetKey?.toString()) }
     LaunchedEffect(resetKey) {
         if (resetKey?.toString() != shownKey) {
@@ -586,6 +596,7 @@ private fun AuthorGrid(authors: List<BookGroup>, byName: Boolean, resetKey: Any?
     val state = rememberLazyGridState()
     ScrollToTopEffect(state)
     ResetScroll(resetKey) { state.scrollToItem(0) }
+    ShowStartOnNewFront(authors, { it.name }) { state.scrollToItem(0) }
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -646,6 +657,7 @@ private fun SeriesList(groups: List<SeriesProgress>, byName: Boolean, resetKey: 
     val state = rememberLazyListState()
     ScrollToTopEffect(state)
     ResetScroll(resetKey) { state.scrollToItem(0) }
+    ShowStartOnNewFront(groups, { it.name }) { state.scrollToItem(0) }
     Box(Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(vertical = 8.dp)) {
             groupedItems(groups, key = { it.name }) { group ->
@@ -914,6 +926,25 @@ fun <T> rememberFrontRow(items: List<T>, key: (T) -> Long): FrontRow<T> {
     return FrontRow(state, visible)
 }
 
+/**
+ * Vertical list or grid whose start should come into view when something new is at the front ([items] in the order shown,
+ * [key] their ID): an entry found by a sync or a manual refresh, one that moved to the front from further back (played,
+ * other sorting) or another filter. A lazy list would otherwise hold on to its previous first entry, and the new ones would lie
+ * invisibly above the edge (the vertical counterpart of [rememberFrontRow], without the hold: the list jumps right away).
+ * If only the frontmost drops out and the next moves up, the list stays where it is. Survives leaving the screen: back on it,
+ * the list shows its start if something new arrived at the front in the meantime.
+ */
+@Composable
+fun <T> ShowStartOnNewFront(items: List<T>, key: (T) -> Any, scrollToStart: suspend () -> Unit) {
+    val front = items.take(2).map { key(it).toString() }
+    var shown by rememberSaveable { mutableStateOf(front) }
+    LaunchedEffect(front) {
+        // All IDs, not just the front two: whether the previous first one moved further back or is gone decides.
+        if (frontChange(shown, items.map { key(it).toString() }) != FrontChange.NONE) scrollToStart()
+        shown = front
+    }
+}
+
 /** What changed at the front of a row ([rememberFrontRow]). */
 internal enum class FrontChange {
     /** The same one is at the front, or only the frontmost dropped out and the second moves up. */
@@ -926,7 +957,7 @@ internal enum class FrontChange {
     REPLACED,
 }
 
-internal fun frontChange(before: List<Long>, ids: List<Long>): FrontChange {
+internal fun <T> frontChange(before: List<T>, ids: List<T>): FrontChange {
     val first = ids.firstOrNull()
     val oldFirst = before.firstOrNull()
     return when {

@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.ui.library
 
 import de.kleinabersmart.earloft.ui.playlists.PlaylistRowMenu
 import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
+import de.kleinabersmart.earloft.ui.spoken.ShowStartOnNewFront
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -488,6 +489,8 @@ fun AlbumGrid(
 ) {
     val state = rememberLazyGridState()
     ScrollToTopEffect(state)
+    // An album found by a sync ("Recently added") or just played ("Recently played") appears at the top in view.
+    ShowStartOnNewFront(albums, { it.id }) { state.scrollToItem(0) }
     val playControl: PlayControlViewModel = hiltViewModel()
     val playingAlbumId by playControl.playingAlbumId.collectAsStateWithLifecycle()
     PinnableHeaderBox(header, pinHeader, modifier.fillMaxSize()) { inlineHeader ->
@@ -584,6 +587,7 @@ internal fun ArtistGrid(
 ) {
     val state = rememberLazyGridState()
     ScrollToTopEffect(state)
+    ShowStartOnNewFront(artists, { it.id }) { state.scrollToItem(0) }
     PinnableHeaderBox(header, pinHeader, Modifier.fillMaxSize()) { inlineHeader ->
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -647,6 +651,8 @@ fun SongList(
 ) {
     val state = rememberLazyListState()
     ScrollToTopEffect(state)
+    // A song found by a sync ("Recently added") appears at the top in view.
+    ShowStartOnNewFront(songs, { it.id }) { state.scrollToItem(0) }
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 16.dp)) {
             if (header != null) {
