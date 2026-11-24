@@ -285,6 +285,15 @@
     <string name="about_text">EarLoft on soitin omalle kokoelmallesi: musiikkia, podcasteja ja kirjoja tältä laitteelta ja verkosta, kukin laji yhdessä yhteisessä kirjastossa. Musiikki tulee myös Navidrome-, Subsonic-, Jellyfin- tai Emby-palvelimiltasi, podcastit mistä tahansa syötteestä ja kirjat Audiobookshelf-palvelimeltasi. Kaiken voi ladata offline-kuunteluun, kirjojen edistyminen synkronoidaan palvelimesi kanssa, ja musiikki, podcastit ja kirjat soivat myös Wear OS -kellossasi.</string>
     <string name="about_more_info">Lisätietoja ja lähdekoodi löytyvät GitHubista:</string>
     <string name="about_feedback">Ilmoita virheistä ja ominaisuustoiveista vianseurannassa:</string>
+    <plurals name="premium_countdown">
+        <item quantity="one">Vielä %1$d napautus, niin EarLoft Premium avautuu ilmaiseksi!</item>
+        <item quantity="other">Vielä %1$d napautusta, niin EarLoft Premium avautuu ilmaiseksi!</item>
+    </plurals>
+    <string name="premium_unlocked_1">Onnittelut, Premium on nyt käytössä! … Hetkinen – niin se on aina ollut. EarLoft on avointa lähdekoodia.</string>
+    <string name="premium_unlocked_2">Virhe 402: maksua ei tarvita. Kaikki oli käytössä ensimmäisestä päivästä asti – EarLoft on vapaata ohjelmistoa.</string>
+    <string name="premium_unlocked_3">Päivitys valmis. Uudet ominaisuudet: ei yhtään. Kaikki olivat jo käytössä – avoimen lähdekoodin ansiosta.</string>
+    <string name="premium_unlocked_4">Premium avattu ilmaiseksi. Kuten eilen. Kuten huomenna. Lähdekoodi kuuluu kaikille.</string>
+    <string name="premium_unlocked_5">Psst… Premium-versiota ei ole olemassakaan. On vain EarLoft – täydellinen, avoin, kaikille.</string>
     <string name="licenses_title">Lisenssit</string>
     <string name="privacy_title">Tietosuojakäytäntö</string>
     <string name="server_never_synced">Ei vielä synkronoitu</string>

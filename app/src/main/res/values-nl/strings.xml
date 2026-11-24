@@ -285,6 +285,15 @@
     <string name="about_text">EarLoft is een speler voor je eigen collectie: muziek, podcasts en boeken, van dit apparaat en uit het netwerk, elk in één gezamenlijke bibliotheek. Muziek komt ook van je Navidrome-, Subsonic-, Jellyfin- of Emby-servers, podcasts van elke willekeurige feed en boeken van je Audiobookshelf-server. Alles kan worden gedownload om offline te luisteren, de voortgang van boeken wordt gesynchroniseerd met je server, en muziek, podcasts en boeken spelen ook af op je Wear OS-horloge.</string>
     <string name="about_more_info">Meer informatie en de broncode vind je op GitHub:</string>
     <string name="about_feedback">Meld bugs en functieverzoeken in de issuetracker:</string>
+    <plurals name="premium_countdown">
+        <item quantity="one">Nog %1$d tik om EarLoft Premium gratis te ontgrendelen!</item>
+        <item quantity="other">Nog %1$d tikken om EarLoft Premium gratis te ontgrendelen!</item>
+    </plurals>
+    <string name="premium_unlocked_1">Gefeliciteerd, je hebt nu Premium! … Wacht even – dat had je altijd al. EarLoft is open source.</string>
+    <string name="premium_unlocked_2">Fout 402: betaling niet vereist. Je had vanaf de eerste dag alles – EarLoft is vrije software.</string>
+    <string name="premium_unlocked_3">Upgrade voltooid. Nieuwe functies: geen. Je had ze al allemaal – dankzij open source.</string>
+    <string name="premium_unlocked_4">Premium gratis ontgrendeld. Net als gisteren. Net als morgen. De broncode is van iedereen.</string>
+    <string name="premium_unlocked_5">Psst … er bestaat helemaal geen Premium-versie. Alleen EarLoft – compleet, open, voor iedereen.</string>
     <string name="licenses_title">Licenties</string>
     <string name="privacy_title">Privacybeleid</string>
     <string name="server_never_synced">Nog niet gesynchroniseerd</string>

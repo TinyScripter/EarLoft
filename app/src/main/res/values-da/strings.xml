@@ -285,6 +285,15 @@
     <string name="about_text">EarLoft er en afspiller til din egen samling: musik, podcasts og bøger fra denne enhed og fra netværket, hver især i ét fælles bibliotek. Musik kommer også fra dine Navidrome-, Subsonic-, Jellyfin- eller Emby-servere, podcasts fra ethvert feed og bøger fra din Audiobookshelf-server. Alt kan downloades, så du kan lytte offline, fremskridt i bøger synkroniseres med din server, og musik, podcasts og bøger kan også afspilles på dit Wear OS-ur.</string>
     <string name="about_more_info">Du finder flere oplysninger og kildekoden på GitHub:</string>
     <string name="about_feedback">Rapportér fejl og ønsker til funktioner i issue-trackeren:</string>
+    <plurals name="premium_countdown">
+        <item quantity="one">Kun %1$d tryk mere til EarLoft Premium – gratis!</item>
+        <item quantity="other">Kun %1$d tryk mere til EarLoft Premium – gratis!</item>
+    </plurals>
+    <string name="premium_unlocked_1">Tillykke, nu har du Premium! … Vent lidt – det har du altid haft. EarLoft er open source.</string>
+    <string name="premium_unlocked_2">Fejl 402: Betaling ikke påkrævet. Du havde alt fra første dag – EarLoft er fri software.</string>
+    <string name="premium_unlocked_3">Opgradering fuldført. Nye funktioner: ingen. Du havde dem allerede alle – takket være open source.</string>
+    <string name="premium_unlocked_4">Premium låst op gratis. Som i går. Som i morgen. Kildekoden tilhører alle.</string>
+    <string name="premium_unlocked_5">Psst … der findes ingen Premium-version. Kun EarLoft – komplet, åben, for alle.</string>
     <string name="licenses_title">Licenser</string>
     <string name="privacy_title">Privatlivspolitik</string>
     <string name="server_never_synced">Ikke synkroniseret endnu</string>

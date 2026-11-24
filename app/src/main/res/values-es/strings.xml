@@ -299,6 +299,16 @@
     <string name="about_text">EarLoft es un reproductor para tu propia colección: música, podcasts y libros, de este dispositivo y de la red, cada uno en una biblioteca común. La música también puede venir de tus servidores Navidrome, Subsonic, Jellyfin o Emby; los podcasts, de cualquier feed, y los libros, de tu servidor Audiobookshelf. Todo se puede descargar para escucharlo sin conexión, el progreso de los libros se sincroniza con tu servidor, y la música, los podcasts y los libros también se reproducen en tu reloj Wear OS.</string>
     <string name="about_more_info">Encontrarás más información y el código fuente en GitHub:</string>
     <string name="about_feedback">Informa de errores y sugerencias de funciones en el gestor de incidencias:</string>
+    <plurals name="premium_countdown">
+        <item quantity="one">¡Solo %1$d toque más para desbloquear EarLoft Premium gratis!</item>
+        <item quantity="many">¡Solo %1$d toques más para desbloquear EarLoft Premium gratis!</item>
+        <item quantity="other">¡Solo %1$d toques más para desbloquear EarLoft Premium gratis!</item>
+    </plurals>
+    <string name="premium_unlocked_1">¡Enhorabuena, ya tienes Premium! … Un momento: siempre lo tuviste. EarLoft es de código abierto.</string>
+    <string name="premium_unlocked_2">Error 402: pago no necesario. Lo tenías todo desde el primer día: EarLoft es software libre.</string>
+    <string name="premium_unlocked_3">Actualización completada. Funciones nuevas: ninguna. Ya las tenías todas, gracias al código abierto.</string>
+    <string name="premium_unlocked_4">Premium desbloqueado gratis. Como ayer. Como mañana. El código fuente es de todos.</string>
+    <string name="premium_unlocked_5">Psst… no existe una versión Premium. Solo EarLoft: completo, abierto, para todos.</string>
     <string name="licenses_title">Licencias</string>
     <string name="privacy_title">Política de privacidad</string>
     <string name="server_never_synced">Aún no sincronizado</string>

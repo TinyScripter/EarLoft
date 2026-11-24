@@ -313,6 +313,17 @@
     <string name="about_text">EarLoft je přehrávač pro vaši vlastní sbírku: hudba, podcasty a knihy z tohoto zařízení i ze sítě, vždy v jedné společné knihovně. Hudbu přehraje také z vašich serverů Navidrome, Subsonic, Jellyfin nebo Emby, podcasty z libovolného kanálu a knihy z vašeho serveru Audiobookshelf. Vše si můžete stáhnout k poslechu offline, průběh poslechu knih se synchronizuje s vaším serverem a hudba, podcasty i knihy hrají také na hodinkách s Wear OS.</string>
     <string name="about_more_info">Další informace a zdrojový kód najdete na GitHubu:</string>
     <string name="about_feedback">Chyby a návrhy na nové funkce prosím hlaste v systému hlášení problémů:</string>
+    <plurals name="premium_countdown">
+        <item quantity="one">Ještě %1$d klepnutí k EarLoft Premium zdarma!</item>
+        <item quantity="few">Ještě %1$d klepnutí k EarLoft Premium zdarma!</item>
+        <item quantity="many">Ještě %1$d klepnutí k EarLoft Premium zdarma!</item>
+        <item quantity="other">Ještě %1$d klepnutí k EarLoft Premium zdarma!</item>
+    </plurals>
+    <string name="premium_unlocked_1">Gratulujeme, teď máte Premium! … Moment – tak to bylo vždycky. EarLoft je open source.</string>
+    <string name="premium_unlocked_2">Chyba 402: platba není nutná. Všechno bylo vaše od prvního dne – EarLoft je svobodný software.</string>
+    <string name="premium_unlocked_3">Upgrade dokončen. Nové funkce: žádné. Všechny tu už byly – díky open source.</string>
+    <string name="premium_unlocked_4">Premium odemčeno zdarma. Jako včera. Jako zítra. Zdrojový kód patří všem.</string>
+    <string name="premium_unlocked_5">Psst… žádná verze Premium neexistuje. Jen EarLoft – kompletní, otevřený, pro všechny.</string>
     <string name="licenses_title">Licence</string>
     <string name="privacy_title">Zásady ochrany soukromí</string>
     <string name="server_never_synced">Zatím nesynchronizováno</string>

@@ -299,6 +299,16 @@
     <string name="about_text">EarLoft est un lecteur pour votre propre collection : musique, podcasts et livres, depuis cet appareil et depuis le réseau, chacun dans une bibliothèque commune. La musique provient aussi de vos serveurs Navidrome, Subsonic, Jellyfin ou Emby, les podcasts de n’importe quel flux et les livres de votre serveur Audiobookshelf. Tout peut être téléchargé pour une écoute hors connexion, la progression des livres est synchronisée avec votre serveur, et musique, podcasts et livres sont également lisibles sur votre montre Wear OS.</string>
     <string name="about_more_info">Pour en savoir plus et consulter le code source, rendez-vous sur GitHub :</string>
     <string name="about_feedback">Veuillez signaler les bugs et proposer des fonctionnalités dans l’outil de suivi des problèmes :</string>
+    <plurals name="premium_countdown">
+        <item quantity="one">Plus que %1$d appui pour débloquer EarLoft Premium gratuitement !</item>
+        <item quantity="many">Plus que %1$d appuis pour débloquer EarLoft Premium gratuitement !</item>
+        <item quantity="other">Plus que %1$d appuis pour débloquer EarLoft Premium gratuitement !</item>
+    </plurals>
+    <string name="premium_unlocked_1">Félicitations, vous avez maintenant Premium ! … Un instant – vous l’avez toujours eu. EarLoft est open source.</string>
+    <string name="premium_unlocked_2">Erreur 402 : paiement non requis. Vous aviez tout dès le premier jour – EarLoft est un logiciel libre.</string>
+    <string name="premium_unlocked_3">Mise à niveau terminée. Nouvelles fonctions : aucune. Vous les aviez déjà toutes – grâce à l’open source.</string>
+    <string name="premium_unlocked_4">Premium débloqué gratuitement. Comme hier. Comme demain. Le code source appartient à tout le monde.</string>
+    <string name="premium_unlocked_5">Psst … il n’y a pas de version Premium. Juste EarLoft – complet, ouvert, pour tout le monde.</string>
     <string name="licenses_title">Licences</string>
     <string name="privacy_title">Règles de confidentialité</string>
     <string name="server_never_synced">Pas encore synchronisé</string>

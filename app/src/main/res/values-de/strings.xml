@@ -285,6 +285,15 @@
     <string name="about_text">EarLoft ist ein Player für deine eigene Sammlung: Musik, Podcasts und Bücher, vom Gerät und aus dem Netz, jeweils in einer gemeinsamen Bibliothek. Musik kommt außerdem von deinen Navidrome-, Subsonic-, Jellyfin- oder Emby-Servern, Podcasts aus beliebigen Feeds und Bücher von deinem Audiobookshelf-Server. Alles lässt sich für unterwegs herunterladen, der Fortschritt der Bücher wird mit deinem Server abgeglichen, und Musik, Podcasts und Bücher spielen auch auf der Wear-OS-Uhr.</string>
     <string name="about_more_info">Weitere Informationen und den Quellcode findest du auf GitHub:</string>
     <string name="about_feedback">Bugs und Feature-Wünsche bitte im Issue-Tracker melden:</string>
+    <plurals name="premium_countdown">
+        <item quantity="one">Nur noch %1$d Tipp bis EarLoft Premium – kostenlos!</item>
+        <item quantity="other">Nur noch %1$d Tipps bis EarLoft Premium – kostenlos!</item>
+    </plurals>
+    <string name="premium_unlocked_1">Glückwunsch, du hast jetzt Premium! … Moment – das hattest du schon immer. EarLoft ist Open Source.</string>
+    <string name="premium_unlocked_2">Fehler 402: Bezahlung nicht erforderlich. Du hattest von Anfang an alles – EarLoft ist freie Software.</string>
+    <string name="premium_unlocked_3">Upgrade abgeschlossen. Neue Funktionen: keine. Du hattest schon alle – dank Open Source.</string>
+    <string name="premium_unlocked_4">Premium freigeschaltet für 0 €. Wie gestern. Wie morgen. Der Quellcode gehört allen.</string>
+    <string name="premium_unlocked_5">Psst … eine Premium-Version gibt es gar nicht. Nur EarLoft – komplett, offen, für alle.</string>
     <string name="licenses_title">Lizenzen</string>
     <string name="privacy_title">Datenschutzerklärung</string>
     <string name="privacy_asset">PRIVACY.de.md</string>

@@ -34,7 +34,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import de.kleinabersmart.earloft.ui.components.AppLogo
+import de.kleinabersmart.earloft.ui.components.PlayfulAppLogo
 import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
@@ -77,7 +77,7 @@ private fun AboutContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            AppLogo(
+            PlayfulAppLogo(
                 contentScale = ContentScale.FillWidth,
                 modifier = Modifier
                     .fillMaxWidth()

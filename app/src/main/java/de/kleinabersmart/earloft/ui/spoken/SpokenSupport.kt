@@ -112,13 +112,13 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.AppUris
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.navigation.SharedAcrossScreens
-import de.kleinabersmart.earloft.ui.components.AppLogo
 import de.kleinabersmart.earloft.ui.components.CoverOutlineWidth
 import de.kleinabersmart.earloft.ui.components.coverOutlineColor
 import de.kleinabersmart.earloft.ui.components.EmptyAreaHint
 import de.kleinabersmart.earloft.ui.components.HeaderActions
 import de.kleinabersmart.earloft.ui.components.LocalHeaderActions
 import de.kleinabersmart.earloft.ui.components.LocalOpenAreaSettings
+import de.kleinabersmart.earloft.ui.components.PlayfulAppLogo
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
@@ -225,7 +225,7 @@ private fun SpokenModeScaffold(
                 TopAppBar(
                     windowInsets = TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Horizontal),
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    title = { AppLogo(Modifier.height(40.dp)) },
+                    title = { PlayfulAppLogo(Modifier.height(40.dp)) },
                     // As in a single subscription: refresh at the far right, the search to its left.
                     actions = {
                         mode?.let { headerActions.getValue(it).content?.invoke() }

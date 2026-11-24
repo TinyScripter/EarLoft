@@ -287,6 +287,15 @@
     <string name="about_more_info">For more information and the source code, see GitHub:</string>
     <string name="about_repository_url" translatable="false">https://github.com/TinyScripter/EarLoft/</string>
     <string name="about_feedback">Please report bugs and feature requests in the issue tracker:</string>
+    <plurals name="premium_countdown">
+        <item quantity="one">Only %1$d more tap to unlock EarLoft Premium for free!</item>
+        <item quantity="other">Only %1$d more taps to unlock EarLoft Premium for free!</item>
+    </plurals>
+    <string name="premium_unlocked_1">Congratulations, you now have Premium! … Hang on – you always had it. EarLoft is open source.</string>
+    <string name="premium_unlocked_2">Error 402: Payment not required. You had everything from day one – EarLoft is free software.</string>
+    <string name="premium_unlocked_3">Upgrade complete. New features: none. You already had them all – thanks to open source.</string>
+    <string name="premium_unlocked_4">Premium unlocked for free. Same as yesterday. Same as tomorrow. The source code belongs to everyone.</string>
+    <string name="premium_unlocked_5">Psst … there is no Premium version. Just EarLoft – complete, open, for everyone.</string>
     <string name="about_issues_url" translatable="false">https://github.com/TinyScripter/EarLoft/issues</string>
     <string name="licenses_title">Licenses</string>
     <string name="privacy_title">Privacy policy</string>
