@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.room.withTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.repository.PlaybackStateRepository
+import de.kleinabersmart.earloft.core.data.sync.SyncScheduler
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.WearDao
 import kotlinx.coroutines.sync.Mutex
@@ -19,7 +20,7 @@ data class WatchPlay(val songUid: String, val playedAt: Long, val listenedMs: Lo
  * Adopts the watch's plays into the phone's listening history and scrobbles them like its own (Wear concept 10).
  * A packet is imported only once: if the phone crashes between import and deleting the DataItem,
  * it arrives again ([ImportedPackets]). All plays of a packet are written in one transaction: a packet aborted halfway arrives
- * again and must not count its first plays twice.
+ * again and must not count its first plays twice. The sync queue that scrobbles them starts only after it (review3 Q11).
  */
 @Singleton
 class WatchPlayImporter @Inject constructor(
@@ -27,6 +28,7 @@ class WatchPlayImporter @Inject constructor(
     private val database: EarLoftDatabase,
     private val wearDao: WearDao,
     private val playbackState: PlaybackStateRepository,
+    private val syncScheduler: SyncScheduler,
 ) {
     private val importedPackets = ImportedPackets(context, PREFERENCES)
     private val mutex = Mutex()
@@ -54,6 +56,7 @@ class WatchPlayImporter @Inject constructor(
             }
         }
         importedPackets.remember(packetId)
+        if (imported > 0) syncScheduler.enqueue()
         imported
     }
 

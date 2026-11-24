@@ -204,10 +204,12 @@ class SyncQueueProcessorTest {
     fun `an older play, e g from the watch, is queued instead of reported live`() = runTest {
         val live = LiveServer(home)
         val playedAt = System.currentTimeMillis() - SyncQueuePlayReporter.LIVE_WINDOW_MS - 60_000
+        val scheduler = Starts()
 
-        reporter(live, office).report(songId, playedAt, listenedMs = 40_000)
+        reporter(live, office, scheduler = scheduler).report(songId, playedAt, listenedMs = 40_000)
 
         assertTrue(live.reports.isEmpty())
+        assertEquals(1, scheduler.count)
         assertTrue(db.syncQueueProcessor(live, office).process())
         assertEquals(listOf("scrobble h ${playedAt - 40_000}"), home.calls)
     }
@@ -216,10 +218,13 @@ class SyncQueueProcessorTest {
     fun `a play passed on from the watch is queued even when it just ended`() = runTest {
         val live = LiveServer(home)
         val playedAt = System.currentTimeMillis()
+        val scheduler = Starts()
 
-        reporter(live, office).report(songId, playedAt, listenedMs = 40_000, live = false)
+        reporter(live, office, scheduler = scheduler).report(songId, playedAt, listenedMs = 40_000, live = false)
 
         assertTrue(live.reports.isEmpty())
+        // The importer starts the queue itself, after its transaction (review3 Q11).
+        assertEquals(0, scheduler.count)
         assertTrue(db.syncQueueProcessor(live, office).process())
         assertEquals(listOf("scrobble h ${playedAt - 40_000}"), home.calls)
     }
@@ -239,14 +244,22 @@ class SyncQueueProcessorTest {
         assertEquals(0, db.syncDao().countActions())
     }
 
-    private fun reporter(vararg sources: MusicDataSource) = SyncQueuePlayReporter(
+    private fun reporter(vararg sources: MusicDataSource, scheduler: SyncScheduler = NoScheduler) = SyncQueuePlayReporter(
         libraryDao = db.libraryDao(),
         mergeDao = db.mergeDao(),
         syncDao = db.syncDao(),
         syncSettings = SyncSettings(ApplicationProvider.getApplicationContext()),
-        syncScheduler = NoScheduler,
+        syncScheduler = scheduler,
         sources = FixedSources(*sources),
     )
+
+    /** Counts how often the queue is started. */
+    private class Starts : SyncScheduler {
+        var count = 0
+        override suspend fun enqueue() {
+            count++
+        }
+    }
 
     /** Like [FakeServer], but accepts plays live (Jellyfin). */
     private class LiveServer(private val server: FakeServer) :

@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.data.repository.PlayReporter
 import de.kleinabersmart.earloft.core.data.repository.PlaybackStateRepository
+import de.kleinabersmart.earloft.core.data.sync.SyncScheduler
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.AlbumEntity
 import de.kleinabersmart.earloft.core.database.entity.SongEntity
@@ -30,9 +31,18 @@ class WatchPlayImporterTest {
         }
     }
 
+    /** Counts the plays the sync queue would find when it is started. */
+    private inner class VisiblePlays : SyncScheduler {
+        val seen = mutableListOf<Int>()
+        override suspend fun enqueue() {
+            seen += db.query("SELECT COUNT(*) FROM play_events", null).use { it.moveToFirst(); it.getInt(0) }
+        }
+    }
+
     private lateinit var db: EarLoftDatabase
     private lateinit var importer: WatchPlayImporter
     private val reporter = RecordingReporter()
+    private val scheduler = VisiblePlays()
     private var songId = 0L
 
     @Before
@@ -53,6 +63,7 @@ class WatchPlayImporterTest {
             db,
             db.wearDao(),
             PlaybackStateRepository(db.playbackDao(), reporter),
+            scheduler,
         )
     }
 
@@ -67,6 +78,15 @@ class WatchPlayImporterTest {
 
         assertEquals(1, imported)
         assertEquals(listOf(Triple(songId, 1_000L, 400L)), reporter.reported)
+    }
+
+    @Test
+    fun `the sync queue starts once after the packet's transaction, with its plays in place`() = runTest {
+        importer.import("p1", listOf(WatchPlay("home:h", 1, 1), WatchPlay("home:h", 2, 2)))
+        importer.import("p2", listOf(WatchPlay("gone:x", 3, 3)))
+
+        // review3 Q11: started inside the transaction, a pass could run before the commit and find nothing.
+        assertEquals(listOf(2), scheduler.seen)
     }
 
     @Test

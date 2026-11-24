@@ -21,7 +21,11 @@ import javax.inject.Inject
  * sync queue ([SyncQueuePlayReporter]), the watch sends it to the phone (Wear concept 10).
  */
 interface PlayReporter {
-    /** @param live `false` for plays reported later (from the watch): only into the queue, no network. */
+    /**
+     * @param live `false` for plays reported later (from the watch): only into the queue, without network and without starting
+     *   the queue. The caller starts it ([de.kleinabersmart.earloft.core.data.sync.SyncScheduler.enqueue]) once its
+     *   transaction is committed; started inside it, a pass could run before the commit, find nothing and end (review3 Q11).
+     */
     suspend fun report(songId: Long, playedAt: Long, listenedMs: Long, live: Boolean = true)
 }
 
@@ -58,7 +62,8 @@ class SyncQueuePlayReporter @Inject constructor(
                 createdAt = playedAt,
             ),
         )
-        if (live && System.currentTimeMillis() - playedAt <= LIVE_WINDOW_MS && reportLive(server, songId)) {
+        if (!live) return
+        if (System.currentTimeMillis() - playedAt <= LIVE_WINDOW_MS && reportLive(server, songId)) {
             syncDao.deleteAction(actionId)
             return
         }
