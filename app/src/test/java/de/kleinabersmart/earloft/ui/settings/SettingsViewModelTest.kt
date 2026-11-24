@@ -43,11 +43,17 @@ import de.kleinabersmart.earloft.testing.awaitReal
 import de.kleinabersmart.earloft.ui.spoken.OpmlImporter
 import de.kleinabersmart.earloft.ui.theme.ThemeSettings
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import android.net.Uri
+import de.kleinabersmart.earloft.R
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -137,6 +143,29 @@ class SettingsViewModelTest {
         assertTrue(syncer.syncSafely(FakeSource { emit(SourceBatch(emptyList())) }))
         val synced = awaitReal { viewModel.state.first { it.servers.singleOrNull()?.error == null && !it.isLoading } }
         assertNull(synced.servers.single().error)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `a database import whose temporary file can't be created fails with a message and doesn't block the next one`() = runTest {
+        val texts = MutableStateFlow(emptyList<String>())
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { snackbars.messages.collect { m -> texts.update { it + m.text } } }
+        val started = context.getString(R.string.settings_db_import_started)
+        val failed = context.getString(R.string.settings_db_import_failed)
+        val uri = Uri.parse("content://nowhere/import.db")
+
+        val cache = context.cacheDir
+        assertTrue(cache.setWritable(false))
+        try {
+            viewModel.importImportData(uri)
+            // review3 Q10: the failure was only logged, and the lock stayed set until the process ended.
+            awaitReal { texts.first { failed in it } }
+        } finally {
+            cache.setWritable(true)
+        }
+
+        viewModel.importImportData(uri)
+        awaitReal { texts.first { list -> list.count { it == started } == 2 } }
     }
 
     /** A server whose full sync returns [scan]. */

@@ -586,13 +586,15 @@ class SettingsViewModel @Inject constructor(
         if (!databaseImportRunning.compareAndSet(false, true)) return
         report(TransferMessage.DatabaseImportStarted)
         applicationScope.launch {
-            // A name of its own: an import still running elsewhere keeps its file.
-            val file = withContext(Dispatchers.IO) { File.createTempFile("import", ".db", context.cacheDir) }
+            var file: File? = null
             val message = try {
                 val backup = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } }
+                    // A name of its own: an import still running elsewhere keeps its file. Inside the `try`: if it can't be
+                    // created, the import fails with a message and frees the lock (review3 Q10).
+                    val target = File.createTempFile("import", ".db", context.cacheDir).also { file = it }
+                    context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { input.copyTo(it) } }
                         ?: throw IOException("File not readable")
-                    DatabaseReader.read(file)
+                    DatabaseReader.read(target)
                 }
                 TransferMessage.DatabaseImported(databaseImporter.import(backup))
             } catch (e: CancellationException) {
@@ -606,7 +608,7 @@ class SettingsViewModel @Inject constructor(
                 Log.w(TAG, "Backup import failed", e)
                 TransferMessage.DatabaseImportFailed
             } finally {
-                file.delete()
+                file?.delete()
                 databaseImportRunning.set(false)
             }
             report(message)
