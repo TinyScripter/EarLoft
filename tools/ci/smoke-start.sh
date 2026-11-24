@@ -13,7 +13,10 @@ package="${2:-de.kleinabersmart.earloft}"
 seconds_after_start=15
 monkey_events=300
 
-adb wait-for-device
+if ! timeout 300 adb wait-for-device; then
+    echo "No device came up within 5 minutes." >&2
+    exit 2
+fi
 if [ "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" != "1" ] && [ "$(adb shell getprop ro.boot.qemu | tr -d '\r')" != "1" ]; then
     echo "Not an emulator – refusing to uninstall $package there." >&2
     exit 2

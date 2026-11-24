@@ -84,22 +84,28 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Start emulator
+      - name: Install emulator and system image
         env:
           IMAGE: ${{ matrix.image }}
           DEVICE: ${{ matrix.device }}
         run: |
           tools="$ANDROID_HOME/cmdline-tools/latest/bin"
-          yes | "$tools/sdkmanager" --licenses > /dev/null
-          "$tools/sdkmanager" --install emulator platform-tools "$IMAGE" > /dev/null
+          yes | "$tools/sdkmanager" --licenses > /dev/null || true
+          "$tools/sdkmanager" --install emulator platform-tools "$IMAGE" | tail -3
           echo no | "$tools/avdmanager" create avd -n start-test -k "$IMAGE" -d "$DEVICE"
-          nohup "$ANDROID_HOME/emulator/emulator" -avd start-test -no-window -no-audio -no-boot-anim -no-snapshot \
-            -gpu swiftshader_indirect -memory 3072 > emulator.log 2>&1 &
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          ls -l /dev/kvm
 
+      # Emulator and test in one step: the emulator runs exactly as long as the test, and its log is at hand when it fails.
       - name: Start test
-        run: tools/ci/smoke-start.sh "${{ matrix.apk }}"
-
-      - name: Emulator log
-        if: failure()
-        run: tail -100 emulator.log || true
+        timeout-minutes: 20
+        env:
+          APK: ${{ matrix.apk }}
+        run: |
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          "$ANDROID_HOME/emulator/emulator" -avd start-test -no-window -no-audio -no-boot-anim -no-snapshot \
+            -gpu swiftshader_indirect -memory 3072 > emulator.log 2>&1 &
+          if ! tools/ci/smoke-start.sh "$APK"; then
+            echo "--- emulator log"
+            tail -150 emulator.log
+            exit 1
+          fi
