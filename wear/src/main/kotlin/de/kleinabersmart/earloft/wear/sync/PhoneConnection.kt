@@ -89,11 +89,12 @@ class PhoneConnection @Inject constructor(
 
     /**
      * The connected phone with the app, otherwise `null` (for file transfers, Wear concept 8.4). Kept for [NODE_CACHE_MS]: each
-     * lookup costs three calls to Play services, and the crown asks on every step (review2 J94).
+     * lookup costs three calls to Play services, and the crown asks on every step (review2 J94). [fresh] asks anyway: "no phone"
+     * from just before it came back must not hold up the return (review3 Q31).
      */
-    suspend fun connectedPhoneNodeId(): String? {
+    suspend fun connectedPhoneNodeId(fresh: Boolean = false): String? {
         val now = SystemClock.elapsedRealtime()
-        cachedNode?.let { (nodeId, at) -> if (now - at < NODE_CACHE_MS) return nodeId }
+        if (!fresh) cachedNode?.let { (nodeId, at) -> if (now - at < NODE_CACHE_MS) return nodeId }
         return (resolve() as? PhoneStatus.Connected)?.nodeId.also { cachedNode = it to now }
     }
 

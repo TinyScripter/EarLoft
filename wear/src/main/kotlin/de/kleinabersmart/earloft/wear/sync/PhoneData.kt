@@ -44,6 +44,7 @@ internal class PlayServicesPhoneData @Inject constructor(private val dataClient:
  * request to open the app there ([PhoneReturn]).
  */
 internal interface PhoneLink {
+    /** Asked anew, not from the short cache of [PhoneConnection]: a sync is rare, and it decides whether the phone is back. */
     suspend fun connectedPhoneNodeId(): String?
 
     /** [CredentialsRequester.request]. */
@@ -61,7 +62,7 @@ internal class PlayServicesPhoneLink @Inject constructor(
     private val credentials: CredentialsRequester,
     private val phoneReturn: PhoneReturn,
 ) : PhoneLink {
-    override suspend fun connectedPhoneNodeId(): String? = connection.connectedPhoneNodeId()
+    override suspend fun connectedPhoneNodeId(): String? = connection.connectedPhoneNodeId(fresh = true)
 
     override suspend fun requestCredentials(sourceIds: Collection<String>, phoneNodeId: String) =
         credentials.request(sourceIds, phoneNodeId)
