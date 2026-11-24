@@ -60,11 +60,32 @@ class EpisodeQueue @Inject constructor(
         combine(prefs, idsByKey) { prefs, ids -> prefs.read(KEY_ORDER).mapNotNull { ids[it] } }.distinctUntilChanged()
 
     /**
-     * Episodes removed by hand from this row or from "Recently added" on Home (one list for both); they no longer appear
-     * there until they are played or inserted again.
+     * Episodes removed from the row by hand; they no longer appear until they are played or inserted again. "Recently added" on
+     * Home leaves them out as well.
      */
     val hidden: Flow<Set<Long>> =
         combine(prefs, idsByKey) { prefs, ids -> prefs.read(KEY_HIDDEN).mapNotNullTo(HashSet()) { ids[it] } }.distinctUntilChanged()
+
+    /** Episodes removed by hand from "Recently added" on Home; the order and [hidden] of this row stay as they are. */
+    val recentHidden: Flow<Set<Long>> =
+        combine(prefs, idsByKey) { prefs, ids -> prefs.read(KEY_RECENT_HIDDEN).mapNotNullTo(HashSet()) { ids[it] } }
+            .distinctUntilChanged()
+
+    /** Takes the episode out of "Recently added" (only there). The list keeps the newest [RECENT_HIDDEN_MAX] entries. */
+    suspend fun hideFromRecent(bookId: Long) {
+        val key = keysOf(listOf(bookId))[bookId] ?: return
+        migrateLegacyIds()
+        context.episodeQueueDataStore.edit { prefs ->
+            prefs.write(KEY_RECENT_HIDDEN, ((prefs.read(KEY_RECENT_HIDDEN) - key) + key).takeLast(RECENT_HIDDEN_MAX))
+        }
+    }
+
+    /** Undoes [hideFromRecent]. */
+    suspend fun unhideFromRecent(bookId: Long) {
+        val key = keysOf(listOf(bookId))[bookId] ?: return
+        migrateLegacyIds()
+        context.episodeQueueDataStore.edit { prefs -> prefs.write(KEY_RECENT_HIDDEN, prefs.read(KEY_RECENT_HIDDEN) - key) }
+    }
 
     /**
      * "Clear" on the "Recently added" shelf: publication time of the newest episode it showed; only newer episodes appear there.
@@ -150,13 +171,6 @@ class EpisodeQueue @Inject constructor(
         }
     }
 
-    /** Undoes [remove] for an episode that wasn't in the fixed order: it appears on its own again where its rules allow. */
-    suspend fun unhide(bookId: Long) {
-        val key = keysOf(listOf(bookId))[bookId] ?: return
-        migrateLegacyIds()
-        context.episodeQueueDataStore.edit { prefs -> prefs.write(KEY_HIDDEN, prefs.read(KEY_HIDDEN) - key) }
-    }
-
     /** Removes the episodes from the row, like [remove] for each, in one step. */
     suspend fun removeAll(bookIds: List<Long>) {
         val keys = keysOf(bookIds).values.toSet()
@@ -174,6 +188,7 @@ class EpisodeQueue @Inject constructor(
         context.episodeQueueDataStore.edit { prefs ->
             prefs.write(KEY_ORDER, prefs.read(KEY_ORDER).map { renames[it] ?: it })
             prefs.write(KEY_HIDDEN, prefs.read(KEY_HIDDEN).map { renames[it] ?: it })
+            prefs.write(KEY_RECENT_HIDDEN, prefs.read(KEY_RECENT_HIDDEN).map { renames[it] ?: it })
         }
     }
 
@@ -234,7 +249,11 @@ class EpisodeQueue @Inject constructor(
     companion object {
         private val KEY_ORDER = stringPreferencesKey("order_keys")
         private val KEY_HIDDEN = stringPreferencesKey("hidden_keys")
+        private val KEY_RECENT_HIDDEN = stringPreferencesKey("recent_hidden_keys")
         private val KEY_RECENT_CLEARED = longPreferencesKey("recent_cleared_until")
+
+        /** The row only shows the last 30 days; older removals no longer matter, so the list doesn't grow forever. */
+        private const val RECENT_HIDDEN_MAX = 200
         private val LEGACY_ORDER = stringPreferencesKey("order")
         private val LEGACY_HIDDEN = stringPreferencesKey("hidden")
 
@@ -248,7 +267,7 @@ class EpisodeQueue @Inject constructor(
          * When restoring a backup: local order and hidden entries first, then the missing backed-up ones, with
          * the local IDs of their servers and subscriptions.
          */
-        internal val BACKUP_MERGES: Map<String, SettingsMerge> = listOf(KEY_ORDER, KEY_HIDDEN).associate { preference ->
+        internal val BACKUP_MERGES: Map<String, SettingsMerge> = listOf(KEY_ORDER, KEY_HIDDEN, KEY_RECENT_HIDDEN).associate { preference ->
             preference.name to SettingsMerge { current, saved, ids ->
                 fun split(value: Any?) = (value as? String).orEmpty().split(ENTRY_SEPARATOR).filter { it.isNotEmpty() }
                 val here = split(current)

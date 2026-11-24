@@ -144,19 +144,11 @@ class EpisodeMenuViewModel @Inject constructor(
         }
     }
 
-    /**
-     * "Remove from Recently added": also out of "Continue listening" (one list for both, concept 12.5). [onUndo] puts it back; if
-     * it stood in "Continue listening", there at its old place.
-     */
+    /** "Remove from Recently added": only out of that row, "Continue listening" stays as it is (concept 12.5). */
     fun hideFromRecent(bookId: Long, onUndo: (suspend () -> Unit) -> Unit = {}) {
         act {
-            val before = continueListening.episodes.first().map { it.book.id }
-            if (bookId in before) {
-                setQueued(bookId, queued = false, onUndo)
-            } else {
-                recentlyAdded.hide(bookId)
-                onUndo { recentlyAdded.unhide(bookId) }
-            }
+            recentlyAdded.hide(bookId)
+            onUndo { recentlyAdded.unhide(bookId) }
         }
     }
 

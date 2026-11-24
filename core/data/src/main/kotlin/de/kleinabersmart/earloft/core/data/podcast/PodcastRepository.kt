@@ -304,7 +304,7 @@ class PodcastRepository @Inject constructor(
      * - episodes published more than [RECENT_DAYS] days ago or not after [clearedUntil] ("Clear" on the shelf);
      * - never started episodes behind a newer started or played one of the same subscription (the user has moved past them,
      *   the same rule as the count of new episodes on the subscription's tile, [feedStats]);
-     * - episodes in [hidden], removed by hand from this row or from "Continue listening" (one list for both).
+     * - episodes in [hidden], removed by hand from this row or from "Continue listening" ([RecentlyAdded] passes both lists).
      */
     fun recentEpisodes(
         hidden: Flow<Set<Long>> = flowOf(emptySet()),

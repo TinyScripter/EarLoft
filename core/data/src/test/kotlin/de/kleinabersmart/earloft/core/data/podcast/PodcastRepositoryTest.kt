@@ -21,6 +21,7 @@ import de.kleinabersmart.earloft.core.network.podcast.Opml
 import de.kleinabersmart.earloft.core.network.podcast.OpmlFeed
 import de.kleinabersmart.earloft.core.network.podcast.PodcastFeedApi
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdSoundsApi
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -1055,11 +1056,14 @@ class PodcastRepositoryTest {
         val feedId = subscribe()
         val a = db.bookDao().booksOf(feedId).single { it.title == "A" }
         val c = idOf(feedId, "C")
-        val recent = { repository.recentEpisodes(queue.hidden, queue.recentClearedUntil) { now } }
+        val hidden = combine(queue.hidden, queue.recentHidden) { x, y -> x + y }
+        val recent = { repository.recentEpisodes(hidden, queue.recentClearedUntil) { now } }
+        val continueTitles = suspend { repository.continueListening(queue.order, queue.hidden) { now }.first().map { it.book.title } }
         try {
-            queue.remove(c)
+            queue.hideFromRecent(c)
             assertEquals(listOf("A", "B"), recent().first().map { it.book.title })
-            queue.unhide(c)
+            assertEquals("Continue listening keeps it", listOf("A", "B", "C"), continueTitles())
+            queue.unhideFromRecent(c)
             assertEquals(listOf("A", "B", "C"), recent().first().map { it.book.title })
 
             queue.setRecentClearedUntil(a.addedAt)
@@ -1070,7 +1074,7 @@ class PodcastRepositoryTest {
             assertEquals(listOf("D"), recent().first().map { it.book.title })
         } finally {
             // The DataStore outlives the test.
-            queue.unhide(c)
+            queue.unhideFromRecent(c)
             queue.setRecentClearedUntil(0)
         }
     }
