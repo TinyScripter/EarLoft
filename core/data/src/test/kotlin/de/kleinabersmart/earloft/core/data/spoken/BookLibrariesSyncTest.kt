@@ -244,8 +244,24 @@ class BookLibrariesSyncTest {
         assertEquals(listOf("Crime", "Drama"), titles())
     }
 
+    @Test
+    fun `a known book whose files are missing for the moment stays, even reported without audio files`() = runTest {
+        audioFiles["li_2"] = 3
+        val id = connect()
+        assertTrue(sync(id).ok)
+
+        // Share not mounted during the server's scan: the entry is missing, possibly also counted without audio (review3 Q9).
+        missing += "li_2"
+        audioFiles["li_2"] = 0
+        assertTrue(sync(id).ok)
+        assertEquals(listOf("Crime", "Drama", "Novel"), titles())
+    }
+
     /** `numAudioFiles` per entry in the list; without one the field is left out, as it may be on other server versions. */
     private val audioFiles = ConcurrentHashMap<String, Int>()
+
+    /** Entries the server reports as `isMissing`. */
+    private val missing: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     @Volatile
     private var authorsFail = false
@@ -362,7 +378,8 @@ class BookLibrariesSyncTest {
         private fun item(id: String, title: String, genres: List<String>): String {
             val genreList = genres.joinToString(",") { "\"$it\"" }
             val count = audioFiles[id]?.let { ",\"numAudioFiles\":$it" }.orEmpty()
-            return """{"id":"$id","addedAt":1,"updatedAt":1,"media":{"metadata":{"title":"$title","authorName":"A","genres":[$genreList]},"duration":60$count}}"""
+            val isMissing = if (id in missing) ",\"isMissing\":true" else ""
+            return """{"id":"$id","addedAt":1,"updatedAt":1$isMissing,"media":{"metadata":{"title":"$title","authorName":"A","genres":[$genreList]},"duration":60$count}}"""
         }
 
         private fun json(body: String) = MockResponse.Builder().addHeader("Content-Type", "application/json").body(body).build()
