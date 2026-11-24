@@ -40,6 +40,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.IOException
 import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 @RunWith(RobolectricTestRunner::class)
 class PodcastRepositoryTest {
@@ -1061,25 +1063,21 @@ class PodcastRepositoryTest {
     }
 
     @Test
-    fun `recently added leaves out hidden episodes and those not newer than the last clearing`() = runTest {
+    fun `recently added leaves out hidden episodes`() = runTest {
         val feedId = subscribe()
-        val b = db.bookDao().booksOf(feedId).single { it.title == "B" }
 
         val hidden = repository.recentEpisodes(hidden = flowOf(setOf(idOf(feedId, "A")))) { now }.first()
-        val cleared = repository.recentEpisodes(clearedUntil = flowOf(b.addedAt)) { now }.first()
 
         assertEquals(listOf("B", "C"), hidden.map { it.book.title })
-        assertEquals(listOf("A"), cleared.map { it.book.title })
     }
 
     @Test
     fun `a cleared recently added row comes back with a newer episode, a hidden episode with undo`() = runTest {
         val queue = EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao())
         val feedId = subscribe()
-        val a = db.bookDao().booksOf(feedId).single { it.title == "A" }
         val c = idOf(feedId, "C")
-        val hidden = combine(queue.hidden, queue.recentHidden) { x, y -> x + y }
-        val recent = { repository.recentEpisodes(hidden, queue.recentClearedUntil) { now } }
+        val hidden = combine(queue.hidden, queue.recentHidden, queue.recentCleared) { x, y, z -> x + y + z }
+        val recent = { repository.recentEpisodes(hidden) { now } }
         val continueTitles = suspend { repository.continueListening(queue.order, queue.hidden) { now }.first().map { it.book.title } }
         try {
             queue.hideFromRecent(c)
@@ -1088,7 +1086,7 @@ class PodcastRepositoryTest {
             queue.unhideFromRecent(c)
             assertEquals(listOf("A", "B", "C"), recent().first().map { it.book.title })
 
-            queue.setRecentClearedUntil(a.addedAt)
+            queue.setRecentCleared(recent().first().map { it.book.id })
             assertTrue(recent().first().isEmpty())
 
             served = feed("D" to "Thu, 30 Oct 2025 18:00:00 GMT", "A" to "Thu, 30 Oct 2025 06:00:00 GMT")
@@ -1097,8 +1095,46 @@ class PodcastRepositoryTest {
         } finally {
             // The DataStore outlives the test.
             queue.unhideFromRecent(c)
-            queue.setRecentClearedUntil(0)
+            queue.setRecentCleared(emptyList())
         }
+    }
+
+    @Test
+    fun `an episode arriving after clearing appears even with an older date than the cleared ones`() = runTest {
+        val queue = EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao())
+        val recentlyAdded = RecentlyAdded(queue, repository)
+        // The row counts its 30 days from the real time.
+        val hour = 60 * 60 * 1000L
+        val start = System.currentTimeMillis()
+        fun date(ago: Long) = DateTimeFormatter.RFC_1123_DATE_TIME.format(Instant.ofEpochMilli(start - ago).atZone(ZoneOffset.UTC))
+        served = feed("A" to date(hour), "B" to date(5 * hour))
+        val feedId = subscribe()
+        try {
+            assertEquals(listOf("A", "B"), recentlyAdded.episodes.first().map { it.book.title })
+            recentlyAdded.clear()
+            assertTrue(recentlyAdded.episodes.first().isEmpty())
+
+            // review3 Q6: the feed brings an episode dated before the newest cleared one; it was hidden by the date.
+            served = feed("A" to date(hour), "Late" to date(3 * hour), "B" to date(5 * hour))
+            repository.refresh(feedId)
+            assertEquals(listOf("Late"), recentlyAdded.episodes.first().map { it.book.title })
+        } finally {
+            queue.setRecentCleared(emptyList())
+        }
+    }
+
+    @Test
+    fun `an episode dated in the future counts from when it appeared`() = runTest {
+        val feedId = subscribe()
+        served = feed("Soon" to "Fri, 01 Jan 2100 06:00:00 GMT", "A" to "Thu, 30 Oct 2025 06:00:00 GMT")
+        val before = System.currentTimeMillis()
+        repository.refresh(feedId)
+
+        val soon = db.bookDao().booksOf(feedId).single { it.title == "Soon" }
+        assertTrue(soon.addedAt in before..System.currentTimeMillis())
+        // A second sync keeps the time it appeared instead of moving it up again.
+        repository.refresh(feedId)
+        assertEquals(soon.addedAt, db.bookDao().booksOf(feedId).single { it.title == "Soon" }.addedAt)
     }
 
     @Test

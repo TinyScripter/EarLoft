@@ -17,11 +17,14 @@ import javax.inject.Singleton
 @Singleton
 class RecentlyAdded @Inject constructor(
     private val queue: EpisodeQueue,
-    podcasts: PodcastRepository,
+    private val podcasts: PodcastRepository,
 ) {
+    /** Removed by hand here or from "Continue listening". */
+    private val removed = combine(queue.hidden, queue.recentHidden) { a, b -> a + b }
+
     /** Combines all episodes with all progress (every 15 s during playback), therefore off the main thread. */
     val episodes: Flow<List<BookWithProgress>> =
-        podcasts.recentEpisodes(combine(queue.hidden, queue.recentHidden) { a, b -> a + b }, queue.recentClearedUntil)
+        podcasts.recentEpisodes(combine(removed, queue.recentCleared) { a, b -> a + b })
             .flowOn(Dispatchers.Default)
 
     /** Takes the episode out of this row only. */
@@ -30,9 +33,13 @@ class RecentlyAdded @Inject constructor(
     /** Undoes [hide]. */
     suspend fun unhide(bookId: Long) = queue.unhideFromRecent(bookId)
 
-    /** Empties the row until an episode newer than the ones it shows arrives. */
+    /**
+     * Empties the row until another episode arrives: all it could show now, not only the first ones it shows, otherwise the
+     * next ones would move up at once.
+     */
     suspend fun clear() {
-        val newest = episodes.first().maxOfOrNull { it.book.addedAt } ?: return
-        queue.setRecentClearedUntil(newest)
+        val all = podcasts.recentEpisodes(removed, limit = Int.MAX_VALUE).flowOn(Dispatchers.Default).first()
+        if (all.isEmpty()) return
+        queue.setRecentCleared(all.map { it.book.id })
     }
 }

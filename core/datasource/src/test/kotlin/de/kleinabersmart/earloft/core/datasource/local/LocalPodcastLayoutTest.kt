@@ -49,6 +49,19 @@ class LocalPodcastLayoutTest {
     }
 
     @Test
+    fun `a tag with only the year or month the file arrived in counts as its arrival`() {
+        val added = LocalPodcastLayout.parseTagDate("2026-11-20")!! + 9 * 60 * 60 * 1000L
+        // review3 Q18: "2026" as January 1 dropped a file copied just now out of "Recently added".
+        assertEquals(added, LocalPodcastLayout.publishedAt("2026", added))
+        assertEquals(added, LocalPodcastLayout.publishedAt("2026-11", added))
+        // An older year or month, or a full date, is what the tag says.
+        assertEquals(LocalPodcastLayout.parseTagDate("2024"), LocalPodcastLayout.publishedAt("2024", added))
+        assertEquals(LocalPodcastLayout.parseTagDate("2026-10"), LocalPodcastLayout.publishedAt("2026-10", added))
+        assertEquals(LocalPodcastLayout.parseTagDate("2026-01-05"), LocalPodcastLayout.publishedAt("2026-01-05", added))
+        assertEquals(added, LocalPodcastLayout.publishedAt(null, added))
+    }
+
+    @Test
     fun `episode tags give date, description and ordered chapters without jingle marks`() {
         fun chapter(id: String, start: Int, end: Int, title: String?) = ChapterFrame(
             id, start, end, 0, 0,

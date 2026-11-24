@@ -301,22 +301,21 @@ class PodcastRepository @Inject constructor(
      * "Continue listening" stay in, because new episodes appear there on their own anyway, just in queue order.
      *
      * So that old episodes nobody wants don't pile up, these are missing as well (concept 12.5):
-     * - episodes published more than [RECENT_DAYS] days ago or not after [clearedUntil] ("Clear" on the shelf);
+     * - episodes published more than [RECENT_DAYS] days ago;
      * - never started episodes behind a newer started or played one of the same subscription (the user has moved past them,
      *   the same rule as the count of new episodes on the subscription's tile, [feedStats]);
-     * - episodes in [hidden], removed by hand from this row or from "Continue listening" ([RecentlyAdded] passes both lists).
+     * - episodes in [hidden]: removed by hand from this row or from "Continue listening", or there when the row was cleared
+     *   ([RecentlyAdded] passes these lists).
      */
     fun recentEpisodes(
         hidden: Flow<Set<Long>> = flowOf(emptySet()),
-        clearedUntil: Flow<Long> = flowOf(0L),
         limit: Int = RECENT_LIMIT,
         now: () -> Long = System::currentTimeMillis,
     ): Flow<List<BookWithProgress>> =
         combine(
             combine(dao.observeFeeds(), dao.observeEpisodes(), bookDao.observeAllProgress(), ::Triple),
             hidden,
-            clearedUntil,
-        ) { (feeds, episodes, progress), hiddenIds, cleared ->
+        ) { (feeds, episodes, progress), hiddenIds ->
             val byBook = progress.associateBy { it.bookId }
             val since = now() - RECENT_DAYS * DAY_MS
             // Subscriptions for which a started or played episode was already passed (the list is newest first).
@@ -330,7 +329,7 @@ class PodcastRepository @Inject constructor(
                     keep
                 }
                 .asSequence()
-                .filter { it.bookId !in hiddenIds && it.addedAt >= since && it.addedAt > cleared }
+                .filter { it.bookId !in hiddenIds && it.addedAt >= since }
                 .sortedByDescending { it.addedAt }
                 .take(limit)
                 .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
@@ -1189,8 +1188,13 @@ class PodcastRepository @Inject constructor(
         author = feedTitle,
         description = description.toDescriptionHtml(),
         durationMs = durationMs.takeIf { it > 0 } ?: existing?.durationMs ?: 0,
-        // Without a date in the feed, the time the episode first appeared stays.
-        addedAt = publishedAt.takeIf { it > 0 } ?: existing?.addedAt ?: now,
+        // Without a date in the feed, the time the episode first appeared stays. A date in the future counts from when the
+        // episode appeared, otherwise it stood at the top of "Recently added" and "New" until that day (review3 Q6).
+        addedAt = when {
+            publishedAt <= 0 -> existing?.addedAt ?: now
+            publishedAt > now -> existing?.addedAt?.coerceAtMost(now) ?: now
+            else -> publishedAt
+        },
         // Files come from the feed; there is no server that would have to deliver them later.
         detailsLoaded = true,
         seenInGeneration = generation,

@@ -88,13 +88,22 @@ class EpisodeQueue @Inject constructor(
     }
 
     /**
-     * "Clear" on the "Recently added" shelf: publication time of the newest episode it showed; only newer episodes appear there.
+     * "Clear" on the "Recently added" shelf: the episodes it could show at that moment; any other episode appears there again,
+     * whatever its publication date. A date as the limit hid episodes that arrived later with an older date (review3 Q6).
      * Leaves "Continue listening" alone.
      */
-    val recentClearedUntil: Flow<Long> = prefs.map { it[KEY_RECENT_CLEARED] ?: 0L }.distinctUntilChanged()
+    val recentCleared: Flow<Set<Long>> =
+        combine(prefs, idsByKey) { prefs, ids -> prefs.read(KEY_RECENT_CLEARED).mapNotNullTo(HashSet()) { ids[it] } }
+            .distinctUntilChanged()
 
-    suspend fun setRecentClearedUntil(addedAt: Long) {
-        context.episodeQueueDataStore.edit { it[KEY_RECENT_CLEARED] = addedAt }
+    /** Replaces the episodes of the last clearing with [bookIds]: older ones have dropped out of the row's window by now. */
+    suspend fun setRecentCleared(bookIds: Collection<Long>) {
+        val keys = keysOf(bookIds.toList()).values.toList()
+        migrateLegacyIds()
+        context.episodeQueueDataStore.edit { prefs ->
+            prefs.write(KEY_RECENT_CLEARED, keys)
+            prefs.remove(LEGACY_RECENT_CLEARED)
+        }
     }
 
     /**
@@ -189,6 +198,7 @@ class EpisodeQueue @Inject constructor(
             prefs.write(KEY_ORDER, prefs.read(KEY_ORDER).map { renames[it] ?: it })
             prefs.write(KEY_HIDDEN, prefs.read(KEY_HIDDEN).map { renames[it] ?: it })
             prefs.write(KEY_RECENT_HIDDEN, prefs.read(KEY_RECENT_HIDDEN).map { renames[it] ?: it })
+            prefs.write(KEY_RECENT_CLEARED, prefs.read(KEY_RECENT_CLEARED).map { renames[it] ?: it })
         }
     }
 
@@ -250,7 +260,10 @@ class EpisodeQueue @Inject constructor(
         private val KEY_ORDER = stringPreferencesKey("order_keys")
         private val KEY_HIDDEN = stringPreferencesKey("hidden_keys")
         private val KEY_RECENT_HIDDEN = stringPreferencesKey("recent_hidden_keys")
-        private val KEY_RECENT_CLEARED = longPreferencesKey("recent_cleared_until")
+        private val KEY_RECENT_CLEARED = stringPreferencesKey("recent_cleared_keys")
+
+        /** Publication time up to which "Clear" hid episodes, before [KEY_RECENT_CLEARED]; no longer read. */
+        private val LEGACY_RECENT_CLEARED = longPreferencesKey("recent_cleared_until")
 
         /** The row only shows the last 30 days; older removals no longer matter, so the list doesn't grow forever. */
         private const val RECENT_HIDDEN_MAX = 200
@@ -267,7 +280,7 @@ class EpisodeQueue @Inject constructor(
          * When restoring a backup: local order and hidden entries first, then the missing backed-up ones, with
          * the local IDs of their servers and subscriptions.
          */
-        internal val BACKUP_MERGES: Map<String, SettingsMerge> = listOf(KEY_ORDER, KEY_HIDDEN, KEY_RECENT_HIDDEN).associate { preference ->
+        internal val BACKUP_MERGES: Map<String, SettingsMerge> = listOf(KEY_ORDER, KEY_HIDDEN, KEY_RECENT_HIDDEN, KEY_RECENT_CLEARED).associate { preference ->
             preference.name to SettingsMerge { current, saved, ids ->
                 fun split(value: Any?) = (value as? String).orEmpty().split(ENTRY_SEPARATOR).filter { it.isNotEmpty() }
                 val here = split(current)

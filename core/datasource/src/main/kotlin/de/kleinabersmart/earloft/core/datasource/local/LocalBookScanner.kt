@@ -149,7 +149,7 @@ class LocalBookScanner @Inject constructor(
         return LocalEpisodeDetails(
             title = file.title?.trim()?.takeIf { it.isNotEmpty() } ?: file.fileName.substringBeforeLast('.'),
             description = tags.description.orEmpty(),
-            publishedAtMs = LocalPodcastLayout.parseTagDate(tags.date) ?: (file.dateAddedSec * 1000),
+            publishedAtMs = LocalPodcastLayout.publishedAt(tags.date, file.dateAddedSec * 1000),
             track = LocalBookTrack(uri.toString(), 0, file.durationMs, file.mimeType),
             chapters = chapters,
             hasCover = withRetriever(uri) { it.embeddedPicture } != null,

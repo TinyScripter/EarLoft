@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.datasource.local
 
 import java.time.DateTimeException
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 
@@ -55,6 +56,21 @@ internal object LocalPodcastLayout {
         } catch (_: DateTimeException) {
             null
         }
+    }
+
+    /**
+     * Publication time of a file from the device: the tag date ([parseTagDate]), otherwise when the file arrived
+     * ([fileAddedMs]). A tag with only the year (or year and month) in which the file arrived counts as its arrival: "2026" as
+     * January 1 dropped a file copied just now out of "Recently added" at once (review3 Q18).
+     */
+    fun publishedAt(rawTag: String?, fileAddedMs: Long): Long {
+        val tagged = parseTagDate(rawTag) ?: return fileAddedMs
+        val match = DATE.find(rawTag?.trim().orEmpty()) ?: return tagged
+        val (year, month, day) = match.destructured
+        if (day.isNotEmpty() || fileAddedMs <= 0) return tagged
+        val added = Instant.ofEpochMilli(fileAddedMs).atZone(ZoneOffset.UTC).toLocalDate()
+        val sameSpan = added.year == year.toInt() && (month.isEmpty() || added.monthValue == month.toInt())
+        return if (sameSpan) fileAddedMs else tagged
     }
 
     private val DATE = Regex("""^(\d{4})(?:-?(\d{2})(?:-?(\d{2}))?)?(?!\d)""")
