@@ -107,7 +107,11 @@ class PhoneConnection @Inject constructor(
             true
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
+        } catch (e: Error) {
+            throw e
+        } catch (e: Throwable) {
+            // Wear OS reports a failure (no phone in reach, nothing to open it with) as a bare `Throwable`, not an Exception;
+            // uncaught it ended the app on the tap.
             Log.w(TAG, "Play Store not opened on the phone", e)
             false
         }
