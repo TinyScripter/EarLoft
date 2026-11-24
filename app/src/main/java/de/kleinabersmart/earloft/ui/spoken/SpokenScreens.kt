@@ -591,7 +591,7 @@ private val BookFilter.label: Int
     }
 
 /**
- * Authors as a grid, two per row: author image (from Audiobookshelf, otherwise from the internet if the option is on), below it
+ * Authors as a grid, as wide as the book tiles (two per row on a phone): author image (from Audiobookshelf, otherwise from the internet if the option is on), below it
  * name and number of books. Without an image the cover of the first book remains. The fast scroller only shows the letter when sorted by name ([byName]).
  */
 @Composable
@@ -606,7 +606,7 @@ private fun AuthorGrid(authors: List<BookGroup>, byName: Boolean, resetKey: Any?
     ShowStartOnNewFront(authors, state, { it.name })
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+            columns = GridCells.Adaptive(150.dp),
             state = state,
             contentPadding = PaddingValues(12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
