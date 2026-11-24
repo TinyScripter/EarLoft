@@ -16,6 +16,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.await
 import androidx.work.WorkerParameters
 import dagger.Binds
 import dagger.Module
@@ -41,6 +42,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -60,22 +62,29 @@ interface SyncScheduler {
 internal class WorkManagerSyncScheduler @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) : SyncScheduler {
+    // Check and enqueue together: otherwise a second caller that also saw the backoff replaces the pass the first one just
+    // started, and a playlist upload or scrobble is cut off halfway (review3 Q19).
+    private val enqueueing = Mutex()
+
     // A pass waiting in backoff (unreachable server, up to 5 h) is replaced: appended, a new favorite for a reachable server
     // would wait behind it (review2 J17, like D5 for downloads). A waiting pass has not started, so nothing is cut off.
-    override suspend fun enqueue() = enqueue(if (waitsInBackoff()) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE)
+    override suspend fun enqueue() = enqueueing.withLock {
+        enqueue(if (waitsInBackoff()) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE)
+    }
 
     private suspend fun waitsInBackoff(): Boolean = WorkManager.getInstance(context).getWorkInfosForUniqueWorkFlow(WORK_NAME).first()
         .any { it.state == WorkInfo.State.ENQUEUED && it.runAttemptCount > 0 }
 
     // After every sync: otherwise APPEND would each time append another pass to one waiting in backoff.
-    override suspend fun resume() = enqueue(ExistingWorkPolicy.KEEP)
+    override suspend fun resume() = enqueueing.withLock { enqueue(ExistingWorkPolicy.KEEP) }
 
-    private fun enqueue(policy: ExistingWorkPolicy) {
+    // Awaited: the next caller's check must see this pass.
+    private suspend fun enqueue(policy: ExistingWorkPolicy) {
         val request = OneTimeWorkRequestBuilder<SyncQueueWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, policy, request)
+        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, policy, request).await()
     }
 
     private companion object {
