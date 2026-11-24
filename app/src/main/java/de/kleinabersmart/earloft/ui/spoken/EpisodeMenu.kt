@@ -144,7 +144,13 @@ fun EpisodeMenu(
         if (item.isEpisode) DropdownMenuItem(
             text = { Text(stringResource(if (inQueue) R.string.episode_queue_remove else R.string.episode_queue_add)) },
             onClick = {
-                viewModel.setQueued(id, !inQueue, offerUndo(R.string.queue_removed))
+                // A trial episode loses download and progress right after leaving the queue: no undo (review3 Q24).
+                val onRemoved: (suspend () -> Unit) -> Unit = if (trial) {
+                    { _ -> snackbars.show(resources.getString(R.string.queue_removed, item.book.title)) }
+                } else {
+                    offerUndo(R.string.queue_removed)
+                }
+                viewModel.setQueued(id, !inQueue, onRemoved)
                 // Appended at the end; with a long queue you wouldn't see it otherwise.
                 if (!inQueue) snackbars.show(resources.getString(R.string.queue_added_at_end, item.book.title))
                 onDismiss()

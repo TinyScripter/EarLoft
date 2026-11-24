@@ -275,10 +275,16 @@ fun EpisodeSwipeBox(
     val handle by rememberUpdatedState { direction: SwipeToDismissBoxValue ->
         when (direction) {
             SwipeToDismissBoxValue.StartToEnd -> if (inQueue) {
-                // Undo as from the menu (review2 J50): back to its old place.
+                // Undo as from the menu (review2 J50): back to its old place. Not for a trial subscription: it loses download and
+                // progress a second later, maybe the subscription itself, and undo would bring back an empty entry (review3 Q24).
                 val text = resources.getString(R.string.queue_removed, item.book.title)
+                val trial = item.book.serverId in trialFeeds
                 viewModel.setQueued(item.book.id, false) { restore ->
-                    snackbars.show(text, SnackbarDuration.Long, resources.getString(R.string.action_undo)) { viewModel.undo(restore) }
+                    if (trial) {
+                        snackbars.show(text)
+                    } else {
+                        snackbars.show(text, SnackbarDuration.Long, resources.getString(R.string.action_undo)) { viewModel.undo(restore) }
+                    }
                 }
             } else {
                 viewModel.append(listOf(item))
