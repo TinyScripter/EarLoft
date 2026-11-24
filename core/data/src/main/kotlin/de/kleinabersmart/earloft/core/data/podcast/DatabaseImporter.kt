@@ -65,15 +65,20 @@ class DatabaseImporter @Inject constructor(
         // The address from the file: the import extracts credentials in it and stores them (review D6).
         repository.importOpml(wanted.map { OpmlFeed(it.title, it.source.url) }, replace = false, reactivateArchived = false)
         // As when subscribing, an `http://` address in the file also finds the subscription stored under `https://` (review J2).
-        val added = wanted.mapNotNull { wish ->
-            repository.storedFeed(wish.url)?.takeIf { it.feedId !in subscribedBefore }?.also {
-                if (!wish.active) podcastDao.setArchived(it.feedId, true)
+        // Several entries for one subscription (`http://` and `https://`): "active wins" applies to the subscription, not to
+        // each entry, otherwise an archived one archived what another lists as active (review3 Q12).
+        val added = wanted
+            .mapNotNull { wish -> repository.storedFeed(wish.url)?.takeIf { it.feedId !in subscribedBefore }?.let { it to wish } }
+            .groupBy { (feed, _) -> feed.feedId }
+            .map { (_, same) -> same.firstOrNull { (_, wish) -> wish.active } ?: same.first() }
+            .map { (feed, wish) ->
+                if (!wish.active) podcastDao.setArchived(feed.feedId, true)
                 // Speed and effects only for new subscriptions; an existing subscription keeps its settings.
                 val source = wish.source
-                podcastDao.setEffects(it.feedId, source.speed, source.skipSilence, source.volumeBoostDb)
-                podcastDao.setSkipIntroOutro(it.feedId, source.skipIntroS, source.skipOutroS)
+                podcastDao.setEffects(feed.feedId, source.speed, source.skipSilence, source.volumeBoostDb)
+                podcastDao.setSkipIntroOutro(feed.feedId, source.skipIntroS, source.skipOutroS)
+                feed
             }
-        }.distinctBy { it.feedId }
         // Without episodes there is nothing progress could be matched to.
         added.forEach { repository.refresh(it.feedId) }
 

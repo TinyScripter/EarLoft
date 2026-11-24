@@ -588,14 +588,18 @@ class PodcastRepository @Inject constructor(
         }
     }
 
-    /** The stored feed for [entered], also under the `https://` variant of an `http://` address. */
+    /**
+     * The stored feed for [entered], otherwise the one under the `https://` variant of an `http://` address. The exact address
+     * first: if both are stored (an import before review2 J2 created the second), the one named is meant, and "Replace" must
+     * not delete it along with its progress (review3 Q8).
+     */
     private suspend fun knownFeed(entered: FeedAddress): PodcastFeedEntity? = when (entered) {
         is FeedAddress.ArdSounds -> dao.feedByUrl(entered.url)
-        is FeedAddress.Http -> {
-            val secure = if (entered.url.isHttps) null else entered.url.newBuilder().scheme("https").build()
-            listOfNotNull(secure, entered.url).firstNotNullOfOrNull { dao.feedByUrl(it.toString()) }
-        }
+        is FeedAddress.Http -> listOfNotNull(entered.url, entered.url.secureVariant()).firstNotNullOfOrNull { dao.feedByUrl(it.toString()) }
     }
+
+    /** The `https://` variant of an `http://` address; `null` if it already is one. */
+    private fun HttpUrl.secureVariant(): HttpUrl? = if (isHttps) null else newBuilder().scheme("https").build()
 
     /** Loads the feed and creates it. */
     private suspend fun fetchAndAdd(entered: FeedAddress, subscribed: Boolean, imageUrl: String? = null): SubscribeResult =
@@ -825,10 +829,11 @@ class PodcastRepository @Inject constructor(
 
     /**
      * The subscriptions from [feeds] with the address they get here and the stored feed they match (or `null`). Credentials in an
-     * address go to [auths]; entries for the same subscription count once.
+     * address go to [auths]; entries for the same subscription count once. A new address that is in the file both as `http://`
+     * and as `https://` is one subscription, under `https://`, as when subscribing (review3 Q12).
      */
-    private suspend fun opmlWanted(feeds: List<OpmlFeed>, auths: MutableMap<String, FeedAuth>): List<Pair<OpmlFeed, PodcastFeedEntity?>> =
-        feeds.mapNotNull { feed ->
+    private suspend fun opmlWanted(feeds: List<OpmlFeed>, auths: MutableMap<String, FeedAuth>): List<Pair<OpmlFeed, PodcastFeedEntity?>> {
+        val entries = feeds.mapNotNull { feed ->
             val address = FeedAddress.of(feed.url) ?: return@mapNotNull null
             val imported = when (address) {
                 is FeedAddress.ArdSounds -> feed.copy(url = address.url)
@@ -836,8 +841,14 @@ class PodcastRepository @Inject constructor(
                     address.auth?.let { auths.putIfAbsent(imported.url, it) }
                 }
             }
-            imported to knownFeed(address)
-        }.distinctBy { (feed, stored) -> stored?.feedId ?: feed.url }
+            Triple(imported, knownFeed(address), (address as? FeedAddress.Http)?.url?.secureVariant()?.toString())
+        }
+        val urls = entries.mapTo(HashSet()) { it.first.url }
+        return entries
+            .groupBy { (feed, stored, secure) -> stored?.feedId ?: secure?.takeIf { it in urls } ?: feed.url }
+            .map { (_, same) -> same.firstOrNull { it.third == null } ?: same.first() }
+            .map { (feed, stored) -> feed to stored }
+    }
 
     /**
      * What "replace" removes: all other active subscriptions; podcasts from the device stay, as do ARD Sounds subscriptions if

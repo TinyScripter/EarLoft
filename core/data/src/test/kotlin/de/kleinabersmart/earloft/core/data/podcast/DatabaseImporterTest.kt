@@ -165,6 +165,22 @@ class DatabaseImporterTest {
         assertEquals(120_000, db.bookDao().progress(bookId("guid-B"))!!.positionMs)
     }
 
+    @Test
+    fun `a new subscription in the file as archived under http and active under https stays active`() = runTest {
+        val result = importer.import(
+            ImportData(
+                feeds = listOf(ImportFeed("http://old.example.com/feed.xml", "Old", active = false), ImportFeed(OLD_URL, "Old", active = true)),
+                episodes = emptyList(),
+            ),
+        )
+
+        // review3 Q12: each entry set "archived" for the one subscription, the archived one archived it.
+        assertEquals(1, result.feedsAdded)
+        val feed = db.podcastDao().feedByUrl(OLD_URL)!!
+        assertEquals(false, feed.archived)
+        assertEquals(2, db.podcastDao().keptFeeds().size)
+    }
+
     private companion object {
         const val HTTP_URL = "http://example.com/feed.xml"
         const val FEED_URL = "https://example.com/feed.xml"

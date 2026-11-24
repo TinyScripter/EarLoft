@@ -325,6 +325,28 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `with both the http and the https subscription stored, the file's exact address is the one kept`() = runTest {
+        // Left over from an import before review2 J2: the same feed twice, the http one holding the imported progress.
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "plain", url = "http://example.com/feed.xml", title = "Plain"))
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "secure", url = "https://example.com/feed.xml", title = "Secure"))
+        val file = listOf(OpmlFeed("Plain", "http://example.com/feed.xml"))
+
+        // review3 Q8: the https one was matched first, and "Replace" deleted the one the file names.
+        assertEquals(1, repository.opmlReplaceRemovals(file))
+        assertEquals(OpmlImportResult(added = 0, skipped = 1, removed = 1), repository.importOpml(file, replace = true))
+        assertEquals(listOf("plain"), db.podcastDao().feeds().map { it.feedId })
+        assertEquals("plain", repository.storedFeed("http://example.com/feed.xml")!!.feedId)
+    }
+
+    @Test
+    fun `a new address in the file under http and https becomes one subscription under https`() = runTest {
+        val file = listOf(OpmlFeed("Plain", "http://example.com/new.xml"), OpmlFeed("Secure", "https://example.com/new.xml"))
+
+        assertEquals(OpmlImportResult(added = 1, skipped = 1, removed = 0), repository.importOpml(file, replace = false))
+        assertEquals(listOf("https://example.com/new.xml"), db.podcastDao().feeds().map { it.url })
+    }
+
+    @Test
     fun `replacing with a file without feeds or without ard sounds keeps those subscriptions`() = runTest {
         val feed = subscribe()
         db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "ard", url = "ardsounds:urn:ard:show:5fa94a3212aa9829", title = "ARD"))
