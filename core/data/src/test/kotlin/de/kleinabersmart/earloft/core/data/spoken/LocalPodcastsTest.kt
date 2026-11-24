@@ -54,7 +54,7 @@ class LocalPodcastsTest {
         db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         settings = SpokenSettings(context)
         settings.setUseLocalPodcasts(true)
-        podcasts = LocalPodcasts(db.bookDao(), db.podcastDao(), ::scan, settings, { invalidatedCovers += it }, SweepGuard(context))
+        podcasts = LocalPodcasts(db.bookDao(), db.podcastDao(), ::scan, settings, { invalidatedCovers += it }, SweepGuard(context), ::hasCover)
     }
 
     @After
@@ -87,6 +87,12 @@ class LocalPodcastsTest {
             )
         }
         return LocalScan(items, complete)
+    }
+
+    /** Like [de.kleinabersmart.earloft.core.data.spoken.BookCovers.hasOwn]: looks into the episode's current file. */
+    private suspend fun hasCover(bookId: Long): Boolean {
+        val key = db.bookDao().book(bookId)?.remoteId ?: return false
+        return files.values.flatten().any { it.key == key && it.hasCover }
     }
 
     private suspend fun localFeeds() = db.podcastDao().feeds().filter { it.feedId.startsWith(LOCAL_PODCAST_PREFIX) }
@@ -244,6 +250,29 @@ class LocalPodcastsTest {
         podcasts.sync()
         assertTrue(read.isEmpty())
         assertEquals(AppUris.bookCover(episode("newer.mp3")!!.bookId), localFeeds().single().imageUrl)
+    }
+
+    @Test
+    fun `when the image episode goes, only a remaining episode with a cover takes over`() = runTest {
+        files = mapOf(
+            "Talk" to listOf(
+                File("old.mp3", 1, publishedAtMs = 1_000, hasCover = true),
+                File("new.mp3", 1, publishedAtMs = 2_000, hasCover = true),
+                File("newer-no-cover.mp3", 1, publishedAtMs = 3_000),
+            ),
+        )
+        podcasts.sync()
+        files = mapOf("Talk" to files.getValue("Talk").filterNot { it.key == "new.mp3" })
+        podcasts.sync()
+        assertEquals(AppUris.bookCover(episode("old.mp3")!!.bookId), localFeeds().single().imageUrl)
+
+        // No remaining episode has a cover: no image, and the next file with one becomes it.
+        files = mapOf("Talk" to files.getValue("Talk").filterNot { it.key == "old.mp3" })
+        podcasts.sync()
+        assertNull(localFeeds().single().imageUrl)
+        files = mapOf("Talk" to files.getValue("Talk") + File("newest.mp3", 1, publishedAtMs = 4_000, hasCover = true))
+        podcasts.sync()
+        assertEquals(AppUris.bookCover(episode("newest.mp3")!!.bookId), localFeeds().single().imageUrl)
     }
 
     @Test

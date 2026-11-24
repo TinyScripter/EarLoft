@@ -118,7 +118,7 @@ class PodcastRefresherTest {
 
     /** Podcasts on the device only count how often they were looked for. */
     private fun localPodcasts() = LocalPodcasts(
-        db.bookDao(), db.podcastDao(), { localScans++; LocalScan(emptyList()) }, spokenSettings, {}, SweepGuard(context),
+        db.bookDao(), db.podcastDao(), { localScans++; LocalScan(emptyList()) }, spokenSettings, {}, SweepGuard(context), { false },
     )
 
     private fun network(vararg capabilities: Int) {

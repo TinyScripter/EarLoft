@@ -76,6 +76,9 @@ class BookCovers @Inject constructor(
         loadOwnIfMissing(dao.book(bookId) ?: return@withContext true)
     }
 
+    /** Does [bookId] have an own image (cached or loadable now), without the subscription's? */
+    suspend fun hasOwn(bookId: Long): Boolean = withContext(Dispatchers.IO) { file(bookId, withFeedImage = false) != null }
+
     /**
      * Like the other [ensureOwnCached], for a list entry: if the file is already there, without reading the whole row (including
      * show notes; the offline run checks every episode of every subscription this way, review D21).

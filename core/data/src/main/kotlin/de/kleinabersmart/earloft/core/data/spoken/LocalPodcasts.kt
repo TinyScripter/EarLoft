@@ -41,6 +41,8 @@ class LocalPodcasts internal constructor(
     /** [BookCovers.invalidate]. */
     private val invalidateCover: (bookId: Long) -> Unit,
     private val sweepGuard: SweepGuard,
+    /** [BookCovers.hasOwn]: reads the file of an episode that wasn't read in this sync. */
+    private val hasCover: suspend (bookId: Long) -> Boolean,
 ) {
     @Inject constructor(
         bookDao: BookDao,
@@ -49,7 +51,7 @@ class LocalPodcasts internal constructor(
         settings: SpokenSettings,
         covers: BookCovers,
         sweepGuard: SweepGuard,
-    ) : this(bookDao, dao, scanner::scanPodcasts, settings, covers::invalidate, sweepGuard)
+    ) : this(bookDao, dao, scanner::scanPodcasts, settings, covers::invalidate, sweepGuard, covers::hasOwn)
 
     private val mutex = Mutex()
 
@@ -115,8 +117,10 @@ class LocalPodcasts internal constructor(
             keepImage -> existing.imageUrl
             newestWithCover != null -> AppUris.bookCover(newestWithCover.first)
             // The image's episode is gone and no file read now has a cover (unchanged files aren't read): the newest
-            // remaining episode, whose file may carry one, instead of the cover of a deleted episode.
-            imageEpisode != null -> bookDao.booksOf(feedId).maxByOrNull { it.addedAt }?.let { AppUris.bookCover(it.bookId) }
+            // remaining episode whose file has one. None: no image, so that the next file with a cover becomes it; an
+            // episode without a cover would be kept as image forever (review3 Q17).
+            imageEpisode != null -> bookDao.booksOf(feedId).sortedByDescending { it.addedAt }.firstOrNull { hasCover(it.bookId) }
+                ?.let { AppUris.bookCover(it.bookId) }
             else -> existing?.imageUrl
         }
         dao.upsertFeed(
