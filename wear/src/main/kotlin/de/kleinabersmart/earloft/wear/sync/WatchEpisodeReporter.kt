@@ -1,7 +1,6 @@
 package de.kleinabersmart.earloft.wear.sync
 
 import android.util.Log
-import com.google.android.gms.wearable.DataClient
 import de.kleinabersmart.earloft.core.data.spoken.BookProgressSync
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
@@ -14,7 +13,6 @@ import de.kleinabersmart.earloft.core.wearsync.WearEpisodeProgressDto
 import de.kleinabersmart.earloft.core.wearsync.WearEpisodeReportDto
 import de.kleinabersmart.earloft.core.wearsync.WearEpisodeStateDto
 import de.kleinabersmart.earloft.core.wearsync.WearPaths
-import de.kleinabersmart.earloft.core.wearsync.putPayload
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
@@ -37,8 +35,8 @@ import javax.inject.Singleton
  * can continue listening on the phone right away. For books the key is `serverId`/`remoteId` instead of `feedId`/guid.
  */
 @Singleton
-class WatchEpisodeReporter @Inject constructor(
-    private val dataClient: DataClient,
+class WatchEpisodeReporter @Inject internal constructor(
+    private val phoneData: PhoneData,
     private val bookDao: BookDao,
     private val podcastDao: PodcastDao,
     private val statsDao: StatsDao,
@@ -102,7 +100,7 @@ class WatchEpisodeReporter @Inject constructor(
             },
             listening = listening.map { it.second },
         )
-        if (!dataClient.putPayload(WearPaths.episodes(packet.packetId), WearCodec.encode(packet))) return@withLock
+        if (!phoneData.put(WearPaths.episodes(packet.packetId), WearCodec.encode(packet))) return@withLock
         reported.markReported(
             progress.map { Triple(it.serverId, it.remoteId, it.progress.updatedAt) },
             listening.map { (stat, _) -> Triple(stat.groupKey, stat.itemKey, stat.listenedMs) },

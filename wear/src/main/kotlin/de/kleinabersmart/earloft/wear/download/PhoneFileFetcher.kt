@@ -1,7 +1,6 @@
 package de.kleinabersmart.earloft.wear.download
 
 import android.util.Log
-import com.google.android.gms.wearable.ChannelClient
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.DownloadDao
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
@@ -18,9 +17,6 @@ import de.kleinabersmart.earloft.core.wearsync.WearBookFile
 import de.kleinabersmart.earloft.core.wearsync.WearCoverFile
 import de.kleinabersmart.earloft.core.wearsync.WearEpisodeFile
 import de.kleinabersmart.earloft.core.wearsync.WearThumbnailFile
-import de.kleinabersmart.earloft.core.wearsync.receiveFile
-import de.kleinabersmart.earloft.core.wearsync.receiveFileResumable
-import de.kleinabersmart.earloft.wear.sync.PhoneConnection
 import de.kleinabersmart.earloft.wear.sync.WearManifestSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -39,11 +35,10 @@ import javax.inject.Singleton
  * in place and the next attempt resumes there; it is only discarded when the entry goes away.
  */
 @Singleton
-class PhoneFileFetcher @Inject constructor(
+class PhoneFileFetcher @Inject internal constructor(
     private val downloadDao: DownloadDao,
     private val storage: DownloadStorage,
-    private val channelClient: ChannelClient,
-    private val phone: PhoneConnection,
+    private val channel: PhoneChannel,
     private val podcastDao: PodcastDao,
     private val bookDao: BookDao,
     private val episodeStorage: EpisodeStorage,
@@ -57,7 +52,7 @@ class PhoneFileFetcher @Inject constructor(
         val uid = download.sourceUid
         if (downloadDao.markRunning(uid) == 0) return DownloadOutcome.Cancelled
         val songSource = downloadDao.getSongSource(uid) ?: return DownloadOutcome.Cancelled
-        val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Phone not connected"))
+        val nodeId = channel.phoneNodeId() ?: return DownloadOutcome.Retry(IOException("Phone not connected"))
         // The phone knows the source by its own `sourceUid`; the watch's pseudo source carries it as `remoteId`.
         val requestUid = if (songSource.sourceId == WearManifestSource.PHONE_SOURCE_ID) songSource.remoteId else uid
 
@@ -66,7 +61,7 @@ class PhoneFileFetcher @Inject constructor(
         storage.ensureDirectory()
         return try {
             var lastReport = 0L
-            val received = channelClient.receiveFileResumable(nodeId, requestUid, part, lengthFile, fits = { fitsForTransfer(it, storage.allocatableBytes()) }) { done, total ->
+            val received = channel.receiveResumable(nodeId, requestUid, part, lengthFile, fits = { fitsForTransfer(it, storage.allocatableBytes()) }) { done, total ->
                 val now = System.nanoTime()
                 if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
                     lastReport = now
@@ -121,14 +116,14 @@ class PhoneFileFetcher @Inject constructor(
         podcastDao.queueDownload(bookId)
         if (podcastDao.markDownloadRunning(bookId) == 0) return DownloadOutcome.Cancelled
         val book = bookDao.book(bookId) ?: return DownloadOutcome.Cancelled
-        val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Phone not connected"))
+        val nodeId = channel.phoneNodeId() ?: return DownloadOutcome.Retry(IOException("Phone not connected"))
         val requestUid = WearEpisodeFile.uid(book.serverId, book.remoteId)
         val part = episodeStorage.phonePartFileFor(bookId)
         val lengthFile = episodeStorage.phoneLengthFileFor(bookId)
         episodeStorage.ensureDirectory()
         return try {
             var lastReport = 0L
-            val received = channelClient.receiveFileResumable(
+            val received = channel.receiveResumable(
                 nodeId,
                 requestUid,
                 part,
@@ -193,7 +188,7 @@ class PhoneFileFetcher @Inject constructor(
         bookDao.queueBookDownload(bookId)
         if (bookDao.markBookTrackRunning(bookId, index) == 0) return DownloadOutcome.Cancelled
         val book = bookDao.book(bookId) ?: return DownloadOutcome.Cancelled
-        val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Phone not connected"))
+        val nodeId = channel.phoneNodeId() ?: return DownloadOutcome.Retry(IOException("Phone not connected"))
         val requestUid = WearBookFile.uid(book.serverId, book.remoteId, index)
         // A started server transfer does not match the file from the phone; the one from the phone has its own partial file.
         bookStorage.deletePart(bookId, index)
@@ -202,7 +197,7 @@ class PhoneFileFetcher @Inject constructor(
         bookStorage.ensureDirectory()
         return try {
             var lastReport = 0L
-            val received = channelClient.receiveFileResumable(
+            val received = channel.receiveResumable(
                 nodeId,
                 requestUid,
                 part,
@@ -265,10 +260,10 @@ class PhoneFileFetcher @Inject constructor(
 
     /** A small file from the phone into memory; `null` without phone, without file or if the transfer breaks off. */
     private suspend fun fetchBytes(requestUid: String): ByteArray? {
-        val nodeId = phone.connectedPhoneNodeId() ?: return null
+        val nodeId = channel.phoneNodeId() ?: return null
         return try {
             val output = ByteArrayOutputStream()
-            when (withContext(Dispatchers.IO) { channelClient.receiveFile(nodeId, requestUid, output) }) {
+            when (withContext(Dispatchers.IO) { channel.receive(nodeId, requestUid, output) }) {
                 FileReceive.Missing -> null
                 is FileReceive.Received -> output.toByteArray()
             }

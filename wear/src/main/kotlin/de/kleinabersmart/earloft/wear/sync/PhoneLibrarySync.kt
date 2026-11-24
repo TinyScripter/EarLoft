@@ -3,7 +3,6 @@ package de.kleinabersmart.earloft.wear.sync
 import android.content.Context
 import android.util.Log
 import androidx.room.withTransaction
-import com.google.android.gms.wearable.DataClient
 import de.kleinabersmart.earloft.core.data.podcast.EpisodeQueue
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.data.spoken.MirroredAbsServer
@@ -26,9 +25,6 @@ import de.kleinabersmart.earloft.core.wearsync.WearPodcastManifest
 import de.kleinabersmart.earloft.core.wearsync.WearServerDto
 import de.kleinabersmart.earloft.core.wearsync.WearServersDto
 import de.kleinabersmart.earloft.core.wearsync.WearSettingsDto
-import de.kleinabersmart.earloft.core.wearsync.assetPayloadsAt
-import de.kleinabersmart.earloft.core.wearsync.hashesAt
-import de.kleinabersmart.earloft.core.wearsync.payloadsAt
 import de.kleinabersmart.earloft.wear.download.WatchState
 import de.kleinabersmart.earloft.wear.download.WearDownloadPlanner
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -44,10 +40,10 @@ import javax.inject.Singleton
  * several times does no harm.
  */
 @Singleton
-class PhoneLibrarySync @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val dataClient: DataClient,
-    private val credentials: CredentialsRequester,
+class PhoneLibrarySync @Inject internal constructor(
+    @param:ApplicationContext private val context: Context,
+    private val phoneData: PhoneData,
+    private val phone: PhoneLink,
     private val serverMirror: WearServerMirror,
     private val audiobookshelf: AudiobookshelfServers,
     private val manifestApplier: ManifestApplier,
@@ -56,8 +52,6 @@ class PhoneLibrarySync @Inject constructor(
     private val episodeQueue: EpisodeQueue,
     private val state: WatchState,
     private val planner: WearDownloadPlanner,
-    private val phoneConnection: PhoneConnection,
-    private val phoneReturn: PhoneReturn,
 ) {
     private val mutex = Mutex()
 
@@ -74,15 +68,15 @@ class PhoneLibrarySync @Inject constructor(
         // (newer value from the phone), the previous ones apply – servers and manifest still come. Changed skip intervals
         // alone do not replan: that would replace the download job and cancel a running download.
         val previous = state.settings.value
-        val settingsChanged = dataClient.payloadsAt(WearPaths.SETTINGS).values.firstOrNull()
+        val settingsChanged = phoneData.payloads(WearPaths.SETTINGS).values.firstOrNull()
             ?.let { bytes -> decodeOrNull<WearSettingsDto>(bytes, "Settings") }
             ?.takeIf { state.updateSettings(it) }
             ?.let { it.withoutSeek() != previous.withoutSeek() } == true
-        val servers = dataClient.payloadsAt(WearPaths.SERVERS).entries.firstOrNull()
+        val servers = phoneData.payloads(WearPaths.SERVERS).entries.firstOrNull()
         // Every process start of the watch triggers a run (message from the phone, download attempt, tile …). If nothing new
         // has arrived since the last apply, it stops at asking for passwords and planning.
-        val podcastsHash = dataClient.hashesAt(WearPaths.PODCASTS).values.firstOrNull()
-        val manifestHash = dataClient.hashesAt(WearPaths.MANIFEST).values.firstOrNull()
+        val podcastsHash = phoneData.hashes(WearPaths.PODCASTS).values.firstOrNull()
+        val manifestHash = phoneData.hashes(WearPaths.MANIFEST).values.firstOrNull()
         val stamp = "$appVersionStamp:${servers?.value?.let(WearCodec::hash)}:$manifestHash:$podcastsHash"
         val phoneBack = phoneIsBack()
         if (!settingsChanged && stamp == state.appliedPhoneStamp) {
@@ -97,13 +91,13 @@ class PhoneLibrarySync @Inject constructor(
             val renewed = serverMirror.apply((dto.servers + dto.otherServers).mapNotNull { it.toMirrored() }) +
                 audiobookshelf.mirror(dto.spokenServers.map { MirroredAbsServer(it.serverId, it.name, it.baseUrl, it.credentialsStamp) })
             // Fetch credentials changed on the phone right away, not only after the waiting time for missing ones.
-            credentials.request(renewed, phoneNodeId = servers.key)
+            phone.requestCredentials(renewed, phoneNodeId = servers.key)
             requestMissingPasswords(phoneNodeId = servers.key)
         }
-        val manifest = dataClient.assetPayloadsAt(WearPaths.MANIFEST).values.firstOrNull()
+        val manifest = phoneData.assetPayloads(WearPaths.MANIFEST).values.firstOrNull()
         // Each part on its own: one the watch can't read (newer phone app) must not block the others (review G29).
         manifest?.let { bytes -> readOrNull("Manifest") { WearCodec.decodeManifest(bytes) }?.let { manifestApplier.apply(it) } }
-        val podcasts = dataClient.assetPayloadsAt(WearPaths.PODCASTS).values.firstOrNull()
+        val podcasts = phoneData.assetPayloads(WearPaths.PODCASTS).values.firstOrNull()
         if (podcasts != null) {
             // Report the positions first: whatever the new manifest no longer contains is deleted by the mirror along with its progress.
             episodeReporter.report()
@@ -123,9 +117,9 @@ class PhoneLibrarySync @Inject constructor(
      * attempts again, and the job runs right away instead of only on the charger (Review V1).
      */
     private suspend fun phoneIsBack(): Boolean {
-        if (!state.waitingForPhone || phoneConnection.connectedPhoneNodeId() == null) return false
+        if (!state.waitingForPhone || phone.connectedPhoneNodeId() == null) return false
         state.clearPhoneUnreachable()
-        phoneReturn.withdraw()
+        phone.withdrawReturnRequest()
         return true
     }
 
@@ -135,7 +129,7 @@ class PhoneLibrarySync @Inject constructor(
      * of the watch would wake the phone again; hence at most every [CredentialsRequester.MISSING_RETRY_MS] per source.
      */
     private suspend fun requestMissingPasswords(phoneNodeId: String) {
-        credentials.requestMissing(serverMirror.serversWithoutPassword() + audiobookshelf.withoutKey(), phoneNodeId)
+        phone.requestMissingCredentials(serverMirror.serversWithoutPassword() + audiobookshelf.withoutKey(), phoneNodeId)
     }
 
     private inline fun <reified T> decodeOrNull(bytes: ByteArray, what: String): T? = readOrNull(what) { WearCodec.decode<T>(bytes) }
