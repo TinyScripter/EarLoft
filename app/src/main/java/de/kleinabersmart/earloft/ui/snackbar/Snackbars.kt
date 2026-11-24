@@ -34,8 +34,18 @@ class Snackbars @Inject constructor() {
     private val _messages = MutableSharedFlow<SnackbarMessage>(extraBufferCapacity = 8)
     val messages: SharedFlow<SnackbarMessage> = _messages.asSharedFlow()
 
+    private val _withdrawn = MutableSharedFlow<SnackbarMessage>(extraBufferCapacity = 8)
+
+    /** Messages taken back ([withdraw]). */
+    val withdrawn: SharedFlow<SnackbarMessage> = _withdrawn.asSharedFlow()
+
     fun show(message: SnackbarMessage) {
         _messages.tryEmit(message)
+    }
+
+    /** Takes back exactly this [message] (the same instance): it no longer shows, or disappears if it is visible. */
+    fun withdraw(message: SnackbarMessage) {
+        _withdrawn.tryEmit(message)
     }
 
     fun show(

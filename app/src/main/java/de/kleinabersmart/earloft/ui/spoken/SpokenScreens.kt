@@ -78,6 +78,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
+import de.kleinabersmart.earloft.ui.snackbar.Snackbars
+import androidx.compose.runtime.DisposableEffect
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.currentCoroutineContext
 import kotlin.coroutines.cancellation.CancellationException
@@ -936,9 +939,7 @@ fun <T> rememberFrontRow(items: List<T>, announce: Boolean = true, key: (T) -> L
         } else if (frontChange(before, ids) != FrontChange.NONE) {
             if (quiet) {
                 // The row already shows the new order and stays at the entry the user is looking at.
-                shown = ids
-                delay(NEW_FRONT_SETTLE)
-                if (!state.atStart()) hint()
+                hint.announceSoon { state.atStart() }
             } else {
                 delay(FRONT_HOLD)
                 // Together with the new order, otherwise the row would hold on to the previous first one.
@@ -1014,11 +1015,8 @@ private fun <T> ShowStartOnNewFront(
             reset -> jumpToStart()
             change == FrontChange.NONE -> Unit
             startBefore -> jumpToStart()
-            announce && before != null && ids.first() !in before -> {
-                // Another sort or filter took the list to its start ([resetKey], ResetScroll); then nothing is offered here.
-                delay(NEW_FRONT_SETTLE)
-                if (!isAtStart()) hint()
-            }
+            // Another sort or filter took the list to its start ([resetKey], ResetScroll); then nothing is offered here.
+            announce && before != null && ids.first() !in before -> hint.announceSoon(isAtStart)
         }
     }
 }
@@ -1031,18 +1029,49 @@ private class LastResetKey(var key: Any?)
 
 /**
  * Snackbar for a list or row the user had scrolled away from when something new arrived at its start: it says so and
- * [scrollToStart] on tap. It stays until it expires, so the result of a refresh doesn't displace it but follows it.
+ * [scrollToStart] on tap. It stays until it expires, so the result of a refresh doesn't displace it but follows it. It
+ * leaves with its list: otherwise it showed on another page, and "Show" did nothing there (review3 Q25).
  */
 @Composable
-private fun rememberNewFrontHint(scrollToStart: suspend () -> Unit): () -> Unit {
+private fun rememberNewFrontHint(scrollToStart: suspend () -> Unit): NewFrontHint {
     val snackbars = LocalSnackbars.current
-    val text = stringResource(R.string.new_at_start)
-    val action = stringResource(R.string.new_at_start_show)
+    val text by rememberUpdatedState(stringResource(R.string.new_at_start))
+    val action by rememberUpdatedState(stringResource(R.string.new_at_start_show))
     val scope = rememberCoroutineScope()
     val scroll by rememberUpdatedState(scrollToStart)
-    return remember(snackbars, text, action, scope) {
-        { snackbars.show(SnackbarMessage(text, action, onAction = { scope.launch { scroll() } }, keep = true)) }
+    val hint = remember(snackbars, scope) { NewFrontHint(snackbars, scope, { text }, { action }) { scroll() } }
+    DisposableEffect(hint) { onDispose(hint::withdraw) }
+    return hint
+}
+
+/** The "New at the start" hint of one list ([rememberNewFrontHint]). */
+private class NewFrontHint(
+    private val snackbars: Snackbars,
+    private val scope: CoroutineScope,
+    private val text: () -> String,
+    private val action: () -> String,
+    private val scrollToStart: suspend () -> Unit,
+) {
+    /** One message per list: shown or waiting, the queue doesn't take it twice, and [withdraw] finds it. */
+    private var message: SnackbarMessage? = null
+
+    /**
+     * Offers the start once the list has settled ([NEW_FRONT_SETTLE]) and still isn't there. In the list's own scope, not in
+     * the effect that noticed the change: a further change within the wait restarted it and lost the hint (review3 Q25).
+     */
+    fun announceSoon(isAtStart: () -> Boolean) {
+        scope.launch {
+            delay(NEW_FRONT_SETTLE)
+            if (!isAtStart()) snackbars.show(current())
+        }
     }
+
+    fun withdraw() {
+        message?.let(snackbars::withdraw)
+    }
+
+    private fun current(): SnackbarMessage = message?.takeIf { it.text == text() && it.actionLabel == action() }
+        ?: SnackbarMessage(text(), action(), onAction = { scope.launch { scrollToStart() } }, keep = true).also { message = it }
 }
 
 private fun LazyListState.atStart() = firstVisibleItemIndex == 0 && firstVisibleItemScrollOffset == 0

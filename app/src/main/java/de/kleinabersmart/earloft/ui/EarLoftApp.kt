@@ -633,6 +633,7 @@ fun EarLoftApp(
         // Which message comes next, see [SnackbarQueue].
         val queue = SnackbarQueue(snackbarHost)
         launch { queue.run() }
+        launch { snackbars.withdrawn.collect(queue::withdraw) }
         snackbars.messages.collect(queue::offer)
     }
 

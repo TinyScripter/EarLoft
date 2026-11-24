@@ -78,6 +78,26 @@ class SnackbarQueueTest {
     }
 
     @Test
+    fun `a withdrawn message disappears, waiting or visible`() = runTest {
+        start()
+        val hint = SnackbarMessage("New at the start", actionLabel = "Show", onAction = {}, keep = true)
+        queue.offer(kept("Import failed"))
+        runCurrent()
+        queue.offer(hint)
+        queue.withdraw(hint)
+        assertEquals(emptyList<SnackbarMessage>(), queue.pending)
+
+        expire()
+        queue.offer(hint)
+        runCurrent()
+        assertEquals("New at the start", shown)
+        // review3 Q25: its list is gone, "Show" would do nothing.
+        queue.withdraw(hint)
+        runCurrent()
+        assertNull(shown)
+    }
+
+    @Test
     fun `a kept message already shown or waiting is not queued again`() = runTest {
         start()
         val hint = SnackbarMessage("New at the start", actionLabel = "Show", onAction = {}, keep = true)

@@ -43,6 +43,12 @@ internal class SnackbarQueue(private val host: SnackbarHostState) {
         wake.trySend(Unit)
     }
 
+    /** Exactly this [message] (the same instance) no longer shows; if it is visible, it disappears. */
+    fun withdraw(message: SnackbarMessage) {
+        waiting.removeAll { it === message }
+        if (visible === message) host.currentSnackbarData?.dismiss()
+    }
+
     /** Shows the messages one after another; runs as long as the UI root does. */
     suspend fun run(): Nothing {
         while (true) {
