@@ -17,6 +17,10 @@ import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServerRegistry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import org.junit.After
@@ -32,6 +36,7 @@ class WatchEpisodeImporterTest {
 
     private lateinit var db: EarLoftDatabase
     private lateinit var importer: WatchEpisodeImporter
+    private lateinit var sessions: AbsSessionReporter
     private var episodeId = 0L
     private var bookId = 0L
 
@@ -58,13 +63,14 @@ class WatchEpisodeImporterTest {
         val servers = testAudiobookshelfServers(db.bookDao(), secrets, api)
         val policy = PlaybackPolicy()
         val stats = StatsRepository(db.statsDao(), db.bookDao(), db.podcastDao())
+        sessions = AbsSessionReporter(context, db.absSessionDao(), db.bookDao(), servers, api, policy)
         importer = WatchEpisodeImporter(
             context,
             db,
             db.bookDao(),
             stats,
             BookProgressSync(context, db.bookDao(), servers, api, policy),
-            AbsSessionReporter(context, db.absSessionDao(), db.bookDao(), servers, api, policy),
+            sessions,
         )
     }
 
@@ -131,6 +137,22 @@ class WatchEpisodeImporterTest {
         assertEquals(300_000, stat.listenedMs)
     }
 
+    // A deadlock blocks threads in the database, which no coroutine timeout ends: JUnit's timeout fails the test instead.
+    @Test(timeout = 20_000)
+    fun `a book packet from the watch and playback on the phone record sessions side by side`() = runBlocking {
+        // review3 Q1: the session reporter takes its lock and then writes; inside the import's transaction that waited for the
+        // lock while the phone's playback held it and waited for the database.
+        val listening = listOf(WatchEpisodeListening(ABS_ID, ITEM_ID, listenedMs = 1_000, at = 9_000))
+        val phone = launch(Dispatchers.IO) {
+            repeat(ROUNDS) { sessions.record(bookId, 1_000, 600_000, 36_000_000, now = 9_000) }
+        }
+        val watch = launch(Dispatchers.IO) {
+            repeat(ROUNDS) { importer.import("p$it", emptyList(), listening) }
+        }
+        joinAll(phone, watch)
+        assertEquals(2L * ROUNDS * 1_000, db.absSessionDao().dirty().sumOf { it.timeListeningMs })
+    }
+
     @Test
     fun `episodes stay without server progress`() = runTest {
         importer.import("p1", listOf(progress(600_000, updatedAt = 2_000)), emptyList())
@@ -151,5 +173,6 @@ class WatchEpisodeImporterTest {
         const val GUID = "guid-A"
         const val ABS_ID = "abs-1"
         const val ITEM_ID = "item-1"
+        const val ROUNDS = 200
     }
 }

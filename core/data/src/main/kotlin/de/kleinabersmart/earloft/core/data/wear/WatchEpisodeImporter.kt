@@ -44,6 +44,10 @@ data class WatchEpisodeListening(val feedId: String, val guid: String, val liste
  * server: the progress as when playing on the phone, the time as a listening session. Items listened to the end thereby drop
  * out of the selection and thus off the watch. Each packet counts only once ([ImportedPackets]), and in one transaction: one
  * aborted halfway arrives again and must not count its first listening times twice.
+ *
+ * The listening sessions are recorded only after the transaction: [AbsSessionReporter] writes under its own lock, which the
+ * phone's playback holds while it waits for the database. Taken inside the transaction, both waited for each other and
+ * every write of the app hung (review3 Q1).
  */
 @Singleton
 class WatchEpisodeImporter @Inject constructor(
@@ -62,7 +66,7 @@ class WatchEpisodeImporter @Inject constructor(
         if (packetId in importedPackets) return 0
         var applied = 0
         val toServer = mutableListOf<Long>()
-        val sessionIds = mutableSetOf<String>()
+        val toSessions = mutableListOf<SessionTime>()
         database.withTransaction {
             for (item in progress) {
                 val book = book(item.feedId, item.guid) ?: continue
@@ -93,13 +97,16 @@ class WatchEpisodeImporter @Inject constructor(
                 } else {
                     stats.recordBookListening(book.bookId, item.listenedMs, now = item.at)
                     val position = bookDao.progress(book.bookId)
-                    // Reported to the server only after the transaction.
-                    sessions.record(book.bookId, item.listenedMs, position?.positionMs, position?.durationMs, now = item.at, push = false)
-                        ?.let { sessionIds += it }
+                    toSessions += SessionTime(book.bookId, item.listenedMs, position?.positionMs, position?.durationMs, item.at)
                 }
             }
         }
+        // Before the sessions: if the process ends in between, a session is missing on the server, but the packet arriving
+        // again doesn't count its listening time twice in the statistics.
         importedPackets.remember(packetId)
+        val sessionIds = toSessions.mapNotNullTo(mutableSetOf()) {
+            sessions.record(it.bookId, it.listenedMs, it.positionMs, it.durationMs, now = it.at, push = false)
+        }
         // Without a connection the state stays `dirty`; the BookProgressSync worker delivers it later.
         toServer.forEach { progressSync.push(it) }
         sessionIds.forEach { sessions.push(it) }
@@ -113,6 +120,9 @@ class WatchEpisodeImporter @Inject constructor(
     }
 
     private val BookEntity.syncsWithServer: Boolean get() = kind == BookKind.BOOK && !isLocalSource(serverId)
+
+    /** Listening time of a book for [AbsSessionReporter.record], collected in the transaction. */
+    private class SessionTime(val bookId: Long, val listenedMs: Long, val positionMs: Long?, val durationMs: Long?, val at: Long)
 
     private companion object {
         const val TAG = "WatchEpisodeImporter"
