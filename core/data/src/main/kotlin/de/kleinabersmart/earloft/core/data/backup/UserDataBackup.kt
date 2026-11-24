@@ -777,7 +777,11 @@ class UserDataBackup @Inject constructor(
         val newPlaysOnly = base != null && MUSIC_TABLES.filter { it in changed } == listOf("play_events")
         val musicData = if (read(*MUSIC_TABLES) && !newPlaysOnly) music.read() else null
         val newPlays = if (newPlaysOnly) music.playEventsAfter(basePlayEventId) else null
-        val playEventId = maxOf(basePlayEventId, (musicData?.playEvents ?: newPlays).orEmpty().maxOfOrNull { it.eventId } ?: 0)
+        val newestRead = (musicData?.playEvents ?: newPlays).orEmpty().maxOfOrNull { it.eventId } ?: 0
+        // A full read is the whole history: its newest event is the new start, even if lower than [basePlayEventId] (the main
+        // database was created anew meanwhile, its IDs begin again; review3 Q16). Otherwise new events would only be seen at the
+        // next full read.
+        val playEventId = if (musicData != null) newestRead else maxOf(basePlayEventId, newestRead)
         val fresh = UserDataSnapshot.ofMain(
             sources = if (servers) sourceDao.getServers() else emptyList(),
             spokenServers = if (spokenServers || progress || bookmarks) bookDao.servers() else emptyList(),

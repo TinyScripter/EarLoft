@@ -182,6 +182,26 @@ class MusicBackupTest {
     }
 
     @Test
+    fun `a history that starts over with lower ids is read again from its start`() = runTest {
+        fillOldDevice()
+        val backup = backupFor(main)
+        val song = main.backupDao().songsOfAlbum("element of crime", "damals hinterm mond").first { it.track == 2 }.songId
+        main.backupDao().insertPlayEvents(listOf(PlayEventEntity(songId = song, playedAt = 3_000, listenedMs = 5)))
+        backup.mirror()
+
+        // As if the main database was created anew while the process ran: its event IDs begin again.
+        main.openHelper.writableDatabase.execSQL("DELETE FROM play_events")
+        main.openHelper.writableDatabase.execSQL("DELETE FROM sqlite_sequence WHERE name = 'play_events'")
+        backup.forgetProgress("none", emptyList())
+        main.backupDao().insertPlayEvents(listOf(PlayEventEntity(songId = song, playedAt = 5_000, listenedMs = 5)))
+        backup.mirror()
+        main.backupDao().insertPlayEvents(listOf(PlayEventEntity(songId = song, playedAt = 6_000, listenedMs = 5)))
+        backup.mirror(setOf("play_events"))
+
+        assertEquals(listOf(5_000L, 6_000L), user.userDataDao().playEvents().map { it.playedAt }.sorted())
+    }
+
+    @Test
     fun `a new device gets everything back once the songs are there, with new ids`() = runTest {
         fillOldDevice()
         backupFor(main).mirror()
