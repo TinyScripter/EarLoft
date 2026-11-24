@@ -197,7 +197,7 @@ internal class LibrarySessionCallback(
      * library nor replace the queue nor set favorites (those would go to the server via the sync queue).
      */
     override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
-        val trusted = session.isTrustedController(controller)
+        val trusted = session.isTrustedController(controller, context.packageName)
         Log.d(TAG, "Controller ${controller.packageName}: ${if (trusted) "trusted" else "playback control only"}")
         if (trusted) grantCoverAccess(controller.packageName)
         val commands = controllerCommands(trusted)
@@ -206,17 +206,6 @@ internal class LibrarySessionCallback(
             .setAvailablePlayerCommands(commands.player)
             .build()
     }
-
-    /**
-     * The app itself, the system (notification, lock screen, resumption after reboot; also apps with
-     * media control permission or acting as notification listener, like the watch companion app) and Android Auto/Automotive.
-     */
-    private fun MediaSession.isTrustedController(controller: MediaSession.ControllerInfo): Boolean =
-        controller.packageName == context.packageName ||
-            controller.isTrusted ||
-            isMediaNotificationController(controller) ||
-            isAutoCompanionController(controller) ||
-            isAutomotiveController(controller)
 
     /**
      * The system UI reads the metadata of the platform session directly and loads the cover itself; it only connects
@@ -508,6 +497,28 @@ internal class LibrarySessionCallback(
         const val TAG = "LibrarySession"
         const val DEFAULT_SYSTEM_UI_PACKAGE = "com.android.systemui"
     }
+}
+
+/**
+ * The app itself ([ownPackage]), the system (notification, lock screen, resumption after reboot; also apps with media control
+ * permission or acting as notification listener, like the watch companion app) and Android Auto/Automotive.
+ *
+ * Those after the system are recognised by their package name. A Media3 controller only names it itself; if Media3 could not
+ * check it against the caller (the package is not visible to the app), any app could claim to be the app itself or Android Auto.
+ * Such a name doesn't count. Older controllers (Android Auto, the system UI) connect through the platform, which knows the
+ * caller.
+ */
+@OptIn(UnstableApi::class)
+internal fun MediaSession.isTrustedController(controller: MediaSession.ControllerInfo, ownPackage: String): Boolean {
+    if (controller.isTrusted) return true
+    val knownName = controller.isPackageNameVerified ||
+        controller.controllerVersion == MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION
+    return knownName && (
+        controller.packageName == ownPackage ||
+            isMediaNotificationController(controller) ||
+            isAutoCompanionController(controller) ||
+            isAutomotiveController(controller)
+        )
 }
 
 /** What a controller may do on the session ([LibrarySessionCallback.onConnect]). */
