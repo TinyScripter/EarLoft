@@ -70,11 +70,11 @@ class WearDownloadPlanner @Inject constructor(
                     ?.firstOrNull()
                     ?: phoneCandidates[songId]?.firstOrNull()
                     ?: return@mapNotNull null
-                PlannedDownload(songId, best.uid, estimateBytes(best, settings.quality), pinnedBy = "wear:$key")
+                PlannedDownload(songId, best.uid, estimateBytes(best, settings.quality, state.songSize(best.uid)), pinnedBy = "wear:$key")
             }
             val episodeTracks = podcastDao.downloadedTracks() + podcastDao.pendingTracks()
             val bookTracks = bookDao.downloadedBookTracks() + bookDao.pendingBookTracks()
-            val reserved = wearDao.getPendingCandidates().sumOf { estimateBytes(it, settings.quality) } +
+            val reserved = wearDao.getPendingCandidates().sumOf { estimateBytes(it, settings.quality, state.songSize(it.uid)) } +
                 (episodeTracks + bookTracks).filter { it.downloadState in PENDING }.sumOf { estimate(it) }
             val done = wearDao.getDoneBytes() +
                 (episodeTracks + bookTracks).filter { it.downloadState == TrackDownload.DONE }.sumOf { it.fileSize }

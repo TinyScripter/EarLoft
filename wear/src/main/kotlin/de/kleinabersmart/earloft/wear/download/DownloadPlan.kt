@@ -76,13 +76,14 @@ fun hasRoomForAny(pendingEstimates: List<Long>, budgetBytes: Long): Boolean =
     pendingEstimates.isEmpty() || pendingEstimates.min() <= budgetBytes
 
 /**
- * Estimated size of the file. Opus: duration × 128 kbit/s + 3 % container; original: the size of the source,
- * otherwise from the bitrate (default 320 kbit/s).
+ * Estimated size of the file. Opus: duration × 128 kbit/s + 3 % container; original: [knownOriginalBytes] (the size a
+ * transfer reported when it did not fit, [WatchState.songSize]), the size of the source, otherwise from the bitrate
+ * (default 320 kbit/s).
  */
-fun estimateBytes(candidate: WearCandidateRow, quality: WearQuality): Long = when {
+fun estimateBytes(candidate: WearCandidateRow, quality: WearQuality, knownOriginalBytes: Long? = null): Long = when {
     // The phone always sends the original (Wear concept 8.4).
     candidate.sourceType == SourceType.PHONE || quality == WearQuality.ORIGINAL ->
-        candidate.sizeBytes ?: (candidate.durationMs * (candidate.bitRate ?: DEFAULT_KBIT) / BITS_PER_BYTE)
+        knownOriginalBytes ?: candidate.sizeBytes ?: (candidate.durationMs * (candidate.bitRate ?: DEFAULT_KBIT) / BITS_PER_BYTE)
     else -> (candidate.durationMs * OPUS_BYTES_PER_MS * OPUS_OVERHEAD).toLong()
 }
 

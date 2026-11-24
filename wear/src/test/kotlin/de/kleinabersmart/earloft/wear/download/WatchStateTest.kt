@@ -41,6 +41,18 @@ class WatchStateTest {
     }
 
     @Test
+    fun `a full storage stored by an older version still counts after the update`() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        context.getSharedPreferences("watch_state", android.content.Context.MODE_PRIVATE).edit()
+            .putBoolean("last_error_storage_full", true).putString("last_error", "Speicher voll").commit()
+
+        val updated = WatchState(context)
+        assertTrue(updated.isStorageFull)
+        updated.clearStorageFullError()
+        assertEquals(null, WatchState(context).lastError.value)
+    }
+
+    @Test
     fun `retry runs count up and start over after a clean end`() {
         assertEquals(0, state.retryRuns)
         assertEquals(1, state.recordRetry())

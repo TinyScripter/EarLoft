@@ -57,6 +57,21 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
 
     private fun fileSizeKey(bookId: Long, trackIndex: Int) = "$bookId:$trackIndex"
 
+    /** Like [recordFileSize] for the original of a song from the phone (review3 Q33). */
+    fun recordSongSize(uid: String, bytes: Long) {
+        fileSizes.edit { putLong(songSizeKey(uid), bytes) }
+    }
+
+    /** The size noted by [recordSongSize]; `null` if the song never ran out of room. */
+    fun songSize(uid: String): Long? = fileSizes.getLong(songSizeKey(uid), -1).takeIf { it > 0 }
+
+    fun clearSongSize(uid: String) {
+        val key = songSizeKey(uid)
+        if (fileSizes.contains(key)) fileSizes.edit { remove(key) }
+    }
+
+    private fun songSizeKey(uid: String) = "song:$uid"
+
     private val _settings = MutableStateFlow(readSettings())
     val settings: StateFlow<WearSettingsDto> = _settings.asStateFlow()
 
@@ -66,7 +81,12 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     val missingForStorage: StateFlow<Int> = _missingForStorage.asStateFlow()
 
     /** Stored as a code, not as text: the phone shows it in its own language (review2 Z20). A text of an older version is dropped. */
-    private val _lastError = MutableStateFlow(WearDownloadError.of(prefs.getString(KEY_LAST_ERROR_CODE, null)))
+    // The full storage of an older version (`last_error_storage_full`) still counts: it is a state, and a waiting
+    // `StorageRoomWorker` would otherwise end without planning (review3 Q29).
+    private val _lastError = MutableStateFlow(
+        WearDownloadError.of(prefs.getString(KEY_LAST_ERROR_CODE, null))
+            ?: WearDownloadError.STORAGE_FULL.takeIf { prefs.getBoolean(KEY_LAST_ERROR_STORAGE_FULL, false) },
+    )
     val lastError: StateFlow<WearDownloadError?> = _lastError.asStateFlow()
 
     private val _waitingForWifi = MutableStateFlow(prefs.getBoolean(KEY_WAITING_WIFI, false))

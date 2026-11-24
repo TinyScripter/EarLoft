@@ -132,7 +132,6 @@ class WearDownloadWorker internal constructor(
         val phoneReachable = drainPhoneQueue()
         if (stoppedForStorage) return finish()
 
-        var coversCached = false
         try {
             val profile = state.settings.value.quality.toProfile()
             while (true) {
@@ -304,24 +303,27 @@ class WearDownloadWorker internal constructor(
             }
             // While the Wi-Fi of the downloads is still held: over the Bluetooth proxy the home server is often unreachable, and
             // a missing cover is only asked for again hours later (review2 J90).
-            lease?.network?.let { network ->
-                cacheCoversOver(network)
-                coversCached = true
-            }
+            lease?.network?.let { network -> cacheCoversOver(network) }
         } finally {
             releaseWifi()
         }
-        if (!coversCached) cacheCovers()
+        // Unbound: what the Wi-Fi pass did not get (Wi-Fi gone meanwhile, review3 Q30) comes from the phone; what it got is
+        // already there and is skipped.
+        cacheCovers()
         if (!phoneReachable) return waitForPhone()
         return finish()
     }
 
-    /** [cacheCovers] with the process bound to [network]: the cover loading doesn't know the network of the downloads. */
+    /**
+     * Covers from the servers only, with the process bound to [network]: the cover loading doesn't know the network of the
+     * downloads. Nothing is noted as missing and the phone isn't asked: if the Wi-Fi goes meanwhile, every server cover
+     * fails here without falling back, and [cacheCovers] afterwards does that unbound.
+     */
     private suspend fun cacheCoversOver(network: Network) {
         val connectivity = applicationContext.getSystemService(ConnectivityManager::class.java)
         val bound = connectivity.bindProcessToNetwork(network)
         try {
-            cacheCovers()
+            cacheCovers(serversOnly = true)
         } finally {
             if (bound) connectivity.bindProcessToNetwork(null)
         }
@@ -529,7 +531,7 @@ class WearDownloadWorker internal constructor(
 
     /** Whether the original of [uid] (the size the server reported for it) fits into the storage budget. Unknown size: try. */
     private suspend fun originalFits(uid: String): Boolean {
-        val size = downloadDao.getSongSource(uid)?.sizeBytes?.takeIf { it > 0 } ?: return true
+        val size = state.songSize(uid) ?: downloadDao.getSongSource(uid)?.sizeBytes?.takeIf { it > 0 } ?: return true
         val settings = state.settings.value
         val free = withContext(Dispatchers.IO) { storage.freeBytes() }
         // A transfer that broke off resumes; what has arrived is already on the storage.
@@ -554,7 +556,7 @@ class WearDownloadWorker internal constructor(
         val spoken = (podcastDao.pendingTracks() + bookDao.pendingBookTracks())
             .filter { it.downloadState == TrackDownload.QUEUED }
             .map { estimateEpisodeBytes(it.durationMs) }
-        if (hasRoomForAny(pending.map { estimateBytes(it, settings.quality) } + spoken, budget)) return true
+        if (hasRoomForAny(pending.map { estimateBytes(it, settings.quality, state.songSize(it.uid)) } + spoken, budget)) return true
         // [WatchState.missingForStorage] stays as the planner counted it: these tracks are queued, not left out.
         Log.i(TAG, "Storage full: no waiting track fits (budget $budget bytes), not starting")
         return false
@@ -620,6 +622,7 @@ class WearDownloadWorker internal constructor(
         }) {
             DownloadOutcome.Done -> {
                 state.deliveredViaPhone(uid, moreToCome = false)
+                state.clearSongSize(uid)
                 state.clearPhoneUnreachable()
                 state.setLastError(null)
                 true
@@ -635,6 +638,11 @@ class WearDownloadWorker internal constructor(
             }
             is DownloadOutcome.NoSpace -> {
                 state.clearPhoneUnreachable()
+                // Like a file of an episode (review2 J7, review3 Q33): with its real size the planner only queues it again once
+                // that much room is free; with the estimate it queued it right away, and every transfer was refused at the header.
+                Log.i(TAG, "$uid does not fit (${outcome.totalBytes ?: "?"} bytes)")
+                outcome.totalBytes?.let { state.recordSongSize(uid, it) }
+                downloadDao.delete(listOf(uid))
                 storageFull()
                 true
             }
@@ -654,14 +662,14 @@ class WearDownloadWorker internal constructor(
      * What the watch cannot load itself (files from the phone's device, server unreachable) is sent by the phone.
      * If it is missing, playback works anyway.
      */
-    private suspend fun cacheCovers() {
+    private suspend fun cacheCovers(serversOnly: Boolean = false) {
         // Once per book, even with several files.
         for (bookId in (podcastDao.downloadedTracks() + bookDao.downloadedBookTracks()).map { it.bookId }.distinct()) {
             try {
                 val key = WatchState.bookCoverKey(bookId)
                 if (edges.ensureBookCover(bookId)) {
                     state.clearCoverMissing(key)
-                } else if (!state.coverRecentlyMissing(key)) {
+                } else if (!serversOnly && !state.coverRecentlyMissing(key)) {
                     // A channel to the phone per book on every run: only again after a while if the phone had none either.
                     val cover = edges.coverFromPhone(bookId)
                     if (cover != null) edges.storeBookCover(bookId, cover) else state.recordCoverMissing(key)
@@ -675,7 +683,7 @@ class WearDownloadWorker internal constructor(
         for (albumId in downloadDao.getAlbumIdsWithDoneDownload()) {
             try {
                 val key = WatchState.albumCoverKey(albumId)
-                if (edges.cacheAlbumCover(albumId, COVER_SIZE_PX)) state.clearCoverMissing(key) else state.recordCoverMissing(key)
+                if (edges.cacheAlbumCover(albumId, COVER_SIZE_PX)) state.clearCoverMissing(key) else if (!serversOnly) state.recordCoverMissing(key)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

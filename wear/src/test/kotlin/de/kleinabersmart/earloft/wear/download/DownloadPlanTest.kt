@@ -77,6 +77,16 @@ class DownloadPlanTest {
     }
 
     @Test
+    fun `the size a transfer reported replaces the estimate of the original, not the opus one`() {
+        val phone = WearCandidateRow("phone:local:1", 1, SourceType.PHONE, 0, bitRate = 128, sizeBytes = null, durationMs = 200_000)
+        val server = WearCandidateRow("nd:1", 1, SourceType.SUBSONIC, 0, bitRate = 900, sizeBytes = 30_000_000, durationMs = 200_000)
+
+        assertEquals(90_000_000, estimateBytes(phone, WearQuality.OPUS_128, knownOriginalBytes = 90_000_000))
+        assertEquals(3_296_000, estimateBytes(server, WearQuality.OPUS_128, knownOriginalBytes = 90_000_000))
+        assertEquals(90_000_000, estimateBytes(server, WearQuality.ORIGINAL, knownOriginalBytes = 90_000_000))
+    }
+
+    @Test
     fun `original estimate falls back to the bit rate`() {
         val withBitRate = WearCandidateRow("nd:1", 1, SourceType.SUBSONIC, 0, bitRate = 256, sizeBytes = null, durationMs = 100_000)
         val unknown = WearCandidateRow("nd:2", 2, SourceType.SUBSONIC, 0, bitRate = null, sizeBytes = null, durationMs = 100_000)

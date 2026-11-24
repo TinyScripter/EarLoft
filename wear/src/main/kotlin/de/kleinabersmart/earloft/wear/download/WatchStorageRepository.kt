@@ -179,5 +179,5 @@ class WatchStorageRepository @Inject constructor(
      */
     suspend fun phoneBacklogBytes(quality: WearQuality): Long = wearDao.getPendingCandidates()
         .filter { it.sourceType == SourceType.PHONE || watchState.hasServerFailedTooOften(it.uid) || watchState.isMarkedViaPhone(it.uid) }
-        .sumOf { estimateBytes(it, quality) }
+        .sumOf { estimateBytes(it, quality, watchState.songSize(it.uid)) }
 }
