@@ -270,7 +270,7 @@ class UserDataBackup @Inject constructor(
                 podcasts = adjusted.podcasts.keys.count { podcastDao.feed(it) == null },
                 playlists = music.missingPlaylists(adjusted.playlists.keys),
             )
-            restore(adjusted)
+            restore(adjusted, mergeBookStats = true)
             val current = readUser()
             val merged = current.plusMissing(adjusted)
             val changes = merged.changesSince(current)
@@ -411,16 +411,31 @@ class UserDataBackup @Inject constructor(
         scope.launch { restoreArdBooks() }
     }
 
-    /** Creates what is missing in the main database; existing data stays unchanged. */
-    internal suspend fun restore(saved: UserDataSnapshot) {
+    /**
+     * Creates what is missing in the main database; existing data stays unchanged. With [mergeBookStats] (importing a file), the
+     * book statistics that exist here as well keep the larger time instead.
+     */
+    internal suspend fun restore(saved: UserDataSnapshot, mergeBookStats: Boolean = false) {
         database.withTransaction {
             saved.servers.values.forEach { sourceDao.insertIfAbsent(it.toMain()) }
             saved.spokenServers.values.forEach { if (bookDao.server(it.serverId) == null) bookDao.upsertServer(it.toMain()) }
             saved.podcasts.values.forEach {
                 if (podcastDao.feed(it.feedId) == null && podcastDao.feedByUrl(it.url) == null) podcastDao.upsertFeed(it.toMain())
             }
-            statsDao.insertAllIfAbsent(saved.listeningStats.values.map { it.toMain() })
-            statsDao.insertDaysIfAbsent(saved.listeningDays.values.map { it.toMain() })
+            val stats = saved.listeningStats.values.map { it.toMain() }
+            val days = saved.listeningDays.values.map { it.toMain() }
+            if (mergeBookStats) {
+                // Book statistics of a foreign device are attached to the local server and may overlap with local ones (review3 Q15).
+                val (books, others) = stats.partition { it.kind == BookKind.BOOK }
+                val (bookDays, otherDays) = days.partition { it.kind == BookKind.BOOK }
+                statsDao.insertAllIfAbsent(others)
+                statsDao.insertDaysIfAbsent(otherDays)
+                statsDao.mergeStats(books)
+                statsDao.mergeDays(bookDays)
+            } else {
+                statsDao.insertAllIfAbsent(stats)
+                statsDao.insertDaysIfAbsent(days)
+            }
             music.restorePlaylists(saved.playlists.values)
         }
     }

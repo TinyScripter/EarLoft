@@ -43,6 +43,36 @@ abstract class StatsDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     abstract suspend fun insertDaysIfAbsent(days: List<ListeningDayEntity>)
 
+    @Query(
+        "UPDATE listening_stats SET listenedMs = MAX(listenedMs, :listenedMs), lastListenedAt = MAX(lastListenedAt, :lastListenedAt) " +
+            "WHERE source = :source AND groupKey = :groupKey AND itemKey = :itemKey",
+    )
+    protected abstract suspend fun raiseStat(source: String, groupKey: String, itemKey: String, listenedMs: Long, lastListenedAt: Long)
+
+    @Query(
+        "UPDATE listening_days SET listenedMs = MAX(listenedMs, :listenedMs), savedMs = MAX(savedMs, :savedMs) " +
+            "WHERE day = :day AND kind = :kind AND groupKey = :groupKey",
+    )
+    protected abstract suspend fun raiseDay(day: Long, kind: BookKind, groupKey: String, listenedMs: Long, savedMs: Long)
+
+    /**
+     * Inserts missing entries; for existing ones (same `source`, `groupKey`, `itemKey`) the larger time and the later listen win.
+     * Idempotent, unlike adding up: the same backup applied twice counts once. Statistics of a foreign device that were attached
+     * to a local server (review3 Q15) would otherwise be dropped where they overlap with local ones.
+     */
+    @Transaction
+    open suspend fun mergeStats(stats: List<ListeningStatEntity>) {
+        insertAllIfAbsent(stats)
+        stats.forEach { raiseStat(it.source, it.groupKey, it.itemKey, it.listenedMs, it.lastListenedAt) }
+    }
+
+    /** Like [mergeStats], for the days. */
+    @Transaction
+    open suspend fun mergeDays(days: List<ListeningDayEntity>) {
+        insertDaysIfAbsent(days)
+        days.forEach { raiseDay(it.day, it.kind, it.groupKey, it.listenedMs, it.savedMs) }
+    }
+
     @Query("SELECT COALESCE(SUM(listenedMs), 0) FROM listening_stats WHERE kind = :kind")
     abstract fun observeTotalListenedMs(kind: BookKind): Flow<Long>
 

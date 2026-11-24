@@ -328,6 +328,37 @@ class FullBackupTest {
     }
 
     @Test
+    fun `book statistics that overlap with local ones keep the larger time, and importing twice changes nothing`() = runTest {
+        fun stat(groupKey: String, itemKey: String, ms: Long, lastListenedAt: Long) = ListeningStatEntity(
+            source = ListeningStatEntity.SOURCE_APP, kind = BookKind.BOOK, groupKey = groupKey, groupTitle = "ABS",
+            itemKey = itemKey, itemTitle = itemKey, listenedMs = ms, lastListenedAt = lastListenedAt,
+        )
+        val old = Device(backgroundScope)
+        old.main.addAbs("abs")
+        old.main.statsDao().addListening(stat("abs", "li_1", 60_000, 1_000), day = 20_000)
+        old.main.statsDao().addListening(stat("abs", "li_2", 80_000, 3_000), day = 20_001)
+        val file = ByteArrayOutputStream().also { old.backup.export(it) }.toByteArray()
+
+        val new = Device(backgroundScope)
+        new.main.addAbs("abs-here")
+        // li_1 was listened to longer here, li_2 shorter; the day 20_000 has more here, the day 20_001 less.
+        new.main.statsDao().addListening(stat("abs-here", "li_1", 90_000, 2_000), day = 20_000)
+        new.main.statsDao().addListening(stat("abs-here", "li_2", 20_000, 4_000), day = 20_001)
+        repeat(2) { new.backup.import(ByteArrayInputStream(file)) }
+
+        val stats = new.main.statsDao().all().associateBy { it.itemKey }
+        assertEquals(setOf("abs-here"), stats.values.map { it.groupKey }.toSet())
+        assertEquals(90_000L, stats.getValue("li_1").listenedMs)
+        assertEquals(80_000L, stats.getValue("li_2").listenedMs)
+        // The later of the two listens counts.
+        assertEquals(2_000L, stats.getValue("li_1").lastListenedAt)
+        assertEquals(4_000L, stats.getValue("li_2").lastListenedAt)
+        val days = new.main.statsDao().allDays().associateBy { it.day }
+        assertEquals(90_000L, days.getValue(20_000).listenedMs)
+        assertEquals(80_000L, days.getValue(20_001).listenedMs)
+    }
+
+    @Test
     fun `a restored subscription downloads only what the old device had, then new episodes again`() = runTest {
         val old = Device(backgroundScope)
         old.main.addFeed()
