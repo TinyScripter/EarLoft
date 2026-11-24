@@ -28,8 +28,15 @@ class RestoredStartTest {
     }
 
     @Test
-    fun `an index outside the queue is limited to it`() {
-        assertEquals(RestoredStart(index = 4, sameSong = true), restoredStart(saved, saved.toSet(), savedIndex = 9))
+    fun `a saved title deleted from the end of the queue starts the one that is last now from its beginning`() {
+        // Deleted songs at the end leave no gap: the stored queue is just shorter than the saved index (review3 Q2).
+        assertEquals(RestoredStart(index = 1, sameSong = false), restoredStart(listOf(10L, 11L), setOf(10L, 11L), savedIndex = 2))
+        assertEquals(RestoredStart(index = 1, sameSong = false), restoredStart(listOf(10L, 11L), setOf(10L, 11L), savedIndex = 4))
+    }
+
+    @Test
+    fun `an index outside the queue is limited to it, not as the same title`() {
+        assertEquals(RestoredStart(index = 4, sameSong = false), restoredStart(saved, saved.toSet(), savedIndex = 9))
         assertEquals(RestoredStart(index = 0, sameSong = true), restoredStart(saved, saved.toSet(), savedIndex = -2))
     }
 }

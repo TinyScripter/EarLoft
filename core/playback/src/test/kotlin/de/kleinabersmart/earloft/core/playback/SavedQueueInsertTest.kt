@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.playback
 
+import de.kleinabersmart.earloft.core.data.repository.PlaybackStateRepository
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -27,7 +28,20 @@ class SavedQueueInsertTest {
     }
 
     @Test
-    fun `a saved index beyond the queue counts as its last song`() {
-        assertEquals(listOf(1L, 2L, 10L), insertIntoSavedQueue(listOf(1, 2), savedIndex = 7, songIds = listOf(10), next = true))
+    fun `a saved title deleted from the end keeps its place as a gap, the new songs come after it`() {
+        // Otherwise the new song took the saved index and started at the deleted title's position (review3 Q2).
+        assertEquals(listOf(1L, 2L, GAP, 10L), insertIntoSavedQueue(listOf(1, 2), savedIndex = 2, songIds = listOf(10), next = true))
+        assertEquals(listOf(1L, 2L, GAP, 10L), insertIntoSavedQueue(listOf(1, 2), savedIndex = 2, songIds = listOf(10), next = false))
+        assertEquals(listOf(1L, 2L, GAP, GAP, 10L), insertIntoSavedQueue(listOf(1, 2), savedIndex = 3, songIds = listOf(10), next = true))
+    }
+
+    @Test
+    fun `restored after inserting behind a deleted last title, the new song starts from its beginning`() {
+        val queue = insertIntoSavedQueue(listOf(1, 2), savedIndex = 2, songIds = listOf(10), next = true)
+        assertEquals(RestoredStart(index = 2, sameSong = false), restoredStart(queue, setOf(1L, 2L, 10L), savedIndex = 2))
+    }
+
+    private companion object {
+        const val GAP = PlaybackStateRepository.QUEUE_GAP
     }
 }

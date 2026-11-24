@@ -177,6 +177,29 @@ class QueuePersistenceTest {
     }
 
     @Test
+    fun `a deleted last saved title starts the one that is last now from its start`() = runBlocking {
+        val (a, b, c) = songs("A", "B", "C")
+        db.playbackDao().replaceQueue(listOf(a, b, c))
+        settled { persistence.saveMusicPosition(index = 2, position = 190_000, shuffle = false, repeat = Player.REPEAT_MODE_OFF, scope = it) }
+        delete(c)
+
+        // review3 Q2: the stored queue is just shorter, and B started at C's position.
+        val restored = persistence.restore()!!
+        assertEquals(listOf(a, b).map { MediaIds.song(it) }, restored.items.map { it.mediaId })
+        assertEquals(1, restored.startIndex)
+        assertEquals(0L, restored.startPositionMs)
+
+        // A song added during a book doesn't take over C's place and position either.
+        val (d) = songs("D")
+        persistence.addToSavedQueue(listOf(d), next = true)
+        val withD = persistence.restore()!!
+        assertEquals(listOf(a, b, d).map { MediaIds.song(it) }, withD.items.map { it.mediaId })
+        assertEquals(2, withD.startIndex)
+        assertEquals(0L, withD.startPositionMs)
+        assertEquals(2, persistence.savedQueue.first()!!.index)
+    }
+
+    @Test
     fun `songs added after every saved song was deleted start at the first of them`() = runBlocking {
         val (a, b) = songs("A", "B")
         db.playbackDao().replaceQueue(listOf(a))

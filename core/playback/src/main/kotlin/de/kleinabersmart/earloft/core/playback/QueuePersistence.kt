@@ -48,12 +48,17 @@ data class RestoredQueue(
 /**
  * The saved music queue [saved] with [songIds] in it: with [next] right after the saved title
  * ([savedIndex]), otherwise at the end; if it is empty, just [songIds].
+ *
+ * A saved index beyond the end: the saved title was deleted from the end of the queue, which leaves no gap there. Its place
+ * stays a gap ([PlaybackStateRepository.QUEUE_GAP]), otherwise a new song took it over and started at the old title's
+ * position (review3 Q2).
  */
 internal fun insertIntoSavedQueue(saved: List<Long>, savedIndex: Int, songIds: List<Long>, next: Boolean): List<Long> {
     if (saved.isEmpty()) return songIds
-    if (!next) return saved + songIds
-    val at = savedIndex.coerceIn(0, saved.lastIndex) + 1
-    return saved.take(at) + songIds + saved.drop(at)
+    val base = if (savedIndex > saved.lastIndex) saved + List(savedIndex - saved.lastIndex) { PlaybackStateRepository.QUEUE_GAP } else saved
+    if (!next) return base + songIds
+    val at = savedIndex.coerceIn(0, base.lastIndex) + 1
+    return base.take(at) + songIds + base.drop(at)
 }
 
 /** The saved queue from [songs] with the title at [savedIndex] (limited like [QueuePersistence.restore]); `null` if empty. */
@@ -69,9 +74,12 @@ internal data class RestoredStart(val index: Int, val sameSong: Boolean)
 /**
  * The start of the saved queue [savedIds] at [savedIndex] once the songs not [present] any more are left out: the saved
  * title, or if it was removed the one after it (from its start), at the end the last one.
+ *
+ * An index beyond the end counts as a removed title: songs deleted from the end of the queue leave no gap there, and the
+ * last remaining song must not start at the deleted one's position (review3 Q2).
  */
 internal fun restoredStart(savedIds: List<Long>, present: Set<Long>, savedIndex: Int): RestoredStart {
-    val index = savedIndex.coerceIn(0, (savedIds.size - 1).coerceAtLeast(0))
+    val index = savedIndex.coerceAtLeast(0)
     val remaining = savedIds.count { it in present }
     val before = savedIds.take(index).count { it in present }
     val sameSong = savedIds.getOrNull(index)?.let { it in present } == true
