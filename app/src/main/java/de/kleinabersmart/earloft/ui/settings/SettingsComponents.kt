@@ -247,7 +247,7 @@ internal fun ServerRow(
                 val account = server.username
                 val address = server.baseUrl
                 Text(
-                    if (account != null && address != null) stringResource(R.string.server_account_at_address, account, address) else account ?: address.orEmpty(),
+                    if (account != null) stringResource(R.string.server_account_at_address, account, address) else address,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
