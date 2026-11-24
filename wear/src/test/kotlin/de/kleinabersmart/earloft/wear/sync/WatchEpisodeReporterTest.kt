@@ -45,6 +45,7 @@ class WatchEpisodeReporterTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private lateinit var db: EarLoftDatabase
     private lateinit var reporter: WatchEpisodeReporter
+    private lateinit var reported: ReportedEpisodes
     private val phoneData = FakePhoneData()
 
     @Before
@@ -60,8 +61,9 @@ class WatchEpisodeReporterTest {
         val registry = AbsServerRegistry()
         val authApi = AbsAuthApi(client)
         val servers = AudiobookshelfServers(db.bookDao(), secrets, api, authApi, AbsTokenRenewal(secrets, registry, authApi), registry, CredentialsStamps(secrets))
+        reported = ReportedEpisodes(context)
         reporter = WatchEpisodeReporter(
-            phoneData, db.bookDao(), db.podcastDao(), db.statsDao(), ReportedEpisodes(context),
+            phoneData, db.bookDao(), db.podcastDao(), db.statsDao(), reported,
             BookProgressSync(context, db.bookDao(), servers, api, PlaybackPolicy()),
         )
     }
@@ -150,6 +152,19 @@ class WatchEpisodeReporterTest {
         listened(BookKind.EPISODE, FEED_URL, "e1", ms = 25_000)
         reporter.report()
         assertEquals(listOf(FEED_ID to 15_000L), phoneData.packets.last().listening.map(WearEpisodeListeningDto::pair))
+    }
+
+    @Test
+    fun `a clock that ran ahead at the last report and was corrected does not hide new listening times`() = runTest {
+        episode("e1")
+        // The last report ran while the watch's clock was three hours ahead; now it shows the right time again.
+        reported.markReported(emptyList(), emptyList(), checkedAt = System.currentTimeMillis() + 3 * 60 * 60_000L)
+        listened(BookKind.EPISODE, FEED_URL, "e1", ms = 120_000)
+
+        reporter.report()
+
+        assertEquals(listOf(FEED_ID to 120_000L), phoneData.packets.single().listening.map(WearEpisodeListeningDto::pair))
+        assertTrue("the time is right again", reported.listeningCheckedAt() <= System.currentTimeMillis())
     }
 
     @Test

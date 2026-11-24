@@ -74,8 +74,13 @@ class WatchEpisodeReporter @Inject internal constructor(
         val progress = bookDao.keyedProgress()
             .filter { it.progress.updatedAt > reported.progressAt(it.serverId, it.remoteId) }
         // Only entries listened to since the last report (with slack for the clock): the delta is per entry anyway (review2 J95).
+        // A last report from the future means the clock ran ahead then and has been corrected since: entries listened to after
+        // the correction would all look older than it, so the whole table is read once (review3 Q32); the report below sets
+        // the time right again.
         val checkedAt = System.currentTimeMillis()
-        val listening = statsDao.listenedSince(ListeningStatEntity.SOURCE_APP, reported.listeningCheckedAt() - CLOCK_SLACK_MS)
+        val lastChecked = reported.listeningCheckedAt()
+        val since = if (lastChecked > checkedAt) 0 else lastChecked - CLOCK_SLACK_MS
+        val listening = statsDao.listenedSince(ListeningStatEntity.SOURCE_APP, since)
             .mapNotNull { stat ->
                 // Episodes count under the feed address, books under their `serverId` (StatsRepository).
                 val feedId = when (stat.kind) {
