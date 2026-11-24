@@ -226,6 +226,30 @@ internal fun <T> pickAlbum(candidates: Collection<T>, year: Int, yearOf: (T) -> 
     candidates.firstOrNull { (yearOf(it) ?: 0) == year }
         ?: candidates.singleOrNull()?.takeIf { yearOf(it) == null || year == 0 }
 
+/**
+ * The albums that [current] holds rows with a known year for. A row of the same kind without a year (0, from before version 20 of
+ * `user.db`) for such an album is obsolete (review3 Q13): it matches no edition if several are in the library, and would stay
+ * next to the new rows for good, waiting at every start, and match again on a device with a single edition.
+ */
+internal class AlbumsWithYear(current: UserDataSnapshot) {
+    private val favorites = current.favorites.keys.filter { it.year != 0 }.mapTo(HashSet()) { it.albumArtist to it.album }
+    private val playEvents = current.playEvents.values.map { it.song }.filter { it.year != 0 }.mapTo(HashSet()) { it.albumArtist to it.album }
+    private val collectionFavorites = current.collectionFavorites.values
+        .filter { it.kind == FavoriteKind.ALBUM && it.year != 0 }.mapTo(HashSet()) { it.artist to it.title }
+    private val wearSelections = current.wearSelections.values
+        .filter { it.kind == WearSelectionKind.ALBUM && it.year != 0 }.mapTo(HashSet()) { it.albumArtist.orEmpty() to it.album.orEmpty() }
+
+    fun supersedes(favorite: UserFavoriteEntity) = favorite.song.year == 0 && (favorite.song.albumArtist to favorite.song.album) in favorites
+
+    fun supersedes(event: UserPlayEventEntity) = event.song.year == 0 && (event.song.albumArtist to event.song.album) in playEvents
+
+    fun supersedes(favorite: UserCollectionFavoriteEntity) =
+        favorite.kind == FavoriteKind.ALBUM && favorite.year == 0 && (favorite.artist to favorite.title) in collectionFavorites
+
+    fun supersedes(selection: UserWearSelectionEntity) = selection.kind == WearSelectionKind.ALBUM && selection.year == 0 &&
+        (selection.albumArtist.orEmpty() to selection.album.orEmpty()) in wearSelections
+}
+
 /** Music user data of the main database, already with keys (see [UserDataSnapshot.ofMain]). */
 data class MusicData(
     val playlists: List<PlaylistEntity>,

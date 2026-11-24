@@ -16,6 +16,11 @@ import de.kleinabersmart.earloft.core.database.entity.PlaylistEntryEntity
 import de.kleinabersmart.earloft.core.database.entity.SongEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
+import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
+import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
+import de.kleinabersmart.earloft.core.database.entity.UserPlayEventEntity
+import de.kleinabersmart.earloft.core.database.entity.UserSongKey
+import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
 import de.kleinabersmart.earloft.core.database.entity.WearSelectionEntity
 import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.SourceType
@@ -273,6 +278,50 @@ class MusicBackupTest {
         } finally {
             newDevice.close()
         }
+    }
+
+    @Test
+    fun `rows without a year are dropped once rows with a year replace them, others keep waiting`() = runTest {
+        sources(main)
+        album(main, "element of crime", "damals hinterm mond", year = 1991)
+        val remaster = album(main, "element of crime", "damals hinterm mond", year = 2016)
+        val song = song(main, remaster, 1, "damals hinterm mond", favorite = true, remoteId = "remaster")
+        main.backupDao().insertPlayEvents(listOf(PlayEventEntity(songId = song, playedAt = 1_000, listenedMs = 1)))
+        main.wearDao().upsert(WearSelectionEntity(WearSelectionKind.ALBUM.key(remaster), WearSelectionKind.ALBUM, remaster, addedAt = 7))
+        main.syncDao().setAlbumFavorite(remaster, true, 300)
+        backupFor(main).mirror()
+        val withYear = user.userDataDao().snapshot()
+        assertEquals(1, withYear.favorites.size)
+        assertEquals(1, withYear.collectionFavorites.size)
+
+        // What an older version saved for the same album, and a favorite whose album is not here at all.
+        fun key(artist: String, album: String, year: Int) = UserSongKey(artist, album, 1, 1, "damals hinterm mond", year)
+        val old = UserDataSnapshot(
+            favorites = listOf(UserFavoriteEntity(key("element of crime", "damals hinterm mond", 0), 50), UserFavoriteEntity(key("other", "record", 0), 50))
+                .associateBy { it.song },
+            playEvents = listOf(UserPlayEventEntity(key("element of crime", "damals hinterm mond", 0), 900, 1), UserPlayEventEntity(key("other", "record", 0), 900, 1))
+                .associateBy { PlayKey(it.song, it.playedAt) },
+            wearSelections = listOf(
+                UserWearSelectionEntity("album:element of crime\u001Fdamals hinterm mond", WearSelectionKind.ALBUM, "element of crime", "damals hinterm mond", null, 7),
+                UserWearSelectionEntity("album:other\u001Frecord", WearSelectionKind.ALBUM, "other", "record", null, 7),
+            ).associateBy { it.key },
+            collectionFavorites = listOf(
+                UserCollectionFavoriteEntity(FavoriteKind.ALBUM, "element of crime", "damals hinterm mond", 50),
+                UserCollectionFavoriteEntity(FavoriteKind.ALBUM, "other", "record", 50),
+            ).associateBy { it.key },
+        )
+        user.userDataDao().apply(old.changesSince(UserDataSnapshot()))
+
+        // A new process compares against `user.db` as it is.
+        backupFor(main).mirror()
+        val saved = user.userDataDao().snapshot()
+        assertEquals(setOf(2016, 0), saved.favorites.keys.map { it.year }.toSet())
+        assertEquals(setOf("damals hinterm mond" to 2016, "record" to 0), saved.favorites.keys.map { it.album to it.year }.toSet())
+        assertEquals(setOf(2016, 0), saved.playEvents.values.map { it.song.year }.toSet())
+        assertEquals(2, saved.playEvents.size)
+        assertEquals(setOf("damals hinterm mond" to 2016, "record" to 0), saved.collectionFavorites.values.map { it.title to it.year }.toSet())
+        assertEquals(2, saved.wearSelections.size)
+        assertEquals(setOf("damals hinterm mond" to 2016, "record" to 0), saved.wearSelections.values.map { it.album to it.year }.toSet())
     }
 
     @Test

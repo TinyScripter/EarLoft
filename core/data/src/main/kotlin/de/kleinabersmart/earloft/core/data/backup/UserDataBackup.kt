@@ -717,18 +717,21 @@ class UserDataBackup @Inject constructor(
                 BookKey(it.serverId, it.remoteId) !in waitingStars && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
             }
             val songs = music.resolve((changes.favorites.deletes.map { it.song } + changes.playEvents.deletes.map { it.song }).toSet())
+            // Rows without a year that the rows with a year here have replaced (review3 Q13): they match no edition, so the check
+            // below would keep them for good.
+            val replaced = AlbumsWithYear(current)
             changes.copy(
                 progress = changes.progress.copy(deletes = progressDeletes),
                 bookmarks = changes.bookmarks.copy(deletes = bookmarkDeletes),
                 episodeDownloads = changes.episodeDownloads.copy(deletes = downloadDeletes),
                 episodeStars = changes.episodeStars.copy(deletes = starDeletes),
                 ardBooks = changes.ardBooks.copy(deletes = ardBookDeletes),
-                favorites = changes.favorites.copy(deletes = changes.favorites.deletes.filter { it.song in songs }),
+                favorites = changes.favorites.copy(deletes = changes.favorites.deletes.filter { it.song in songs || replaced.supersedes(it) }),
                 collectionFavorites = changes.collectionFavorites.copy(
-                    deletes = changes.collectionFavorites.deletes.filter { music.collectionState(it) != null },
+                    deletes = changes.collectionFavorites.deletes.filter { music.collectionState(it) != null || replaced.supersedes(it) },
                 ),
-                playEvents = changes.playEvents.copy(deletes = changes.playEvents.deletes.filter { it.song in songs }),
-                wearSelections = changes.wearSelections.copy(deletes = changes.wearSelections.deletes.filter { music.wearTarget(it) != null }),
+                playEvents = changes.playEvents.copy(deletes = changes.playEvents.deletes.filter { it.song in songs || replaced.supersedes(it) }),
+                wearSelections = changes.wearSelections.copy(deletes = changes.wearSelections.deletes.filter { music.wearTarget(it) != null || replaced.supersedes(it) }),
             )
         }
         if (!changes.isEmpty) userDao.apply(changes)
