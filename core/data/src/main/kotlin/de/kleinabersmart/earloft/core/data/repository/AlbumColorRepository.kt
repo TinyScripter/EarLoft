@@ -38,7 +38,22 @@ class AlbumColorRepository @Inject constructor(
     suspend fun seedColorNow(albumId: Long): Int? =
         libraryDao.observeSeedColor(albumId).first() ?: compute(albumId)
 
-    private suspend fun compute(albumId: Long): Int? {
+    private suspend fun compute(albumId: Long): Int? =
+        colorOfCover(albumId)?.also { libraryDao.setSeedColor(albumId, it) }
+
+    /**
+     * Computes the missing colors of all visible albums (for the order by cover color), [BATCH] albums per write: each write
+     * reloads and re-sorts the album lists, once per album would let the list jump all the time. Albums without a cover are
+     * skipped (and retried after [NO_COVER_RETRY_MS]). Runs until done or cancelled.
+     */
+    suspend fun fillMissing() {
+        libraryDao.getAlbumIdsWithoutSeedColor().chunked(BATCH).forEach { chunk ->
+            val colors = chunk.mapNotNull { albumId -> colorOfCover(albumId)?.let { albumId to it } }.toMap()
+            if (colors.isNotEmpty()) libraryDao.setSeedColors(colors)
+        }
+    }
+
+    private suspend fun colorOfCover(albumId: Long): Int? {
         val since = noCover[albumId]
         if (since != null && SystemClock.elapsedRealtime() - since < NO_COVER_RETRY_MS) return null
         val bitmap = artwork.albumCover(albumId, COVER_SIZE_PX) ?: run {
@@ -46,8 +61,10 @@ class AlbumColorRepository @Inject constructor(
             return null
         }
         noCover.remove(albumId)
-        val color = withContext(Dispatchers.Default) { seedColorOf(bitmap) }
-        libraryDao.setSeedColor(albumId, color)
-        return color
+        return withContext(Dispatchers.Default) { seedColorOf(bitmap) }
+    }
+
+    private companion object {
+        const val BATCH = 20
     }
 }

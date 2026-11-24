@@ -45,9 +45,18 @@ private const val SELECT_SONG_ROWS = """
 """
 
 // DISTINCT: queries that join `play_events` would otherwise count plays instead of songs (review G44).
-private const val SELECT_ALBUM_ROWS = """
-    SELECT a.albumId, a.title, a.albumArtistDisplay, a.year, COUNT(DISTINCT s.songId) AS songCount
-    FROM albums a JOIN songs s ON s.albumId = a.albumId AND $SONG_VISIBLE
+private const val ALBUM_COLUMNS = """
+    a.albumId, a.title, a.albumArtistDisplay, a.year, COUNT(DISTINCT s.songId) AS songCount, a.seedColor,
+    MAX(s.dateAdded) AS addedAt
+"""
+
+private const val ALBUM_FROM = "FROM albums a JOIN songs s ON s.albumId = a.albumId AND $SONG_VISIBLE"
+
+// Without the time of the last play: reading `play_events` here would reload every album list on every play.
+private const val SELECT_ALBUM_ROWS = "SELECT $ALBUM_COLUMNS, NULL AS lastPlayedAt $ALBUM_FROM"
+
+private const val LAST_PLAYED_OF_ALBUM = """
+    (SELECT MAX(pe.playedAt) FROM play_events pe JOIN songs ps ON ps.songId = pe.songId WHERE ps.albumId = a.albumId)
 """
 
 private const val SELECT_ARTIST_ROWS = """
@@ -141,11 +150,9 @@ abstract class LibraryDao {
     /** Albums, most recently played first; never-played ones after that by title. */
     @Query(
         """
-        $SELECT_ALBUM_ROWS
+        SELECT $ALBUM_COLUMNS, $LAST_PLAYED_OF_ALBUM AS lastPlayedAt $ALBUM_FROM
         GROUP BY a.albumId
-        ORDER BY (SELECT MAX(pe.playedAt) FROM play_events pe JOIN songs ps ON ps.songId = pe.songId
-                  WHERE ps.albumId = a.albumId) DESC,
-            a.sortTitle COLLATE NOCASE
+        ORDER BY lastPlayedAt DESC, a.sortTitle COLLATE NOCASE
         """,
     )
     abstract fun observeAlbumRowsByLastPlayed(): Flow<List<AlbumRow>>
@@ -669,6 +676,22 @@ abstract class LibraryDao {
 
     @Query("UPDATE albums SET seedColor = :color WHERE albumId = :albumId")
     abstract suspend fun setSeedColor(albumId: Long, color: Int)
+
+    /** Several colors in one write, so album lists reload once instead of once per album. */
+    @Transaction
+    open suspend fun setSeedColors(colors: Map<Long, Int>) {
+        colors.forEach { (albumId, color) -> setSeedColor(albumId, color) }
+    }
+
+    /** Visible albums whose cover color is not computed yet, in title order. */
+    @Query(
+        """
+        SELECT a.albumId FROM albums a
+        WHERE a.seedColor IS NULL AND EXISTS (SELECT 1 FROM songs s WHERE s.albumId = a.albumId AND $SONG_VISIBLE)
+        ORDER BY a.sortTitle COLLATE NOCASE
+        """,
+    )
+    abstract suspend fun getAlbumIdsWithoutSeedColor(): List<Long>
 
     // --- Cleanup ---
 

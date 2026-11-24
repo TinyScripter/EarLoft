@@ -24,6 +24,11 @@ data class AlbumRow(
     val albumArtistDisplay: String,
     val year: Int?,
     val songCount: Int,
+    val seedColor: Int?,
+    /** The newest `dateAdded` of its visible songs. */
+    val addedAt: Long?,
+    /** Only filled by the query in the order of the last play, otherwise `NULL`. */
+    val lastPlayedAt: Long?,
 )
 
 data class ArtistRow(

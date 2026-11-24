@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.model.AlbumSort
+import de.kleinabersmart.earloft.core.model.AlbumGridSize
 import de.kleinabersmart.earloft.core.model.AlbumView
 import de.kleinabersmart.earloft.core.model.ArtistSort
 import de.kleinabersmart.earloft.core.model.MobileStreamQuality
@@ -61,6 +62,14 @@ class LibrarySettings @Inject constructor(
         context.librarySettingsDataStore.edit { it[KEY_ALBUM_VIEW] = view.name }
     }
 
+    /** Tile size of the album grid (default: medium). */
+    val albumGridSize: Flow<AlbumGridSize> =
+        context.librarySettingsDataStore.data.map { it[KEY_ALBUM_GRID_SIZE].toEnum(AlbumGridSize.MEDIUM) }
+
+    suspend fun setAlbumGridSize(size: AlbumGridSize) {
+        context.librarySettingsDataStore.edit { it[KEY_ALBUM_GRID_SIZE] = size.name }
+    }
+
     /** Order of artists in the library (default: by name). */
     val artistSort: Flow<ArtistSort> = context.librarySettingsDataStore.data.map { it[KEY_ARTIST_SORT].toEnum(ArtistSort.NAME) }
 
@@ -92,6 +101,7 @@ class LibrarySettings @Inject constructor(
         private val KEY_SYNC_DAYS = intPreferencesKey("sync_interval_days")
         private val KEY_ALBUM_SORT = stringPreferencesKey("album_sort")
         private val KEY_ALBUM_VIEW = stringPreferencesKey("album_view")
+        private val KEY_ALBUM_GRID_SIZE = stringPreferencesKey("album_grid_size")
         private val KEY_ARTIST_SORT = stringPreferencesKey("artist_sort")
         private val KEY_SONG_SORT = stringPreferencesKey("song_sort")
         private val KEY_MOBILE_STREAM_QUALITY = stringPreferencesKey("mobile_stream_quality")

@@ -71,6 +71,14 @@ class PlayControlViewModel @Inject constructor(
         }
     }
 
+    /** All songs of the [albumIds], album by album in this order (e.g. a shelf of the library). */
+    fun playAlbums(albumIds: List<Long>) {
+        viewModelScope.launch {
+            val songs = library.songsOfAlbums(albumIds)
+            if (songs.isNotEmpty()) playback.play(songs)
+        }
+    }
+
     fun playOrPauseBook(bookId: Long) {
         if (playback.state.value.spoken?.bookId == bookId) playback.togglePlayPause() else launcher.play(bookId)
     }

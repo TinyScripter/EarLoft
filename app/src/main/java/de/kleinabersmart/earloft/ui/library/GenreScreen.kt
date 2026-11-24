@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import de.kleinabersmart.earloft.core.model.AlbumSort
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.ui.LoadState
@@ -58,6 +59,8 @@ fun GenreScreen(
                 AlbumBrowser(
                     albums = current.value,
                     onAlbumClick = onAlbumClick,
+                    // The genre's albums come by title.
+                    sort = AlbumSort.TITLE,
                     header = { PlayShuffleRow(onPlay = { viewModel.play(shuffle = false) }, onShuffle = { viewModel.play(shuffle = true) }) },
                 )
             }

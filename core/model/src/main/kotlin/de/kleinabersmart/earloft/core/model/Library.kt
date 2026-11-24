@@ -18,6 +18,12 @@ data class Album(
     val artist: String,
     val year: Int?,
     val songCount: Int,
+    /** Cover color (ARGB, `albums.seedColor`), `null` until computed. */
+    val seedColor: Int? = null,
+    /** When its newest song was added (epoch ms). */
+    val addedAt: Long? = null,
+    /** When it was last played (epoch ms); only filled in the order [AlbumSort.RECENTLY_PLAYED]. */
+    val lastPlayedAt: Long? = null,
 )
 
 data class Artist(
@@ -71,10 +77,13 @@ data class SearchResults(
 }
 
 /** Sort order of the albums in the library. */
-enum class AlbumSort { TITLE, ARTIST, YEAR, RECENTLY_ADDED, RECENTLY_PLAYED }
+enum class AlbumSort { TITLE, ARTIST, YEAR, RECENTLY_ADDED, RECENTLY_PLAYED, COLOR }
 
-/** How the library shows albums: tiles, rows, or one album at a time as a record crate. */
-enum class AlbumView { GRID, LIST, CRATE }
+/** How the library shows albums: tiles, rows, shelves per sort group, or one album at a time (record crate, carousel). */
+enum class AlbumView { GRID, LIST, SHELVES, CRATE, CAROUSEL }
+
+/** Tile size of the album grid: a cover wall without text, the usual tiles, or one large tile per row on a phone. */
+enum class AlbumGridSize { SMALL, MEDIUM, LARGE }
 
 /** Sort order of the artists in the library. */
 enum class ArtistSort { NAME, ALBUM_COUNT }

@@ -5,6 +5,7 @@ import de.kleinabersmart.earloft.core.database.dao.LibraryDao
 import de.kleinabersmart.earloft.core.model.Album
 import de.kleinabersmart.earloft.core.model.AlbumDetails
 import de.kleinabersmart.earloft.core.model.AlbumSort
+import de.kleinabersmart.earloft.core.model.sortedByCoverColor
 import de.kleinabersmart.earloft.core.model.ArtistSort
 import de.kleinabersmart.earloft.core.model.SongSort
 import de.kleinabersmart.earloft.core.model.SongSourceInfo
@@ -37,10 +38,14 @@ class LibraryRepository @Inject constructor(
 
     fun songs(): Flow<List<Song>> = libraryDao.observeSongRows().map { rows -> rows.map { it.toSong() } }
 
+    /** [AlbumSort.COLOR]: by title from the database, then by cover color ([sortedByCoverColor]). */
     fun albums(sort: AlbumSort): Flow<List<Album>> = when (sort) {
         AlbumSort.RECENTLY_PLAYED -> libraryDao.observeAlbumRowsByLastPlayed()
         else -> libraryDao.observeAlbumRowsSorted(sort.name)
-    }.map { rows -> rows.map { it.toAlbum() } }
+    }.map { rows ->
+        val albums = rows.map { it.toAlbum() }
+        if (sort == AlbumSort.COLOR) albums.sortedByCoverColor() else albums
+    }
 
     fun artists(sort: ArtistSort): Flow<List<Artist>> =
         libraryDao.observeArtistRowsSorted(sort.name).map { rows -> rows.map { it.toArtist() } }

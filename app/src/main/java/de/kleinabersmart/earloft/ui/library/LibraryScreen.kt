@@ -34,7 +34,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -42,11 +41,11 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -187,7 +186,7 @@ fun LibraryScreen(
                     AlbumBrowser(
                         albums = shown,
                         onAlbumClick = onAlbumClick,
-                        scrollLabel = albumSort.scrollLabel(),
+                        sort = albumSort,
                         pinHeader = true,
                         resetKey = Triple(albumSort, selectedDecades, FavoritesChip.ALBUMS in favoritesOnly),
                         header = {
@@ -265,7 +264,7 @@ fun LibraryScreen(
                         AlbumBrowser(
                             albums = shown,
                             onAlbumClick = onAlbumClick,
-                            scrollLabel = albumSort.scrollLabel(),
+                            sort = albumSort,
                             pinHeader = true,
                             resetKey = Triple(albumSort, selectedGenres, FavoritesChip.GENRES in favoritesOnly),
                             header = {
@@ -477,42 +476,8 @@ private fun FilterHeader(chips: @Composable () -> Unit, filtered: Boolean, nothi
 
 /** "80s", from 2000 on "2000s" (decades before 1910 also with the full year). */
 @Composable
-private fun decadeLabel(startYear: Int): String =
+internal fun decadeLabel(startYear: Int): String =
     stringResource(R.string.decade, if (startYear in 1910..1999) startYear - 1900 else startYear)
-
-/** Albums as tiles, the [AlbumView.GRID] of the [AlbumBrowser]. */
-@Composable
-internal fun AlbumTileGrid(
-    albums: List<Album>,
-    onAlbumClick: (Long) -> Unit,
-    scrollLabel: ((Album) -> String)?,
-    header: (@Composable () -> Unit)?,
-    pinHeader: Boolean,
-    resetKey: Any?,
-    playingAlbumId: Long?,
-    onPlay: (Long) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val state = rememberLazyGridState()
-    ScrollToTopEffect(state)
-    // An album found by a sync ("Recently added") or just played ("Recently played") appears at the top in view.
-    ShowStartOnNewFront(albums, state, { it.id }, resetKey = resetKey)
-    PinnableHeaderBox(header, pinHeader, modifier.fillMaxSize()) { inlineHeader ->
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 150.dp),
-            state = state,
-            contentPadding = gridContentPadding(pinnedHeader = header != null && inlineHeader == null),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            if (inlineHeader != null) fullWidthItem("header", inlineHeader)
-            albumTiles(albums, onAlbumClick, playingAlbumId, onPlay)
-        }
-        val offset = if (inlineHeader != null) 1 else 0
-        LazyGridFastScroller(state, labelAt = scrollLabel?.let { label -> { index -> albums.getOrNull((index - offset).coerceAtLeast(0))?.let(label).orEmpty() } })
-    }
-}
 
 private val AlbumSort.label: Int
     get() = when (this) {
@@ -521,6 +486,7 @@ private val AlbumSort.label: Int
         AlbumSort.YEAR -> R.string.sort_year
         AlbumSort.RECENTLY_ADDED -> R.string.sort_recently_added
         AlbumSort.RECENTLY_PLAYED -> R.string.sort_recently_played
+        AlbumSort.COLOR -> R.string.sort_color
     }
 
 private val ArtistSort.label: Int
@@ -536,14 +502,6 @@ private val SongSort.label: Int
         SongSort.ALBUM -> R.string.sort_album
         SongSort.RECENTLY_ADDED -> R.string.sort_recently_added
     }
-
-/** Fast scroller label matching the order; by date without a label (thumb only). */
-internal fun AlbumSort.scrollLabel(): ((Album) -> String)? = when (this) {
-    AlbumSort.TITLE -> { album -> foldedLetterOf(album.title.sortKey()) }
-    AlbumSort.ARTIST -> { album -> foldedLetterOf(album.artist.sortKey()) }
-    AlbumSort.YEAR -> { album -> album.year?.toString() ?: "#" }
-    AlbumSort.RECENTLY_ADDED, AlbumSort.RECENTLY_PLAYED -> null
-}
 
 private fun SongSort.scrollLabel(): ((Song) -> String)? = when (this) {
     SongSort.TITLE -> { song -> foldedLetterOf(song.title) }

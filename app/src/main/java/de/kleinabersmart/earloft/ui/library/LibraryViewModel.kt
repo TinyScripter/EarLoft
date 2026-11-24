@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import de.kleinabersmart.earloft.core.data.repository.AlbumColorRepository
 import de.kleinabersmart.earloft.core.data.repository.FavoritesRepository
 import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
 import de.kleinabersmart.earloft.core.data.repository.PlaylistRepository
@@ -28,6 +29,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
@@ -51,6 +53,7 @@ class LibraryViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val playbackConnection: PlaybackConnection,
     private val favoritesRepository: FavoritesRepository,
+    private val albumColorRepository: AlbumColorRepository,
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel(), SongActions {
 
@@ -58,9 +61,20 @@ class LibraryViewModel @Inject constructor(
     val artistSort: StateFlow<ArtistSort> = librarySettings.artistSort.stateInViewModel(ArtistSort.NAME)
     val songSort: StateFlow<SongSort> = librarySettings.songSort.stateInViewModel(SongSort.TITLE)
 
-    // Load only after the stored order, otherwise the default order flashes up.
+    // Load only after the stored order, otherwise the default order flashes up. By cover color, the missing colors are computed
+    // while the albums are shown (the list re-sorts after each batch).
     val albums: StateFlow<LoadState<List<Album>>> = librarySettings.albumSort.distinctUntilChanged()
-        .flatMapLatest { libraryRepository.albums(it) }.stateInViewModel()
+        .flatMapLatest { sort ->
+            val albums = libraryRepository.albums(sort)
+            if (sort != AlbumSort.COLOR) {
+                albums
+            } else {
+                channelFlow {
+                    launch { albumColorRepository.fillMissing() }
+                    albums.collect { send(it) }
+                }
+            }
+        }.stateInViewModel()
     val artists: StateFlow<LoadState<List<Artist>>> = librarySettings.artistSort.distinctUntilChanged()
         .flatMapLatest { libraryRepository.artists(it) }.stateInViewModel()
     val songs: StateFlow<LoadState<List<Song>>> = librarySettings.songSort.distinctUntilChanged()

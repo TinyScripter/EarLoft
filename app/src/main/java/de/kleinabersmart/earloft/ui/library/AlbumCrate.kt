@@ -1,7 +1,6 @@
 package de.kleinabersmart.earloft.ui.library
 
 import android.animation.ValueAnimator
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -9,15 +8,10 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.calculateTargetValue
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
@@ -29,20 +23,16 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -50,7 +40,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,21 +51,15 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.setProgress
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import de.kleinabersmart.earloft.R
@@ -93,6 +76,13 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlin.math.floor
 import kotlin.math.roundToInt
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.res.painterResource
+import kotlin.random.Random
+import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /** Sleeves behind the front one whose top edges show. */
 private const val BEHIND = 4
@@ -112,11 +102,12 @@ private const val DISC_OUT = 0.42f
 /** Further than this, "back to the start" jumps instead of flipping through everything. */
 private const val GLIDE_MAX = 8
 
+/** The random album: this many records are flipped through visibly, in this time. */
+private const val RANDOM_RUN = 6
+private const val RANDOM_MS = 700
+
 private val MAX_SLEEVE = 480.dp
 private val MIN_SLEEVE = 96.dp
-private val SLIDER_WIDTH = 40.dp
-private val THUMB_HEIGHT = 48.dp
-private val BUBBLE_SIZE = 56.dp
 private val VINYL = Color(0xFF141414)
 
 /**
@@ -184,6 +175,16 @@ internal fun AlbumCrate(
 
     val goTo: (Int) -> Unit = { index -> scope.launch { position.animateTo(index.coerceIn(0, lastIndex).toFloat(), settleSpring()) } }
     val jumpTo: (Int) -> Unit = { index -> scope.launch { position.snapTo(index.coerceIn(0, lastIndex).toFloat()) } }
+    // A random other album of the shown ones; the crate visibly flips through the last few records before it.
+    val random: () -> Unit = {
+        if (albums.size > 1) scope.launch {
+            val current = frontIndex
+            val target = Random.nextInt(albums.size - 1).let { if (it >= current) it + 1 else it }
+            val from = if (target > current) (target - RANDOM_RUN).coerceAtLeast(current) else (target + RANDOM_RUN).coerceAtMost(current)
+            position.snapTo(from.toFloat())
+            position.animateTo(target.toFloat(), tween(RANDOM_MS, easing = FastOutSlowInEasing))
+        }
+    }
 
     Column(modifier.fillMaxSize()) {
         if (header != null) Box(Modifier.fillMaxWidth().padding(start = 12.dp, top = 12.dp, end = 12.dp)) { header() }
@@ -215,23 +216,24 @@ internal fun AlbumCrate(
                 if (wide) {
                     Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                         CrateStack(albums, position, settled, frontIndex, onAlbumClick, goTo, seedColor, Modifier.weight(1f).fillMaxHeight())
-                        CrateDetails(
-                            front, frontIndex, albums.size, front.id == playingAlbumId, { onPlay(front.id) },
+                        FrontAlbumDetails(
+                            front, frontIndex, albums.size, front.id == playingAlbumId, { onPlay(front.id) }, random,
                             Modifier.weight(1f).padding(end = 8.dp),
                         )
                     }
                 } else {
                     Column(Modifier.fillMaxSize()) {
                         CrateStack(albums, position, settled, frontIndex, onAlbumClick, goTo, seedColor, Modifier.weight(1f).fillMaxWidth())
-                        CrateDetails(
-                            front, frontIndex, albums.size, front.id == playingAlbumId, { onPlay(front.id) },
+                        FrontAlbumDetails(
+                            front, frontIndex, albums.size, front.id == playingAlbumId, { onPlay(front.id) }, random,
                             Modifier.fillMaxWidth().padding(bottom = 12.dp),
                         )
                     }
                 }
             }
             // With a single album there is nothing to jump to.
-            if (albums.size > 1) CrateSlider(
+            if (albums.size > 1) AlbumScrubber(
+                vertical = true,
                 count = albums.size,
                 position = { position.value },
                 frontIndex = frontIndex,
@@ -239,7 +241,7 @@ internal fun AlbumCrate(
                 labelAt = { index -> albums.getOrNull(index)?.let { label?.invoke(it) } ?: "#${index + 1}" },
                 onSlide = { sliding = it },
                 onJump = jumpTo,
-                modifier = Modifier.width(SLIDER_WIDTH).fillMaxHeight().padding(vertical = 12.dp),
+                modifier = Modifier.width(SCRUBBER_THICKNESS).fillMaxHeight().padding(vertical = 12.dp),
             )
         }
     }
@@ -380,14 +382,18 @@ private fun Record(labelColor: Color, modifier: Modifier = Modifier) {
     }
 }
 
-/** Title, artist, year and songs, position, play/pause and ⋮ of the front album. */
+/**
+ * Title, artist, year and songs, position, play/pause, the random album ([onRandom], only with more than one album) and ⋮ of
+ * the front album of the record crate or the carousel.
+ */
 @Composable
-private fun CrateDetails(
+internal fun FrontAlbumDetails(
     album: Album,
     index: Int,
     count: Int,
     playing: Boolean,
     onPlay: () -> Unit,
+    onRandom: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -422,125 +428,14 @@ private fun CrateDetails(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PlayPauseButton(playing, onPlay, Modifier.size(48.dp))
+            if (count > 1) {
+                IconButton(onClick = onRandom) {
+                    Icon(painterResource(DesignR.drawable.ic_casino), contentDescription = stringResource(R.string.album_random))
+                }
+            }
             Box {
                 MoreButton { menu = true }
                 if (menu) AlbumMenu(album, onDismiss = { menu = false })
-            }
-        }
-    }
-}
-
-/**
- * Vertical slider on the right edge, always visible: dragging or tapping jumps to the album at that height (coarse; flipping the
- * crate is the fine control). While dragging, a bubble shows [labelAt]. For TalkBack an adjustable range, one album per step.
- */
-@Composable
-private fun CrateSlider(
-    count: Int,
-    position: () -> Float,
-    frontIndex: Int,
-    frontTitle: String,
-    labelAt: (Int) -> String,
-    onSlide: (Boolean) -> Unit,
-    onJump: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val last = (count - 1).coerceAtLeast(0)
-    var dragging by remember { mutableStateOf(false) }
-    var dragIndex by remember { mutableStateOf(0) }
-    val currentLast by rememberUpdatedState(last)
-    val currentJump by rememberUpdatedState(onJump)
-    val currentSlide by rememberUpdatedState(onSlide)
-    val state = stringResource(R.string.album_crate_state, frontIndex + 1, count, frontTitle)
-    val title = stringResource(R.string.library_albums)
-
-    BoxWithConstraints(
-        modifier.semantics {
-            contentDescription = title
-            stateDescription = state
-            progressBarRangeInfo = ProgressBarRangeInfo(frontIndex.toFloat(), 0f..last.toFloat(), steps = (last - 1).coerceAtLeast(0))
-            setProgress { value ->
-                currentJump(value.roundToInt())
-                true
-            }
-        },
-    ) {
-        val density = LocalDensity.current
-        val trackPx = with(density) { maxHeight.toPx() }
-        val thumbPx = with(density) { THUMB_HEIGHT.toPx() }
-        val rangePx = (trackPx - thumbPx).coerceAtLeast(1f)
-        val indexAt = { y: Float -> (((y - thumbPx / 2) / rangePx).coerceIn(0f, 1f) * currentLast).roundToInt() }
-        val thumbTop = { if (last > 0) ((position() / last).coerceIn(0f, 1f) * rangePx).roundToInt() else 0 }
-
-        Box(
-            Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectVerticalDragGestures(
-                        onDragStart = { offset ->
-                            dragging = true
-                            currentSlide(true)
-                            dragIndex = indexAt(offset.y)
-                            currentJump(dragIndex)
-                        },
-                        onDragEnd = {
-                            dragging = false
-                            currentSlide(false)
-                        },
-                        onDragCancel = {
-                            dragging = false
-                            currentSlide(false)
-                        },
-                        onVerticalDrag = { change, _ ->
-                            change.consume()
-                            val index = indexAt(change.position.y)
-                            if (index != dragIndex) {
-                                dragIndex = index
-                                currentJump(index)
-                            }
-                        },
-                    )
-                }
-                .pointerInput(Unit) { detectTapGestures { offset -> currentJump(indexAt(offset.y)) } },
-        ) {
-            Box(
-                Modifier
-                    .align(Alignment.Center)
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(2.dp)),
-            )
-            Box(
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .offset { IntOffset(0, thumbTop()) }
-                    .size(width = 8.dp, height = THUMB_HEIGHT)
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp)),
-            )
-        }
-        // The bubble sits left of the slider, outside its bounds (the crate's Row doesn't clip).
-        AnimatedVisibility(
-            visible = dragging,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .wrapContentSize(Alignment.TopEnd, unbounded = true)
-                .offset { IntOffset(-with(density) { (SLIDER_WIDTH + 4.dp).roundToPx() }, thumbTop() + ((thumbPx - with(density) { BUBBLE_SIZE.toPx() }) / 2).roundToInt()) },
-        ) {
-            Box(
-                Modifier
-                    .height(BUBBLE_SIZE)
-                    .widthIn(min = BUBBLE_SIZE)
-                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                    .padding(horizontal = 12.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    labelAt(dragIndex.coerceIn(0, last)),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
             }
         }
     }

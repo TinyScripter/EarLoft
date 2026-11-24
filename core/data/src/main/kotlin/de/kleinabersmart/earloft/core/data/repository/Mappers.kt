@@ -27,6 +27,9 @@ internal fun AlbumRow.toAlbum() = Album(
     artist = albumArtistDisplay,
     year = year,
     songCount = songCount,
+    seedColor = seedColor,
+    addedAt = addedAt,
+    lastPlayedAt = lastPlayedAt,
 )
 
 internal fun ArtistRow.toArtist() = Artist(
