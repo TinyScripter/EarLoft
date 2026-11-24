@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.network.subsonic
 
+import de.kleinabersmart.earloft.core.network.bestFor
 import okhttp3.HttpUrl
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,5 +29,6 @@ class SubsonicServerRegistry @Inject constructor() {
 
     operator fun get(sourceId: String): SubsonicServer? = servers[sourceId]
 
-    fun forUrl(url: HttpUrl): SubsonicServer? = servers.values.firstOrNull { it.owns(url) }
+    fun forUrl(url: HttpUrl): SubsonicServer? =
+        servers.values.filter { it.owns(url) }.bestFor(url, SubsonicServer::baseUrl) { it.baseUrl.encodedPath.length }
 }

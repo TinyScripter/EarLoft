@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.network.audiobookshelf
 
 import de.kleinabersmart.earloft.core.network.acceptsCredentialsOf
+import de.kleinabersmart.earloft.core.network.bestFor
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import javax.inject.Inject
@@ -71,5 +72,6 @@ class AbsServerRegistry @Inject constructor() {
 
     operator fun get(serverId: String): AbsServer? = servers[serverId]
 
-    fun forUrl(url: HttpUrl): AbsServer? = servers.values.firstOrNull { it.owns(url) }
+    fun forUrl(url: HttpUrl): AbsServer? =
+        servers.values.filter { it.owns(url) }.bestFor(url, AbsServer::baseUrl) { it.baseUrl.encodedPath.length }
 }

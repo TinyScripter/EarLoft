@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.network.podcast
 
 import de.kleinabersmart.earloft.core.network.acceptsCredentialsOf
+import de.kleinabersmart.earloft.core.network.bestFor
 import okhttp3.Credentials
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
@@ -38,9 +39,10 @@ class FeedAuthRegistry @Inject constructor() {
     /**
      * The credentials for [url]. If several feeds with different accounts are on the same host, the one whose URL
      * shares the longest path prefix with [url] matches (media and images usually sit next to the feed); otherwise the first.
+     * Exactly the scheme and port of [url] go before that ([bestFor]).
      */
     fun forUrl(url: HttpUrl): FeedAuth? =
-        byFeed.values.filter { it.appliesTo(url) }.maxByOrNull { sharedDirectories(it.scope, url) }
+        byFeed.values.filter { it.appliesTo(url) }.bestFor(url, FeedAuth::scope) { sharedDirectories(it.scope, url) }
 
     /** Hosts of the protected feeds: what's there is not public (sharing, review D33). */
     fun hosts(): Set<String> = byFeed.values.mapTo(HashSet()) { it.scope.host }

@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.core.network.jellyfin
 
 import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.network.acceptsCredentialsOf
+import de.kleinabersmart.earloft.core.network.bestFor
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.URLEncoder
@@ -117,7 +118,7 @@ class JellyfinServerRegistry @Inject constructor() {
 
     operator fun get(sourceId: String): JellyfinServer? = servers[sourceId]
 
-    /** With nested base URLs the longest one wins. */
+    /** Exactly this scheme and port first ([bestFor]); with nested base URLs the longest one wins. */
     fun forUrl(url: HttpUrl): JellyfinServer? =
-        servers.values.filter { it.owns(url) }.maxByOrNull { it.baseUrl.encodedPath.length }
+        servers.values.filter { it.owns(url) }.bestFor(url, JellyfinServer::baseUrl) { it.baseUrl.encodedPath.length }
 }
