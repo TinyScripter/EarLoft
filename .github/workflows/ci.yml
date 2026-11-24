@@ -71,6 +71,9 @@ jobs:
             image: system-images;android-34;android-wear;x86_64
             device: wearos_large_round
     name: start-test (${{ matrix.name }})
+    env:
+      # avdmanager follows XDG_CONFIG_HOME (set on the runner), the emulator looks in ~/.android: one place for both.
+      ANDROID_AVD_HOME: ${{ github.workspace }}/.avd
     steps:
       - uses: actions/checkout@v4
 
@@ -92,7 +95,9 @@ jobs:
           tools="$ANDROID_HOME/cmdline-tools/latest/bin"
           yes | "$tools/sdkmanager" --licenses > /dev/null || true
           "$tools/sdkmanager" --install emulator platform-tools "$IMAGE" | tail -3
+          mkdir -p "$ANDROID_AVD_HOME"
           echo no | "$tools/avdmanager" create avd -n start-test -k "$IMAGE" -d "$DEVICE"
+          "$ANDROID_HOME/emulator/emulator" -list-avds
           ls -l /dev/kvm
 
       # Emulator and test in one step: the emulator runs exactly as long as the test, and its log is at hand when it fails.
@@ -104,6 +109,12 @@ jobs:
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
           "$ANDROID_HOME/emulator/emulator" -avd start-test -no-window -no-audio -no-boot-anim -no-snapshot \
             -gpu swiftshader_indirect -memory 3072 > emulator.log 2>&1 &
+          sleep 10
+          if ! kill -0 $! 2> /dev/null; then
+            echo "The emulator ended right away:"
+            cat emulator.log
+            exit 1
+          fi
           if ! tools/ci/smoke-start.sh "$APK"; then
             echo "--- emulator log"
             tail -150 emulator.log
