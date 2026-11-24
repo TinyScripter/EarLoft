@@ -1338,4 +1338,10 @@
     <string name="form_keep_editing">Fortsätt redigera</string>
     <string name="sleep_timer_song_end">Slutet av låten</string>
     <string name="sleep_timer_until_song_end">Paus vid slutet av låten: %1$s</string>
+    <string name="album_view_label">Visning</string>
+    <string name="album_view_grid">Rutnät</string>
+    <string name="album_view_list">Lista</string>
+    <string name="album_view_crate">Skivback</string>
+    <string name="album_crate_state">Album %1$d av %2$d: %3$s</string>
+    <string name="album_crate_open">Öppna album</string>
 </resources>

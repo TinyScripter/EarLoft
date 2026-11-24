@@ -76,7 +76,6 @@ import de.kleinabersmart.earloft.ui.components.group
 import de.kleinabersmart.earloft.ui.components.groupedItemsIndexed
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.gridTile
-import de.kleinabersmart.earloft.ui.components.PlayControlViewModel
 import de.kleinabersmart.earloft.ui.components.ArtistAvatar
 import de.kleinabersmart.earloft.ui.components.LoadableList
 import de.kleinabersmart.earloft.ui.components.EmptyAreaHint
@@ -154,8 +153,10 @@ fun LibraryScreen(
     // The sort of the shown tab sits in the app header left of the magnifier; genres show albums, hence their sort.
     HeaderAction {
         when (LibraryTab.entries[pagerState.targetPage]) {
-            LibraryTab.ALBUMS, LibraryTab.GENRES ->
+            LibraryTab.ALBUMS, LibraryTab.GENRES -> {
+                AlbumViewButton()
                 SortButton(albumSort, AlbumSort.entries, { stringResource(it.label) }, viewModel::setAlbumSort)
+            }
             LibraryTab.ARTISTS -> SortButton(artistSort, ArtistSort.entries, { stringResource(it.label) }, viewModel::setArtistSort)
             LibraryTab.SONGS -> SortButton(songSort, SongSort.entries, { stringResource(it.label) }, viewModel::setSongSort)
             LibraryTab.PLAYLISTS, LibraryTab.STATS -> {}
@@ -183,7 +184,7 @@ fun LibraryScreen(
                 LibraryTab.ALBUMS -> LoadableList(albums, empty) { all ->
                     val shown = albumsOfDecades.valueOrNull ?: all
                     val favorites = favoritesChip(FavoritesChip.ALBUMS, favoriteAlbumIds)
-                    AlbumGrid(
+                    AlbumBrowser(
                         albums = shown,
                         onAlbumClick = onAlbumClick,
                         scrollLabel = albumSort.scrollLabel(),
@@ -261,7 +262,7 @@ fun LibraryScreen(
                 ) { genreList ->
                     LoadableList(albums, empty) { all ->
                         val shown = albumsOfGenres.valueOrNull ?: all
-                        AlbumGrid(
+                        AlbumBrowser(
                             albums = shown,
                             onAlbumClick = onAlbumClick,
                             scrollLabel = albumSort.scrollLabel(),
@@ -479,26 +480,23 @@ private fun FilterHeader(chips: @Composable () -> Unit, filtered: Boolean, nothi
 private fun decadeLabel(startYear: Int): String =
     stringResource(R.string.decade, if (startYear in 1910..1999) startYear - 1900 else startYear)
 
+/** Albums as tiles, the [AlbumView.GRID] of the [AlbumBrowser]. */
 @Composable
-fun AlbumGrid(
+internal fun AlbumTileGrid(
     albums: List<Album>,
     onAlbumClick: (Long) -> Unit,
+    scrollLabel: ((Album) -> String)?,
+    header: (@Composable () -> Unit)?,
+    pinHeader: Boolean,
+    resetKey: Any?,
+    playingAlbumId: Long?,
+    onPlay: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    /** Fast scroller label for each album (e.g. the initial letter); `null`: thumb only. */
-    scrollLabel: ((Album) -> String)? = null,
-    /** A row above the albums (e.g. buttons or the sort), spanning the full width. */
-    header: (@Composable () -> Unit)? = null,
-    /** [header] (the library's chip bar) stays pinned above while scrolling, see [PinnableHeaderBox]. */
-    pinHeader: Boolean = false,
-    /** Sort and filter: if they change, the grid shows its start ([ShowStartOnNewFront]). */
-    resetKey: Any? = null,
 ) {
     val state = rememberLazyGridState()
     ScrollToTopEffect(state)
     // An album found by a sync ("Recently added") or just played ("Recently played") appears at the top in view.
     ShowStartOnNewFront(albums, state, { it.id }, resetKey = resetKey)
-    val playControl: PlayControlViewModel = hiltViewModel()
-    val playingAlbumId by playControl.playingAlbumId.collectAsStateWithLifecycle()
     PinnableHeaderBox(header, pinHeader, modifier.fillMaxSize()) { inlineHeader ->
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 150.dp),
@@ -509,7 +507,7 @@ fun AlbumGrid(
             modifier = Modifier.fillMaxSize(),
         ) {
             if (inlineHeader != null) fullWidthItem("header", inlineHeader)
-            albumTiles(albums, onAlbumClick, playingAlbumId, playControl::playOrPauseAlbum)
+            albumTiles(albums, onAlbumClick, playingAlbumId, onPlay)
         }
         val offset = if (inlineHeader != null) 1 else 0
         LazyGridFastScroller(state, labelAt = scrollLabel?.let { label -> { index -> albums.getOrNull((index - offset).coerceAtLeast(0))?.let(label).orEmpty() } })
@@ -540,7 +538,7 @@ private val SongSort.label: Int
     }
 
 /** Fast scroller label matching the order; by date without a label (thumb only). */
-private fun AlbumSort.scrollLabel(): ((Album) -> String)? = when (this) {
+internal fun AlbumSort.scrollLabel(): ((Album) -> String)? = when (this) {
     AlbumSort.TITLE -> { album -> foldedLetterOf(album.title.sortKey()) }
     AlbumSort.ARTIST -> { album -> foldedLetterOf(album.artist.sortKey()) }
     AlbumSort.YEAR -> { album -> album.year?.toString() ?: "#" }

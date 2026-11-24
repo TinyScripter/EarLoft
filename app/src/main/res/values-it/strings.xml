@@ -1404,4 +1404,10 @@
     <string name="form_keep_editing">Continua a modificare</string>
     <string name="sleep_timer_song_end">Fine del brano</string>
     <string name="sleep_timer_until_song_end">Pausa a fine brano: %1$s</string>
+    <string name="album_view_label">Visualizzazione</string>
+    <string name="album_view_grid">Griglia</string>
+    <string name="album_view_list">Elenco</string>
+    <string name="album_view_crate">Cassetta di dischi</string>
+    <string name="album_crate_state">Album %1$d di %2$d: %3$s</string>
+    <string name="album_crate_open">Apri album</string>
 </resources>

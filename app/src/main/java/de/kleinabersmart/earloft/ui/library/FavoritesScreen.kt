@@ -75,7 +75,7 @@ fun FavoritesScreen(
                     SongList(songs = it, onSongClick = viewModel::play, onShuffle = viewModel::shuffle, actions = viewModel)
                 }
                 FavoritesTab.ALBUMS -> LoadableList(albums, stringResource(R.string.favorites_albums_empty)) {
-                    AlbumGrid(albums = it, onAlbumClick = onAlbumClick)
+                    AlbumBrowser(albums = it, onAlbumClick = onAlbumClick)
                 }
                 FavoritesTab.ARTISTS -> LoadableList(artists, stringResource(R.string.favorites_artists_empty)) {
                     ArtistGrid(it, onArtistClick, byName = false)

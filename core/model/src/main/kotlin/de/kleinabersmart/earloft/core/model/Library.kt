@@ -73,6 +73,9 @@ data class SearchResults(
 /** Sort order of the albums in the library. */
 enum class AlbumSort { TITLE, ARTIST, YEAR, RECENTLY_ADDED, RECENTLY_PLAYED }
 
+/** How the library shows albums: tiles, rows, or one album at a time as a record crate. */
+enum class AlbumView { GRID, LIST, CRATE }
+
 /** Sort order of the artists in the library. */
 enum class ArtistSort { NAME, ALBUM_COUNT }
 

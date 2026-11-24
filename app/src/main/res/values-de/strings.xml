@@ -1339,4 +1339,10 @@
     <string name="form_keep_editing">Weiter bearbeiten</string>
     <string name="sleep_timer_song_end">Ende des Songs</string>
     <string name="sleep_timer_until_song_end">Pause am Songende: %1$s</string>
+    <string name="album_view_label">Darstellung</string>
+    <string name="album_view_grid">Raster</string>
+    <string name="album_view_list">Liste</string>
+    <string name="album_view_crate">Plattenkiste</string>
+    <string name="album_crate_state">Album %1$d von %2$d: %3$s</string>
+    <string name="album_crate_open">Album öffnen</string>
 </resources>

@@ -1338,4 +1338,10 @@
     <string name="form_keep_editing">Fortsett å redigere</string>
     <string name="sleep_timer_song_end">Slutten av sangen</string>
     <string name="sleep_timer_until_song_end">Pause ved slutten av sangen: %1$s</string>
+    <string name="album_view_label">Visning</string>
+    <string name="album_view_grid">Rutenett</string>
+    <string name="album_view_list">Liste</string>
+    <string name="album_view_crate">Platekasse</string>
+    <string name="album_crate_state">Album %1$d av %2$d: %3$s</string>
+    <string name="album_crate_open">Åpne album</string>
 </resources>

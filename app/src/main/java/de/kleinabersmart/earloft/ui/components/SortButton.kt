@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.components
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -25,14 +26,26 @@ fun <T> SortButton(
     label: @Composable (T) -> String,
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
+) = ChoiceButton(selected, options, label, DesignR.drawable.ic_sort, stringResource(R.string.sort_label), onSelect, modifier)
+
+/**
+ * Icon button (for the app header) with a selection menu like [SortButton]; [icon] shows the button, [title] plus the chosen
+ * option is read out by TalkBack.
+ */
+@Composable
+fun <T> ChoiceButton(
+    selected: T,
+    options: List<T>,
+    label: @Composable (T) -> String,
+    @DrawableRes icon: Int,
+    title: String,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
     Box(modifier) {
         IconButton(onClick = { open = true }) {
-            Icon(
-                painterResource(DesignR.drawable.ic_sort),
-                contentDescription = "${stringResource(R.string.sort_label)}: ${label(selected)}",
-            )
+            Icon(painterResource(icon), contentDescription = "$title: ${label(selected)}")
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             options.forEach { option ->

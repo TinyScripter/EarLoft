@@ -55,7 +55,7 @@ fun GenreScreen(
             is LoadState.Ready -> if (current.value.isEmpty()) {
                 EmptyHint(stringResource(R.string.item_missing))
             } else {
-                AlbumGrid(
+                AlbumBrowser(
                     albums = current.value,
                     onAlbumClick = onAlbumClick,
                     header = { PlayShuffleRow(onPlay = { viewModel.play(shuffle = false) }, onShuffle = { viewModel.play(shuffle = true) }) },

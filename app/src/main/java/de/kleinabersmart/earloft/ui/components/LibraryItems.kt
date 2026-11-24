@@ -335,13 +335,16 @@ fun AlbumListItem(
     modifier: Modifier = Modifier,
     onPlay: (() -> Unit)? = null,
     playing: Boolean = false,
+    /** The year after the artist ("Artist · 1987"), if known. */
+    withYear: Boolean = false,
 ) {
     var menu by remember { mutableStateOf(false) }
     val mark = LocalOfflineController.current?.albumMarkOf(album.id)
+    val supporting = album.year?.takeIf { withYear }?.let { "${album.artist} · $it" } ?: album.artist
     Box(modifier) {
         ListItem(
             headlineContent = { Text(album.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            supportingContent = { MarkedSupportingText(album.artist, mark) },
+            supportingContent = { MarkedSupportingText(supporting, mark) },
             leadingContent = {
                 AlbumArt(albumId = album.id, modifier = Modifier.size(48.dp), shape = MaterialTheme.shapes.small)
             },

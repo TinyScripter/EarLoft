@@ -1338,4 +1338,10 @@
     <string name="form_keep_editing">Jatka muokkausta</string>
     <string name="sleep_timer_song_end">Kappaleen loppu</string>
     <string name="sleep_timer_until_song_end">Tauko kappaleen lopussa: %1$s</string>
+    <string name="album_view_label">Näkymä</string>
+    <string name="album_view_grid">Ruudukko</string>
+    <string name="album_view_list">Luettelo</string>
+    <string name="album_view_crate">Levylaatikko</string>
+    <string name="album_crate_state">Albumi %1$d/%2$d: %3$s</string>
+    <string name="album_crate_open">Avaa albumi</string>
 </resources>

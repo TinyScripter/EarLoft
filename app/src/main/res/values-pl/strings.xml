@@ -1470,4 +1470,10 @@
     <string name="form_keep_editing">Kontynuuj edycję</string>
     <string name="sleep_timer_song_end">Koniec utworu</string>
     <string name="sleep_timer_until_song_end">Pauza na końcu utworu: %1$s</string>
+    <string name="album_view_label">Widok</string>
+    <string name="album_view_grid">Siatka</string>
+    <string name="album_view_list">Lista</string>
+    <string name="album_view_crate">Skrzynka z płytami</string>
+    <string name="album_crate_state">Album %1$d z %2$d: %3$s</string>
+    <string name="album_crate_open">Otwórz album</string>
 </resources>
