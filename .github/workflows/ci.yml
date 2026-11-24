@@ -1,9 +1,10 @@
 name: CI
 
+# Not on every push: started by hand (Actions tab → CI → Run workflow) and when a release is published.
 on:
-  push:
-    branches: [ main ]
-  pull_request:
+  workflow_dispatch:
+  release:
+    types: [ published ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
