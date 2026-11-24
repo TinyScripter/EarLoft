@@ -1115,6 +1115,8 @@
     <string name="refresh_no_new_episodes">Ei uusia jaksoja</string>
     <string name="refresh_no_new_books">Ei uusia kirjoja</string>
     <string name="refresh_failed">Päivitys epäonnistui</string>
+    <string name="new_at_start">Uutta alussa</string>
+    <string name="new_at_start_show">Näytä</string>
     <string name="podcast_notify_new">Ilmoita uusista jaksoista</string>
     <string name="podcast_notify_new_summary">Näyttää hiljaisen ilmoituksen, kun taustapäivitys löytää tämän podcastin uusia jaksoja.</string>
     <string name="podcast_refresh_feed">Päivitä podcast</string>

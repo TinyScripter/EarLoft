@@ -176,9 +176,9 @@ fun PodcastHomeScreen(
     val listState = rememberLazyListState()
     ScrollToTopEffect(listState)
     // A shelf that appears above the first one ("Recently added" or "Continue listening" after loading, a refresh or the first
-    // started episode) comes into view instead of lying above the edge.
+    // started episode) comes into view if the list showed its start, instead of lying above the edge.
     val shelves = listOfNotNull("continue".takeIf { episodes.isNotEmpty() }, "recent".takeIf { recent.isNotEmpty() }, "subscriptions")
-    ShowStartOnNewFront(shelves, { it }) { listState.scrollToItem(0) }
+    ShowStartOnNewFront(shelves, listState, { it }, announce = false)
     LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
         if (episodes.isNotEmpty()) {
             item(key = "continue") {
@@ -232,7 +232,7 @@ fun PodcastHomeScreen(
                     LoadFailedHint()
                 } else {
                     val rowState = rememberLazyListState()
-                    ShowStartOnNewFront(list.orEmpty(), { it.id }) { rowState.scrollToItem(0) }
+                    ShowStartOnNewFront(list.orEmpty(), rowState, { it.id })
                     LazyRow(
                         state = rowState,
                         modifier = Modifier.keepHorizontalScroll(rowState),
@@ -411,7 +411,7 @@ private fun FeedGrid(
         LoadableList(state, empty) { feeds ->
             val gridState = rememberLazyGridState()
             ScrollToTopEffect(gridState)
-            ShowStartOnNewFront(feeds, { it.id }) { gridState.scrollToItem(0) }
+            ShowStartOnNewFront(feeds, gridState, { it.id })
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 state = gridState,
@@ -605,7 +605,7 @@ fun PodcastScreen(
                     if (episodes == LoadState.Loading) LoadingIndicator()
                     val listState = rememberLazyListState()
                     // New episodes from a refresh appear at the top in view instead of above the edge.
-                    ShowStartOnNewFront(list, { it.book.id }) { listState.scrollToItem(0) }
+                    ShowStartOnNewFront(list, listState, { it.book.id })
                     // Several episodes on the same day: time of day next to the date.
                     val sameDay = remember(list) { episodesSharingDay(list.map { it.book }) }
                     // If the feed names several seasons (`itunes:season`), each gets its header and group.

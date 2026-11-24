@@ -1165,6 +1165,8 @@
     <string name="refresh_no_new_episodes">No hay episodios nuevos</string>
     <string name="refresh_no_new_books">No hay libros nuevos</string>
     <string name="refresh_failed">Error al actualizar</string>
+    <string name="new_at_start">Novedades al principio</string>
+    <string name="new_at_start_show">Mostrar</string>
     <string name="podcast_notify_new">Notificar episodios nuevos</string>
     <string name="podcast_notify_new_summary">Muestra una notificación silenciosa cuando una actualización en segundo plano encuentra episodios nuevos de este podcast.</string>
     <string name="podcast_refresh_feed">Actualizar podcast</string>

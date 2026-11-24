@@ -234,7 +234,7 @@ private fun LazyListScope.queueSection(queue: QueueRowState) {
                 }
             },
         ) {
-            val row = rememberFrontRow(queue.entries) { it.index.toLong() }
+            val row = rememberFrontRow(queue.entries, announce = false) { it.index.toLong() }
             LazyRow(
                 state = row.state,
                 modifier = Modifier.keepHorizontalScroll(row.state),

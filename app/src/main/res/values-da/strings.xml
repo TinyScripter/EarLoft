@@ -1115,6 +1115,8 @@
     <string name="refresh_no_new_episodes">Ingen nye afsnit</string>
     <string name="refresh_no_new_books">Ingen nye bøger</string>
     <string name="refresh_failed">Opdatering mislykkedes</string>
+    <string name="new_at_start">Nyt i starten</string>
+    <string name="new_at_start_show">Vis</string>
     <string name="podcast_notify_new">Giv besked om nye afsnit</string>
     <string name="podcast_notify_new_summary">Viser en lydløs notifikation, når en opdatering i baggrunden finder nye afsnit af denne podcast.</string>
     <string name="podcast_refresh_feed">Opdater podcast</string>

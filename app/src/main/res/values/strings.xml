@@ -1125,6 +1125,9 @@
     <string name="refresh_no_new_episodes">No new episodes</string>
     <string name="refresh_no_new_books">No new books</string>
     <string name="refresh_failed">Update failed</string>
+    <!-- Snackbar when something new arrived at the start of a list or row the user had scrolled away from; the action shows it -->
+    <string name="new_at_start">New items at the start</string>
+    <string name="new_at_start_show">Show</string>
     <string name="podcast_notify_new">Notify about new episodes</string>
     <string name="podcast_notify_new_summary">Shows a quiet notification when a background update finds new episodes of this podcast.</string>
     <string name="podcast_refresh_feed">Refresh podcast</string>

@@ -1115,6 +1115,8 @@
     <string name="refresh_no_new_episodes">Ingen nye episoder</string>
     <string name="refresh_no_new_books">Ingen nye bøker</string>
     <string name="refresh_failed">Oppdateringen mislyktes</string>
+    <string name="new_at_start">Nytt i starten</string>
+    <string name="new_at_start_show">Vis</string>
     <string name="podcast_notify_new">Varsle om nye episoder</string>
     <string name="podcast_notify_new_summary">Viser et lydløst varsel når en oppdatering i bakgrunnen finner nye episoder av denne podkasten.</string>
     <string name="podcast_refresh_feed">Oppdater podkasten</string>

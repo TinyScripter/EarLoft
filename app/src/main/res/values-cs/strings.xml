@@ -1215,6 +1215,8 @@
     <string name="refresh_no_new_episodes">Žádné nové epizody</string>
     <string name="refresh_no_new_books">Žádné nové knihy</string>
     <string name="refresh_failed">Aktualizace se nezdařila</string>
+    <string name="new_at_start">Nové položky na začátku</string>
+    <string name="new_at_start_show">Zobrazit</string>
     <string name="podcast_notify_new">Upozorňovat na nové epizody</string>
     <string name="podcast_notify_new_summary">Zobrazí tiché oznámení, když aktualizace na pozadí najde nové epizody tohoto podcastu.</string>
     <string name="podcast_refresh_feed">Aktualizovat podcast</string>

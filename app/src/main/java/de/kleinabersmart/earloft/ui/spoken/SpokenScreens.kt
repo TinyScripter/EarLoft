@@ -71,6 +71,13 @@ import de.kleinabersmart.earloft.ui.components.foldedLetterOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.milliseconds
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
+import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.currentCoroutineContext
 import kotlin.coroutines.cancellation.CancellationException
@@ -177,13 +184,13 @@ fun SpokenHomeScreen(
                 val listState = rememberLazyListState()
                 ScrollToTopEffect(listState)
                 // A shelf that appears above the first one (e.g. "Continue listening" after loading or the first started book)
-                // comes into view instead of lying above the edge.
+                // comes into view if the list showed its start, instead of lying above the edge.
                 val shelves = listOfNotNull(
                     "continue".takeIf { continueListening.isNotEmpty() },
                     "series".takeIf { continueSeries.isNotEmpty() },
                     "recent".takeIf { recent.isNotEmpty() },
                 )
-                ShowStartOnNewFront(shelves, { it }) { listState.scrollToItem(0) }
+                ShowStartOnNewFront(shelves, listState, { it }, announce = false)
                 LazyColumn(state = listState, contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
                     if (continueListening.isNotEmpty()) {
                         item(key = "continue") {
@@ -389,7 +396,7 @@ private fun BookGrid(
     val state = rememberLazyGridState()
     ScrollToTopEffect(state)
     val ordered = remember(books, sections) { sections?.flatMap { it.books } ?: books }
-    ShowStartOnNewFront(ordered, { it.book.id }) { state.scrollToItem(0) }
+    ShowStartOnNewFront(ordered, state, { it.book.id })
     var shownKey by rememberSaveable { mutableStateOf(resetKey?.toString()) }
     LaunchedEffect(resetKey) {
         if (resetKey?.toString() != shownKey) {
@@ -596,7 +603,7 @@ private fun AuthorGrid(authors: List<BookGroup>, byName: Boolean, resetKey: Any?
     val state = rememberLazyGridState()
     ScrollToTopEffect(state)
     ResetScroll(resetKey) { state.scrollToItem(0) }
-    ShowStartOnNewFront(authors, { it.name }) { state.scrollToItem(0) }
+    ShowStartOnNewFront(authors, state, { it.name })
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -657,7 +664,7 @@ private fun SeriesList(groups: List<SeriesProgress>, byName: Boolean, resetKey: 
     val state = rememberLazyListState()
     ScrollToTopEffect(state)
     ResetScroll(resetKey) { state.scrollToItem(0) }
-    ShowStartOnNewFront(groups, { it.name }) { state.scrollToItem(0) }
+    ShowStartOnNewFront(groups, state, { it.name })
     Box(Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(vertical = 8.dp)) {
             groupedItems(groups, key = { it.name }) { group ->
@@ -901,24 +908,39 @@ class FrontRow<T>(val state: LazyListState, val items: List<T>)
  * played, started, removed from the queue), the rest moves up immediately with a glide ([rowItemAnimation]); a
  * jump to the start would cut that animation off. The front entries survive leaving the screen: back
  * from a book page, the row stays where it was as long as nothing new is at the front, otherwise it shows its start right away.
+ * If the user had scrolled the row away from its start and an entry arrives that wasn't in it before (a sync, a refresh),
+ * the row stays where it is and a snackbar offers to show its start ([rememberNewFrontHint]); with [announce] off (queue)
+ * it glides there as well.
  */
 @Composable
-fun <T> rememberFrontRow(items: List<T>, key: (T) -> Long): FrontRow<T> {
+fun <T> rememberFrontRow(items: List<T>, announce: Boolean = true, key: (T) -> Long): FrontRow<T> {
     val state = rememberLazyListState()
     val saved = rememberSaveable(saver = FrontIdsSaver) { FrontIds(emptyList()) }
     val ids = items.map(key)
     // Last adopted order; null until the row is drawn here for the first time.
     var shown by remember { mutableStateOf<List<Long>?>(null) }
-    val held = shown?.takeIf { frontChange(it, ids) == FrontChange.MOVED }
+    val atStart by remember(state) { derivedStateOf { state.atStart() } }
+    // Read before the row has laid out the new entries: afterwards it has already shifted to the previous first one.
+    val startBefore = remember(ids) { atStart }
+    val quiet = announce && !startBefore && shown?.let { ids.firstOrNull() !in it } == true
+    val held = shown?.takeIf { !quiet && frontChange(it, ids) == FrontChange.MOVED }
     val visible = if (held == null) items else items.associateBy(key).let { byId -> held.mapNotNull(byId::get) }
+    val hint = rememberNewFrontHint { state.glideToStart() }
     LaunchedEffect(ids) {
         val before = shown
         if (before == null) {
             if (frontChange(saved.ids, ids) != FrontChange.NONE) state.scrollToItem(0)
         } else if (frontChange(before, ids) != FrontChange.NONE) {
-            delay(FRONT_HOLD)
-            // Together with the new order, otherwise the row would hold on to the previous first one.
-            if (state.glideToStart()) state.requestScrollToItem(0)
+            if (quiet) {
+                // The row already shows the new order and stays at the entry the user is looking at.
+                shown = ids
+                delay(NEW_FRONT_SETTLE)
+                if (!state.atStart()) hint()
+            } else {
+                delay(FRONT_HOLD)
+                // Together with the new order, otherwise the row would hold on to the previous first one.
+                if (state.glideToStart()) state.requestScrollToItem(0)
+            }
         }
         shown = ids
     }
@@ -927,23 +949,88 @@ fun <T> rememberFrontRow(items: List<T>, key: (T) -> Long): FrontRow<T> {
 }
 
 /**
- * Vertical list or grid whose start should come into view when something new is at the front ([items] in the order shown,
- * [key] their ID): an entry found by a sync or a manual refresh, one that moved to the front from further back (played,
- * other sorting) or another filter. A lazy list would otherwise hold on to its previous first entry, and the new ones would lie
- * invisibly above the edge (the vertical counterpart of [rememberFrontRow], without the hold: the list jumps right away).
- * If only the frontmost drops out and the next moves up, the list stays where it is. Survives leaving the screen: back on it,
- * the list shows its start if something new arrived at the front in the meantime.
+ * List or grid whose start should come into view when something is new at the front ([items] in the order shown, [key]
+ * their ID): an entry found by a sync or a manual refresh, one that moved to the front from further back (played, other
+ * sorting) or another filter. A lazy list would otherwise hold on to its previous first entry, and the new ones would lie
+ * invisibly above the edge (the counterpart of [rememberFrontRow], without the hold).
+ *
+ * If the list showed its start, it jumps there again right away. If the user had scrolled away, it stays where it is; for an
+ * entry that wasn't in the list before, a snackbar offers to show the start ([rememberNewFrontHint]; not with [announce] off,
+ * for lists of shelves). If only the frontmost drops out and the next moves up, nothing happens. Survives leaving the screen:
+ * back on it, the list shows its start if it was there and something arrived at the front in the meantime.
  */
 @Composable
-fun <T> ShowStartOnNewFront(items: List<T>, key: (T) -> Any, scrollToStart: suspend () -> Unit) {
-    val front = items.take(2).map { key(it).toString() }
+fun <T> ShowStartOnNewFront(items: List<T>, state: LazyListState, key: (T) -> Any, announce: Boolean = true) {
+    val atStart = remember(state) { derivedStateOf { state.atStart() } }
+    ShowStartOnNewFront(items, key, atStart, announce, { state.atStart() }, { state.scrollToItem(0) }) { state.animateScrollToItem(0) }
+}
+
+/** [ShowStartOnNewFront] for a grid. */
+@Composable
+fun <T> ShowStartOnNewFront(items: List<T>, state: LazyGridState, key: (T) -> Any, announce: Boolean = true) {
+    val atStart = remember(state) { derivedStateOf { state.atStart() } }
+    ShowStartOnNewFront(items, key, atStart, announce, { state.atStart() }, { state.scrollToItem(0) }) { state.animateScrollToItem(0) }
+}
+
+@Composable
+private fun <T> ShowStartOnNewFront(
+    items: List<T>,
+    key: (T) -> Any,
+    atStart: State<Boolean>,
+    announce: Boolean,
+    isAtStart: () -> Boolean,
+    jumpToStart: suspend () -> Unit,
+    glideToStart: suspend () -> Unit,
+) {
+    val ids = remember(items) { items.map { key(it).toString() } }
+    val front = ids.take(2)
     var shown by rememberSaveable { mutableStateOf(front) }
+    // All IDs of the previous draw, to tell a new entry from one that moved up; unknown after returning to the screen.
+    val previous = remember { LastIds() }
+    val before = previous.ids
+    val known = remember(ids) { ids.toHashSet() }
+    SideEffect { previous.ids = known }
+    // Read before the list has laid out the new entries: afterwards it has already shifted to the previous first one.
+    val startBefore = remember(ids) { atStart.value }
+    val hint = rememberNewFrontHint(glideToStart)
     LaunchedEffect(front) {
         // All IDs, not just the front two: whether the previous first one moved further back or is gone decides.
-        if (frontChange(shown, items.map { key(it).toString() }) != FrontChange.NONE) scrollToStart()
+        val change = frontChange(shown, ids)
         shown = front
+        when {
+            change == FrontChange.NONE -> Unit
+            startBefore -> jumpToStart()
+            announce && before != null && ids.first() !in before -> {
+                // A sort or filter change takes the list to its start itself (ResetScroll); then there is nothing to offer.
+                delay(NEW_FRONT_SETTLE)
+                if (!isAtStart()) hint()
+            }
+        }
     }
 }
+
+/** All IDs of a list at its last draw (for [ShowStartOnNewFront]). */
+private class LastIds(var ids: Set<String>? = null)
+
+/**
+ * Snackbar for a list or row the user had scrolled away from when something new arrived at its start: it says so and
+ * [scrollToStart] on tap. It stays until it expires, so the result of a refresh doesn't displace it but follows it.
+ */
+@Composable
+private fun rememberNewFrontHint(scrollToStart: suspend () -> Unit): () -> Unit {
+    val snackbars = LocalSnackbars.current
+    val text = stringResource(R.string.new_at_start)
+    val action = stringResource(R.string.new_at_start_show)
+    val scope = rememberCoroutineScope()
+    val scroll by rememberUpdatedState(scrollToStart)
+    return remember(snackbars, text, action, scope) {
+        { snackbars.show(SnackbarMessage(text, action, onAction = { scope.launch { scroll() } }, keep = true)) }
+    }
+}
+
+private fun LazyListState.atStart() = firstVisibleItemIndex == 0 && firstVisibleItemScrollOffset == 0
+
+private fun LazyGridState.atStart() = firstVisibleItemIndex == 0 && firstVisibleItemScrollOffset == 0
 
 /** What changed at the front of a row ([rememberFrontRow]). */
 internal enum class FrontChange {
@@ -987,6 +1074,9 @@ private suspend fun LazyListState.glideToStart(): Boolean {
 }
 
 private val FRONT_HOLD = 2.seconds
+
+/** Time for a sort or filter change to take a list to its start before a hint about new entries is due. */
+private val NEW_FRONT_SETTLE = 500.milliseconds
 private const val FRONT_GLIDE_MS = 800
 
 /** The first two entries of a row at the last draw (for [rememberFrontRow]). */
