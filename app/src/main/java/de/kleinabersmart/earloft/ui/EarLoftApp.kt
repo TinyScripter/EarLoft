@@ -34,11 +34,8 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.material3.Icon
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.SnackbarVisuals
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
@@ -70,7 +67,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import de.kleinabersmart.earloft.notification.NewContentTarget
 import de.kleinabersmart.earloft.navigation.AboutRoute
-import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
+import de.kleinabersmart.earloft.ui.snackbar.SnackbarQueue
 import de.kleinabersmart.earloft.navigation.AddAudiobookshelfRoute
 import de.kleinabersmart.earloft.navigation.BookRoute
 import de.kleinabersmart.earloft.navigation.PodcastInfoRoute
@@ -633,16 +630,10 @@ fun EarLoftApp(
     val snackbars = hiltViewModel<SnackbarViewModel>().snackbars
     val snackbarHost = remember { SnackbarHostState() }
     LaunchedEffect(snackbars) {
-        snackbars.messages.collect { message ->
-            // A new hint replaces the visible one (e.g. "Refreshing" with the result), unless that one should stay;
-            // then the new one waits behind it.
-            val visible = snackbarHost.currentSnackbarData
-            if ((visible?.visuals as? AppSnackbarVisuals)?.keep != true) visible?.dismiss()
-            launch {
-                val result = snackbarHost.showSnackbar(AppSnackbarVisuals(message))
-                if (result == SnackbarResult.ActionPerformed) message.onAction?.invoke()
-            }
-        }
+        // Which message comes next, see [SnackbarQueue].
+        val queue = SnackbarQueue(snackbarHost)
+        launch { queue.run() }
+        snackbars.messages.collect(queue::offer)
     }
 
     CompositionLocalProvider(
@@ -825,15 +816,6 @@ private fun fadeThrough() = ContentTransform(
     initialContentExit = fadeOut(tween(90)),
 )
 
-/** The snackbar visuals of a [SnackbarMessage]; carries [keep] along so a new hint doesn't displace it. */
-private class AppSnackbarVisuals(message: SnackbarMessage) : SnackbarVisuals {
-    override val message: String = message.text
-    override val actionLabel: String? = message.actionLabel
-    /** A hint without a timeout can always be dismissed even without its action. */
-    override val withDismissAction: Boolean = message.duration == SnackbarDuration.Indefinite
-    override val duration: SnackbarDuration = message.duration
-    val keep: Boolean = message.keep
-}
 
 /**
  * The height below the pages (snackbar, mini player, bar) as insets that count as consumed. A state read only when someone
