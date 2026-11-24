@@ -507,6 +507,11 @@ internal class LibrarySessionCallback(
  * check it against the caller (the package is not visible to the app), any app could claim to be the app itself or Android Auto.
  * Such a name doesn't count. Older controllers (Android Auto, the system UI) connect through the platform, which knows the
  * caller.
+ *
+ * Known residual risk, accepted on purpose: below Android 13 the platform does not verify the name of a legacy controller
+ * either, so an app that impersonates Android Auto there could replace the queue and set favorites, nothing more (see
+ * `ideas/konzept_und_architektur.md`, media session). Trusting only [MediaSession.ControllerInfo.isPackageNameVerified] would
+ * close that gap but take both commands away from Android Auto on Android 9-12.
  */
 @OptIn(UnstableApi::class)
 internal fun MediaSession.isTrustedController(controller: MediaSession.ControllerInfo, ownPackage: String): Boolean {
