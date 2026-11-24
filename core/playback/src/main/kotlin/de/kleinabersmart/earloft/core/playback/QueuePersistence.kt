@@ -92,12 +92,19 @@ internal fun indexOfSong(songIds: List<Long>, songId: Long, near: Int): Int? {
 
 /** Saves the queue (Room) and position/modes (DataStore) – concept 5.5. */
 @Singleton
-class QueuePersistence @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+class QueuePersistence internal constructor(
+    private val dataStore: DataStore<Preferences>,
     private val playbackStateRepository: PlaybackStateRepository,
     private val libraryRepository: LibraryRepository,
     private val bookKeys: BookKeys,
 ) : BookKeyRenamer {
+    @Inject constructor(
+        @ApplicationContext context: Context,
+        playbackStateRepository: PlaybackStateRepository,
+        libraryRepository: LibraryRepository,
+        bookKeys: BookKeys,
+    ) : this(context.playbackDataStore, playbackStateRepository, libraryRepository, bookKeys)
+
     private var queueSaveJob: Job? = null
 
     /** The queue [saveQueueDebounced] is about to save; [addToSavedQueue] writes it first instead of being overwritten by it. */
@@ -137,9 +144,9 @@ class QueuePersistence @Inject constructor(
     fun saveRemotePosition(songId: Long, position: Long, scope: CoroutineScope) {
         scope.launch {
             val saved = playbackStateRepository.loadQueue()
-            val prefs = context.playbackDataStore.data.first()
+            val prefs = dataStore.data.first()
             val index = indexOfSong(saved, songId, near = prefs[KEY_INDEX] ?: 0) ?: return@launch
-            context.playbackDataStore.edit {
+            dataStore.edit {
                 it[KEY_INDEX] = index
                 it[KEY_POSITION] = position
             }
@@ -147,12 +154,12 @@ class QueuePersistence @Inject constructor(
     }
 
     /** The music's saved shuffle (e.g. after reattaching to a cast session, when the player doesn't know it). */
-    suspend fun savedShuffle(): Boolean = context.playbackDataStore.data.first()[KEY_SHUFFLE] ?: false
+    suspend fun savedShuffle(): Boolean = dataStore.data.first()[KEY_SHUFFLE] ?: false
 
     /** Position and modes of the music queue, even if the player already holds something else (switch to a book). */
     fun saveMusicPosition(index: Int, position: Long, shuffle: Boolean, repeat: Int, scope: CoroutineScope) {
         scope.launch {
-            context.playbackDataStore.edit {
+            dataStore.edit {
                 it[KEY_INDEX] = index
                 it[KEY_POSITION] = position
                 it[KEY_SHUFFLE] = shuffle
@@ -168,7 +175,7 @@ class QueuePersistence @Inject constructor(
     fun saveLastBook(bookId: Long?, scope: CoroutineScope) {
         scope.launch {
             val key = bookId?.let { bookKeys.keyOf(it) }.orEmpty()
-            context.playbackDataStore.edit {
+            dataStore.edit {
                 it[KEY_LAST_BOOK] = key
                 it.remove(LEGACY_LAST_BOOK)
             }
@@ -177,7 +184,7 @@ class QueuePersistence @Inject constructor(
 
     /** The book or episode that played last; `null` if music played last or the book doesn't exist here (yet). */
     suspend fun lastBookId(): Long? {
-        val prefs = context.playbackDataStore.data.first()
+        val prefs = dataStore.data.first()
         val key = prefs[KEY_LAST_BOOK] ?: migrateLegacyLastBook(prefs) ?: return null
         return key.takeIf { it.isNotEmpty() }?.let { bookKeys.idOf(it) }
     }
@@ -187,13 +194,13 @@ class QueuePersistence @Inject constructor(
      * connection to the player (which keeps the playback service awake). Earlier `bookId` entries don't count here.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val lastBookIds: Flow<Long?> = context.playbackDataStore.data
+    val lastBookIds: Flow<Long?> = dataStore.data
         .map { it[KEY_LAST_BOOK].orEmpty() }
         .distinctUntilChanged()
         .mapLatest { key -> key.takeIf { it.isNotEmpty() }?.let { bookKeys.idOf(it) } }
 
     override suspend fun renameBookKeys(renames: Map<String, String>) {
-        context.playbackDataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[KEY_LAST_BOOK]?.let { renames[it] }?.let { prefs[KEY_LAST_BOOK] = it }
         }
     }
@@ -202,7 +209,7 @@ class QueuePersistence @Inject constructor(
     private suspend fun migrateLegacyLastBook(prefs: Preferences): String? {
         val legacy = prefs[LEGACY_LAST_BOOK] ?: return null
         val key = legacy.takeIf { it != LEGACY_NO_BOOK }?.let { bookKeys.keyOfLegacyId(it) }.orEmpty()
-        context.playbackDataStore.edit {
+        dataStore.edit {
             it[KEY_LAST_BOOK] = key
             it.remove(LEGACY_LAST_BOOK)
         }
@@ -219,11 +226,12 @@ class QueuePersistence @Inject constructor(
         queueLock.withLock {
             // The music's queue from just before the switch is still waiting to be saved: it comes first.
             savePendingQueue()
-            val saved = playbackStateRepository.loadQueue()
-            val index = context.playbackDataStore.data.first()[KEY_INDEX] ?: 0
+            // Deleted songs stay gaps in it, so the saved index still counts in it; only gaps count as empty.
+            val saved = playbackStateRepository.loadQueue().takeUnless { queue -> queue.all { it == PlaybackStateRepository.QUEUE_GAP } }.orEmpty()
+            val index = dataStore.data.first()[KEY_INDEX] ?: 0
             playbackStateRepository.saveQueue(insertIntoSavedQueue(saved, index, songIds, next))
             if (saved.isEmpty()) {
-                context.playbackDataStore.edit {
+                dataStore.edit {
                     it[KEY_INDEX] = 0
                     it[KEY_POSITION] = 0L
                 }
@@ -238,7 +246,7 @@ class QueuePersistence @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     val savedQueue: Flow<SavedMusicQueue?> = combine(
         playbackStateRepository.observeQueue(),
-        context.playbackDataStore.data.map { it[KEY_INDEX] ?: 0 }.distinctUntilChanged(),
+        dataStore.data.map { it[KEY_INDEX] ?: 0 }.distinctUntilChanged(),
         ::Pair,
     ).mapLatest { (songIds, index) ->
         val songs = libraryRepository.songs(songIds)
@@ -249,7 +257,7 @@ class QueuePersistence @Inject constructor(
         val songIds = playbackStateRepository.loadQueue()
         val songs = libraryRepository.songs(songIds)
         if (songs.isEmpty()) return null
-        val prefs = context.playbackDataStore.data.first()
+        val prefs = dataStore.data.first()
         // Songs removed since then are missing from the list: the saved index is counted in the saved one (review H32).
         val start = restoredStart(songIds, songs.mapTo(HashSet()) { it.id }, prefs[KEY_INDEX] ?: 0)
         return RestoredQueue(

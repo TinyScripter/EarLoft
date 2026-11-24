@@ -15,8 +15,12 @@ abstract class PlaybackDao {
     @Query("SELECT songId FROM queue_items ORDER BY position")
     abstract suspend fun getQueueSongIds(): List<Long>
 
-    @Query("SELECT songId FROM queue_items ORDER BY position")
-    abstract fun observeQueueSongIds(): Flow<List<Long>>
+    /** With their positions: a song deleted since then (cascade) leaves a gap there. */
+    @Query("SELECT * FROM queue_items ORDER BY position")
+    abstract suspend fun getQueueItems(): List<QueueItemEntity>
+
+    @Query("SELECT * FROM queue_items ORDER BY position")
+    abstract fun observeQueueItems(): Flow<List<QueueItemEntity>>
 
     @Query("DELETE FROM queue_items")
     protected abstract suspend fun clearQueue()
@@ -24,13 +28,16 @@ abstract class PlaybackDao {
     @Insert
     protected abstract suspend fun insertQueueItems(items: List<QueueItemEntity>)
 
-    /** Replaces the queue; songs that don't exist (anymore) are skipped. */
+    /**
+     * Replaces the queue; songs that don't exist (anymore) are skipped but keep their position free, so that the saved
+     * index still counts in [songIds].
+     */
     @Transaction
     open suspend fun replaceQueue(songIds: List<Long>) {
         clearQueue()
         val existing = songIds.chunked(900).flatMap { existingSongIds(it) }.toSet()
         insertQueueItems(
-            songIds.filter { it in existing }.mapIndexed { index, songId -> QueueItemEntity(index, songId) },
+            songIds.mapIndexedNotNull { index, songId -> QueueItemEntity(index, songId).takeIf { songId in existing } },
         )
     }
 

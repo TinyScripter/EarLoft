@@ -22,6 +22,10 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.guava)
 
+    // Tests with the real (in-memory) database.
+    testImplementation(projects.core.database)
+    testImplementation(libs.androidx.room.runtime)
+    testImplementation(libs.androidx.test.core)
     testImplementation(libs.robolectric)
     testImplementation(libs.kotlinx.coroutines.test)
 }
