@@ -19,6 +19,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -86,7 +87,15 @@ class EpisodeDownloadWorkerTest {
         val old = episode(addedAt = 1)
         val middle = episode(addedAt = 2)
         val new = episode(addedAt = 3)
-        edges.server = { bookId -> if (bookId == new) DownloadOutcome.NoSpace(totalBytes = 900_000_000) else DownloadOutcome.Done }
+        edges.server = { bookId ->
+            if (bookId == new) {
+                DownloadOutcome.NoSpace(totalBytes = 900_000_000)
+            } else {
+                // The parallel run ends only once the full storage is known; before that it may rightly take the next one.
+                space.isShort.first { it }
+                DownloadOutcome.Done
+            }
+        }
 
         assertEquals(ListenableWorker.Result.success(), runWorker())
 
@@ -167,7 +176,7 @@ class EpisodeDownloadWorkerTest {
 
     /** The feed hosts; like [EpisodeDownloader] they mark the episode running and, when done, downloaded. */
     private inner class FakeEdges : EpisodeDownloadEdges {
-        var server: (Long) -> DownloadOutcome = { DownloadOutcome.Done }
+        var server: suspend (Long) -> DownloadOutcome = { DownloadOutcome.Done }
         val calls: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
         val downloaded: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
         val mostAtOnce = AtomicInteger()
