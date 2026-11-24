@@ -13,6 +13,7 @@ import de.kleinabersmart.earloft.core.data.sync.SweepGuard
 import de.kleinabersmart.earloft.core.datasource.local.LocalEpisode
 import de.kleinabersmart.earloft.core.datasource.local.LocalEpisodeDetails
 import de.kleinabersmart.earloft.core.datasource.local.LocalPodcast
+import de.kleinabersmart.earloft.core.datasource.local.LocalScan
 import de.kleinabersmart.earloft.core.model.AppUris
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
@@ -31,14 +32,25 @@ import javax.inject.Singleton
  * continue listening, queue, progress and "Next episode" work as with feeds; sync and downloads don't apply.
  */
 @Singleton
-class LocalPodcasts @Inject constructor(
+class LocalPodcasts internal constructor(
     private val bookDao: BookDao,
     private val dao: PodcastDao,
-    private val scanner: LocalBookScanner,
+    /** [LocalBookScanner.scanPodcasts]; tests hand in the files directly instead of the MediaStore. */
+    private val scanPodcasts: suspend (isUnchanged: suspend (String, String, Long) -> Boolean) -> LocalScan<LocalPodcast>,
     private val settings: SpokenSettings,
-    private val covers: BookCovers,
+    /** [BookCovers.invalidate]. */
+    private val invalidateCover: (bookId: Long) -> Unit,
     private val sweepGuard: SweepGuard,
 ) {
+    @Inject constructor(
+        bookDao: BookDao,
+        dao: PodcastDao,
+        scanner: LocalBookScanner,
+        settings: SpokenSettings,
+        covers: BookCovers,
+        sweepGuard: SweepGuard,
+    ) : this(bookDao, dao, scanner::scanPodcasts, settings, covers::invalidate, sweepGuard)
+
     private val mutex = Mutex()
 
     /**
@@ -50,7 +62,7 @@ class LocalPodcasts @Inject constructor(
         val generation = bookDao.nextGeneration()
         val known = bookDao.countBooksWithServerPrefix(LOCAL_PODCAST_PREFIX)
         val scan = try {
-            scanner.scanPodcasts { podcast, key, fingerprint ->
+            scanPodcasts { podcast, key, fingerprint ->
                 bookDao.bookByRemote(feedIdOf(podcast), key)?.let { it.remoteUpdatedAt == fingerprint && it.detailsLoaded } == true
             }
         } catch (e: SecurityException) {
@@ -97,8 +109,16 @@ class LocalPodcasts @Inject constructor(
 
         val existing = dao.feed(feedId)
         // The podcast's image is the cover of one of its episodes, as long as that episode is still there.
-        val keepImage = existing?.imageUrl?.let(AppUris::parseBookCoverId)?.let { bookDao.book(it) } != null
-        val image = if (keepImage) existing.imageUrl else newestWithCover?.let { AppUris.bookCover(it.first) } ?: existing?.imageUrl
+        val imageEpisode = existing?.imageUrl?.let(AppUris::parseBookCoverId)
+        val keepImage = imageEpisode?.let { bookDao.book(it) } != null
+        val image = when {
+            keepImage -> existing.imageUrl
+            newestWithCover != null -> AppUris.bookCover(newestWithCover.first)
+            // The image's episode is gone and no file read now has a cover (unchanged files aren't read): the newest
+            // remaining episode, whose file may carry one, instead of the cover of a deleted episode.
+            imageEpisode != null -> bookDao.booksOf(feedId).maxByOrNull { it.addedAt }?.let { AppUris.bookCover(it.bookId) }
+            else -> existing?.imageUrl
+        }
         dao.upsertFeed(
             existing?.copy(title = podcast.name, imageUrl = image, lastRefreshAt = generation, syncGeneration = generation)
                 ?: PodcastFeedEntity(feedId = feedId, url = feedId, title = podcast.name, imageUrl = image, lastRefreshAt = generation, syncGeneration = generation),
@@ -128,7 +148,7 @@ class LocalPodcasts @Inject constructor(
         }
         bookDao.replaceDetails(bookId, listOf(track), chapters)
         // The cover is in the file; if it changed, the cached one is no longer valid.
-        covers.invalidate(bookId)
+        invalidateCover(bookId)
         return bookId
     }
 
