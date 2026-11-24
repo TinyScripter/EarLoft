@@ -19,12 +19,12 @@ internal data class LocalAddress(
 )
 
 /**
- * An IPv4 route of the VPN the app's traffic goes through.
+ * A route (IPv4 or IPv6) of the VPN the app's traffic goes through.
  *
  * @property captures `false` for a route the VPN leaves out of the tunnel (`RTN_THROW`, e.g. "exclude private IPs").
  */
 internal data class VpnRoute(
-    val destination: Inet4Address,
+    val destination: InetAddress,
     val prefixLength: Int,
     val captures: Boolean,
 )
@@ -49,21 +49,27 @@ internal object CastLanAddress {
     /**
      * Whether the VPN with [routes] takes the traffic to the [receiver] into its tunnel: then the phone's answers to the receiver
      * don't go out over Wi-Fi, and the receiver can't load anything from the phone (seen with WireGuard routing the home network,
-     * review2 9.8). The most specific route decides, as in the kernel; no matching route means the traffic bypasses the VPN.
+     * review2 9.8). The most specific route of the receiver's address family decides, as in the kernel; IPv6 too (review3 Q27).
+     * No matching route means the traffic bypasses the VPN.
      */
     fun vpnCapturesReceiver(routes: List<VpnRoute>, receiver: InetAddress?): Boolean {
-        if (receiver !is Inet4Address) return false
+        if (receiver == null) return false
         return routes.filter { inSubnet(it.destination, it.prefixLength, receiver) }.maxByOrNull { it.prefixLength }?.captures == true
     }
 
-    private fun LocalAddress.contains(other: Inet4Address) = inSubnet(address, prefixLength, other)
+    private fun LocalAddress.contains(other: InetAddress) = inSubnet(address, prefixLength, other)
 
-    private fun inSubnet(network: Inet4Address, prefixLength: Int, other: Inet4Address): Boolean {
-        val prefix = prefixLength.coerceIn(0, 32)
-        if (prefix == 0) return true
-        val mask = -1 shl (32 - prefix)
-        return network.toInt() and mask == other.toInt() and mask
+    /** Whether [other] lies in [network]/[prefixLength]; never across address families. */
+    private fun inSubnet(network: InetAddress, prefixLength: Int, other: InetAddress): Boolean {
+        val a = network.address
+        val b = other.address
+        if (a.size != b.size) return false
+        val prefix = prefixLength.coerceIn(0, a.size * 8)
+        val fullBytes = prefix / 8
+        for (i in 0 until fullBytes) if (a[i] != b[i]) return false
+        val rest = prefix % 8
+        if (rest == 0) return true
+        val mask = (0xff shl (8 - rest)) and 0xff
+        return (a[fullBytes].toInt() and mask) == (b[fullBytes].toInt() and mask)
     }
-
-    private fun Inet4Address.toInt(): Int = address.fold(0) { acc, byte -> (acc shl 8) or (byte.toInt() and 0xff) }
 }

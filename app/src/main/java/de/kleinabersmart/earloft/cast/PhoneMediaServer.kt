@@ -208,7 +208,7 @@ internal class PhoneMediaServer @Inject constructor(
         val capabilities = connectivity.getNetworkCapabilities(network) ?: return false
         if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return false
         val routes = connectivity.getLinkProperties(network)?.routes.orEmpty().mapNotNull { route ->
-            val destination = route.destination.address as? Inet4Address ?: return@mapNotNull null
+            val destination = route.destination.address
             // Excluded routes (`VpnService.Builder.excludeRoute`) only exist from API 33 on, like the route type.
             val captures = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || route.type != RouteInfo.RTN_THROW
             VpnRoute(destination, route.destination.prefixLength, captures)

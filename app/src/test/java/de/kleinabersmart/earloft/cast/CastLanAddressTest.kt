@@ -100,12 +100,19 @@ class CastLanAddressTest {
     }
 
     @Test
-    fun `an unknown or IPv6 receiver is never reported`() {
-        val routes = listOf(route("0.0.0.0", 0))
+    fun `an unknown receiver is never reported, an IPv6 one only by an IPv6 route`() {
+        val v4 = listOf(route("0.0.0.0", 0))
+        val receiver = InetAddress.getByName("2001:db8:1:2::39")
 
-        assertFalse(CastLanAddress.vpnCapturesReceiver(routes, null))
-        assertFalse(CastLanAddress.vpnCapturesReceiver(routes, InetAddress.getByName("fe80::1")))
+        assertFalse(CastLanAddress.vpnCapturesReceiver(v4, null))
+        assertFalse("IPv4 routes don't take IPv6 traffic", CastLanAddress.vpnCapturesReceiver(v4, receiver))
+        assertTrue(CastLanAddress.vpnCapturesReceiver(v4 + route6("::", 0), receiver))
+        assertTrue(CastLanAddress.vpnCapturesReceiver(listOf(route6("2001:db8:1::", 48)), receiver))
+        assertFalse(CastLanAddress.vpnCapturesReceiver(listOf(route6("2001:db8:1::", 48), route6("2001:db8:1:2::", 64, captures = false)), receiver))
+        assertFalse(CastLanAddress.vpnCapturesReceiver(listOf(route6("2001:db8:2::", 47)), receiver))
     }
+
+    private fun route6(network: String, prefix: Int, captures: Boolean = true) = VpnRoute(InetAddress.getByName(network), prefix, captures)
 
     private fun route(network: String, prefix: Int, captures: Boolean = true) = VpnRoute(ip(network), prefix, captures)
 
