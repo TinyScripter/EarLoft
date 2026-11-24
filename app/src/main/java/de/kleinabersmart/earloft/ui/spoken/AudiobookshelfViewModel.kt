@@ -124,10 +124,12 @@ class AudiobookshelfViewModel @Inject constructor(
      * Takes the browser's redirects while the form is shown ([AudiobookshelfFormScreen]). Only the form collects: before, every
      * instance did so in `init`, including those of Settings → Books and the setup wizard alive in the back stack, and whichever
      * took the redirect first won. One without a running sign-in only failed in its own, invisible state while the form stayed
-     * "idle" (review2 J9).
+     * "idle" (review2 J9). [startedHere]: this form (also before the process ended) opened the browser for a sign-in; only
+     * then does a redirect without a running sign-in mean it was lost. Otherwise it is a leftover of a form closed meanwhile,
+     * maybe for another server, and is dropped (review3 Q28).
      */
-    suspend fun collectRedirects() {
-        OpenIdRedirects.received.collect { if (OpenIdRedirects.take(it)) onBrowserResult(it) }
+    suspend fun collectRedirects(startedHere: () -> Boolean) {
+        OpenIdRedirects.received.collect { if (OpenIdRedirects.take(it)) onBrowserResult(it, lostIfUnknown = startedHere()) }
     }
 
     fun onUrlChanged(url: String) {
@@ -182,13 +184,19 @@ class AudiobookshelfViewModel @Inject constructor(
         _browser.value = null
     }
 
-    /** The browser's redirect; `null` if the user cancelled. */
-    fun onBrowserResult(redirect: String?) {
+    /** The browser's redirect; `null` if the user cancelled. [lostIfUnknown]: see [collectRedirects]. */
+    fun onBrowserResult(redirect: String?, lostIfUnknown: Boolean = true) {
         val (login, serverId, name) = pendingLogin ?: run {
             // After the process ended during the login, the PKCE verifier and cookies are missing. A second redirect after a
             // finished sign-in changes nothing.
             val busyOrDone = _connect.value == ConnectState.Connecting || _connect.value == ConnectState.Connected
-            if (redirect != null && !busyOrDone) _connect.value = ConnectState.Failed(R.string.spoken_abs_error_openid_lost)
+            if (redirect != null && !busyOrDone) {
+                if (lostIfUnknown) {
+                    _connect.value = ConnectState.Failed(R.string.spoken_abs_error_openid_lost)
+                } else {
+                    Log.i(TAG, "OpenID redirect of a form closed meanwhile, dropped")
+                }
+            }
             return
         }
         if (redirect == null) return

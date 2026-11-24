@@ -105,11 +105,14 @@ fun AudiobookshelfFormScreen(
     val authTabLauncher = rememberLauncherForActivityResult(AuthTabIntent.AuthenticateUserResultContract()) { result ->
         viewModel.onBrowserResult(result.resultUri?.takeIf { result.resultCode == AuthTabIntent.RESULT_OK }?.toString())
     }
+    // This form opened the browser; survives the end of the process like the form itself (review3 Q28).
+    var signInStarted by rememberSaveable { mutableStateOf(false) }
     // Redirects of a browser without Auth Tab: only this form takes them (review2 J9).
-    LaunchedEffect(viewModel) { viewModel.collectRedirects() }
+    LaunchedEffect(viewModel) { viewModel.collectRedirects { signInStarted } }
     LaunchedEffect(browserUrl) {
         val address = browserUrl?.toUri() ?: return@LaunchedEffect
         viewModel.browserOpened()
+        signInStarted = true
         if (authTab != null) {
             AuthTabIntent.Builder().build()
                 .apply { intent.setPackage(authTab) }
