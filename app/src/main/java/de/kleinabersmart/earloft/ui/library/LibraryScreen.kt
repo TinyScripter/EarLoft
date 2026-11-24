@@ -573,7 +573,10 @@ fun LazyGridScope.fullWidthItem(key: Any, content: @Composable () -> Unit) {
     item(key = key, span = { GridItemSpan(maxLineSpan) }) { content() }
 }
 
-/** Artists as a grid, two per row, structured like the book authors: image, below it name and album count. */
+/**
+ * Artists as a grid, as wide as the album tiles (two per row on a phone), structured like the book authors: image, below it
+ * name and album count.
+ */
 @Composable
 internal fun ArtistGrid(
     artists: List<Artist>,
@@ -590,7 +593,7 @@ internal fun ArtistGrid(
     ShowStartOnNewFront(artists, state, { it.id })
     PinnableHeaderBox(header, pinHeader, Modifier.fillMaxSize()) { inlineHeader ->
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+            columns = GridCells.Adaptive(minSize = 150.dp),
             state = state,
             contentPadding = gridContentPadding(pinnedHeader = header != null && inlineHeader == null),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
