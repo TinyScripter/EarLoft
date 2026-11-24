@@ -35,6 +35,16 @@ jobs:
       - name: Release build (R8)
         run: ./gradlew assembleRelease
 
+      - name: Release APKs for the start test
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apks
+          path: |
+            app/build/outputs/apk/release/*.apk
+            wear/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Lint reports
         if: failure()
         uses: actions/upload-artifact@v4
@@ -42,3 +52,54 @@ jobs:
           name: lint-reports
           path: '**/build/reports/lint-results-*.html'
           if-no-files-found: ignore
+
+  # The release APKs on an emulator: a successful R8 build can still crash at run time (review2 Z21 B).
+  start-test:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: phone
+            apk: app/build/outputs/apk/release/app-release-unsigned.apk
+            image: system-images;android-36;google_apis;x86_64
+            device: pixel_6
+          - name: watch
+            apk: wear/build/outputs/apk/release/wear-release-unsigned.apk
+            image: system-images;android-34;android-wear;x86_64
+            device: wearos_large_round
+    name: start-test (${{ matrix.name }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-apks
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Start emulator
+        env:
+          IMAGE: ${{ matrix.image }}
+          DEVICE: ${{ matrix.device }}
+        run: |
+          tools="$ANDROID_HOME/cmdline-tools/latest/bin"
+          yes | "$tools/sdkmanager" --licenses > /dev/null
+          "$tools/sdkmanager" --install emulator platform-tools "$IMAGE" > /dev/null
+          echo no | "$tools/avdmanager" create avd -n start-test -k "$IMAGE" -d "$DEVICE"
+          nohup "$ANDROID_HOME/emulator/emulator" -avd start-test -no-window -no-audio -no-boot-anim -no-snapshot \
+            -gpu swiftshader_indirect -memory 3072 > emulator.log 2>&1 &
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Start test
+        run: tools/ci/smoke-start.sh "${{ matrix.apk }}"
+
+      - name: Emulator log
+        if: failure()
+        run: tail -100 emulator.log || true
