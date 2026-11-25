@@ -198,6 +198,25 @@ class PlaylistSyncTest {
     }
 
     @Test
+    fun `a second change before the next try keeps the broken-off sending ahead of the half written server playlist`() = runTest {
+        val remoteId = nd.putPlaylist("Mix", listOf("a", "b"))
+        syncer.syncAdding(db, nd)
+        val id = playlists.playlists().first().single().id
+        playlists.addSongs(id, listOf(songId("c")))
+        db.syncDao().getActions().forEach { db.syncDao().incrementAttempts(it.actionId) }
+        nd.putPlaylist("Mix", listOf("a"), remoteId)
+        // Changed again before the next try: the action is created anew, but it is still not a first attempt.
+        playlists.addSongs(id, listOf(songId("a")))
+
+        syncer.syncAdding(db, nd)
+        assertEquals(listOf("A", "B", "C", "A"), titles(id))
+
+        assertTrue(processor().process())
+        assertEquals(listOf("replace pl1 Mix [a, b, c, a]"), nd.calls)
+        assertEquals(0, db.syncDao().countActions())
+    }
+
+    @Test
     fun `playlist deleted on the server disappears`() = runTest {
         val remoteId = nd.putPlaylist("Mix", listOf("a"))
         syncer.syncAdding(db, nd)

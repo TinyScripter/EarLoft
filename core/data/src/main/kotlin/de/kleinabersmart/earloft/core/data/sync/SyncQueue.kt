@@ -295,6 +295,9 @@ class SyncQueueStarter @Inject constructor(
 
 /** Enqueues an action and merges it with earlier ones for the same target. */
 internal suspend fun SyncDao.replaceAction(sourceId: String, type: SyncActionType, targetKey: String, payload: String?) {
+    // A playlist upload that already failed once may have left the server playlist half written: the new action must not look
+    // like a first attempt, or the server's half state would win over both local changes (review4 T6).
+    val retried = type == SyncActionType.UPSERT_PLAYLIST && targetKey in getRetriedTargets(sourceId, type)
     deleteActions(sourceId, type, targetKey)
     insert(
         SyncActionEntity(
@@ -303,6 +306,7 @@ internal suspend fun SyncDao.replaceAction(sourceId: String, type: SyncActionTyp
             targetKey = targetKey,
             payloadJson = payload,
             createdAt = System.currentTimeMillis(),
+            attempts = if (retried) 1 else 0,
         ),
     )
 }
