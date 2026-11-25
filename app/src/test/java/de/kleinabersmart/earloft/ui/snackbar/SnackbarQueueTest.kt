@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.ui.snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -107,5 +108,24 @@ class SnackbarQueueTest {
         queue.offer(kept("Import failed"))
 
         assertEquals(listOf(hint), queue.pending)
+    }
+
+    @Test
+    fun `a message that was visible comes back in the next UI root, a dismissed one does not`() = runTest {
+        val firstRoot = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { queue.run() }
+        queue.offer(kept("Passwords are missing"))
+        queue.offer(SnackbarMessage("Refreshed"))
+        runCurrent()
+        // Rotation: the root is gone, its snackbar with it (review T31).
+        firstRoot.cancelAndJoin()
+        assertNull(shown)
+
+        start()
+        runCurrent()
+        assertEquals("Passwords are missing", shown)
+        expire()
+        assertEquals("Refreshed", shown)
+        expire()
+        assertNull(shown)
     }
 }

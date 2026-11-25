@@ -1,12 +1,15 @@
 package de.kleinabersmart.earloft.ui.snackbar
 
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -56,8 +59,22 @@ class Snackbars @Inject constructor() {
     ) = show(SnackbarMessage(text, actionLabel, onAction, duration))
 }
 
+/**
+ * Holds the snackbar's state for the activity, so visible and waiting messages survive a rotation or a change of theme or
+ * language, and messages that arrive while the UI root is being rebuilt aren't dropped (review T31). The UI root only
+ * runs [queue] and draws [host].
+ */
 @HiltViewModel
-class SnackbarViewModel @Inject constructor(val snackbars: Snackbars) : ViewModel()
+class SnackbarViewModel @Inject constructor(val snackbars: Snackbars) : ViewModel() {
+    val host = SnackbarHostState()
+    internal val queue = SnackbarQueue(host)
+
+    init {
+        // Main thread, as [SnackbarQueue] requires.
+        viewModelScope.launch { snackbars.withdrawn.collect(queue::withdraw) }
+        viewModelScope.launch { snackbars.messages.collect(queue::offer) }
+    }
+}
 
 /** From within the UI: `LocalSnackbars.current.show("…")`. Without a root (preview) the message goes nowhere. */
 val LocalSnackbars = staticCompositionLocalOf { Snackbars() }

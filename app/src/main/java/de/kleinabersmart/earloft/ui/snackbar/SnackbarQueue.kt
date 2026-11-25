@@ -4,6 +4,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SnackbarVisuals
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 
 /**
@@ -49,7 +50,7 @@ internal class SnackbarQueue(private val host: SnackbarHostState) {
         if (visible === message) host.currentSnackbarData?.dismiss()
     }
 
-    /** Shows the messages one after another; runs as long as the UI root does. */
+    /** Shows the messages one after another; runs as long as the UI root does. A new root takes over with the same queue. */
     suspend fun run(): Nothing {
         while (true) {
             val next = waiting.removeFirstOrNull()
@@ -60,6 +61,11 @@ internal class SnackbarQueue(private val host: SnackbarHostState) {
             visible = next
             val result = try {
                 host.showSnackbar(AppSnackbarVisuals(next))
+            } catch (e: CancellationException) {
+                // The UI root went away while the message was visible (rotation, switch of theme or language): the next root shows
+                // it again; dismissed, expired and withdrawn messages return normally (review T31).
+                waiting.addFirst(next)
+                throw e
             } finally {
                 visible = null
             }

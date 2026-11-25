@@ -35,7 +35,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
@@ -70,7 +69,6 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import de.kleinabersmart.earloft.notification.NewContentTarget
 import de.kleinabersmart.earloft.navigation.AboutRoute
-import de.kleinabersmart.earloft.ui.snackbar.SnackbarQueue
 import de.kleinabersmart.earloft.navigation.AddAudiobookshelfRoute
 import de.kleinabersmart.earloft.navigation.BookRoute
 import de.kleinabersmart.earloft.navigation.PodcastInfoRoute
@@ -191,7 +189,6 @@ import de.kleinabersmart.earloft.ui.spoken.LocalFeedDownloads
 import de.kleinabersmart.earloft.ui.spoken.bookFraction
 import de.kleinabersmart.earloft.ui.spoken.rememberBookDownloads
 import de.kleinabersmart.earloft.ui.spoken.rememberFeedDownloads
-import kotlinx.coroutines.launch
 import de.kleinabersmart.earloft.ui.components.LocalScrollToTop
 import de.kleinabersmart.earloft.ui.components.ScrollToTopRequests
 import de.kleinabersmart.earloft.ui.components.LocalCollectionFavorites
@@ -635,15 +632,11 @@ fun EarLoftApp(
         playerViewModel.playbackStarts.collect { miniPlayerScrollHide.show() }
     }
 
-    val snackbars = hiltViewModel<SnackbarViewModel>().snackbars
-    val snackbarHost = remember { SnackbarHostState() }
-    LaunchedEffect(snackbars) {
-        // Which message comes next, see [SnackbarQueue].
-        val queue = SnackbarQueue(snackbarHost)
-        launch { queue.run() }
-        launch { snackbars.withdrawn.collect(queue::withdraw) }
-        snackbars.messages.collect(queue::offer)
-    }
+    val snackbarModel = hiltViewModel<SnackbarViewModel>()
+    val snackbars = snackbarModel.snackbars
+    val snackbarHost = snackbarModel.host
+    // Which message comes next, see [SnackbarQueue]; queue and host live in the view model and survive a new root.
+    LaunchedEffect(snackbarModel) { snackbarModel.queue.run() }
 
     CompositionLocalProvider(
         LocalSnackbars provides snackbars,
