@@ -250,6 +250,30 @@ class BookPlaybackListenerTest {
     }
 
     @Test
+    fun `scrubbing a paused book is stored and a change of its effects does not move it back`() = runBlocking {
+        val bookId = book()
+        load(bookId, positionMs = 300_000)
+        player.play()
+        idle()
+        player.pause()
+        eventually { assertEquals(300_000L, runBlocking { progress(bookId) }?.positionMs) }
+
+        // Two minutes back while paused: this is the new state at once, not only when the playback stops.
+        player.seekTo(0, 180_000)
+        eventually { assertEquals(180_000L, runBlocking { progress(bookId) }?.positionMs) }
+
+        // The speed changes the row but moves no position; neither does the sending that marks it as sent.
+        val before = progress(bookId)!!
+        db.bookDao().setEffects(bookId, speed = 1.5f, skipSilence = null, volumeBoostDb = null)
+        db.bookDao().markClean(bookId, before.updatedAt)
+        quiet()
+
+        assertEquals(0, player.currentMediaItemIndex)
+        assertEquals(180_000L, player.currentPosition)
+        assertEquals(180_000L, progress(bookId)!!.positionMs)
+    }
+
+    @Test
     fun `after a long pause playback rewinds, after a short one it does not`() = runBlocking {
         val bookId = book()
         val longAgo = System.currentTimeMillis() - 3_600_000

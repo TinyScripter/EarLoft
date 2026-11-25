@@ -24,7 +24,7 @@ import de.kleinabersmart.earloft.core.model.sameSpeed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -102,6 +102,9 @@ internal class BookPlaybackListener(
      * newer state from another device.
      */
     private val touched = mutableSetOf<Long>()
+
+    /** The player jumps to a state that another device saved ([followStoredProgress]): that is not a seek of this device. */
+    private var adopting = false
 
     /** Cast reports no `STATE_ENDED`; the watchdog detects the end when the receiver stands still. */
     private val remoteEnd = RemoteEndWatch()
@@ -224,12 +227,20 @@ internal class BookPlaybackListener(
     private fun followStoredProgress(bookId: Long) {
         storedProgressJob?.cancel()
         storedProgressJob = scope.launch {
-            books.book(bookId).map { it?.progress }.distinctUntilChanged().drop(1).collect { stored ->
+            // Only a new state counts, not another field of the row: the tempo, the effects or "sent" change it without moving
+            // the position, and a paused player that was scrubbed since its last save must not jump back then (review4 T3).
+            books.book(bookId).map { it?.progress }.distinctUntilChangedBy { it?.updatedAt }.drop(1).collect { stored ->
                 stored ?: return@collect
                 val (item, timeline, position) = current() ?: return@collect
                 if (item.bookId != bookId) return@collect
                 val target = storedPositionToAdopt(stored, position, player.playWhenReady) ?: return@collect
-                if (!seekInBook(timeline, target)) return@collect
+                adopting = true
+                val jumped = try {
+                    seekInBook(timeline, target)
+                } finally {
+                    adopting = false
+                }
+                if (!jumped) return@collect
                 // The jump is not a state of this device (ExoPlayer reports it as a seek synchronously): otherwise switching away later
                 // or the service ending would write this position with a new timestamp over what the other device stores after it.
                 touched -= bookId
@@ -427,7 +438,14 @@ internal class BookPlaybackListener(
         reason: Int,
     ) {
         if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) {
-            newPosition.mediaItem?.bookId?.let { touched += it }
+            val seeked = newPosition.mediaItem
+            val seekedBookId = seeked?.bookId
+            seekedBookId?.let { touched += it }
+            // Scrubbing a paused book is its new state: it is only saved when the playback stops, and nothing would stop here. Without
+            // it, the next foreign write to the row would see a position other than the player's and move it back (review4 T3).
+            if (!adopting && !player.playWhenReady && seeked != null && seekedBookId != null) {
+                record(seekedBookId, seeked.isEpisode, seeked.bookTrackIndex ?: 0, newPosition.positionMs, force = false)
+            }
         }
         if (reason == Player.DISCONTINUITY_REASON_SILENCE_SKIP) collectSkippedSilence()
         if (reason != Player.DISCONTINUITY_REASON_REMOVE) {
