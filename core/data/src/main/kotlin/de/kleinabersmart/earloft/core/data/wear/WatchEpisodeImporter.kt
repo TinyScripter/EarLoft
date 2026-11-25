@@ -79,12 +79,20 @@ class WatchEpisodeImporter @Inject constructor(
                         positionMs = item.positionMs.coerceAtLeast(0),
                         durationMs = item.durationMs,
                         finished = item.finished,
-                        speed = item.speed,
+                        // Own effects set on the phone stay: the watch only knows the copy it got earlier, and listening there says
+                        // nothing about a tempo that was changed here since (review4 T21).
+                        speed = local?.speed ?: item.speed,
                         updatedAt = item.updatedAt,
                         // Episodes and books from the device have no server that would need to receive the state.
                         dirty = synced,
-                        skipSilence = item.skipSilence,
-                        volumeBoostDb = item.volumeBoostDb,
+                        skipSilence = local?.skipSilence ?: item.skipSilence,
+                        volumeBoostDb = local?.volumeBoostDb ?: item.volumeBoostDb,
+                        // As with `updatePosition`: finishing remembers when, and a finished state stays finished since then.
+                        finishedAt = when {
+                            !item.finished -> null
+                            local?.finished == true -> local.finishedAt ?: local.updatedAt
+                            else -> item.updatedAt
+                        },
                     ),
                 )
                 if (synced) toServer += book.bookId

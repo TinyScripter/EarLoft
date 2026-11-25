@@ -94,6 +94,27 @@ class WatchEpisodeImporterTest {
     }
 
     @Test
+    fun `progress from the watch keeps the effects set on the phone and the time a book was finished`() = runTest {
+        db.bookDao().upsertProgress(
+            BookProgressEntity(
+                episodeId, 3_000_000, 3_600_000, finished = true, speed = 2f, updatedAt = 1_000, hidden = true,
+                skipSilence = true, volumeBoostDb = 3, finishedAt = 500,
+            ),
+        )
+
+        // The watch still has the tempo it got earlier (1.5) and no effects of its own.
+        assertEquals(1, importer.import("p1", listOf(progress(600_000, updatedAt = 2_000, finished = true)), emptyList()))
+
+        val stored = db.bookDao().progress(episodeId)!!
+        assertEquals(600_000, stored.positionMs)
+        assertEquals(2f, stored.speed)
+        assertEquals(true, stored.skipSilence)
+        assertEquals(3, stored.volumeBoostDb)
+        assertEquals("finished since then, not since the watch reported", 500L, stored.finishedAt)
+        assertEquals("playing again brings the book back into the lists", false, stored.hidden)
+    }
+
+    @Test
     fun `older progress from the watch is discarded`() = runTest {
         db.bookDao().upsertProgress(BookProgressEntity(episodeId, 60_000, 3_600_000, updatedAt = 5_000))
 
