@@ -4,9 +4,12 @@
 Usage: place.py <rundir> [fastlane-locale ...]
   <rundir>/<locale>/phone/N_name.png -> fastlane/metadata/android/<locale>/images/phoneScreenshots/ (promo.py compose)
   <rundir>/<locale>/wear/N_name.png  -> fastlane/metadata/android/<locale>/images/wearScreenshots/
+  <rundir>/<locale>/sevenInch/N_name.png -> .../images/sevenInchScreenshots/ (promo.py compose with PROFILE=tablet7)
+  <rundir>/<locale>/tenInch/N_name.png   -> .../images/tenInchScreenshots/   (promo.py compose with PROFILE=tablet10)
+A run directory may hold only some of these kinds (e.g. only the tablet ones); the others are left untouched.
   media/icon.png                     -> .../images/icon.png            (512x512, 32-bit PNG)
   media/featureGraphic.jpeg          -> .../images/featureGraphic.jpeg (1024x500, centre-cropped if wider)
-Checks the Play rules on the way: phone longer side at most twice the shorter one and 320-3840 px, watch 1:1 and at
+Checks the Play rules on the way: phone and tablet longer side at most twice the shorter one and 320-3840 px, watch 1:1 and at
 least 384 px, RGB (no alpha) for screenshots, under 8 MB.
 """
 import os
@@ -18,17 +21,17 @@ from PIL import Image
 run, only = sys.argv[1], set(sys.argv[2:])
 repo = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 base = f"{repo}/fastlane/metadata/android"
-folders = {"phone": "phoneScreenshots", "wear": "wearScreenshots"}
+folders = {"phone": "phoneScreenshots", "wear": "wearScreenshots", "sevenInch": "sevenInchScreenshots",
+           "tenInch": "tenInchScreenshots"}
 problems, copied = [], 0
 
 for locale in sorted(l for l in os.listdir(run) if not only or l in only):
     for kind, folder in folders.items():
         src = f"{run}/{locale}/{kind}"
         if not os.path.isdir(src):
-            problems.append(f"{locale}/{kind}: missing")
             continue
         files = sorted(f for f in os.listdir(src) if f.endswith(".png"))
-        low = 2 if kind == "phone" else 1  # Google Play: 2-8 phone screenshots, 1-8 for Wear OS
+        low = {"phone": 2, "wear": 1}.get(kind, 4)  # Google Play: 2-8 phone, 1-8 Wear OS; tablets 4-8 to be featured
         if not low <= len(files) <= 8:
             problems.append(f"{locale}/{kind}: {len(files)} files, Google Play wants {low} to 8")
         targets = [locale]
@@ -42,7 +45,7 @@ for locale in sorted(l for l in os.listdir(run) if not only or l in only):
                 w, h = im.size
                 if im.mode != "RGB":
                     problems.append(f"{t}/{kind}/{f}: mode {im.mode}")
-                if kind == "phone" and not (320 <= min(w, h) and max(w, h) <= 3840 and max(w, h) <= 2 * min(w, h)):
+                if kind != "wear" and not (320 <= min(w, h) and max(w, h) <= 3840 and max(w, h) <= 2 * min(w, h)):
                     problems.append(f"{t}/{kind}/{f}: bad size {w}x{h}")
                 if kind == "wear" and (w != h or w < 384):
                     problems.append(f"{t}/{kind}/{f}: bad size {w}x{h}")
@@ -73,6 +76,8 @@ def graphics(locale):
 
 
 for locale in sorted(l for l in os.listdir(run) if not only or l in only):
+    if not any(os.path.isdir(f"{run}/{locale}/{kind}") for kind in folders):
+        problems.append(f"{locale}: no screenshot folder in the run")
     graphics(locale)
 
 print(f"{copied} files placed")

@@ -8,11 +8,31 @@ The store listing exists in English (`en-US`) and German (`de-DE`) only; see `LA
 |---|---|---|
 | Phone: `1_library`, `2_player`, `3_podcasts`, `4_audiobooks`, `5_watch` – headline and subline above the app (`promo.py`) | `phoneScreenshots` | 1440×2560 |
 | Watch: `1_watch_home`, `2_phone_home`, `3_downloads`, `4_phone_playback` (`capture.py wear`) | `wearScreenshots` | 454×454 |
+| 7" tablet: `1_library`, `2_player`, `3_podcasts`, `4_audiobooks` (`PROFILE=tablet7`) | `sevenInchScreenshots` | 1440×2560 |
+| 10" tablet: the same four (`PROFILE=tablet10`) | `tenInchScreenshots` | 2560×1600 |
 
 The phone slides are composed by `promo.py`: a headline that says what the app can do (orange words marked with
 `{braces}` in `SLIDES`), a subline, and the screen in a phone frame that runs off the bottom edge, so that the part
 with the content is large and the navigation bar is cut off. The last slide shows two watch screenshots. Google Play
 allows 2 to 8 phone screenshots with the longer side at most twice the shorter one (9:16 here).
+
+## Tablet screenshots
+
+The four tablet slides use the same raw shots, headlines and sublines as the phone slides (no watch slide), shot on the
+`Medium_Tablet` emulator (2560×1600, 320 dpi) with the demo library installed there (`PHONE_SERIAL=<serial>` if it is
+not `emulator-5554`; only that one emulator needs to run). The list-detail layout from 840 dp shows the chapter list
+or the lyrics next to the player.
+
+- **10"**: the display as it is, landscape. `promo.py shoot /tmp/tab10-1 <raw-name>` for the four screens in the table
+  below, then `PROFILE=tablet10 promo.py compose /tmp/tab10-1` (slides 2560×1600, headline in one line above the
+  tablet frame).
+- **7"**: `adb shell wm size 1200x1920` and `wm density 320` (600×960 dp, 7.1"), portrait, then the same with
+  `/tmp/tab7-1` and `PROFILE=tablet7` (slides 1440×2560, like the phone). `reset.sh` undoes size and density.
+- Switching the app language recreates the screen, and the side pane of the book player falls back to the description:
+  open *Chapters* again after each switch (the lyrics pane stays). `place.py /tmp/tab10-1` and `place.py /tmp/tab7-1`
+  put the slides into `fastlane/`; the review sheet works with `sheet.py <run> tenInch|sevenInch …`.
+- Set-up on a wiped tablet emulator: `tools/demo-library/install.sh --wipe`, then the setup wizard (music on this
+  device, OPML import, books on this device, allow the `Audiobooks` folder, *Sync books now*), `prepare.sh native`.
 
 ## Requirements
 
@@ -61,7 +81,7 @@ graphic is centre-cropped to the 1024×500 Google Play requires.
 
 ## Upload
 
-`fastlane supply` uploads this layout: `phoneScreenshots`, `wearScreenshots`, `icon`, `featureGraphic` and the texts.
+`fastlane supply` uploads this layout: `phoneScreenshots`, `sevenInchScreenshots`, `tenInchScreenshots`, `wearScreenshots`, `icon`, `featureGraphic` and the texts.
 Setup is in `Gemfile` and `fastlane/` (`Appfile`, `Fastfile`). One-time:
 
 1. `sudo apt install ruby-dev build-essential` (fastlane compiles a few native gems), then `bundle install`

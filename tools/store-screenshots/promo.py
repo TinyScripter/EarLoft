@@ -9,6 +9,8 @@ Usage:
   promo.py compose <rundir> [fastlane-locale ...]
       Builds <rundir>/<locale>/phone/N_name.png (1440x2560) from the raw shots and, for the watch slide, from the
       watch screenshots in <rundir>/<locale>/wear/ (capture.py wear). place.py copies them into fastlane/.
+  With PROFILE=tablet7 (portrait raw shots, slides 1440x2560 in <locale>/sevenInch) or PROFILE=tablet10 (landscape raw
+  shots, slides 2560x1600 in <locale>/tenInch) the same commands make the tablet screenshots; those have no watch slide.
 
 The phone is drawn with a dark frame and runs off the bottom edge, so the upper part of the screen (where the
 content is) is shown large and the navigation bar is cut off. Texts are in SLIDES; {braces} mark the orange words,
@@ -27,8 +29,21 @@ PHONE = os.environ.get("PHONE_SERIAL", "emulator-5554")
 PKG = "de.kleinabersmart.earloft.debug"
 LANGS = {"en-US": "en-US", "de-DE": "de-DE"}
 
-W, H = 1440, 2560
-PHONE_TOP = 700  # the same on every slide, below two lines of headline and two of subline
+# Per device class: canvas, output folder, text sizes, device frame, soft background shapes (cx, cy, radius, alpha).
+PROFILES = {
+    "phone": dict(size=(1440, 2560), out="phone", head=112, sub=54, head_top=150, lines=(2, 2), text_w=(1260, 1180),
+                  top=700, frame=960, bezel=24, radii=(110, 88), camera=True,
+                  shapes=[(1320, 420, 520, 70), (60, 1500, 600, 55), (1250, 2300, 480, 60)], waves=2150),
+    "tablet7": dict(size=(1440, 2560), out="sevenInch", head=112, sub=54, head_top=150, lines=(2, 2), text_w=(1260, 1180),
+                    top=700, frame=1240, bezel=28, radii=(72, 48), camera=False,
+                    shapes=[(1320, 420, 520, 70), (60, 1500, 600, 55), (1250, 2300, 480, 60)], waves=2150),
+    "tablet10": dict(size=(2560, 1600), out="tenInch", head=96, sub=46, head_top=56, lines=(1, 1), text_w=(2360, 2200),
+                     top=340, frame=2000, bezel=26, radii=(64, 40), camera=False,
+                     shapes=[(2380, 200, 520, 70), (80, 900, 520, 55), (2300, 1500, 480, 60)], waves=1420),
+}
+P = PROFILES[os.environ.get("PROFILE", "phone")]
+W, H = P["size"]
+PHONE_TOP = P["top"]  # the same on every slide, below the headline and the subline
 NAVY = (27, 22, 48)
 GREY = (84, 78, 98)
 ORANGE = (240, 133, 25)
@@ -108,10 +123,10 @@ def background():
     # Soft round shapes and thin orange waves, as in the feature graphic.
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ld = ImageDraw.Draw(layer)
-    for cx, cy, r, a in [(1320, 420, 520, 70), (60, 1500, 600, 55), (1250, 2300, 480, 60)]:
+    for cx, cy, r, a in P["shapes"]:
         ld.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(255, 255, 255, a))
     for k in range(5):
-        pts = [(x, 2150 + k * 34 + 60 * math.sin(x / 210 + k * 0.5)) for x in range(-10, W + 20, 12)]
+        pts = [(x, P["waves"] + k * 34 + 60 * math.sin(x / 210 + k * 0.5)) for x in range(-10, W + 20, 12)]
         ld.line(pts, fill=(*ORANGE, 70), width=3)
     return Image.alpha_composite(img.convert("RGBA"), layer)
 
@@ -189,21 +204,24 @@ def rounded(im, radius):
     return mask
 
 
-def phone(img, raw, top, width=960):
-    """Phone frame with the screenshot, running off the bottom edge."""
-    bezel = 24
+def phone(img, raw, top, width=None):
+    """Device frame (phone or tablet) with the screenshot, running off the bottom edge."""
+    width = width or P["frame"]
+    bezel = P["bezel"]
+    outer, inner = P["radii"]
     screen_w = width - 2 * bezel
     scale = screen_w / raw.width
     screen = raw.resize((screen_w, round(raw.height * scale)), Image.LANCZOS)
     x0 = (W - width) // 2
     frame = (x0, top, x0 + width, top + screen.height + 2 * bezel)
-    img = shadow(img, frame, 110)
+    img = shadow(img, frame, outer)
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle(frame, 110, fill=(24, 22, 30, 255))
-    d.rounded_rectangle((frame[0] + 3, frame[1] + 3, frame[2] - 3, frame[3] - 3), 107, outline=(70, 66, 80, 255), width=2)
-    img.paste(screen, (x0 + bezel, top + bezel), rounded(screen, 88))
-    cam = (W // 2, top + bezel + round(46 * scale / 0.72))
-    d.ellipse((cam[0] - 17, cam[1] - 17, cam[0] + 17, cam[1] + 17), fill=(12, 12, 16, 255))
+    d.rounded_rectangle(frame, outer, fill=(24, 22, 30, 255))
+    d.rounded_rectangle((frame[0] + 3, frame[1] + 3, frame[2] - 3, frame[3] - 3), outer - 3, outline=(70, 66, 80, 255), width=2)
+    img.paste(screen, (x0 + bezel, top + bezel), rounded(screen, inner))
+    if P["camera"]:
+        cam = (W // 2, top + bezel + round(46 * scale / 0.72))
+        d.ellipse((cam[0] - 17, cam[1] - 17, cam[0] + 17, cam[1] + 17), fill=(12, 12, 16, 255))
     return img
 
 
@@ -233,11 +251,13 @@ def compose(run, only):
     for locale in sorted(os.listdir(run)):
         if (only and locale not in only) or not os.path.isdir(f"{run}/{locale}/raw"):
             continue
-        out_dir = f"{run}/{locale}/phone"
+        out_dir = f"{run}/{locale}/{P['out']}"
         os.makedirs(out_dir, exist_ok=True)
         for old in os.listdir(out_dir):
             os.remove(f"{out_dir}/{old}")
         for name, source, texts in SLIDES:
+            if source == "watch" and P["out"] != "phone":
+                continue
             needed = [f"{run}/{locale}/wear/1_watch_home.png", f"{run}/{locale}/wear/4_phone_playback.png"] \
                 if source == "watch" else [f"{run}/{locale}/raw/{source}.png"]
             if not all(os.path.exists(p) for p in needed):
@@ -245,8 +265,9 @@ def compose(run, only):
                 continue
             headline, subline = texts[locale]
             img = background()
-            y = text_block(img, headline, "head", 112, 150, NAVY, 2)
-            y = text_block(img, subline, "sub", 54, y + 34, GREY, 2, width=1180, spacing=1.3)
+            y = text_block(img, headline, "head", P["head"], P["head_top"], NAVY, P["lines"][0], width=P["text_w"][0])
+            y = text_block(img, subline, "sub", P["sub"], y + 34 * P["sub"] // 54, GREY, P["lines"][1],
+                           width=P["text_w"][1], spacing=1.3)
             if source == "watch":
                 wear = f"{run}/{locale}/wear"
                 home = Image.open(f"{wear}/1_watch_home.png").convert("RGB")
@@ -255,7 +276,7 @@ def compose(run, only):
                 img = watch(img, play, (975, PHONE_TOP + 1250), 600)
             else:
                 raw = Image.open(f"{run}/{locale}/raw/{source}.png").convert("RGB")
-                img = phone(img, raw, max(PHONE_TOP, round(y) + 60))
+                img = phone(img, raw, max(PHONE_TOP, round(y) + 40))
             img.convert("RGB").save(f"{out_dir}/{name}.png", "PNG", optimize=True)
             print(f"{locale} {name}", flush=True)
 
