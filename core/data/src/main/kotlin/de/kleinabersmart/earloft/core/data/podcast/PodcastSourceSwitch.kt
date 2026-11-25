@@ -116,6 +116,8 @@ class PodcastSourceSwitch @Inject constructor(
     suspend fun switch(ready: SourceCheck.Ready): Boolean {
         val plan = ready.plan
         val renamed = plan.matches.filterValues { it.oldGuid != it.episode.guid }
+        // Episodes without guid that the adoption renames: followed up after the commit, as the backup takes its lock (review4 T1).
+        val adoptedRenames = mutableListOf<FeedRenames>()
         val switched = podcasts.withFeedLock {
             val feed = podcastDao.feed(plan.feedId)
             val taken = podcastDao.feedByUrl(plan.newUrl)?.let { it.feedId != plan.feedId } ?: false
@@ -135,7 +137,7 @@ class PodcastSourceSwitch @Inject constructor(
                 )
                 val moved = feed.copy(url = plan.newUrl, etag = null, lastModified = null)
                 podcastDao.upsertFeed(moved)
-                podcasts.applyLocked(moved, plan.fetched)
+                podcasts.applyLocked(moved, plan.fetched, adoptedRenames)
             }
             true
         }
@@ -146,6 +148,7 @@ class PodcastSourceSwitch @Inject constructor(
         }
         if (keys.isNotEmpty()) renamers.forEach { it.renameBookKeys(keys) }
         userDataBackup.forgetProgress(plan.feedId, renamed.values.map { it.oldGuid })
+        adoptedRenames.forEach { episodesRenamed(it) }
         Log.i(TAG, "Source switched: ${plan.matches.size} episodes matched, ${renamed.size} with a new ID")
         return true
     }
@@ -154,7 +157,8 @@ class PodcastSourceSwitch @Inject constructor(
      * A sync gave episodes without guid a new ID ([renames]: old → new, review G27): statistics, the keys in the queue and
      * "recently played" and the backed-up progress follow, as with a source switch.
      */
-    internal suspend fun episodesRenamed(feedId: String, feedUrl: String, renames: Map<String, String>) {
+    internal suspend fun episodesRenamed(pending: FeedRenames) {
+        val (feedId, feedUrl, renames) = pending
         if (renames.isEmpty()) return
         database.withTransaction {
             val groups = listOf(feedUrl)

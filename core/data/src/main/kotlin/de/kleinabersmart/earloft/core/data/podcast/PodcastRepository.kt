@@ -100,6 +100,9 @@ data class OpmlImportResult(val added: Int, val skipped: Int, val removed: Int)
 /** Result of a feed sync: `null` on error, otherwise the episodes that are new in the feed. */
 data class RefreshResult(val newEpisodeIds: List<Long>)
 
+/** Episodes of [feedId] (at [feedUrl]) that got a new ID in a sync: [renames] old → new (review G27). */
+internal data class FeedRenames(val feedId: String, val feedUrl: String, val renames: Map<String, String>)
+
 /**
  * Result of [PodcastRepository.refreshAll]: `ok` if no feed failed, and the subscriptions with new episodes.
  * [allFailed]: no feed was reachable – more likely the network than individual dead feeds. [moved]: titles of the subscriptions that moved to a new
@@ -983,15 +986,24 @@ class PodcastRepository @Inject constructor(
      */
     internal suspend fun <T> withFeedLock(block: suspend () -> T): T = mutex.withLock { block() }
 
-    /** Adopts [fetched] for [feed]; only inside [withFeedLock]. */
-    internal suspend fun applyLocked(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched): RefreshResult =
-        apply(feed, fetched).also { _refreshed.tryEmit(feed.feedId) }
+    /**
+     * Adopts [fetched] for [feed]; only inside [withFeedLock]. The caller may be inside a transaction: episodes that got a new
+     * ID are then not followed up here (that takes the lock of the backup, never do that inside a transaction, review4 T1) but
+     * added to [renames] for the caller to pass to [PodcastSourceSwitch.episodesRenamed] after the commit.
+     */
+    internal suspend fun applyLocked(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched, renames: MutableList<FeedRenames>): RefreshResult =
+        apply(feed, fetched, renames = renames).also { _refreshed.tryEmit(feed.feedId) }
 
     /**
      * In one transaction: an ARD show brings hundreds of episodes; written individually, each episode was its own commit and
      * its own UI notification (5 s for 352 episodes on the emulator, now 0.3 s).
      */
-    private suspend fun apply(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched, create: Boolean = false): RefreshResult {
+    private suspend fun apply(
+        feed: PodcastFeedEntity,
+        fetched: FeedFetch.Fetched,
+        create: Boolean = false,
+        renames: MutableList<FeedRenames>? = null,
+    ): RefreshResult {
         // Queued episodes stay even if the feed no longer lists them; the order lives outside the database.
         val queued = queue.queuedRemoteIds(feed.feedId).take(MAX_ARGS)
         val renamed = mutableMapOf<String, String>()
@@ -1003,7 +1015,10 @@ class PodcastRepository @Inject constructor(
             url = current?.url ?: url
             if (current == null) RefreshResult(emptyList()) else applyInTransaction(current, fetched, queued, renamed)
         }
-        if (renamed.isNotEmpty()) sourceSwitch.get().episodesRenamed(feed.feedId, url, renamed)
+        if (renamed.isNotEmpty()) {
+            val pending = FeedRenames(feed.feedId, url, renamed)
+            if (renames != null) renames += pending else sourceSwitch.get().episodesRenamed(pending)
+        }
         return result
     }
 

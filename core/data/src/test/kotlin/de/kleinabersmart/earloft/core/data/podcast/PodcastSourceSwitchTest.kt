@@ -46,6 +46,9 @@ class PodcastSourceSwitchTest {
     private lateinit var switch: PodcastSourceSwitch
     private val renamed = mutableListOf<Map<String, String>>()
 
+    /** Whether a transaction of the main database was open while the renamer ran (review4 T1). */
+    private val renamedInTransaction = mutableListOf<Boolean>()
+
     /** Custom responses per address; otherwise every host serves [RSS]. */
     private val bodies = mutableMapOf<String, String>()
     private val requests = mutableListOf<String>()
@@ -82,6 +85,7 @@ class PodcastSourceSwitchTest {
         val renamer = object : BookKeyRenamer {
             override suspend fun renameBookKeys(renames: Map<String, String>) {
                 renamed += renames
+                renamedInTransaction += db.inTransaction()
             }
         }
         switch = PodcastSourceSwitch(db, repository, db.podcastDao(), db.bookDao(), db.statsDao(), backup, setOf(renamer))
@@ -304,6 +308,32 @@ class PodcastSourceSwitchTest {
             BookKeys.encode(feedId, "https://cdn.example/b.mp3?token=2"),
             renamed.single()[BookKeys.encode(feedId, "https://cdn.example/b.mp3?token=1")],
         )
+    }
+
+    @Test
+    fun `episodes without guid renamed by a switch are followed up after the commit, not inside the transaction`() = runTest {
+        fun noGuid(host: String, date: String, suffix: String) = """<rss version="2.0"><channel><title>Talk</title>
+            <item><title>Episode B</title><pubDate>$date</pubDate>
+            <enclosure url="https://$host/b.mp3$suffix" type="audio/mpeg"/></item>
+            </channel></rss>"""
+        bodies[OLD_URL] = noGuid("cdn.example", "Wed, 29 Oct 2025 06:00:00 GMT", "?token=1")
+        val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
+        val b = idOf(feedId, "Episode B")
+        // Another host and more than two days apart: the switch does not match it, only the sync recognizes it by title and file name.
+        bodies[NEW_URL] = noGuid("other.example", "Fri, 10 Oct 2025 06:00:00 GMT", "")
+
+        val check = switch.check(feedId, NEW_URL) as SourceCheck.Ready
+        assertEquals(0, check.matched)
+        assertTrue(switch.switch(check))
+
+        // The one episode stays the same one with its new ID; the renamer ran after the commit, where it may take the lock of the backup.
+        assertEquals("https://other.example/b.mp3", db.bookDao().book(b)!!.remoteId)
+        assertEquals(1, db.bookDao().booksOf(feedId).size)
+        assertEquals(
+            mapOf(BookKeys.encode(feedId, "https://cdn.example/b.mp3?token=1") to BookKeys.encode(feedId, "https://other.example/b.mp3")),
+            renamed.single(),
+        )
+        assertEquals(listOf(false), renamedInTransaction)
     }
 
     private companion object {
