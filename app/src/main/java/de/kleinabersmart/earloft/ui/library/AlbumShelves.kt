@@ -33,6 +33,8 @@ import de.kleinabersmart.earloft.ui.components.ShelfInset
 import de.kleinabersmart.earloft.ui.components.foldedLetterOf
 import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
 import de.kleinabersmart.earloft.ui.spoken.ShowStartOnNewFront
+import de.kleinabersmart.earloft.ui.spoken.rememberFrontRow
+import de.kleinabersmart.earloft.ui.spoken.rowItemAnimation
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -119,7 +121,8 @@ internal fun AlbumShelves(
     val titles = shelves.map { shelfTitle(it.label) }
     val state = rememberLazyListState()
     ScrollToTopEffect(state)
-    ShowStartOnNewFront(shelves, state, { it.label }, resetKey = resetKey)
+    // Without a hint: shelves reorder with every play and sort recalculation, "New at the start" would pop up all the time.
+    ShowStartOnNewFront(shelves, state, { it.label }, announce = false, resetKey = resetKey)
     PinnableHeaderBox(header, pinHeader, modifier.fillMaxSize()) { inlineHeader ->
         LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp)) {
             if (inlineHeader != null) {
@@ -136,17 +139,19 @@ internal fun AlbumShelves(
                         }
                     },
                 ) {
-                    val rowState = rememberLazyListState()
+                    // A played or new album moves to the front: without this the row would hold on to its previous first album (review T47).
+                    val row = rememberFrontRow(shelf.albums, announce = false) { it.id }
                     LazyRow(
-                        state = rowState,
-                        modifier = Modifier.keepHorizontalScroll(rowState),
+                        state = row.state,
+                        modifier = Modifier.keepHorizontalScroll(row.state),
                         contentPadding = PaddingValues(horizontal = ShelfInset - CardInset),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        items(shelf.albums, key = { it.id }) { album ->
+                        items(row.items, key = { it.id }) { album ->
                             AlbumCard(
                                 album = album,
                                 onClick = { onAlbumClick(album.id) },
+                                modifier = Modifier.rowItemAnimation(this),
                                 width = 144.dp,
                                 onPlay = { onPlay(album.id) },
                                 playing = album.id == playingAlbumId,
