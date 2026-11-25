@@ -13,6 +13,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearEpisodeReportDto
 import de.kleinabersmart.earloft.core.wearsync.WearPaths
 import de.kleinabersmart.earloft.core.wearsync.WearPlaysDto
 import de.kleinabersmart.earloft.core.wearsync.delete
+import de.kleinabersmart.earloft.core.wearsync.exists
 import de.kleinabersmart.earloft.core.wearsync.payloadsUnder
 import kotlinx.serialization.SerializationException
 import javax.inject.Inject
@@ -29,6 +30,8 @@ class WatchPackets @Inject constructor(
     private val playImporter: WatchPlayImporter,
     private val episodeImporter: WatchEpisodeImporter,
 ) {
+    private val gate = PacketGate()
+
     suspend fun catchUp() {
         val plays = dataClient.payloadsUnder(WearPaths.PLAYS_PREFIX)
         val episodes = dataClient.payloadsUnder(WearPaths.EPISODES_PREFIX)
@@ -38,27 +41,27 @@ class WatchPackets @Inject constructor(
         episodes.forEach { (uri, payload) -> importEpisodes(uri, payload) }
     }
 
-    suspend fun importPlays(uri: Uri, payload: ByteArray) {
+    suspend fun importPlays(uri: Uri, payload: ByteArray) = gate.once(uri.toString(), { dataClient.exists(uri) }) {
         val packet = try {
             WearCodec.decode<WearPlaysDto>(payload)
         } catch (e: SerializationException) {
             Log.w(TAG, "$uri not readable", e)
             // A broken package would otherwise stay around forever.
             dataClient.delete(uri)
-            return
+            return@once
         }
         val imported = playImporter.import(packet.packetId, packet.plays.map { WatchPlay(it.songUid, it.playedAt, it.listenedMs) })
         Log.d(TAG, "Packet ${packet.packetId}: $imported of ${packet.plays.size} plays imported")
         dataClient.delete(uri)
     }
 
-    suspend fun importEpisodes(uri: Uri, payload: ByteArray) {
+    suspend fun importEpisodes(uri: Uri, payload: ByteArray) = gate.once(uri.toString(), { dataClient.exists(uri) }) {
         val report = try {
             WearCodec.decode<WearEpisodeReportDto>(payload)
         } catch (e: SerializationException) {
             Log.w(TAG, "$uri not readable", e)
             dataClient.delete(uri)
-            return
+            return@once
         }
         val applied = episodeImporter.import(
             packetId = report.packetId,

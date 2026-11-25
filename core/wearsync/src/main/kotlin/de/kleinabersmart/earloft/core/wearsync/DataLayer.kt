@@ -137,6 +137,13 @@ fun DataItem.payloadOrNull(): ByteArray? {
 suspend fun DataClient.delete(uri: Uri): Boolean =
     runCatchingApi("Delete $uri") { deleteDataItems(uri).await() } != null
 
+/**
+ * Whether the DataItem under [uri] still exists (another path may have imported and deleted it meanwhile). On a Data Layer error
+ * `true`: better to look at an item twice than to leave one behind.
+ */
+suspend fun DataClient.exists(uri: Uri): Boolean =
+    runCatchingApi("Look up $uri") { getDataItem(uri).await() != null } ?: true
+
 /** Sends a message; only delivered if [nodeId] is currently reachable. @return `false` on error. */
 suspend fun MessageClient.sendPayload(nodeId: String, path: String, payload: ByteArray): Boolean =
     runCatchingApi("Send message $path to $nodeId") { sendMessage(nodeId, path, payload).await() } != null
