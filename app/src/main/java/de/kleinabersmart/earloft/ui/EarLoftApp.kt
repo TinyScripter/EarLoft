@@ -59,7 +59,10 @@ import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import de.kleinabersmart.earloft.ui.theme.PlayerColorTheme
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.data.backup.MissingCredentials
@@ -258,6 +261,11 @@ fun EarLoftApp(
     // Only derive here: otherwise every player change (play/pause, title, queue, speed) would recompose navigation and
     // scaffold. Only the mini player reads the full state.
     val playerState = playerViewModel.state.collectAsStateWithLifecycle()
+    // Only while started: a permanent observer would keep the playback service bound in the background (review T9).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(playerViewModel, lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) { playerViewModel.keepMiniPlayerInSync() }
+    }
     val playsSpoken by remember { derivedStateOf { playerState.value.spoken != null } }
 
     // From medium width on (tablet, foldable, phone in landscape) navigation rail instead of bottom bar,

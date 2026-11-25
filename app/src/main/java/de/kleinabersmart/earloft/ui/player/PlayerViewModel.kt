@@ -74,15 +74,19 @@ class PlayerViewModel @Inject constructor(
     fun hideMiniPlayer() = miniPlayerVisibility.hide(state.value.itemKey, playbackConnection.currentPositionMs)
     fun showMiniPlayer() = miniPlayerVisibility.show()
 
-    init {
-        // As soon as something plays again (from a list, the notification, via Bluetooth), the mini player is back; also if it
-        // played and paused while no screen was open (Android Auto, the watch): then title or position differ from the hidden ones.
-        viewModelScope.launch {
-            state.collect { current ->
-                when {
-                    current.isPlaying -> miniPlayerVisibility.show()
-                    current.hasMedia -> miniPlayerVisibility.showIfMovedOn(current.itemKey, playbackConnection.currentPositionMs)
-                }
+    /**
+     * As soon as something plays again (from a list, the notification, via Bluetooth), the mini player is back; also if it
+     * played and paused while no screen was open (Android Auto, the watch): then title or position differ from the hidden ones.
+     *
+     * Runs only while the UI is started (see `EarLoftApp`): a collector in [viewModelScope] would hold a subscriber of the
+     * connection for as long as the activity lives, so the playback service would stay bound in the background (review T9).
+     * On every start the current state arrives first, which catches what happened in the meantime.
+     */
+    suspend fun keepMiniPlayerInSync() {
+        state.collect { current ->
+            when {
+                current.isPlaying -> miniPlayerVisibility.show()
+                current.hasMedia -> miniPlayerVisibility.showIfMovedOn(current.itemKey, playbackConnection.currentPositionMs)
             }
         }
     }
