@@ -94,6 +94,21 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     /** The last run got no Wi-Fi (off or out of range); the downloads wait for the next attempt. */
     val waitingForWifi: StateFlow<Boolean> = _waitingForWifi.asStateFlow()
 
+    private val _jobOnCharger = MutableStateFlow(prefs.getBoolean(KEY_JOB_ON_CHARGER, false))
+
+    /**
+     * The waiting download job only starts on the charger because Wi-Fi or the phone was missing repeatedly
+     * ([WearDownloadScheduler.enqueueOnCharger]); the setting of the phone is another reason ([settings]). Without it the watch
+     * would keep asking for Wi-Fi although turning it on changes nothing until it is on power (review4 T58).
+     */
+    val jobOnCharger: StateFlow<Boolean> = _jobOnCharger.asStateFlow()
+
+    fun setJobOnCharger(onCharger: Boolean) {
+        if (onCharger == _jobOnCharger.value) return
+        prefs.edit { putBoolean(KEY_JOB_ON_CHARGER, onCharger) }
+        _jobOnCharger.value = onCharger
+    }
+
     private val _spokenFileProgress = MutableStateFlow<SpokenFileProgress?>(null)
 
     /**
@@ -283,6 +298,7 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         private const val KEY_LAST_ERROR = "last_error"
         private const val KEY_LAST_ERROR_STORAGE_FULL = "last_error_storage_full"
         private const val KEY_LAST_ERROR_CODE = "last_error_code"
+        private const val KEY_JOB_ON_CHARGER = "job_on_charger"
         private const val KEY_WAITING_WIFI = "waiting_wifi"
         private const val KEY_APPLIED_STAMP = "applied_phone_stamp"
         private const val KEY_PHONE_FAILURES = "phone_unreachable_runs"

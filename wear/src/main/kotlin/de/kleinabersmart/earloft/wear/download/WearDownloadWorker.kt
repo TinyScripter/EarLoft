@@ -115,6 +115,8 @@ class WearDownloadWorker internal constructor(
     private var stoppedForStorage = false
 
     override suspend fun doWork(): Result {
+        // It runs now, so its condition (the charger) is met; a new wait on the charger is registered by the scheduler.
+        state.setJobOnCharger(false)
         downloadDao.requeueRunning()
         podcastDao.requeueRunningDownloads()
         bookDao.requeueRunningBookDownloads()

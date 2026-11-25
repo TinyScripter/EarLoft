@@ -32,7 +32,10 @@ class WearDownloadScheduler @Inject constructor(
 
     override suspend fun enqueue(replace: Boolean) {
         // A replaced job starts from scratch, including the attempts without Wi-Fi (like a fresh runAttemptCount used to).
-        if (replace) state.clearRetries()
+        if (replace) {
+            state.clearRetries()
+            state.setJobOnCharger(false)
+        }
         enqueue(
             requireCharging = state.settings.value.requireCharging,
             policy = if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE,
@@ -54,6 +57,7 @@ class WearDownloadScheduler @Inject constructor(
      */
     fun enqueueOnCharger() {
         state.clearRetries()
+        state.setJobOnCharger(true)
         enqueue(requireCharging = true, policy = ExistingWorkPolicy.APPEND_OR_REPLACE, onCharger = true)
     }
 
@@ -63,6 +67,7 @@ class WearDownloadScheduler @Inject constructor(
      * charging), WorkManager reschedules it without a growing backoff (Review W1). [onCharger] keeps the current one's charging constraint.
      */
     fun enqueueRetry(delayMs: Long, onCharger: Boolean) {
+        state.setJobOnCharger(onCharger)
         enqueue(
             requireCharging = onCharger || state.settings.value.requireCharging,
             policy = ExistingWorkPolicy.APPEND_OR_REPLACE,

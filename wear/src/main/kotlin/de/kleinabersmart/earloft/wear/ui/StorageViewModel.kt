@@ -52,12 +52,14 @@ data class StorageUiState(
     val charging: Boolean = true,
     /** The last run got no Wi-Fi. */
     val noWifi: Boolean = false,
+    /** The waiting job only starts on the charger after repeated attempts without Wi-Fi or phone (review4 T58). */
+    val jobOnCharger: Boolean = false,
 ) {
     /** Something is waiting, but the watch gets no Wi-Fi (the charger takes precedence, as it does not even start the run). */
     val waitingForWifi: Boolean get() = noWifi && !waitingForCharger && (overview?.pendingSongs ?: 0) > 0
 
-    /** Something is waiting, but the job only starts on the charger. */
-    val waitingForCharger: Boolean get() = requireCharging && !charging && (overview?.pendingSongs ?: 0) > 0
+    /** Something is waiting, but the job only starts on the charger (by the setting of the phone or after repeated attempts). */
+    val waitingForCharger: Boolean get() = (requireCharging || jobOnCharger) && !charging && (overview?.pendingSongs ?: 0) > 0
 }
 
 enum class StoredSection { MUSIC, PODCASTS, BOOKS }
@@ -116,10 +118,10 @@ class StorageViewModel @Inject constructor(
         watchState.settings,
         watchState.missingForStorage,
         watchState.lastError,
-        context.chargingFlow().combine(watchState.waitingForWifi, ::Pair),
-    ) { overview, settings: WearSettingsDto, missing, error, (charging, noWifi) ->
+        combine(context.chargingFlow(), watchState.waitingForWifi, watchState.jobOnCharger, ::Triple),
+    ) { overview, settings: WearSettingsDto, missing, error, (charging, noWifi, jobOnCharger) ->
         val backlog = if (overview.pendingSongs > 0) storage.phoneBacklogBytes(settings.quality) else 0
-        StorageUiState(overview, settings.storageLimitBytes, missing, error, backlog, settings.requireCharging, charging, noWifi)
+        StorageUiState(overview, settings.storageLimitBytes, missing, error, backlog, settings.requireCharging, charging, noWifi, jobOnCharger)
     }.orOnError(StorageUiState()).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StorageUiState())
 
     /**
