@@ -194,6 +194,8 @@ internal fun AlbumCrate(
     }
 
     val goTo: (Int) -> Unit = { index -> scope.launch { position.animateTo(index.coerceIn(0, lastIndex).toFloat(), settleSpring()) } }
+    // The crate settles on the nearer album by itself once nothing moves it.
+    val hold: () -> Unit = { scope.launch { position.stop() } }
     val jumpTo: (Int) -> Unit = { index -> scope.launch { position.snapTo(index.coerceIn(0, lastIndex).toFloat()) } }
     // A random other album of the shown ones; the crate visibly flips through the last few records before it.
     val random: () -> Unit = {
@@ -239,7 +241,7 @@ internal fun AlbumCrate(
                 val wide = maxWidth > maxHeight * 1.3f
                 if (wide) {
                     Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                        CrateStack(albums, position, settled, frontIndex, onAlbumClick, goTo, seedColor, Modifier.weight(1f).fillMaxHeight())
+                        CrateStack(albums, position, settled, frontIndex, onAlbumClick, goTo, hold, seedColor, Modifier.weight(1f).fillMaxHeight())
                         FrontAlbumDetails(
                             front, frontIndex, albums.size, front.id == playingAlbumId, { onPlay(front.id) }, random,
                             Modifier.weight(1f).padding(end = 8.dp),
@@ -247,7 +249,7 @@ internal fun AlbumCrate(
                     }
                 } else {
                     Column(Modifier.fillMaxSize()) {
-                        CrateStack(albums, position, settled, frontIndex, onAlbumClick, goTo, seedColor, Modifier.weight(1f).fillMaxWidth())
+                        CrateStack(albums, position, settled, frontIndex, onAlbumClick, goTo, hold, seedColor, Modifier.weight(1f).fillMaxWidth())
                         FrontAlbumDetails(
                             front, frontIndex, albums.size, front.id == playingAlbumId, { onPlay(front.id) }, random,
                             Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -280,6 +282,7 @@ private fun CrateStack(
     frontIndex: Int,
     onAlbumClick: (Long) -> Unit,
     goTo: (Int) -> Unit,
+    onHold: () -> Unit,
     seedColor: (Long) -> Flow<Int?>,
     modifier: Modifier = Modifier,
 ) {
@@ -344,14 +347,19 @@ private fun CrateStack(
                         }
                         .then(
                             when {
-                                isFront -> Modifier
+                                // The front sleeve always takes the tap: while the crate still moves, it holds it on this album. Without it the
+                                // tap would reach the sleeve behind, which lies almost exactly below and is often passed already (review T48).
+                                index == frontIndex -> Modifier
                                     .combinedClickable(
                                         onClickLabel = stringResource(R.string.album_crate_open),
-                                        onClick = { onAlbumClick(album.id) },
+                                        onClick = { if (settled) onAlbumClick(album.id) else onHold() },
                                         onLongClickLabel = stringResource(R.string.action_more),
-                                        onLongClick = { menu = true },
+                                        onLongClick = { if (settled) menu = true },
                                     )
-                                    .semantics { contentDescription = "${album.title}, ${album.artist}" }
+                                    .then(
+                                        if (settled) Modifier.semantics { contentDescription = "${album.title}, ${album.artist}" }
+                                        else Modifier.clearAndSetSemantics {},
+                                    )
                                 // The visible edges of the sleeves behind: a tap flips there.
                                 index > frontIndex -> Modifier.clickable { goTo(index) }.clearAndSetSemantics {}
                                 else -> Modifier.clearAndSetSemantics {}
