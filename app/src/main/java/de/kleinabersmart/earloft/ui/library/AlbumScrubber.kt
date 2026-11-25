@@ -96,8 +96,14 @@ internal fun AlbumScrubber(
         val thumbPx = with(density) { THUMB_LENGTH.toPx() }
         val bubblePx = with(density) { BUBBLE_SIZE.toPx() }
         val rangePx = (trackPx - thumbPx).coerceAtLeast(1f)
+        // The pointer handlers below never restart, so the track length must be read when touched: it changes while the crate
+        // is open (mini player slides in or out, the play row appears), review T8.
+        val currentTrackPx by rememberUpdatedState(trackPx)
         val along = { offset: Offset -> if (vertical) offset.y else offset.x }
-        val indexAt = { at: Float -> (((at - thumbPx / 2) / rangePx).coerceIn(0f, 1f) * currentLast).roundToInt() }
+        val indexAt = { at: Float ->
+            val range = (currentTrackPx - thumbPx).coerceAtLeast(1f)
+            (((at - thumbPx / 2) / range).coerceIn(0f, 1f) * currentLast).roundToInt()
+        }
         val thumbStart = { if (last > 0) ((position() / last).coerceIn(0f, 1f) * rangePx).roundToInt() else 0 }
         val start: (Offset) -> Unit = { offset ->
             dragging = true
@@ -128,7 +134,7 @@ internal fun AlbumScrubber(
                         detectHorizontalDragGestures(onDragStart = start, onDragEnd = end, onDragCancel = end) { change, _ -> move(change) }
                     }
                 }
-                .pointerInput(Unit) { detectTapGestures { offset -> currentJump(indexAt(along(offset))) } },
+                .pointerInput(vertical) { detectTapGestures { offset -> currentJump(indexAt(along(offset))) } },
         ) {
             Box(
                 Modifier
