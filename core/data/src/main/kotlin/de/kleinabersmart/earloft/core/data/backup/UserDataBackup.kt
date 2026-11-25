@@ -238,7 +238,9 @@ class UserDataBackup @Inject constructor(
      * song etc.
      */
     suspend fun exportSnapshot(): UserDataSnapshot {
-        restoreFinished.await()
+        // As with [import]: only after the first apply at startup. Before it, mirroring would delete from `user.db` what is
+        // still waiting for its fetch (ARD books with their progress), and it would then live only in memory (review4 T24).
+        if (started.get()) firstApplied.await() else restoreFinished.await()
         return mutex.withLock {
             if (restoreSucceeded) {
                 mirror()
