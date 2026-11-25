@@ -143,6 +143,21 @@ class DownloaderTest {
     }
 
     @Test
+    fun `a web page with status 200 is not saved as audio`() = runTest {
+        // The login page of a proxy or a captive portal: complete, with a matching length, but no song.
+        mockServer.enqueue(
+            MockResponse.Builder().addHeader("Content-Type", "text/html; charset=utf-8").body("<html><body>Sign in to continue</body></html>").build(),
+        )
+
+        val outcome = downloader.download(queued())
+
+        assertEquals("Not an audio file (text/html)", (outcome as DownloadOutcome.Failed).reason)
+        assertEquals(DownloadState.FAILED, library.db.downloadDao().get(uid)!!.state)
+        assertNull(library.db.downloadDao().get(uid)!!.filePath)
+        assertTrue(storage.directory.listFiles().orEmpty().isEmpty())
+    }
+
+    @Test
     fun `missing permission fails without asking for new credentials`() = runTest {
         mockServer.enqueue(subsonicError(50))
 

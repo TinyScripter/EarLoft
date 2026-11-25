@@ -142,6 +142,10 @@ class Downloader @Inject constructor(
                             if (error?.isRejectedCredentials == true) throw error
                             return@withContext DownloadOutcome.Failed(error?.message ?: "Server error instead of audio file")
                         }
+                        // The login page of a proxy, a captive portal or a maintenance page is no audio, however complete it arrives;
+                        // book and episode downloads reject it as well (review4 T4).
+                        contentType.trim().lowercase().startsWith("text/") ->
+                            return@withContext DownloadOutcome.Failed("Not an audio file (${contentType.substringBefore(';').trim()})")
                     }
                     // What Android lets the download use and what the parallel downloads still need (review H7).
                     val total = response.body.contentLength().takeIf { it >= 0 }
