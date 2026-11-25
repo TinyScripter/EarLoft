@@ -118,9 +118,13 @@ class MusicBackup @Inject constructor(
         if (local.updatedAt != playlist.updatedAt || local.name != playlist.name) return@filter false
         val entries = saved.entriesOf(key)
         val songIds = resolve(entries.toSet()).let { resolved -> entries.mapNotNull { resolved[it] } }
-        if (playlistDao.getSongIds(local.playlistId) != songIds) {
+        val current = playlistDao.getSongIds(local.playlistId)
+        // The backup only adds what is missing here: a song whose tags changed since the backup (its key no longer resolves)
+        // must not leave the playlist (review4 T2).
+        val target = mergedPlaylistSongs(current, songIds)
+        if (current != target) {
             playlistDao.deleteEntries(local.playlistId)
-            playlistDao.insertEntries(songIds.mapIndexed { position, songId -> PlaylistEntryEntity(playlistId = local.playlistId, songId = songId, position = position) })
+            playlistDao.insertEntries(target.mapIndexed { position, songId -> PlaylistEntryEntity(playlistId = local.playlistId, songId = songId, position = position) })
         }
         songIds.size < entries.size
     }
@@ -259,3 +263,27 @@ data class MusicData(
     val wearSelections: List<UserWearSelectionEntity>,
     val collectionFavorites: List<KeyedCollectionFavorite>,
 )
+
+/**
+ * The songs of a playlist after applying the backup: [wanted] (the resolved backed-up songs in their order) if every song
+ * [current]ly in the playlist is in it. Otherwise (some songs here are unknown to the backup, e.g. because their tags
+ * changed) the songs here stay and the missing ones from [wanted] are inserted after their predecessor in the backup.
+ */
+internal fun mergedPlaylistSongs(current: List<Long>, wanted: List<Long>): List<Long> {
+    if (wanted.toSet().containsAll(current)) return wanted
+    val result = current.toMutableList()
+    val seen = HashMap<Long, Int>()
+    var anchor = -1
+    wanted.forEach { songId ->
+        val occurrence = (seen[songId] ?: 0) + 1
+        seen[songId] = occurrence
+        val positions = result.indices.filter { result[it] == songId }
+        if (positions.size >= occurrence) {
+            anchor = positions[occurrence - 1]
+        } else {
+            anchor += 1
+            result.add(anchor, songId)
+        }
+    }
+    return result
+}

@@ -362,4 +362,32 @@ class MusicBackupTest {
         assertEquals(listOf("damals hinterm mond"), user.userDataDao().playlistEntries().map { it.song.title })
         assertFalse(user.userDataDao().favorites().isEmpty())
     }
+
+    @Test
+    fun `a song retagged here stays in an unchanged playlist when the backup is applied at startup`() = runTest {
+        fillOldDevice()
+        val backup = backupFor(main)
+        backup.mirror()
+        val kaffee = main.backupDao().songsOfAlbum("element of crime", "damals hinterm mond").first { it.track == 2 }.songId
+        // The song keeps its ID and its place in the playlist, but the key from the backup (with the old title) no longer finds it.
+        main.openHelper.writableDatabase.execSQL("UPDATE songs SET title = 'kaffee & karin', normTitle = 'kaffee & karin' WHERE songId = $kaffee")
+        val playlistId = main.backupDao().localPlaylists().single().playlistId
+        val before = main.playlistDao().getSongIds(playlistId)
+
+        backup.applyFirst(user.userDataDao().snapshot())
+
+        assertEquals(before, main.playlistDao().getSongIds(playlistId))
+    }
+
+    @Test
+    fun `merging a playlist keeps the songs here and inserts missing ones after their predecessor`() {
+        // Same songs: the backup's order applies.
+        assertEquals(listOf(3L, 1L, 2L), mergedPlaylistSongs(listOf(1L, 2L, 3L), listOf(3L, 1L, 2L)))
+        // 2 is unknown to the backup (retagged), 4 is missing here and follows 1 in the backup.
+        assertEquals(listOf(1L, 4L, 2L, 3L), mergedPlaylistSongs(listOf(1L, 2L, 3L), listOf(1L, 4L, 3L)))
+        // A missing song at the start of the backup goes to the start, a duplicate stays a duplicate.
+        assertEquals(listOf(9L, 1L, 2L, 1L), mergedPlaylistSongs(listOf(1L, 2L, 1L), listOf(9L, 1L, 1L)))
+        // Nothing resolves any more: nothing is lost.
+        assertEquals(listOf(1L, 2L), mergedPlaylistSongs(listOf(1L, 2L), emptyList()))
+    }
 }
