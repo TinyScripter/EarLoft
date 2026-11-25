@@ -98,6 +98,9 @@ object ShareLinks {
         return host in ownHosts || isLocalHost(host)
     }
 
+    /** The address leads to the home network (private, loopback or link-local address, or a local name). */
+    fun isHomeNetworkAddress(url: String): Boolean = url.trim().toHttpUrlOrNull()?.host?.lowercase()?.let(::isLocalHost) == true
+
     private fun isSecretParameter(name: String): Boolean {
         val key = name.lowercase().replace("-", "_")
         return key in SECRET_PARAMETERS || SECRET_SUFFIXES.any { key.endsWith(it) }

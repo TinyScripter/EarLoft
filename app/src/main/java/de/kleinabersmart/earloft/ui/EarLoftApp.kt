@@ -163,6 +163,7 @@ import de.kleinabersmart.earloft.ui.settings.SettingsScreen
 import de.kleinabersmart.earloft.ui.settings.WatchSettingsScreen
 import de.kleinabersmart.earloft.ui.setup.SetupExitDialog
 import de.kleinabersmart.earloft.ui.setup.SetupScreen
+import de.kleinabersmart.earloft.ui.permission.HomeNetworkPermissionPrompt
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.ui.snackbar.SnackbarViewModel
 import de.kleinabersmart.earloft.ui.spoken.AudiobookshelfFormScreen
@@ -632,6 +633,7 @@ fun EarLoftApp(
         playerViewModel.playbackStarts.collect { miniPlayerScrollHide.show() }
     }
 
+    HomeNetworkPermissionPrompt()
     val snackbarModel = hiltViewModel<SnackbarViewModel>()
     val snackbars = snackbarModel.snackbars
     val snackbarHost = snackbarModel.host
