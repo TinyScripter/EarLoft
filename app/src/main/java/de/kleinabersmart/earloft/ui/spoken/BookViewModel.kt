@@ -57,6 +57,7 @@ class BookViewModel @AssistedInject constructor(
     episodeProgress: EpisodeDownloadProgress,
     private val continueListening: ContinueListening,
     private val trialPages: TrialPodcastPages,
+    private val rows: EpisodeRowActions,
 ) : ViewModel() {
 
     val book: StateFlow<BookWithProgress?> = books.book(bookId)
@@ -123,7 +124,7 @@ class BookViewModel @AssistedInject constructor(
     /** To the end of the queue or out of it, as on the episode cards. */
     fun toggleQueued() {
         val inQueue = queued.value ?: return
-        viewModelScope.launch { if (inQueue) continueListening.remove(bookId) else continueListening.append(bookId) }
+        viewModelScope.launch { rows.setQueued(bookId, !inQueue) }
     }
 
     /** Download state of the book or episode (episodes download individually, nobody here knows their size: `bytes` is 0). */

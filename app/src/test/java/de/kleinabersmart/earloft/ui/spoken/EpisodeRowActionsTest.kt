@@ -8,14 +8,23 @@ import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
+import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.download.DownloadStart
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.testing.MainDispatcherRule
+import de.kleinabersmart.earloft.testing.awaitReal
+import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
+import de.kleinabersmart.earloft.ui.snackbar.Snackbars
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -25,6 +34,7 @@ import org.robolectric.annotation.Config
 import javax.inject.Inject
 
 /** The episode actions all lists share (review2 J46), with the rule for trial subscriptions (J4). */
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltAndroidTest
 @Config(application = HiltTestApplication::class)
 @RunWith(RobolectricTestRunner::class)
@@ -40,6 +50,7 @@ class EpisodeRowActionsTest {
     @Inject lateinit var continueListening: ContinueListening
     @Inject lateinit var podcastDao: PodcastDao
     @Inject lateinit var bookDao: BookDao
+    @Inject lateinit var snackbars: Snackbars
 
     @Before
     fun setUp() {
@@ -87,5 +98,71 @@ class EpisodeRowActionsTest {
         assertEquals(R.string.podcast_download_waiting_wifi, downloadHint(listOf(DownloadStart.STARTED, DownloadStart.WAITING_FOR_WIFI)))
         assertEquals(R.string.book_download_waiting_wifi, downloadHint(listOf(DownloadStart.WAITING_FOR_WIFI), book = true))
         assertNull(downloadHint(listOf(DownloadStart.STARTED)))
+    }
+
+    /** What the user is told while the test runs. */
+    private fun kotlinx.coroutines.test.TestScope.collectMessages(): List<SnackbarMessage> {
+        val received = mutableListOf<SnackbarMessage>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { snackbars.messages.collect { received += it } }
+        return received
+    }
+
+    @Test
+    fun `taking an episode out of the queue says so and undo puts it back at its old place`() = runTest {
+        val first = episode("sub", "a")
+        val second = episode("sub", "b")
+        val third = episode("sub", "c")
+        listOf(first, second, third).forEach { continueListening.append(it) }
+        val messages = collectMessages()
+
+        rows.setQueued(second, queued = false)
+
+        // review4 T38: the row's button used to remove silently.
+        assertEquals(listOf(first, third), queue())
+        val message = messages.single()
+        assertTrue(message.text, "b" in message.text)
+        assertNotNull(message.actionLabel)
+        message.onAction!!.invoke()
+        awaitReal { continueListening.episodes.first { list -> list.map { it.book.id } == listOf(first, second, third) } }
+    }
+
+    @Test
+    fun `a trial episode leaves the queue with a notice but without undo`() = runTest {
+        podcastDao.upsertFeed(PodcastFeedEntity(feedId = "trial", url = "https://example.com/trial.xml", title = "Trial", subscribed = false))
+        val trial = episode("trial", "t1")
+        continueListening.append(trial)
+        val messages = collectMessages()
+
+        rows.removeFromQueue(trial)
+
+        assertEquals(listOf(null), messages.map { it.actionLabel })
+    }
+
+    @Test
+    fun `removing an episode that is not in the queue says nothing`() = runTest {
+        val loose = episode("sub", "x")
+        val messages = collectMessages()
+
+        rows.removeFromQueue(loose)
+
+        assertEquals(emptyList<SnackbarMessage>(), messages)
+    }
+
+    @Test
+    fun `taking a book out of continue listening says so and undo brings it back with its position`() = runTest {
+        val book = bookDao.upsertBook(
+            BookEntity(serverId = "abs", kind = BookKind.BOOK, remoteId = "b", title = "Book", normTitle = "book", author = "", durationMs = 600_000),
+        )
+        bookDao.upsertProgress(BookProgressEntity(bookId = book, positionMs = 123_000, durationMs = 600_000, updatedAt = 1))
+        val messages = collectMessages()
+
+        rows.hideBook(book)
+
+        // review4 T39: no notice and no way back before.
+        assertEquals(true, bookDao.progress(book)?.hidden)
+        assertNotNull(messages.single().actionLabel)
+        messages.single().onAction!!.invoke()
+        awaitReal { bookDao.progress(book)?.takeIf { !it.hidden } }
+        assertEquals(123_000L, bookDao.progress(book)?.positionMs)
     }
 }

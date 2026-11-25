@@ -31,6 +31,7 @@ class PodcastQueueViewModel @Inject constructor(
     playback: PlaybackConnection,
     private val podcasts: PodcastRepository,
     spokenSettings: SpokenSettings,
+    private val rows: EpisodeRowActions,
 ) : ViewModel() {
 
     /** Speed per subscription (otherwise the podcasts default) for the remaining time of episodes without their own speed. */
@@ -100,8 +101,9 @@ class PodcastQueueViewModel @Inject constructor(
         .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** Out of the queue with a notice and "Undo". */
     fun remove(bookId: Long) {
-        viewModelScope.launch { continueListening.remove(bookId) }
+        viewModelScope.launch { rows.removeFromQueue(bookId) }
     }
 
     fun reorder(bookIds: List<Long>, movedId: Long) {

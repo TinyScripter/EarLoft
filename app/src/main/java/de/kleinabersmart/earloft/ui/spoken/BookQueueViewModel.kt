@@ -23,6 +23,7 @@ class BookQueueViewModel @Inject constructor(
     private val queue: BookQueue,
     playback: PlaybackConnection,
     spokenSettings: SpokenSettings,
+    private val rows: EpisodeRowActions,
 ) : ViewModel() {
 
     /** Books default for the remaining time of books without their own speed. */
@@ -47,8 +48,9 @@ class BookQueueViewModel @Inject constructor(
         viewModelScope.launch { queue.clear(keepId = currentBookId.value) }
     }
 
+    /** Out of the queue (the state stays) with a notice and "Undo". */
     fun remove(bookId: Long) {
-        viewModelScope.launch { queue.remove(bookId) }
+        viewModelScope.launch { rows.hideBook(bookId) }
     }
 
     fun reorder(bookIds: List<Long>, movedId: Long) {

@@ -260,7 +260,7 @@ class EpisodeMenuViewModel @Inject constructor(
 
     /** "Remove from Continue listening" (books only): the progress stays; with Audiobookshelf on all devices. */
     fun hideFromContinueListening(item: BookWithProgress) {
-        act { progressSync.hideFromContinueListening(item.book.id) }
+        act { rows.hideBook(item.book.id) }
     }
 
     fun removeDownload(item: BookWithProgress) {
