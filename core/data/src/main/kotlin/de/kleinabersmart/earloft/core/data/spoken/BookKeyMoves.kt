@@ -1,8 +1,10 @@
 package de.kleinabersmart.earloft.core.data.spoken
 
+import androidx.room.withTransaction
 import dagger.Lazy
 import de.kleinabersmart.earloft.core.data.backup.UserDataBackup
 import de.kleinabersmart.earloft.core.data.podcast.rekeyStats
+import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.StatsDao
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,6 +21,7 @@ fun interface BookKeyMoves {
 
 @Singleton
 internal class BookKeyFollower @Inject constructor(
+    private val database: EarLoftDatabase,
     private val statsDao: StatsDao,
     /** `Lazy`: [UserDataBackup] itself needs [ArdBooks]. */
     private val userDataBackup: Lazy<UserDataBackup>,
@@ -27,8 +30,12 @@ internal class BookKeyFollower @Inject constructor(
     override suspend fun moved(serverId: String, renames: Map<String, String>) {
         if (renames.isEmpty()) return
         val groups = listOf(serverId)
-        // The days count per server, not per book: they stay as they are.
-        statsDao.replaceGroups(groups, rekeyStats(statsDao.statsOfGroups(groups), serverId, serverId, renames), statsDao.daysOfGroups(groups))
+        // Read and write in one transaction: listening time added in between (a book of this server is playing) would be lost
+        // with the rows that are written back (review4 T17). Only this: the others below may take locks.
+        database.withTransaction {
+            // The days count per server, not per book: they stay as they are.
+            statsDao.replaceGroups(groups, rekeyStats(statsDao.statsOfGroups(groups), serverId, serverId, renames), statsDao.daysOfGroups(groups))
+        }
         val keys = renames.entries.associate { (old, new) -> BookKeys.encode(serverId, old) to BookKeys.encode(serverId, new) }
         renamers.get().forEach { it.renameBookKeys(keys) }
         userDataBackup.get().forgetProgress(serverId, renames.keys)

@@ -54,7 +54,7 @@ class BookKeyFollowerTest {
                 renamed += renames
             }
         }
-        follower = BookKeyFollower(db.statsDao(), { backup }, { setOf(renamer) })
+        follower = BookKeyFollower(db, db.statsDao(), { backup }, { setOf(renamer) })
     }
 
     @After
