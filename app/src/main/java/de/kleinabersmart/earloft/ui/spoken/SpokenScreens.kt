@@ -173,6 +173,7 @@ fun SpokenHomeScreen(
     val continueSeries by viewModel.continueSeries.collectAsStateWithLifecycle()
     val hasServer by viewModel.hasServer.collectAsStateWithLifecycle()
     val signInNeeded by viewModel.signInNeeded.collectAsStateWithLifecycle()
+    val allBooksState by viewModel.allBooks.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val continueListening = continueState.valueOrNull.orEmpty()
     val recent = recentState.valueOrNull.orEmpty()
@@ -233,9 +234,7 @@ fun SpokenHomeScreen(
                     }
                     if (continueState == LoadState.Failed || recentState == LoadState.Failed) {
                         item(key = "failed") { LoadFailedHint() }
-                    } else if (continueState is LoadState.Ready && recentState is LoadState.Ready &&
-                        continueListening.isEmpty() && recent.isEmpty() && hasServer == true
-                    ) {
+                    } else if (showsNoBooksHint(continueState, recentState, allBooksState, hasServer)) {
                         item(key = "empty") { NoBooksHint(signInNeeded, onEditServer, viewModel::syncNow) }
                     }
                     // Audiobooks and radio plays from ARD Sounds (books_improvements M9), like "Add podcast" below the shelves.
@@ -252,6 +251,20 @@ fun SpokenHomeScreen(
         }
     }
 }
+
+/**
+ * "No books yet" with "Sync now" only for an empty library: if everything is heard or hidden, both shelves are empty as
+ * well, and syncing changes nothing (review4 T41).
+ */
+internal fun showsNoBooksHint(
+    continueListening: LoadState<List<*>>,
+    recentlyAdded: LoadState<List<*>>,
+    allBooks: LoadState<List<*>>,
+    hasServer: Boolean?,
+): Boolean = hasServer == true &&
+    continueListening.valueOrNull?.isEmpty() == true &&
+    recentlyAdded.valueOrNull?.isEmpty() == true &&
+    allBooks.valueOrNull?.isEmpty() == true
 
 private enum class BookTab(@StringRes val label: Int) {
     ALL(R.string.spoken_tab_all),
