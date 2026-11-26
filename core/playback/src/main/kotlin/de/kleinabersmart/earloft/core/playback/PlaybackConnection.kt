@@ -88,6 +88,12 @@ interface PlaybackConnection {
     /** Current position (0 without a connection); poll periodically for the progress display while [state] is observed. */
     val currentPositionMs: Long
 
+    /**
+     * Whether the player is connected. Without a connection [state] keeps its last value and [currentPositionMs] is 0, e.g. after
+     * the release in the background until the reconnect on return: a comparison with the position must wait for `true`.
+     */
+    val connected: StateFlow<Boolean>
+
     /** Remaining time of the sleep timer in milliseconds, updated every second; `null` while none is running. */
     val sleepTimerRemainingMs: Flow<Long?>
 

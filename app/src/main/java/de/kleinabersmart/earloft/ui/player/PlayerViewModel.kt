@@ -80,13 +80,15 @@ class PlayerViewModel @Inject constructor(
      *
      * Runs only while the UI is started (see `EarLoftApp`): a collector in [viewModelScope] would hold a subscriber of the
      * connection for as long as the activity lives, so the playback service would stay bound in the background (review T9).
-     * On every start the current state arrives first, which catches what happened in the meantime.
+     * On every start the current state arrives first, which catches what happened in the meantime. The position only counts once
+     * the player is connected: after the release in the background, [state] keeps its last value while the position is 0 until
+     * the reconnect, which would look like playing elsewhere (review4 8.6 Y1).
      */
     suspend fun keepMiniPlayerInSync() {
-        state.collect { current ->
+        combine(state, playbackConnection.connected, ::Pair).collect { (current, connected) ->
             when {
                 current.isPlaying -> miniPlayerVisibility.show()
-                current.hasMedia -> miniPlayerVisibility.showIfMovedOn(current.itemKey, playbackConnection.currentPositionMs)
+                current.hasMedia && connected -> miniPlayerVisibility.showIfMovedOn(current.itemKey, playbackConnection.currentPositionMs)
             }
         }
     }

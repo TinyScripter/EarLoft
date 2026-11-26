@@ -96,6 +96,10 @@ class MediaPlaybackConnection @Inject constructor(
 
     override val state: StateFlow<PlayerState> = _state.asStateFlow()
 
+    private val _connected = MutableStateFlow(false)
+
+    override val connected: StateFlow<Boolean> = _connected.asStateFlow()
+
     private val _positionJumps = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     override val positionJumps: Flow<Unit> = _positionJumps.asSharedFlow()
@@ -144,6 +148,7 @@ class MediaPlaybackConnection @Inject constructor(
                         override fun onDisconnected(controller: MediaController) {
                             if (connection !== pending) return
                             connection = null
+                            _connected.value = false
                             if (_state.subscriptionCount.value > 0) connect()
                         }
                     })
@@ -188,6 +193,7 @@ class MediaPlaybackConnection @Inject constructor(
             _state.value = mediaController.toState(previous = PlayerState(), queueChanged = true)
             stateKnown.value = true
             pending.complete(mediaController)
+            _connected.value = true
         }
         return pending
     }
@@ -203,6 +209,7 @@ class MediaPlaybackConnection @Inject constructor(
             val released = connection ?: return@launch
             connection = null
             releaseJob = null
+            _connected.value = false
             if (released.isCompleted && !released.isCancelled) released.getCompleted().release()
             // If the connection is still being established, the setup releases it itself (connection !== pending).
         }

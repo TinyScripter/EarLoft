@@ -8,6 +8,7 @@ import de.kleinabersmart.earloft.core.data.repository.FavoritesRepository
 import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
 import de.kleinabersmart.earloft.core.data.repository.LyricsRepository
 import de.kleinabersmart.earloft.core.playback.PlayerState
+import de.kleinabersmart.earloft.core.playback.SpokenEntry
 import de.kleinabersmart.earloft.testing.FakePlaybackConnection
 import de.kleinabersmart.earloft.testing.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -73,5 +74,45 @@ class PlayerViewModelTest {
         job.cancel()
         advanceUntilIdle()
         assertEquals(0, playback.state.subscriptionCount.value)
+    }
+
+    @Test
+    fun `a hidden mini player stays hidden while the player reconnects after the background`() = runTest {
+        val paused = PlayerState(spoken = SpokenEntry(bookId = 7, trackIndex = 0, title = "Book", author = "Author"))
+        playback.state.value = paused
+        playback.currentPositionMs = 5_025_000
+        visibility.hide(paused.itemKey, playback.currentPositionMs)
+        // Released in the background: the state stays, the position reads 0 until the controller is back.
+        playback.connected.value = false
+        playback.currentPositionMs = 0
+
+        val job = launch { viewModel.keepMiniPlayerInSync() }
+        advanceUntilIdle()
+        assertTrue(visibility.hidden.value)
+
+        playback.currentPositionMs = 5_025_000
+        playback.connected.value = true
+        advanceUntilIdle()
+        assertTrue(visibility.hidden.value)
+        job.cancel()
+    }
+
+    @Test
+    fun `a hidden mini player comes back once the reconnected player stands elsewhere`() = runTest {
+        val paused = PlayerState(spoken = SpokenEntry(bookId = 7, trackIndex = 0, title = "Book", author = "Author"))
+        playback.state.value = paused
+        playback.currentPositionMs = 5_025_000
+        visibility.hide(paused.itemKey, playback.currentPositionMs)
+        playback.connected.value = false
+        playback.currentPositionMs = 0
+        val job = launch { viewModel.keepMiniPlayerInSync() }
+        advanceUntilIdle()
+
+        // Played on the watch meanwhile.
+        playback.currentPositionMs = 5_400_000
+        playback.connected.value = true
+        advanceUntilIdle()
+        assertFalse(visibility.hidden.value)
+        job.cancel()
     }
 }
