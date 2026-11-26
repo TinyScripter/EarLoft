@@ -165,10 +165,10 @@ private fun BookPlayerContent(
     val chapterIndex by remember(timeline) {
         derivedStateOf { timeline?.chapterAt(dragging.value?.toLong() ?: position.value)?.index }
     }
-    var showSpeed by remember { mutableStateOf(false) }
-    var showSleep by remember { mutableStateOf(false) }
-    var showChapters by remember { mutableStateOf(false) }
-    var showBookmarks by remember { mutableStateOf(false) }
+    var showSpeed by rememberSaveable { mutableStateOf(false) }
+    var showSleep by rememberSaveable { mutableStateOf(false) }
+    var showChapters by rememberSaveable { mutableStateOf(false) }
+    var showBookmarks by rememberSaveable { mutableStateOf(false) }
     val resources = LocalResources.current
     val bookmarksViewModel: BookmarksViewModel = hiltViewModel()
     // Bookmark at the position currently playing (while dragging the slider: there), with chapter name and time as title.
@@ -176,10 +176,11 @@ private fun BookPlayerContent(
         val at = dragging.value?.toLong() ?: viewModel.bookPositionMs()
         entry?.let { bookmarksViewModel.add(it.bookId, at, bookmarkTitle(resources, timeline, at)) }
     }
-    var showQueue by remember { mutableStateOf(false) }
-    var showInfo by remember { mutableStateOf(false) }
+    var showQueue by rememberSaveable { mutableStateOf(false) }
+    var showInfo by rememberSaveable { mutableStateOf(false) }
     // Wide: the chapter list or queue replaces the description in the right panel.
-    var pane by remember { mutableStateOf(SidePane.DESCRIPTION) }
+    // Sheets, dialogs and the side pane survive a rotation (review4 T44).
+    var pane by rememberSaveable { mutableStateOf(SidePane.DESCRIPTION) }
     // If the episode has a transcript, description and transcript appear side by side as tabs (concept 12.5 "Transcripts").
     var notesTab by rememberSaveable { mutableIntStateOf(NOTES_DESCRIPTION) }
 

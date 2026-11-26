@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
@@ -90,6 +91,9 @@ fun StarredMark(modifier: Modifier = Modifier) {
  * Context menu of a podcast episode or a book (long press); the first row names the title for orientation. With
  * [onSelect], "Select" starts the list's multi-selection with this episode (concept 12.5). [inRecent]: the tile stands in
  * "Recently added" on the podcast Home, which offers to remove it from there.
+ *
+ * Every tile and row has one, so a closed menu without an open question composes nothing: otherwise each of them collected seven to
+ * ten flows while scrolling a large library (review4 T45). The questions survive a rotation (T44).
  */
 @Composable
 fun EpisodeMenu(
@@ -99,8 +103,12 @@ fun EpisodeMenu(
     withShareAndWatch: Boolean = true,
     onSelect: (() -> Unit)? = null,
     inRecent: Boolean = false,
-    viewModel: EpisodeMenuViewModel = hiltViewModel(),
+    viewModel: EpisodeMenuViewModel? = null,
 ) {
+    var confirmRemove by rememberSaveable { mutableStateOf(false) }
+    var confirmDeleteDownload by rememberSaveable { mutableStateOf(false) }
+    if (!expanded && !confirmRemove && !confirmDeleteDownload) return
+    val viewModel = viewModel ?: hiltViewModel<EpisodeMenuViewModel>()
     val queued by viewModel.queued.collectAsStateWithLifecycle()
     val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
     val downloadedEpisodes by viewModel.downloadedEpisodes.collectAsStateWithLifecycle()
@@ -108,8 +116,6 @@ fun EpisodeMenu(
     val queueSecond by viewModel.queueSecond.collectAsStateWithLifecycle()
     val trialFeeds by viewModel.trialFeeds.collectAsStateWithLifecycle()
     val loadedBookId by viewModel.loadedBookId.collectAsStateWithLifecycle()
-    var confirmRemove by remember { mutableStateOf(false) }
-    var confirmDeleteDownload by remember { mutableStateOf(false) }
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     val id = item.book.id
@@ -202,7 +208,8 @@ fun EpisodeMenu(
                 onDismiss()
             },
         )
-        if (!trial) DropdownMenuItem(
+        // Only with something to reset: on a book never started it did nothing (review4 T43).
+        if (!trial && progress != null && (progress.positionMs > 0 || progress.finished)) DropdownMenuItem(
             text = { Text(stringResource(R.string.episode_reset_position)) },
             onClick = {
                 viewModel.resetPosition(item, offerUndo(R.string.episode_position_reset))

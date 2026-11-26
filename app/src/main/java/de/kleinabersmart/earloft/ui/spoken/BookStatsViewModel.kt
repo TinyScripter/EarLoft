@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.orOnError
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -36,7 +37,7 @@ class BookStatsViewModel @Inject constructor(
     private val yearFlow = MutableStateFlow<Int?>(null)
 
     val device: StateFlow<DeviceBookStats?> =
-        yearFlow.flatMapLatest { stats.bookStats(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        yearFlow.flatMapLatest { stats.bookStats(it) }.orOnError(null).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Enabled Audiobookshelf servers. */
     val servers: StateFlow<List<SpokenServer>> = audiobookServers.servers
@@ -54,6 +55,7 @@ class BookStatsViewModel @Inject constructor(
     val server: StateFlow<ServerBookStats?> = selectedServerId
         .combine(yearFlow, ::Pair)
         .flatMapLatest { (id, year) -> if (id == null) flowOf(null) else serverStats.stats(id, year) }
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Shows this year's numbers; `null` for "Total". */

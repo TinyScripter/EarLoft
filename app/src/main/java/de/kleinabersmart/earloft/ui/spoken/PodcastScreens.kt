@@ -7,6 +7,7 @@ import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import android.content.ClipData
 import androidx.annotation.StringRes
@@ -18,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.WindowInsets
@@ -281,7 +283,8 @@ fun FeedCard(
     contentPadding: Dp = 0.dp,
     newEpisodes: Int = 0,
 ) {
-    var menu by remember { mutableStateOf(false) }
+    // Saveable: "Mark all as played" asks inside the menu, and the question would vanish on a rotation (review4 T44).
+    var menu by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier
             .combinedClickable(
@@ -377,7 +380,12 @@ fun PodcastLibraryScreen(
         }
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                // The area pager around it would take the swipe otherwise and switch to books or music, with the selection
+                // still active but out of sight (review4 T40).
+                .then(if (selection.active) Modifier.pointerInput(Unit) { detectHorizontalDragGestures { change, _ -> change.consume() } } else Modifier),
             userScrollEnabled = !selection.active,
             key = { it },
         ) { page ->
@@ -866,7 +874,8 @@ fun PodcastSearchScreen(
     var query by rememberSaveable { mutableStateOf("") }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    LaunchedEffect(Unit) { focus.requestFocus() }
+    // Only on first open, as in the global search: coming back from a hit, the keyboard would cover half the hits (review4 T42).
+    LaunchedEffect(Unit) { if (query.isEmpty()) focus.requestFocus() }
     LaunchedEffect(query) { viewModel.search(query) }
     val swipe by viewModel.swipeActions.collectAsStateWithLifecycle()
     val queued by viewModel.queued.collectAsStateWithLifecycle()

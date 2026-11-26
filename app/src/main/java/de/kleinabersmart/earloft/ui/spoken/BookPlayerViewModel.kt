@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.orOnError
 import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -54,6 +55,8 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
 
     val book: StateFlow<BookWithProgress?> = bookId
         .flatMapLatest { id -> if (id == null) flowOf(null) else books.book(id) }
+        // A database error leaves the player without book details instead of ending the app (review4 T46).
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
@@ -70,6 +73,7 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
                 books.books().map { all -> all.firstOrNull { it.book.id == finishedId }?.let { nextInSeries(it, all) } }
             }
         }
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun playBook(bookId: Long) = launcher.play(bookId)
@@ -196,7 +200,7 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     /** There is another episode in the podcast queue. */
     val hasNextEpisode: StateFlow<Boolean> = combine(continueListening.episodes, bookId) { queue, current ->
         queue.any { it.book.id != current }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    }.orOnError(false).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** The episode from the start; if it is stopped, it starts right away too. */
     fun restartEpisode() {

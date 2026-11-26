@@ -62,6 +62,8 @@ class BookViewModel @AssistedInject constructor(
 
     val book: StateFlow<BookWithProgress?> = books.book(bookId)
         .onEach { if (it != null) wasLoaded = true }
+        // A database error shows the page as loading instead of ending the app (review4 T46).
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
@@ -91,6 +93,7 @@ class BookViewModel @AssistedInject constructor(
         .map { feed -> feed?.takeIf { !it.subscribed }?.id }
         .distinctUntilChanged()
         .onEach(::keepTrialOpen)
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private var openTrialFeedId: String? = null
@@ -138,6 +141,7 @@ class BookViewModel @AssistedInject constructor(
                 podcasts.downloadStates(feedId).map { BookDownload(it[bookId] ?: TrackDownload.NONE, 0) }.distinctUntilChanged()
             }
         }
+        .orOnError(BookDownload(TrackDownload.NONE, 0))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookDownload(TrackDownload.NONE, 0))
 
     /** Fraction of the downloading episode (0..1, [EpisodeDownloadProgress.UNKNOWN] without known size); `null` while it isn't downloading. */

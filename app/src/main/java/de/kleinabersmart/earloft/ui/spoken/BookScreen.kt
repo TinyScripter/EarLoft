@@ -31,6 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import de.kleinabersmart.earloft.core.model.BookKind
 import androidx.compose.material3.FilledTonalButton
@@ -120,7 +121,7 @@ fun BookScreen(
     val transfer by viewModel.transfer.collectAsStateWithLifecycle()
     val queued by viewModel.queued.collectAsStateWithLifecycle()
     val episodeFraction by viewModel.episodeFraction.collectAsStateWithLifecycle()
-    var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     LaunchedEffect(viewModel) {

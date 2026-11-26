@@ -16,6 +16,7 @@ import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.model.OfflineMark
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.ui.components.OfflineBadge
+import de.kleinabersmart.earloft.ui.orOnError
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -27,9 +28,13 @@ class BookDownloadStatesViewModel @Inject constructor(books: BookRepository, pod
     /** Books and episodes; for episodes without size (nobody needs it here). */
     val states: StateFlow<Map<Long, BookDownload>> = combine(books.downloads(), podcasts.episodeDownloadStates()) { books, episodes ->
         books + episodes.mapValues { (_, state) -> BookDownload(state, 0) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+    }
+        // At the app's root: a database error must not end the app, the badges just stay away (review4 T46).
+        .orOnError(emptyMap())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     val feedCounts: StateFlow<Map<String, Int>> = podcasts.downloadedEpisodeCounts()
+        .orOnError(emptyMap())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 }
 

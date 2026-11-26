@@ -246,7 +246,8 @@ fun PodcastQueueSearchScreen(
     var query by rememberSaveable { mutableStateOf("") }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    LaunchedEffect(Unit) { focus.requestFocus() }
+    // Only on first open, as in the global search: coming back from a hit, the keyboard would cover half the hits (review4 T42).
+    LaunchedEffect(Unit) { if (query.isEmpty()) focus.requestFocus() }
     LaunchedEffect(query) { viewModel.search(query) }
 
     val trimmed = query.trim()
