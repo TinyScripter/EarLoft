@@ -134,7 +134,9 @@ internal fun AlbumCarousel(
                 Column(columnModifier, horizontalAlignment = Alignment.CenterHorizontally) {
                     HorizontalCenteredHeroCarousel(
                         state = state,
-                        modifier = Modifier.fillMaxWidth().height(hero).padding(top = 12.dp),
+                        // The slider below is measured first: with little height the cover gets lower, the slider keeps its size
+                        // (review4 Y25).
+                        modifier = Modifier.weight(1f, fill = false).fillMaxWidth().height(hero).padding(top = 12.dp),
                         maxItemWidth = hero,
                         itemSpacing = CAROUSEL_SPACING,
                         minSmallItemWidth = MIN_SMALL,
