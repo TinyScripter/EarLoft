@@ -1129,6 +1129,13 @@
     <string name="new_at_start_show">Visa</string>
     <string name="podcast_notify_new">Avisera om nya avsnitt</string>
     <string name="podcast_notify_new_summary">Visar en tyst avisering när en uppdatering i bakgrunden hittar nya avsnitt av den här podden.</string>
+    <string name="podcast_keep_updated">Håll prenumerationen uppdaterad</string>
+    <string name="podcast_keep_updated_summary">Söker efter nya avsnitt i bakgrunden, när appen öppnas och med ”Uppdatera poddar”. Av: bara när du själv uppdaterar den här podden.</string>
+    <string name="podcast_keep_updated_pause">Pausa uppdateringar</string>
+    <string name="podcast_keep_updated_resume">Återuppta uppdateringar</string>
+    <string name="podcast_keep_updated_paused">”%1$s” pausad: uppdateras bara på begäran</string>
+    <string name="podcast_keep_updated_resumed">”%1$s” hålls uppdaterad igen</string>
+    <string name="podcast_keep_updated_paused_badge">Uppdateringar pausade</string>
     <string name="podcast_refresh_feed">Uppdatera podden</string>
     <string name="feed_menu_play_next">Spela nästa avsnitt</string>
     <string name="feed_menu_queue_next">Lägg till nästa avsnitt i kön</string>

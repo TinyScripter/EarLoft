@@ -871,6 +871,9 @@ class PodcastRepository @Inject constructor(
 
     suspend fun setNotifyNew(feedId: String, enabled: Boolean) = dao.setNotifyNew(feedId, enabled)
 
+    /** "Keep up to date"; `false` pauses the subscription (see [PodcastFeedEntity.keepUpdated]). */
+    suspend fun setKeepUpdated(feedId: String, keepUpdated: Boolean) = dao.setKeepUpdated(feedId, keepUpdated)
+
     suspend fun setEpisodeList(feedId: String, filter: EpisodeFilter, oldestFirst: Boolean) =
         dao.setEpisodeList(feedId, filter, oldestFirst)
 
@@ -896,14 +899,15 @@ class PodcastRepository @Inject constructor(
         dao.episodeIdsOldestFirst(feed.feedId).let { if (feed.newestFirst) it.asReversed() else it }
 
     /**
-     * Syncs all subscriptions, with [which] only some of them (the stale ones when opening the app). The episodes of a subscription being synced
-     * for the first time don't count as new (otherwise every fresh subscription would report its entire episode list).
+     * Syncs all subscriptions, with [which] only some of them (the stale ones when opening the app). Paused subscriptions
+     * ([PodcastFeedEntity.syncsWithOthers]) are always left out; only [refresh] fetches them. The episodes of a subscription being
+     * synced for the first time don't count as new (otherwise every fresh subscription would report its entire episode list).
      */
     suspend fun refreshAll(which: (PodcastFeedEntity) -> Boolean = { true }): PodcastRefreshSummary {
         val failures = mutableMapOf<String, FeedError>()
         val news = mutableListOf<NewEpisodes>()
         val moved = mutableListOf<String>()
-        val feeds = dao.feeds().filter { !it.isLocal && which(it) }
+        val feeds = dao.feeds().filter { !it.isLocal && it.syncsWithOthers && which(it) }
         feeds.forEach { feed ->
             when (val outcome = mutex.withLock { refreshLocked(feed.feedId) }) {
                 is RefreshOutcome.Failed -> failures[feed.feedId] = outcome.error
@@ -1263,6 +1267,12 @@ class PodcastRepository @Inject constructor(
 
 private val PodcastFeedEntity.isLocal: Boolean get() = feedId.startsWith(LOCAL_PODCAST_PREFIX)
 
+/**
+ * Part of syncing all subscriptions (periodic job, opening the app, "Sync all"): not when paused, unless the subscription was never
+ * synced (restored from the backup, imported) – it would otherwise stay empty.
+ */
+internal val PodcastFeedEntity.syncsWithOthers: Boolean get() = keepUpdated || lastRefreshAt == 0L
+
 /** A subscription with an RSS/Atom feed, i.e. neither from the device nor from ARD Sounds; only those are known to OPML and other apps. */
 internal val PodcastFeedEntity.hasRssFeed: Boolean get() = !isLocal && ardSoundsShowId(url) == null
 
@@ -1293,6 +1303,7 @@ private fun PodcastFeedEntity.toModel() = PodcastFeed(
     failingSince = failingSince,
     fundingUrl = fundingUrl,
     fundingLabel = fundingLabel.orEmpty(),
+    keepUpdated = keepUpdated,
 )
 
 /** A successful sync ends the streak of failures. */

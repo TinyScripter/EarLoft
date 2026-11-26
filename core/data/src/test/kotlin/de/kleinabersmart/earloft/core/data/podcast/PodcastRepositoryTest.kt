@@ -13,6 +13,7 @@ import de.kleinabersmart.earloft.core.model.filterEpisodes
 import de.kleinabersmart.earloft.core.database.model.BookPeopleRow
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.ChapterSource
+import de.kleinabersmart.earloft.core.model.FEED_PROBLEM_AFTER
 import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.TrackDownload
@@ -1554,6 +1555,53 @@ class PodcastRepositoryTest {
         val result = repository.refresh(feedId)!!
 
         assertEquals(listOf(idOf(feedId, "Fall 3")), result.newEpisodeIds)
+    }
+
+    @Test
+    fun `a paused subscription is left out of syncing all and only its own refresh fetches it`() = runTest {
+        val feedId = subscribe()
+        repository.setKeepUpdated(feedId, false)
+        served = feed("New" to "Fri, 31 Oct 2025 06:00:00 GMT", "A" to "Thu, 30 Oct 2025 06:00:00 GMT")
+        requested.clear()
+
+        val summary = repository.refreshAll()
+
+        assertTrue(requested.isEmpty())
+        assertTrue(summary.ok && !summary.allFailed && summary.newEpisodes.isEmpty())
+        assertTrue(db.bookDao().booksOf(feedId).none { it.title == "New" })
+        assertTrue(repository.feed(feedId).first()!!.isPaused)
+
+        val own = repository.refresh(feedId)!!
+        assertEquals(listOf(idOf(feedId, "New")), own.newEpisodeIds)
+
+        repository.setKeepUpdated(feedId, true)
+        served = feed("Newer" to "Sat, 01 Nov 2025 06:00:00 GMT", "New" to "Fri, 31 Oct 2025 06:00:00 GMT")
+        val resumed = repository.refreshAll()
+        assertEquals(listOf(idOf(feedId, "Newer")), resumed.newEpisodes.single().episodeIds)
+    }
+
+    @Test
+    fun `a paused subscription that was never synced is fetched once with the others`() = runTest {
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "restored", url = "https://example.com/feed.xml", title = "Restored", keepUpdated = false))
+
+        repository.refreshAll()
+
+        assertEquals(3, db.bookDao().booksOf("restored").size)
+        requested.clear()
+        repository.refreshAll()
+        assertTrue(requested.isEmpty())
+    }
+
+    @Test
+    fun `a paused subscription shows no problem from an old failure streak`() = runTest {
+        val feedId = subscribe()
+        servedCode = 410
+        repeat(FEED_PROBLEM_AFTER) { repository.refresh(feedId) }
+        assertTrue(repository.feed(feedId).first()!!.hasProblem)
+
+        repository.setKeepUpdated(feedId, false)
+
+        assertEquals(false, repository.feed(feedId).first()!!.hasProblem)
     }
 
     @Test

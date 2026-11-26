@@ -42,7 +42,8 @@ import javax.inject.Singleton
 /**
  * Keeps subscriptions up to date: a periodic job at the configured interval (Wi-Fi only, unless "mobile data" is allowed),
  * on opening the app everything older than this interval ([refreshStale], same network rule), and on request
- * everything. Not on a mere process start: if the periodic job starts it, both would otherwise fetch every feed.
+ * everything. Not on a mere process start: if the periodic job starts it, both would otherwise fetch every feed. Paused
+ * subscriptions ("Keep up to date" off) are part of none of these, only of [refreshFeed].
  */
 @Singleton
 class PodcastRefresher @Inject constructor(
@@ -83,7 +84,8 @@ class PodcastRefresher @Inject constructor(
             val hours = settings.refreshHours.first()
             if (hours == 0 || !networkAllows(mobile = settings.useMobileData.first())) return@launch
             val stale = now - hours * HOUR_MS
-            if (dao.feeds().none { it.lastRefreshAt < stale }) return@launch
+            // Paused ones never count: they would otherwise be stale forever and start a check on every opening.
+            if (dao.feeds().none { it.syncsWithOthers && it.lastRefreshAt < stale }) return@launch
             // The episodes of a subscription that has never been synced don't count as new there anyway.
             val fresh = repository.refreshAll { it.lastRefreshAt < stale }.newCount
             if (fresh > 0) events.emit(RefreshEvent.Finished(RefreshKind.PODCASTS, fresh, failed = false))
@@ -105,7 +107,22 @@ class PodcastRefresher @Inject constructor(
         }
     }
 
-    /** On request: syncs only the subscription [feedId] (a podcast from the device syncs its files). */
+    /**
+     * Pauses or resumes "Keep up to date" for [feedId]. Resuming catches up right away (quietly, like the check on opening
+     * the app) if the last sync is older than the interval and the network is one the periodic job would also use.
+     */
+    fun setKeepUpdated(feedId: String, keepUpdated: Boolean) {
+        scope.launch {
+            repository.setKeepUpdated(feedId, keepUpdated)
+            if (!keepUpdated) return@launch
+            val hours = settings.refreshHours.first()
+            val feed = dao.feed(feedId) ?: return@launch
+            if (hours == 0 || feed.lastRefreshAt >= System.currentTimeMillis() - hours * HOUR_MS) return@launch
+            if (networkAllows(mobile = settings.useMobileData.first())) repository.refresh(feedId)
+        }
+    }
+
+    /** On request: syncs only the subscription [feedId] (a podcast from the device syncs its files), paused or not. */
     fun refreshFeed(feedId: String) {
         scope.launch {
             _refreshing.value = true

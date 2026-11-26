@@ -139,7 +139,8 @@ class HomeNetworkViewModel @Inject constructor(
             failedAtHome(music, musicSyncer.failures.value).forEach(servers::syncNow)
             val spoken = spokenServers.servers.first().filter { it.enabled }.map { it.serverId to it.baseUrl }
             failedAtHome(spoken, bookSyncer.failures.value).forEach(bookRefresher::refreshServer)
-            val feeds = podcasts.feeds.first()
+            // Paused subscriptions are only synced on their own page.
+            val feeds = podcasts.feeds.first().filter { !it.isPaused }
             val feedFailures = feeds
                 .filter { it.failedRefreshes > 0 && (it.refreshError == FeedError.UNREACHABLE || it.refreshError == null) }
                 .associate { it.id to SyncFailure.Unreachable(null) }

@@ -77,6 +77,9 @@ class DatabaseImporter @Inject constructor(
                 val source = wish.source
                 podcastDao.setEffects(feed.feedId, source.speed, source.skipSilence, source.volumeBoostDb)
                 podcastDao.setSkipIntroOutro(feed.feedId, source.skipIntroS, source.skipOutroS)
+                // Paused in the file: synced once below (otherwise it stayed empty), then only on its own page. Only for one
+                // active in the file: an archived one is never kept up to date there, also an ARD Sounds show that comes back active.
+                if (source.active && !source.keepUpdated) podcastDao.setKeepUpdated(feed.feedId, false)
                 feed
             }
         // Without episodes there is nothing progress could be matched to.

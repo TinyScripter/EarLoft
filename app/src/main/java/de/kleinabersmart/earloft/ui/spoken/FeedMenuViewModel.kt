@@ -81,6 +81,9 @@ class FeedMenuViewModel @Inject constructor(
 
     fun refresh(feedId: String) = refresher.refreshFeed(feedId)
 
+    /** Pauses "Keep up to date" or resumes it (catching up if the last sync is older than the interval). */
+    fun setKeepUpdated(feedId: String, keepUpdated: Boolean) = refresher.setKeepUpdated(feedId, keepUpdated)
+
     fun markAllPlayed(feedId: String) {
         act { podcasts.setAllPlayed(feedId) }
     }

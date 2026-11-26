@@ -36,7 +36,8 @@ import java.io.File
  * 5 archived subscriptions; 6 without cast address per server; 7 OpenID per Audiobookshelf server; 8 episode downloads; 9 favorites
  * of albums and artists; 10 "removed from Continue listening" on progress; 11 speed and effects per subscription and book, speed nullable; 12 saved time per day;
  * 13 episode list and "Continue listening" per subscription; 14 bookmarks; 15 keep ready per subscription; 16 starred episodes; 17 deselected book libraries;
- * 18 books from ARD Sounds; 19 their parts; 20 album year in the keys of songs, albums and the watch selection.
+ * 18 books from ARD Sounds; 19 their parts; 20 album year in the keys of songs, albums and the watch selection; 21 "Keep up to date"
+ * per subscription.
  */
 @Database(
     entities = [
@@ -79,6 +80,7 @@ import java.io.File
         AutoMigration(from = 17, to = 18),
         AutoMigration(from = 18, to = 19),
         AutoMigration(from = 19, to = 20),
+        AutoMigration(from = 20, to = 21),
     ],
 )
 abstract class UserDatabase : RoomDatabase() {
@@ -99,7 +101,7 @@ abstract class UserDatabase : RoomDatabase() {
         const val NAME = "user.db"
 
         /** Schema version; the full backup rejects files of a newer one. */
-        const val VERSION = 20
+        const val VERSION = 21
 
         /**
          * A copy outside the app databases (full backup, `FullBackup`): older versions are migrated when

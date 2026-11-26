@@ -80,6 +80,27 @@ class DatabaseReaderTest {
     }
 
     @Test
+    fun `keep updated is read and on without the column`() {
+        fun write(name: String, withColumn: Boolean) = folder.newFile(name).also { file ->
+            SQLiteDatabase.openOrCreateDatabase(file, null).use { db ->
+                val column = if (withColumn) ", keep_updated INTEGER" else ""
+                db.execSQL("CREATE TABLE Feeds (id INTEGER PRIMARY KEY, title TEXT, custom_title TEXT, download_url TEXT, state INTEGER$column)")
+                db.execSQL("CREATE TABLE FeedItems (id INTEGER PRIMARY KEY, title TEXT, read INTEGER, media INTEGER, feed INTEGER, item_identifier TEXT)")
+                db.execSQL(
+                    "CREATE TABLE FeedMedia (id INTEGER PRIMARY KEY, duration INTEGER, position INTEGER, playback_completion_date INTEGER, " +
+                        "feeditem INTEGER, played_duration INTEGER, last_played_time INTEGER)",
+                )
+                val values = if (withColumn) "(1, 'Paused', NULL, 'https://a.example/feed', 0, 0), (2, 'Kept', NULL, 'https://b.example/feed', 0, 1)"
+                else "(1, 'Old file', NULL, 'https://a.example/feed', 0)"
+                db.execSQL("INSERT INTO Feeds VALUES $values")
+            }
+        }
+
+        assertEquals(listOf(false, true), DatabaseReader.read(write("new.db", withColumn = true)).feeds.map { it.keepUpdated })
+        assertEquals(listOf(true), DatabaseReader.read(write("old.db", withColumn = false)).feeds.map { it.keepUpdated })
+    }
+
+    @Test
     fun `other files are rejected`() {
         val text = folder.newFile("none.db").apply { writeText("this is not a database") }
         val empty = folder.newFile("empty.db")

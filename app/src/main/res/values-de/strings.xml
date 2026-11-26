@@ -1130,6 +1130,13 @@
     <string name="new_at_start_show">Anzeigen</string>
     <string name="podcast_notify_new">Über neue Folgen benachrichtigen</string>
     <string name="podcast_notify_new_summary">Zeigt eine leise Benachrichtigung, wenn eine Aktualisierung im Hintergrund neue Folgen dieses Podcasts findet.</string>
+    <string name="podcast_keep_updated">Abo aktuell halten</string>
+    <string name="podcast_keep_updated_summary">Sucht im Hintergrund, beim Öffnen der App und bei „Podcasts aktualisieren“ nach neuen Folgen. Aus: nur, wenn du diesen Podcast selbst aktualisierst.</string>
+    <string name="podcast_keep_updated_pause">Aktualisierung pausieren</string>
+    <string name="podcast_keep_updated_resume">Aktualisierung fortsetzen</string>
+    <string name="podcast_keep_updated_paused">„%1$s“ pausiert: wird nur noch von Hand aktualisiert</string>
+    <string name="podcast_keep_updated_resumed">„%1$s“ wird wieder aktuell gehalten</string>
+    <string name="podcast_keep_updated_paused_badge">Aktualisierung pausiert</string>
     <string name="podcast_refresh_feed">Podcast aktualisieren</string>
     <string name="feed_menu_play_next">Nächste Folge abspielen</string>
     <string name="feed_menu_queue_next">Nächste Folge in Warteschlange</string>

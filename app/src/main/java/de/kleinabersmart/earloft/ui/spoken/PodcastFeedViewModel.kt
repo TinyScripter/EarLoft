@@ -207,6 +207,9 @@ class PodcastFeedViewModel @AssistedInject constructor(
         viewModelScope.launch { podcasts.setNotifyNew(feedId, enabled) }
     }
 
+    /** "Keep up to date"; switched back on, the subscription catches up if its last sync is older than the interval. */
+    fun setKeepUpdated(enabled: Boolean) = refresher.setKeepUpdated(feedId, enabled)
+
     /** The area's default, for "Default (…)" in the subscription settings. */
     val areaEffects: StateFlow<SpokenEffects> = spokenSettings.podcastEffects
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SpokenEffects.DEFAULT)

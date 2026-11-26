@@ -308,12 +308,23 @@ data class PodcastFeed(
     /** Page for supporting the podcast (`podcast:funding`) and its text from the feed (may be empty). */
     val fundingUrl: String? = null,
     val fundingLabel: String = "",
+    /**
+     * "Keep up to date": `false` = paused, only syncing the subscription on its own page looks for new episodes
+     * (no periodic job, no check on opening the app, not part of "Sync all").
+     */
+    val keepUpdated: Boolean = true,
 ) {
     /** From the "Podcasts" folder: no feed URL, no sync, no download, no subscription to end. */
     val isLocal: Boolean get() = id.startsWith(LOCAL_PODCAST_PREFIX)
 
-    /** If the sync has been failing for [FEED_PROBLEM_AFTER] attempts, the app shows it (concept 12.10). */
-    val hasProblem: Boolean get() = failedRefreshes >= FEED_PROBLEM_AFTER
+    /** Paused: not synced along with the others ([keepUpdated] off); podcasts from the device have nothing to pause. */
+    val isPaused: Boolean get() = !keepUpdated && !isLocal
+
+    /**
+     * If the sync has been failing for [FEED_PROBLEM_AFTER] attempts, the app shows it (concept 12.10). Not for a paused
+     * subscription: nothing syncs it on its own, so an old streak would stay forever.
+     */
+    val hasProblem: Boolean get() = !isPaused && failedRefreshes >= FEED_PROBLEM_AFTER
 }
 
 /** From this many consecutive failed syncs on, a subscription counts as broken; a single failure is normal. */

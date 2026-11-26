@@ -17,6 +17,7 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -84,7 +85,14 @@ class DatabaseExporterTest {
         // The archived subscription (the test feed delivers the same two episodes) with its listening time without an episode in the app.
         assertEquals(DatabaseExportResult(feeds = 2, episodes = 6), result)
         val read = DatabaseReader.read(file)
-        assertEquals(listOf(ImportFeed(FEED_URL, "Test-Podcast", true, volumeBoostDb = 0), ImportFeed(OLD_URL, "Test-Podcast", false, volumeBoostDb = 0)), read.feeds.sortedBy { !it.active })
+        assertEquals(
+            listOf(
+                ImportFeed(FEED_URL, "Test-Podcast", true, volumeBoostDb = 0),
+                // An archived subscription is never kept up to date.
+                ImportFeed(OLD_URL, "Test-Podcast", false, volumeBoostDb = 0, keepUpdated = false),
+            ),
+            read.feeds.sortedBy { !it.active },
+        )
         // Only what has progress or listening time is read.
         assertEquals(listOf("old-1"), read.episodes.filter { it.feedUrl == OLD_URL }.map { it.guid })
         val byGuid = read.episodes.filter { it.feedUrl != OLD_URL }.associateBy { it.guid }
@@ -100,6 +108,24 @@ class DatabaseExporterTest {
             assertEquals(130_000, listenedMs)
         }
         assertEquals(60_000, byGuid.getValue("guid-gone").listenedMs)
+    }
+
+    @Test
+    fun `a paused subscription goes out with keep updated off and comes back paused`() = runTest {
+        val feedId = db.podcastDao().feedByUrl(FEED_URL)!!.feedId
+        db.podcastDao().setKeepUpdated(feedId, false)
+        val file = folder.newFile("paused.db")
+        exporter.export(file, rssBridge = null)
+
+        val read = DatabaseReader.read(file)
+        assertEquals(false, read.feeds.single { it.url == FEED_URL }.keepUpdated)
+
+        db.clearAllTables()
+        importer.import(read)
+        val imported = db.podcastDao().feedByUrl(FEED_URL)!!
+        assertEquals(false, imported.keepUpdated)
+        // Synced once anyway, otherwise it would stay empty.
+        assertTrue(db.bookDao().booksOf(imported.feedId).isNotEmpty())
     }
 
     @Test
@@ -144,10 +170,15 @@ class DatabaseExporterTest {
 
         exporter.export(file, rssBridge = null)
 
-        assertEquals(ImportFeed(ARD_URL, "Kalk & Welk", active = false, volumeBoostDb = 0), DatabaseReader.read(file).feeds.single { it.url == ARD_URL })
+        assertEquals(
+            ImportFeed(ARD_URL, "Kalk & Welk", active = false, volumeBoostDb = 0, keepUpdated = false),
+            DatabaseReader.read(file).feeds.single { it.url == ARD_URL },
+        )
         db.clearAllTables()
         importer.import(DatabaseReader.read(file))
         assertEquals(false, db.podcastDao().feedByUrl(ARD_URL)!!.archived)
+        // Coming back active, it is kept up to date like any subscription.
+        assertEquals(true, db.podcastDao().feedByUrl(ARD_URL)!!.keepUpdated)
     }
 
     @Test

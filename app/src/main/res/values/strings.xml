@@ -1140,6 +1140,13 @@
     <string name="new_at_start_show">Show</string>
     <string name="podcast_notify_new">Notify about new episodes</string>
     <string name="podcast_notify_new_summary">Shows a quiet notification when a background update finds new episodes of this podcast.</string>
+    <string name="podcast_keep_updated">Keep up to date</string>
+    <string name="podcast_keep_updated_summary">Looks for new episodes in the background, when the app opens and with “Refresh podcasts”. Off: only when you refresh this podcast itself.</string>
+    <string name="podcast_keep_updated_pause">Pause updates</string>
+    <string name="podcast_keep_updated_resume">Resume updates</string>
+    <string name="podcast_keep_updated_paused">“%1$s” paused: only updated on request</string>
+    <string name="podcast_keep_updated_resumed">“%1$s” is kept up to date again</string>
+    <string name="podcast_keep_updated_paused_badge">Updates paused</string>
     <string name="podcast_refresh_feed">Refresh podcast</string>
     <string name="feed_menu_play_next">Play next episode</string>
     <string name="feed_menu_queue_next">Add next episode to queue</string>

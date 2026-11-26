@@ -21,6 +21,8 @@ data class ImportFeed(
     val volumeBoostDb: Int? = null,
     val skipIntroS: Int = 0,
     val skipOutroS: Int = 0,
+    /** "Keep up to date" (column `keep_updated`, missing = on). */
+    val keepUpdated: Boolean = true,
 )
 
 /**
@@ -122,6 +124,7 @@ object DatabaseReader {
             column("feed_volume_adaption", ExchangeEffects.VOLUME_UNKNOWN.toString()),
             column("feed_skip_intro", "0"),
             column("feed_skip_ending", "0"),
+            column("keep_updated", "1"),
         ).joinToString()
         return db.rawQuery("SELECT $select FROM Feeds", null).use { c ->
             buildList {
@@ -139,6 +142,7 @@ object DatabaseReader {
                             volumeBoostDb = ExchangeEffects.boostOf(c.getInt(6)),
                             skipIntroS = c.getInt(7).coerceAtLeast(0),
                             skipOutroS = c.getInt(8).coerceAtLeast(0),
+                            keepUpdated = c.getInt(9) != 0,
                         ),
                     )
                 }

@@ -72,6 +72,8 @@ data class UserPodcastEntity(
     @ColumnInfo(defaultValue = "0") val keepEpisodes: Int = 0,
     /** Keep ready per subscription (since version 15), `null` = default. */
     val autoDownloadCount: Int? = null,
+    /** "Keep up to date" (since version 21), `false` = paused. */
+    @ColumnInfo(defaultValue = "1") val keepUpdated: Boolean = true,
 )
 
 /** Listening time per entry (`listening_stats`), via the natural key instead of the running `statId`. */

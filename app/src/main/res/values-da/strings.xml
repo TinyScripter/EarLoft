@@ -1129,6 +1129,13 @@
     <string name="new_at_start_show">Vis</string>
     <string name="podcast_notify_new">Giv besked om nye afsnit</string>
     <string name="podcast_notify_new_summary">Viser en lydløs notifikation, når en opdatering i baggrunden finder nye afsnit af denne podcast.</string>
+    <string name="podcast_keep_updated">Hold abonnementet opdateret</string>
+    <string name="podcast_keep_updated_summary">Søger efter nye afsnit i baggrunden, når appen åbnes, og med »Opdater podcasts«. Fra: kun når du selv opdaterer denne podcast.</string>
+    <string name="podcast_keep_updated_pause">Sæt opdateringer på pause</string>
+    <string name="podcast_keep_updated_resume">Genoptag opdateringer</string>
+    <string name="podcast_keep_updated_paused">»%1$s« sat på pause: opdateres kun på anmodning</string>
+    <string name="podcast_keep_updated_resumed">»%1$s« holdes opdateret igen</string>
+    <string name="podcast_keep_updated_paused_badge">Opdateringer sat på pause</string>
     <string name="podcast_refresh_feed">Opdater podcast</string>
     <string name="feed_menu_play_next">Afspil næste afsnit</string>
     <string name="feed_menu_queue_next">Føj næste afsnit til køen</string>

@@ -1229,6 +1229,13 @@
     <string name="new_at_start_show">Zobrazit</string>
     <string name="podcast_notify_new">Upozorňovat na nové epizody</string>
     <string name="podcast_notify_new_summary">Zobrazí tiché oznámení, když aktualizace na pozadí najde nové epizody tohoto podcastu.</string>
+    <string name="podcast_keep_updated">Udržovat odběr aktuální</string>
+    <string name="podcast_keep_updated_summary">Hledá nové epizody na pozadí, při otevření aplikace a při „Aktualizovat podcasty“. Vypnuto: jen když tento podcast aktualizujete sami.</string>
+    <string name="podcast_keep_updated_pause">Pozastavit aktualizace</string>
+    <string name="podcast_keep_updated_resume">Obnovit aktualizace</string>
+    <string name="podcast_keep_updated_paused">„%1$s“ pozastaveno: aktualizuje se jen na požádání</string>
+    <string name="podcast_keep_updated_resumed">„%1$s“ se znovu udržuje aktuální</string>
+    <string name="podcast_keep_updated_paused_badge">Aktualizace pozastaveny</string>
     <string name="podcast_refresh_feed">Aktualizovat podcast</string>
     <string name="feed_menu_play_next">Přehrát další epizodu</string>
     <string name="feed_menu_queue_next">Přidat další epizodu do fronty</string>

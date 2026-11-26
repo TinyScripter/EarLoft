@@ -1179,6 +1179,13 @@
     <string name="new_at_start_show">Mostra</string>
     <string name="podcast_notify_new">Notifica i nuovi episodi</string>
     <string name="podcast_notify_new_summary">Mostra una notifica silenziosa quando un aggiornamento in background trova nuovi episodi di questo podcast.</string>
+    <string name="podcast_keep_updated">Mantieni aggiornata l’iscrizione</string>
+    <string name="podcast_keep_updated_summary">Cerca nuovi episodi in background, all’apertura dell’app e con “Aggiorna podcast”. Disattivato: solo quando aggiorni tu questo podcast.</string>
+    <string name="podcast_keep_updated_pause">Sospendi aggiornamenti</string>
+    <string name="podcast_keep_updated_resume">Riprendi aggiornamenti</string>
+    <string name="podcast_keep_updated_paused">“%1$s” sospeso: aggiornato solo su richiesta</string>
+    <string name="podcast_keep_updated_resumed">“%1$s” viene di nuovo tenuto aggiornato</string>
+    <string name="podcast_keep_updated_paused_badge">Aggiornamenti sospesi</string>
     <string name="podcast_refresh_feed">Aggiorna podcast</string>
     <string name="feed_menu_play_next">Riproduci episodio successivo</string>
     <string name="feed_menu_queue_next">Aggiungi episodio successivo alla coda</string>

@@ -1129,6 +1129,13 @@
     <string name="new_at_start_show">Tonen</string>
     <string name="podcast_notify_new">Melden bij nieuwe afleveringen</string>
     <string name="podcast_notify_new_summary">Toont een stille melding als een update op de achtergrond nieuwe afleveringen van deze podcast vindt.</string>
+    <string name="podcast_keep_updated">Abonnement bijhouden</string>
+    <string name="podcast_keep_updated_summary">Zoekt op de achtergrond, bij het openen van de app en bij ‘Podcasts vernieuwen’ naar nieuwe afleveringen. Uit: alleen als je deze podcast zelf vernieuwt.</string>
+    <string name="podcast_keep_updated_pause">Vernieuwen pauzeren</string>
+    <string name="podcast_keep_updated_resume">Vernieuwen hervatten</string>
+    <string name="podcast_keep_updated_paused">‘%1$s’ gepauzeerd: wordt alleen op verzoek vernieuwd</string>
+    <string name="podcast_keep_updated_resumed">‘%1$s’ wordt weer bijgehouden</string>
+    <string name="podcast_keep_updated_paused_badge">Vernieuwen gepauzeerd</string>
     <string name="podcast_refresh_feed">Podcast vernieuwen</string>
     <string name="feed_menu_play_next">Volgende aflevering afspelen</string>
     <string name="feed_menu_queue_next">Volgende aflevering aan wachtrij toevoegen</string>

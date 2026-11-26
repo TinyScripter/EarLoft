@@ -317,7 +317,7 @@ fun SpokenServerEntity.toUser() = UserSpokenServerEntity(serverId, name, baseUrl
 fun PodcastFeedEntity.toUser() = UserPodcastEntity(
     feedId, url, title, author, imageUrl, autoDownload, newestFirst, continuous, notifyNew, archived,
     speed, skipSilence, volumeBoostDb, skipIntroS, skipOutroS, episodeFilter, listOldestFirst, queueMode, keepEpisodes,
-    autoDownloadCount,
+    autoDownloadCount, keepUpdated,
 )
 
 fun ListeningStatEntity.toUser() =
@@ -355,7 +355,10 @@ fun UserSpokenServerEntity.toMain() = SpokenServerEntity(
     hiddenLibraries = hiddenLibraries,
 )
 
-/** `lastRefreshAt = 0`: the next time the app is opened, the podcast counts as stale and fetches its episodes. */
+/**
+ * `lastRefreshAt = 0`: the next time the app is opened, the podcast counts as stale and fetches its episodes (a paused one too,
+ * since it was never synced here).
+ */
 fun UserPodcastEntity.toMain() = PodcastFeedEntity(
     feedId = feedId,
     url = url,
@@ -377,6 +380,7 @@ fun UserPodcastEntity.toMain() = PodcastFeedEntity(
     queueMode = queueMode,
     keepEpisodes = keepEpisodes,
     autoDownloadCount = autoDownloadCount,
+    keepUpdated = keepUpdated,
 )
 
 fun UserListeningStatEntity.toMain() = ListeningStatEntity(

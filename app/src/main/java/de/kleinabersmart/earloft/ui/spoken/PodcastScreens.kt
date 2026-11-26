@@ -1,6 +1,10 @@
 package de.kleinabersmart.earloft.ui.spoken
 
 import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Surface
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.text.KeyboardActions
 import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
@@ -274,7 +278,8 @@ fun PodcastHomeScreen(
 
 /**
  * Image and title of a subscription, at the bottom left of the image the number of downloaded episodes ([FeedDownloadBadge]), at the top right
- * that of the new ones ([newEpisodes]); long press opens the [FeedMenu], whose last entry is the settings ([onSettings]).
+ * that of the new ones ([newEpisodes]), at the top left the mark of a paused subscription ([FeedPausedBadge]); long press opens the
+ * [FeedMenu], whose last entry is the settings ([onSettings]).
  */
 @Composable
 fun FeedCard(
@@ -301,6 +306,7 @@ fun FeedCard(
             PodcastArt(feed.imageUrl, Modifier.fillMaxWidth())
             FeedDownloadBadge(feed.id, Modifier.align(Alignment.BottomStart).padding(6.dp))
             NewEpisodesBadge(newEpisodes, Modifier.align(Alignment.TopEnd).padding(6.dp))
+            if (feed.isPaused) FeedPausedBadge(Modifier.align(Alignment.TopStart).padding(6.dp))
         }
         // Always two lines tall, so tiles in a row have equal height.
         Text(
@@ -721,7 +727,10 @@ private const val HEADER_BUTTONS_GONE_AT = 0.25f
 @Composable
 private fun FeedHeaderRow(current: PodcastFeed, fraction: () -> Float, onInfo: () -> Unit, onSettings: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        PodcastArt(current.imageUrl, Modifier.collapsingSquare(HEADER_ART_SIZE, HEADER_ART_SIZE_COMPACT, fraction))
+        Box(Modifier.collapsingSquare(HEADER_ART_SIZE, HEADER_ART_SIZE_COMPACT, fraction)) {
+            PodcastArt(current.imageUrl, Modifier.fillMaxSize())
+            if (current.isPaused) FeedPausedBadge(Modifier.align(Alignment.TopStart).padding(4.dp))
+        }
         // Title and author centered relative to the image height, the buttons flush with the image's bottom edge.
         Box(Modifier.weight(1f).collapsingHeight(HEADER_ART_SIZE, HEADER_ART_SIZE_COMPACT, fraction).padding(start = 16.dp)) {
             Column(Modifier.align(Alignment.Center).fillMaxWidth()) {
@@ -852,6 +861,27 @@ private fun NewEpisodesBadge(count: Int, modifier: Modifier = Modifier) {
 }
 
 private const val MAX_BADGE_COUNT = 99
+
+/**
+ * Mark of a paused subscription ("Keep up to date" off) on its image: a crossed-out sync symbol in a neutral circle, so it
+ * doesn't compete with the colored counters for new and downloaded episodes.
+ */
+@Composable
+internal fun FeedPausedBadge(modifier: Modifier = Modifier) {
+    val description = stringResource(R.string.podcast_keep_updated_paused_badge)
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.9f),
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.clearAndSetSemantics { contentDescription = description },
+    ) {
+        Icon(
+            painterResource(DesignR.drawable.ic_sync_disabled),
+            contentDescription = null,
+            modifier = Modifier.padding(3.dp).size(14.dp),
+        )
+    }
+}
 
 /** Content of the podcast pages while the podcast isn't loaded or no longer exists. */
 @Composable
@@ -1161,6 +1191,15 @@ fun PodcastSettingsScreen(
                 }
             }
             group("podcast-subscription", R.string.podcast_section_subscription) {
+                if (!current.isLocal) row("keep-updated") {
+                    SwitchRow(
+                        title = stringResource(R.string.podcast_keep_updated),
+                        summary = stringResource(R.string.podcast_keep_updated_summary),
+                        icon = DesignR.drawable.ic_sync,
+                        checked = current.keepUpdated,
+                        onCheckedChange = viewModel::setKeepUpdated,
+                    )
+                }
                 if (!current.isLocal) row("notify-new") {
                     SwitchRow(
                         title = stringResource(R.string.podcast_notify_new),

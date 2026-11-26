@@ -127,6 +127,11 @@ data class PodcastFeedEntity(
     val podcastGuid: String? = null,
     val fundingUrl: String? = null,
     val fundingLabel: String? = null,
+    /**
+     * "Keep up to date" (v47): `false` = paused, the periodic job, the check on opening the app and "Sync all" skip the
+     * subscription; only syncing it on its own page fetches it. A subscription that was never synced is fetched anyway.
+     */
+    @ColumnInfo(defaultValue = "1") val keepUpdated: Boolean = true,
 )
 
 @Entity(

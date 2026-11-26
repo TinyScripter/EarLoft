@@ -131,6 +131,10 @@ abstract class PodcastDao {
     @Query("UPDATE podcast_feeds SET continuous = :continuous WHERE feedId = :feedId")
     abstract suspend fun setContinuous(feedId: String, continuous: Boolean)
 
+    /** "Keep up to date" (`false` = paused); see [PodcastFeedEntity.keepUpdated]. */
+    @Query("UPDATE podcast_feeds SET keepUpdated = :keepUpdated WHERE feedId = :feedId")
+    abstract suspend fun setKeepUpdated(feedId: String, keepUpdated: Boolean)
+
     /** Speed and effects for the subscription's episodes; `null` = the section's default. */
     @Query("UPDATE podcast_feeds SET speed = :speed, skipSilence = :skipSilence, volumeBoostDb = :volumeBoostDb WHERE feedId = :feedId")
     abstract suspend fun setEffects(feedId: String, speed: Float?, skipSilence: Boolean?, volumeBoostDb: Int?)

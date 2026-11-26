@@ -45,7 +45,7 @@ internal fun RemoveHeardDownloadsDialog(onConfirm: () -> Unit, onDismiss: () -> 
 
 /**
  * Context menu of a subscription (long press, and ⋮ on its page), built like the one for albums: the title at the top, below it play next episode,
- * add next episode to the queue, refresh, mark all as played (with confirmation), delete downloads of played episodes,
+ * add next episode to the queue, refresh, pause or resume "Keep up to date", mark all as played (with confirmation), delete downloads of played episodes,
  * share and the subscription's settings. "Unsubscribe" is deliberately only in the settings. Podcasts from the device have
  * no feed and no downloads; those entries are missing there. A trial subscription (only its own page has the ⋮) offers
  * subscribing instead of playing the next episode, "mark all as played" and the settings: its progress is tidied away when the
@@ -131,6 +131,22 @@ fun FeedMenu(
                 leadingIcon = { Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = null) },
                 onClick = {
                     viewModel.refresh(feed.id)
+                    onDismiss()
+                },
+            )
+        }
+        // "Keep up to date" as a toggle: what it would do now, depending on the current state.
+        if (!trial && !feed.isLocal) {
+            val paused = feed.isPaused
+            DropdownMenuItem(
+                text = { Text(stringResource(if (paused) R.string.podcast_keep_updated_resume else R.string.podcast_keep_updated_pause)) },
+                leadingIcon = {
+                    Icon(painterResource(if (paused) DesignR.drawable.ic_sync else DesignR.drawable.ic_sync_disabled), contentDescription = null)
+                },
+                onClick = {
+                    viewModel.setKeepUpdated(feed.id, keepUpdated = paused)
+                    val message = if (paused) R.string.podcast_keep_updated_resumed else R.string.podcast_keep_updated_paused
+                    snackbars.show(resources.getString(message, feed.title))
                     onDismiss()
                 },
             )

@@ -1129,6 +1129,13 @@
     <string name="new_at_start_show">Näytä</string>
     <string name="podcast_notify_new">Ilmoita uusista jaksoista</string>
     <string name="podcast_notify_new_summary">Näyttää hiljaisen ilmoituksen, kun taustapäivitys löytää tämän podcastin uusia jaksoja.</string>
+    <string name="podcast_keep_updated">Pidä tilaus ajan tasalla</string>
+    <string name="podcast_keep_updated_summary">Etsii uusia jaksoja taustalla, sovellusta avattaessa ja toiminnolla ”Päivitä podcastit”. Pois: vain kun päivität tämän podcastin itse.</string>
+    <string name="podcast_keep_updated_pause">Keskeytä päivitykset</string>
+    <string name="podcast_keep_updated_resume">Jatka päivityksiä</string>
+    <string name="podcast_keep_updated_paused">”%1$s” keskeytetty: päivitetään vain pyynnöstä</string>
+    <string name="podcast_keep_updated_resumed">”%1$s” pidetään taas ajan tasalla</string>
+    <string name="podcast_keep_updated_paused_badge">Päivitykset keskeytetty</string>
     <string name="podcast_refresh_feed">Päivitä podcast</string>
     <string name="feed_menu_play_next">Toista seuraava jakso</string>
     <string name="feed_menu_queue_next">Lisää seuraava jakso jonoon</string>

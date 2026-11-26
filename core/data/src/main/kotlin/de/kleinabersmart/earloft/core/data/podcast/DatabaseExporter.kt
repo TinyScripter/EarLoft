@@ -73,6 +73,8 @@ class DatabaseExporter @Inject constructor(
         val volumeBoostDb: Int? = null,
         val skipIntroS: Int = 0,
         val skipOutroS: Int = 0,
+        /** "Keep up to date"; an archived subscription is never kept up to date. */
+        val keepUpdated: Boolean = active,
     )
 
     private class OutEpisode(
@@ -102,14 +104,16 @@ class DatabaseExporter @Inject constructor(
         for (feed in podcastDao.keptFeeds().filter { !it.feedId.startsWith(LOCAL_PODCAST_PREFIX) }.sortedBy { it.title.lowercase() }) {
             // No other app can subscribe to `ardsounds:`: as a bridge feed, archived without a bridge (with episodes and progress).
             val bridgeUrl = ardSoundsShowId(feed.url)?.let { show -> rssBridge?.let { ardSoundsBridgeUrl(it, show) } }
+            val active = !feed.archived && (feed.hasRssFeed || bridgeUrl != null)
             val out = OutFeed(
                 bridgeUrl ?: feed.url, feed.title, feed.author, feed.description, feed.imageUrl, feed.autoDownload,
-                active = !feed.archived && (feed.hasRssFeed || bridgeUrl != null),
+                active = active,
                 speed = feed.speed,
                 skipSilence = feed.skipSilence,
                 volumeBoostDb = feed.volumeBoostDb ?: areaBoostDb,
                 skipIntroS = feed.skipIntroS,
                 skipOutroS = feed.skipOutroS,
+                keepUpdated = active && feed.keepUpdated,
             )
             result[feed.url] = out
             for (book in bookDao.booksOf(feed.feedId).filter { it.kind == BookKind.EPISODE }.sortedBy { it.addedAt }) {
@@ -175,7 +179,7 @@ class DatabaseExporter @Inject constructor(
                     put("image_url", feed.imageUrl)
                     put("type", "rss")
                     put("auto_download", if (feed.autoDownload) 1 else 0)
-                    put("keep_updated", if (feed.active) 1 else 0)
+                    put("keep_updated", if (feed.keepUpdated) 1 else 0)
                     put("state", if (feed.active) STATE_ACTIVE else STATE_ARCHIVED)
                     put("feed_playback_speed", ExchangeEffects.speedCode(feed.speed))
                     put("feed_skip_silence", ExchangeEffects.silenceCode(feed.skipSilence))
