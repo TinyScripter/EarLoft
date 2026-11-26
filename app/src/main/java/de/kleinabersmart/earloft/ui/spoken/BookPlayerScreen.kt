@@ -904,6 +904,15 @@ private fun SpeedDialog(
                         )
                     }
                 }
+                // The receiver limits the speed without a word (review4 T12); back on the phone the chosen one applies again.
+                if (remote && shown > CAST_MAX_SPEED) {
+                    Text(
+                        stringResource(R.string.playback_speed_cast_limit),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
                 if (effects != null) {
                     HorizontalDivider(Modifier.padding(vertical = 12.dp))
                     ListItem(
@@ -1145,6 +1154,9 @@ private fun EpisodeDateLine(book: Book?, style: TextStyle) {
 
 private const val MIN_SPEED = 0.5f
 private const val MAX_SPEED = 3f
+
+/** Media3's cast player limits the speed to this. */
+private const val CAST_MAX_SPEED = 2f
 private const val SPEED_STEP = 0.05f
 
 /** Rounds to steps of 0.05 so slider and display match. */

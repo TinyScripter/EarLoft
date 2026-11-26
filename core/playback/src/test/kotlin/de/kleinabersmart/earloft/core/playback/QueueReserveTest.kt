@@ -54,6 +54,16 @@ class QueueReserveTest {
     }
 
     @Test
+    fun `clearBefore drops what lay before the window, also for the next round`() {
+        val reserve = QueueReserve<Int>().apply { reset(before = listOf(0, 1), after = emptyList()) }
+
+        reserve.clearBefore()
+
+        assertEquals(listOf(2) to 0, reserve.complete(listOf(2), windowIndex = 0))
+        assertEquals(false, reserve.nextRound())
+    }
+
+    @Test
     fun `complete puts the window between before and after and moves the index`() {
         val reserve = QueueReserve<Int>().apply { reset(before = listOf(0, 1), after = listOf(5, 6)) }
 

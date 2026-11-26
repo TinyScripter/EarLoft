@@ -345,6 +345,7 @@
     <string name="edit_server_login_keep">Leer lassen, um angemeldet zu bleiben.</string>
     <string name="edit_server_login_required">Nicht angemeldet. Bitte das Passwort eingeben, um dich neu anzumelden.</string>
     <string name="add_server_unreachable">Server nicht erreichbar (%1$s).</string>
+    <string name="add_server_unreachable_plain">Server nicht erreichbar.</string>
     <string name="add_server_server_error">Der Server meldet Fehler %1$d: %2$s</string>
     <string name="add_server_already_set_up">Dieser Server ist schon eingerichtet. Hier lässt er sich ändern.</string>
     <string name="sync_failed_library_changed">Die Bibliothek „%1$s“ hat sich während des Abgleichs auf dem Server geändert. Es wurde nichts entfernt; der nächste Abgleich versucht es erneut.</string>
@@ -652,6 +653,7 @@
     <string name="playback_volume_boost_off">Aus</string>
     <string name="playback_volume_boost_value">+%1$d dB</string>
     <string name="playback_effects_cast">Beim Casten nicht verfügbar.</string>
+    <string name="playback_speed_cast_limit">Beim Casten spielt der Empfänger höchstens 2×.</string>
     <string name="playback_effects_active">Stille gekürzt oder Lautstärke angehoben</string>
     <string name="playback_own_book">Diese Einstellungen gelten nur für dieses Buch.</string>
     <string name="playback_own_episode">Diese Einstellungen gelten nur für diese Folge.</string>
@@ -728,6 +730,7 @@
     <string name="podcast_subscriptions">Abos</string>
     <string name="podcast_add">Podcast hinzufügen</string>
     <string name="podcast_add_url">Feed-Adresse</string>
+    <string name="podcast_share_no_address">Im geteilten Text wurde keine Feed-Adresse gefunden.</string>
     <string name="podcast_add_confirm">Abonnieren</string>
     <string name="podcast_adding">Feed wird gelesen …</string>
     <string name="podcast_add_http_hint">Unverschlüsselte Adresse: Die App versucht zuerst HTTPS. Bietet der Host das nicht, wird der Feed unverschlüsselt geladen – wer im Netz mitliest, sieht, was du hörst, bei privaten Feeds auch den Zugangsschlüssel in der Adresse.</string>

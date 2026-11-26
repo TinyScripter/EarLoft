@@ -111,6 +111,11 @@ internal class CastSessionPlayerFactory @Inject constructor(
     /** Starts the [watchRemoteLoad] check for a queue set during the session. */
     private var watchQueue: (PlayerTransferState) -> Unit = {}
 
+    /** Every handler that posts for the current player; [release] empties them. */
+    private val handlers = mutableListOf<Handler>()
+
+    private fun handlerFor(player: Player): Handler = Handler(player.applicationLooper).also(handlers::add)
+
     override fun create(context: Context, localPlayer: ExoPlayer): Player {
         val remotePlayer = RemoteCastPlayer.Builder(context)
             .setMediaItemConverter(CastMediaItemConverter(cache))
@@ -131,7 +136,12 @@ internal class CastSessionPlayerFactory @Inject constructor(
         keepQueueFilled(player)
         rememberRemoteState(player)
         scope.launch(Dispatchers.Main) { rejoin.select() }
-        return DeferredRemotePlayPlayer(player, onRemoteQueue = { state -> watchQueue(state) }, onClearedToEnd = ::clearPending)
+        return DeferredRemotePlayPlayer(
+            player,
+            onRemoteQueue = { state -> watchQueue(state) },
+            onClearedToEnd = ::clearPending,
+            onClearedBefore = reserve::clearBefore,
+        )
             .also { sessionPlayer = it }
     }
 
@@ -150,6 +160,31 @@ internal class CastSessionPlayerFactory @Inject constructor(
         generation++
         finishRemoval()
         reserve.reset(before, after)
+    }
+
+    /**
+     * The service has ended and released the player: without this the singleton would keep the released cast and ExoPlayer (with the
+     * service as context) and its session listener, and a session started from the system output switcher would run on the dead
+     * player (review4 T13).
+     */
+    override fun release() {
+        sessionListener?.let(Cast.getSingletonInstance(appContext)::removeSessionManagerListener)
+        sessionListener = null
+        handlers.forEach { it.removeCallbacksAndMessages(null) }
+        handlers.clear()
+        refillHandler = null
+        castPlayer = null
+        sessionPlayer = null
+        watchQueue = {}
+        generation++
+        refilling = false
+        awaitedQueue = null
+        removing = null
+        reserve.clear()
+        handOver.state = null
+        handOver.rescue = null
+        handOver.lastRemote = null
+        handOver.phoneShuffle = null
     }
 
     override fun hasPendingItems(): Boolean = reserve.remaining > 0
@@ -177,7 +212,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
     }
 
     private fun keepQueueFilled(player: Player) {
-        refillHandler = Handler(player.applicationLooper)
+        refillHandler = handlerFor(player)
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = refillIfNeeded(player)
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = refillIfNeeded(player)
@@ -210,7 +245,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
      * it has something; the position is then at most that old. At the same time [CastRejoin] learns until when it will keep playing.
      */
     private fun rememberRemoteState(player: Player) {
-        val handler = Handler(player.applicationLooper)
+        val handler = handlerFor(player)
         fun isRemote() = player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
         fun snapshot() {
             if (!isRemote() || player.mediaItemCount == 0) return
@@ -414,7 +449,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
      * take about 9 s on the receiver, and connecting failed because of that.
      */
     private fun watchRemoteLoad(player: Player) {
-        val handler = Handler(player.applicationLooper)
+        val handler = handlerFor(player)
         val queueWatch = RemoteQueueWatch()
         fun isRemote() = player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
         fun itemIds() = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }

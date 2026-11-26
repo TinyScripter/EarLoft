@@ -344,6 +344,7 @@
     <string name="edit_server_login_keep">La feltet stå tomt for å forbli pålogget.</string>
     <string name="edit_server_login_required">Ikke pålogget. Skriv inn passordet for å logge på igjen.</string>
     <string name="add_server_unreachable">Serveren kan ikke nås (%1$s).</string>
+    <string name="add_server_unreachable_plain">Serveren kan ikke nås.</string>
     <string name="add_server_server_error">Serveren melder feil %1$d: %2$s</string>
     <string name="add_server_already_set_up">Denne serveren er allerede satt opp. Her kan du endre den.</string>
     <string name="sync_failed_library_changed">Biblioteket «%1$s» ble endret på serveren under synkroniseringen. Ingenting ble fjernet; neste synkronisering prøver igjen.</string>
@@ -651,6 +652,7 @@
     <string name="playback_volume_boost_off">Av</string>
     <string name="playback_volume_boost_value">+%1$d dB</string>
     <string name="playback_effects_cast">Ikke tilgjengelig under casting.</string>
+    <string name="playback_speed_cast_limit">Under casting spiller mottakeren av med høyst 2×.</string>
     <string name="playback_effects_active">Stillhet forkortet eller volum økt</string>
     <string name="playback_own_book">Disse innstillingene gjelder bare for denne boken.</string>
     <string name="playback_own_episode">Disse innstillingene gjelder bare for denne episoden.</string>
@@ -727,6 +729,7 @@
     <string name="podcast_subscriptions">Abonnementer</string>
     <string name="podcast_add">Legg til podkast</string>
     <string name="podcast_add_url">Feedadresse</string>
+    <string name="podcast_share_no_address">Fant ingen feedadresse i den delte teksten.</string>
     <string name="podcast_add_confirm">Abonner</string>
     <string name="podcast_adding">Leser feeden …</string>
     <string name="podcast_add_http_hint">Ukryptert adresse: Appen prøver HTTPS først. Hvis verten ikke tilbyr det, lastes feeden ukryptert – alle på nettverket kan se hva du lytter til, og for private feeder også tilgangsnøkkelen i adressen.</string>

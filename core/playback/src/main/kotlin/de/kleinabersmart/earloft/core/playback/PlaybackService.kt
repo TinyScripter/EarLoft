@@ -67,6 +67,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -425,9 +426,13 @@ class PlaybackService : MediaLibraryService() {
             if (player.currentMediaItem?.isSpoken == true && sleepTimer.extend()) confirmShake()
         }.also { shakeDetector = it }
         mainScope.launch {
-            combine(sleepTimer.shakeWindow, spokenSettings.shakeToExtend) { window, enabled -> window && enabled }
+            // The kind of the current item counts too: switching from music to a book while the window is open starts the sensor
+            // (review4 T15).
+            combine(sleepTimer.shakeWindow, spokenSettings.shakeToExtend, spokenLoaded(player)) { window, enabled, spoken ->
+                window && enabled && spoken
+            }
                 .distinctUntilChanged()
-                .collect { listen -> if (listen && player.currentMediaItem?.isSpoken == true) detector.start() else detector.stop() }
+                .collect { listen -> if (listen) detector.start() else detector.stop() }
         }
     }
 
@@ -582,6 +587,7 @@ class PlaybackService : MediaLibraryService() {
             if (session.player.currentMediaItem?.isSpoken != true) saveMusicPosition(session.player)
             session.player.release()
             session.release()
+            sessionPlayerFactory.orElse(null)?.release()
         }
         session = null
         notifyObservers(null)
@@ -852,6 +858,22 @@ private suspend fun awaitLocal(player: Player, timeoutMs: Long): Boolean = withT
     }.first { it != DeviceInfo.PLAYBACK_TYPE_REMOTE }
     true
 } ?: false
+
+/** Main thread. Whether a book or episode is the current item of [player], on every change. */
+private fun spokenLoaded(player: Player): Flow<Boolean> = callbackFlow {
+    val listener = object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            trySend(player.currentMediaItem?.isSpoken == true)
+        }
+
+        override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+            trySend(player.currentMediaItem?.isSpoken == true)
+        }
+    }
+    player.addListener(listener)
+    send(player.currentMediaItem?.isSpoken == true)
+    awaitClose { player.removeListener(listener) }
+}.distinctUntilChanged()
 
 /** Folders in the browse tree whose content depends on the last playback. */
 private val CONTENT_FOLDERS = listOf(

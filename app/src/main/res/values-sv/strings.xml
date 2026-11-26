@@ -344,6 +344,7 @@
     <string name="edit_server_login_keep">Lämna tomt för att förbli inloggad.</string>
     <string name="edit_server_login_required">Inte inloggad. Ange lösenordet för att logga in igen.</string>
     <string name="add_server_unreachable">Servern går inte att nå (%1$s).</string>
+    <string name="add_server_unreachable_plain">Servern går inte att nå.</string>
     <string name="add_server_server_error">Servern rapporterar fel %1$d: %2$s</string>
     <string name="add_server_already_set_up">Den här servern är redan konfigurerad. Här kan du ändra den.</string>
     <string name="sync_failed_library_changed">Biblioteket ”%1$s” ändrades på servern under synkroniseringen. Inget har tagits bort, och nästa synkronisering försöker igen.</string>
@@ -651,6 +652,7 @@
     <string name="playback_volume_boost_off">Av</string>
     <string name="playback_volume_boost_value">+%1$d dB</string>
     <string name="playback_effects_cast">Inte tillgängligt vid castning.</string>
+    <string name="playback_speed_cast_limit">Vid castning spelar mottagaren upp med högst 2×.</string>
     <string name="playback_effects_active">Tystnad kortas eller volymen höjs</string>
     <string name="playback_own_book">De här inställningarna gäller bara den här boken.</string>
     <string name="playback_own_episode">De här inställningarna gäller bara det här avsnittet.</string>
@@ -727,6 +729,7 @@
     <string name="podcast_subscriptions">Prenumerationer</string>
     <string name="podcast_add">Lägg till podd</string>
     <string name="podcast_add_url">Flödesadress</string>
+    <string name="podcast_share_no_address">Ingen flödesadress hittades i den delade texten.</string>
     <string name="podcast_add_confirm">Prenumerera</string>
     <string name="podcast_adding">Läser flödet …</string>
     <string name="podcast_add_http_hint">Okrypterad adress: appen försöker först med HTTPS. Om värden inte erbjuder det läses flödet in okrypterat – alla i nätverket kan se vad du lyssnar på och, för privata flöden, åtkomstnyckeln i adressen.</string>

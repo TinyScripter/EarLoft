@@ -380,6 +380,7 @@
     <string name="edit_server_login_keep">Ponechte prázdné, chcete-li zůstat přihlášeni.</string>
     <string name="edit_server_login_required">Nepřihlášeno. Zadejte prosím heslo a přihlaste se znovu.</string>
     <string name="add_server_unreachable">Server není dostupný (%1$s).</string>
+    <string name="add_server_unreachable_plain">Server není dostupný.</string>
     <string name="add_server_server_error">Server hlásí chybu %1$d: %2$s</string>
     <string name="add_server_already_set_up">Tento server je už nastavený. Tady ho můžete změnit.</string>
     <string name="sync_failed_library_changed">Knihovna „%1$s“ se během synchronizace na serveru změnila. Nic nebylo odstraněno; příští synchronizace to zkusí znovu.</string>
@@ -713,6 +714,7 @@
     <string name="playback_volume_boost_off">Vypnuto</string>
     <string name="playback_volume_boost_value">+%1$d dB</string>
     <string name="playback_effects_cast">Při odesílání není k dispozici.</string>
+    <string name="playback_speed_cast_limit">Při odesílání přijímač přehrává nejvýše 2×.</string>
     <string name="playback_effects_active">Ticho zkráceno nebo hlasitost zesílena</string>
     <string name="playback_own_book">Tato nastavení platí jen pro tuto knihu.</string>
     <string name="playback_own_episode">Tato nastavení platí jen pro tuto epizodu.</string>
@@ -789,6 +791,7 @@
     <string name="podcast_subscriptions">Odběry</string>
     <string name="podcast_add">Přidat podcast</string>
     <string name="podcast_add_url">Adresa kanálu</string>
+    <string name="podcast_share_no_address">Ve sdíleném textu nebyla nalezena žádná adresa kanálu.</string>
     <string name="podcast_add_confirm">Odebírat</string>
     <string name="podcast_adding">Načítání kanálu…</string>
     <string name="podcast_add_http_hint">Nešifrovaná adresa: aplikace nejdřív zkusí HTTPS. Pokud ho hostitel nenabízí, kanál se načte nešifrovaně – kdokoli v síti uvidí, co posloucháte, a u soukromých kanálů i přístupový klíč v adrese.</string>

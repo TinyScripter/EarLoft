@@ -432,6 +432,20 @@ internal class BookPlaybackListener(
         if (player.isPlaying) sampleRemoteEnd()
     }
 
+    /**
+     * Back from the cast receiver to the phone: the receiver limits the speed to 2.0 without a word, and the handover carries that
+     * limited speed to the phone. The book's own speed applies again (review4 T12). Afterwards, because the handover sets the
+     * transferred speed only after the device has changed.
+     */
+    override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
+        if (deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) return
+        scope.launch {
+            val bookId = player.currentMediaItem?.bookId ?: return@launch
+            if (bookId != timelineBookId || player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) return@launch
+            currentEffects?.speed?.takeUnless { sameSpeed(it, player.playbackParameters.speed) }?.let(player::setPlaybackSpeed)
+        }
+    }
+
     override fun onPositionDiscontinuity(
         oldPosition: Player.PositionInfo,
         newPosition: Player.PositionInfo,

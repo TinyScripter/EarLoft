@@ -362,6 +362,7 @@
     <string name="edit_server_login_keep">Laissez vide pour rester connecté.</string>
     <string name="edit_server_login_required">Non connecté. Veuillez saisir le mot de passe pour vous reconnecter.</string>
     <string name="add_server_unreachable">Serveur inaccessible (%1$s).</string>
+    <string name="add_server_unreachable_plain">Serveur inaccessible.</string>
     <string name="add_server_server_error">Le serveur signale l’erreur %1$d : %2$s</string>
     <string name="add_server_already_set_up">Ce serveur est déjà configuré. Vous pouvez le modifier ici.</string>
     <string name="sync_failed_library_changed">La bibliothèque « %1$s » a changé sur le serveur pendant la synchronisation. Rien n’a été supprimé ; la prochaine synchronisation réessaiera.</string>
@@ -682,6 +683,7 @@
     <string name="playback_volume_boost_off">Désactivé</string>
     <string name="playback_volume_boost_value">+%1$d dB</string>
     <string name="playback_effects_cast">Indisponible pendant le cast.</string>
+    <string name="playback_speed_cast_limit">Pendant le cast, le récepteur lit au maximum à 2×.</string>
     <string name="playback_effects_active">Silences raccourcis ou volume amplifié</string>
     <string name="playback_own_book">Ces paramètres s’appliquent uniquement à ce livre.</string>
     <string name="playback_own_episode">Ces paramètres s’appliquent uniquement à cet épisode.</string>
@@ -758,6 +760,7 @@
     <string name="podcast_subscriptions">Abonnements</string>
     <string name="podcast_add">Ajouter un podcast</string>
     <string name="podcast_add_url">Adresse du flux</string>
+    <string name="podcast_share_no_address">Aucune adresse de flux trouvée dans le texte partagé.</string>
     <string name="podcast_add_confirm">S’abonner</string>
     <string name="podcast_adding">Lecture du flux…</string>
     <string name="podcast_add_http_hint">Adresse non chiffrée : l’application essaie d’abord HTTPS. Si l’hôte ne le propose pas, le flux est chargé sans chiffrement – n’importe qui sur le réseau peut voir ce que vous écoutez et, pour les flux privés, la clé d’accès contenue dans l’adresse.</string>

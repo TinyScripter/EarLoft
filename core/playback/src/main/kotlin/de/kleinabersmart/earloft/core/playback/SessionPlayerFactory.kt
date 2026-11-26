@@ -43,6 +43,12 @@ interface SessionPlayerFactory {
      * saving it as a playlist; `null` if the player holds the whole queue.
      */
     fun fullQueue(): List<MediaItem>? = null
+
+    /**
+     * Main thread. The service ends and has released the player from [create]: the factory lets go of it and of everything that
+     * still listens for it (review4 T13); the next [create] starts afresh.
+     */
+    fun release() = Unit
 }
 
 /** How many more titles [player] can take ([SessionPlayerFactory.maxQueueSize] minus the existing ones). */

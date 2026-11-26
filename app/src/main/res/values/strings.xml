@@ -354,6 +354,7 @@
     <string name="edit_server_login_keep">Leave empty to stay signed in.</string>
     <string name="edit_server_login_required">Not signed in. Please enter the password to sign in again.</string>
     <string name="add_server_unreachable">Server unreachable (%1$s).</string>
+    <string name="add_server_unreachable_plain">Server unreachable.</string>
     <string name="add_server_server_error">The server reports error %1$d: %2$s</string>
     <string name="add_server_already_set_up">This server is already set up. You can change it here.</string>
     <string name="sync_failed_library_changed">The library “%1$s” changed on the server during the sync. Nothing was removed; the next sync tries again.</string>
@@ -661,6 +662,7 @@
     <string name="playback_volume_boost_off">Off</string>
     <string name="playback_volume_boost_value">+%1$d dB</string>
     <string name="playback_effects_cast">Not available while casting.</string>
+    <string name="playback_speed_cast_limit">While casting, the receiver plays at most 2×.</string>
     <string name="playback_effects_active">Silence shortened or volume boosted</string>
     <string name="playback_own_book">These settings apply to this book only.</string>
     <string name="playback_own_episode">These settings apply to this episode only.</string>
@@ -737,6 +739,7 @@
     <string name="podcast_subscriptions">Subscriptions</string>
     <string name="podcast_add">Add podcast</string>
     <string name="podcast_add_url">Feed address</string>
+    <string name="podcast_share_no_address">No feed address found in the shared text.</string>
     <string name="podcast_add_confirm">Subscribe</string>
     <string name="podcast_adding">Reading feed …</string>
     <string name="podcast_add_http_hint">Unencrypted address: the app tries HTTPS first. If the host doesn’t offer it, the feed is loaded unencrypted – anyone on the network can see what you listen to and, for private feeds, the access key in the address.</string>

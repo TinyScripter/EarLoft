@@ -362,6 +362,7 @@
     <string name="edit_server_login_keep">Déjalo vacío para mantener la sesión iniciada.</string>
     <string name="edit_server_login_required">No has iniciado sesión. Introduce la contraseña para volver a iniciarla.</string>
     <string name="add_server_unreachable">No se puede acceder al servidor (%1$s).</string>
+    <string name="add_server_unreachable_plain">No se puede acceder al servidor.</string>
     <string name="add_server_server_error">El servidor indica el error %1$d: %2$s</string>
     <string name="add_server_already_set_up">Este servidor ya está configurado. Aquí puedes cambiarlo.</string>
     <string name="sync_failed_library_changed">La biblioteca «%1$s» cambió en el servidor durante la sincronización. No se ha eliminado nada; se volverá a intentar en la próxima sincronización.</string>
@@ -682,6 +683,7 @@
     <string name="playback_volume_boost_off">Desactivado</string>
     <string name="playback_volume_boost_value">+%1$d dB</string>
     <string name="playback_effects_cast">No disponible al enviar contenido.</string>
+    <string name="playback_speed_cast_limit">Al enviar contenido, el receptor reproduce como máximo a 2×.</string>
     <string name="playback_effects_active">Silencios acortados o volumen aumentado</string>
     <string name="playback_own_book">Estos ajustes solo se aplican a este libro.</string>
     <string name="playback_own_episode">Estos ajustes solo se aplican a este episodio.</string>
@@ -758,6 +760,7 @@
     <string name="podcast_subscriptions">Suscripciones</string>
     <string name="podcast_add">Añadir podcast</string>
     <string name="podcast_add_url">Dirección del feed</string>
+    <string name="podcast_share_no_address">No se ha encontrado ninguna dirección de feed en el texto compartido.</string>
     <string name="podcast_add_confirm">Suscribirse</string>
     <string name="podcast_adding">Leyendo feed…</string>
     <string name="podcast_add_http_hint">Dirección sin cifrar: la app prueba primero con HTTPS. Si el servidor no lo ofrece, el feed se carga sin cifrar; cualquiera en la red puede ver lo que escuchas y, en los feeds privados, la clave de acceso de la dirección.</string>

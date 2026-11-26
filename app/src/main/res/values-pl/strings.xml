@@ -380,6 +380,7 @@
     <string name="edit_server_login_keep">Zostaw puste, aby pozostać zalogowanym.</string>
     <string name="edit_server_login_required">Nie zalogowano. Wpisz hasło, aby zalogować się ponownie.</string>
     <string name="add_server_unreachable">Serwer jest nieosiągalny (%1$s).</string>
+    <string name="add_server_unreachable_plain">Serwer jest nieosiągalny.</string>
     <string name="add_server_server_error">Serwer zgłasza błąd %1$d: %2$s</string>
     <string name="add_server_already_set_up">Ten serwer jest już skonfigurowany. Tutaj możesz go zmienić.</string>
     <string name="sync_failed_library_changed">Biblioteka „%1$s” zmieniła się na serwerze podczas synchronizacji. Niczego nie usunięto; następna synchronizacja spróbuje ponownie.</string>
@@ -713,6 +714,7 @@
     <string name="playback_volume_boost_off">Wyłączone</string>
     <string name="playback_volume_boost_value">+%1$d dB</string>
     <string name="playback_effects_cast">Niedostępne podczas przesyłania.</string>
+    <string name="playback_speed_cast_limit">Podczas przesyłania odbiornik odtwarza z prędkością najwyżej 2×.</string>
     <string name="playback_effects_active">Cisza skrócona lub głośność wzmocniona</string>
     <string name="playback_own_book">Te ustawienia dotyczą tylko tej książki.</string>
     <string name="playback_own_episode">Te ustawienia dotyczą tylko tego odcinka.</string>
@@ -789,6 +791,7 @@
     <string name="podcast_subscriptions">Subskrypcje</string>
     <string name="podcast_add">Dodaj podcast</string>
     <string name="podcast_add_url">Adres kanału</string>
+    <string name="podcast_share_no_address">W udostępnionym tekście nie znaleziono adresu kanału.</string>
     <string name="podcast_add_confirm">Subskrybuj</string>
     <string name="podcast_adding">Odczytywanie kanału…</string>
     <string name="podcast_add_http_hint">Adres nieszyfrowany: aplikacja najpierw próbuje HTTPS. Jeśli serwer go nie oferuje, kanał jest wczytywany bez szyfrowania – każdy w sieci może zobaczyć, czego słuchasz, a w przypadku prywatnych kanałów także klucz dostępu w adresie.</string>

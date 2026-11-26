@@ -59,6 +59,17 @@ class QueueReserve<T>(private val keyOf: (T) -> Any? = { it }) {
     /** Whatever still was to be handed over is dropped; what lay before the window stays. */
     fun clearAfter() = after.clear()
 
+    /**
+     * Everything before the current title was removed ("clear queue" while casting): what lay before the window and what was played
+     * and taken out of the player is dropped too, otherwise [complete] and [nextRound] would bring it back (review4 T10).
+     */
+    fun clearBefore() {
+        before = emptyList()
+        listStart = null
+        rotated = false
+        rotatedBy = 0
+    }
+
     /** Played titles removed from the player to make room: they belong after the existing [before]. */
     fun keepBefore(items: List<T>) {
         before = before + items

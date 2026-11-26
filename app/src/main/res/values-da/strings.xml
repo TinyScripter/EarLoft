@@ -344,6 +344,7 @@
     <string name="edit_server_login_keep">Lad feltet være tomt for at forblive logget ind.</string>
     <string name="edit_server_login_required">Ikke logget ind. Angiv adgangskoden for at logge ind igen.</string>
     <string name="add_server_unreachable">Serveren kan ikke nås (%1$s).</string>
+    <string name="add_server_unreachable_plain">Serveren kan ikke nås.</string>
     <string name="add_server_server_error">Serveren rapporterer fejl %1$d: %2$s</string>
     <string name="add_server_already_set_up">Denne server er allerede sat op. Her kan du ændre den.</string>
     <string name="sync_failed_library_changed">Biblioteket »%1$s« blev ændret på serveren under synkroniseringen. Intet blev fjernet; næste synkronisering prøver igen.</string>
@@ -651,6 +652,7 @@
     <string name="playback_volume_boost_off">Fra</string>
     <string name="playback_volume_boost_value">+%1$d dB</string>
     <string name="playback_effects_cast">Ikke tilgængelig under casting.</string>
+    <string name="playback_speed_cast_limit">Under casting afspiller modtageren højst 2×.</string>
     <string name="playback_effects_active">Stilhed forkortet eller lydstyrke forstærket</string>
     <string name="playback_own_book">Disse indstillinger gælder kun for denne bog.</string>
     <string name="playback_own_episode">Disse indstillinger gælder kun for dette afsnit.</string>
@@ -727,6 +729,7 @@
     <string name="podcast_subscriptions">Abonnementer</string>
     <string name="podcast_add">Tilføj podcast</string>
     <string name="podcast_add_url">Feedadresse</string>
+    <string name="podcast_share_no_address">Der blev ikke fundet nogen feedadresse i den delte tekst.</string>
     <string name="podcast_add_confirm">Abonner</string>
     <string name="podcast_adding">Læser feed …</string>
     <string name="podcast_add_http_hint">Ukrypteret adresse: Appen prøver først med HTTPS. Hvis værten ikke tilbyder det, indlæses feedet ukrypteret – alle på netværket kan se, hvad du lytter til, og ved private feeds også adgangsnøglen i adressen.</string>

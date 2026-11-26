@@ -362,6 +362,7 @@
     <string name="edit_server_login_keep">Deixe em branco para manter a sessão iniciada.</string>
     <string name="edit_server_login_required">Sessão não iniciada. Introduza a palavra-passe para iniciar sessão novamente.</string>
     <string name="add_server_unreachable">Servidor inacessível (%1$s).</string>
+    <string name="add_server_unreachable_plain">Servidor inacessível.</string>
     <string name="add_server_server_error">O servidor comunica o erro %1$d: %2$s</string>
     <string name="add_server_already_set_up">Este servidor já está configurado. Pode alterá-lo aqui.</string>
     <string name="sync_failed_library_changed">A biblioteca «%1$s» foi alterada no servidor durante a sincronização. Nada foi removido; a próxima sincronização tenta novamente.</string>
@@ -682,6 +683,7 @@
     <string name="playback_volume_boost_off">Desativado</string>
     <string name="playback_volume_boost_value">+%1$d dB</string>
     <string name="playback_effects_cast">Não disponível durante a transmissão.</string>
+    <string name="playback_speed_cast_limit">Durante a transmissão, o recetor reproduz no máximo a 2×.</string>
     <string name="playback_effects_active">Silêncios encurtados ou volume aumentado</string>
     <string name="playback_own_book">Estas definições aplicam-se apenas a este livro.</string>
     <string name="playback_own_episode">Estas definições aplicam-se apenas a este episódio.</string>
@@ -758,6 +760,7 @@
     <string name="podcast_subscriptions">Subscrições</string>
     <string name="podcast_add">Adicionar podcast</string>
     <string name="podcast_add_url">Endereço do feed</string>
+    <string name="podcast_share_no_address">Nenhum endereço de feed encontrado no texto partilhado.</string>
     <string name="podcast_add_confirm">Subscrever</string>
     <string name="podcast_adding">A ler o feed…</string>
     <string name="podcast_add_http_hint">Endereço não encriptado: a app tenta primeiro HTTPS. Se o anfitrião não o oferecer, o feed é carregado sem encriptação – qualquer pessoa na rede pode ver o que ouve e, nos feeds privados, a chave de acesso incluída no endereço.</string>

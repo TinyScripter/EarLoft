@@ -344,6 +344,7 @@
     <string name="edit_server_login_keep">Jätä tyhjäksi, niin pysyt kirjautuneena.</string>
     <string name="edit_server_login_required">Et ole kirjautunut. Kirjaudu uudelleen antamalla salasana.</string>
     <string name="add_server_unreachable">Palvelimeen ei saada yhteyttä (%1$s).</string>
+    <string name="add_server_unreachable_plain">Palvelimeen ei saada yhteyttä.</string>
     <string name="add_server_server_error">Palvelin ilmoittaa virheen %1$d: %2$s</string>
     <string name="add_server_already_set_up">Tämä palvelin on jo määritetty. Voit muuttaa sitä tässä.</string>
     <string name="sync_failed_library_changed">Kirjasto ”%1$s” muuttui palvelimella synkronoinnin aikana. Mitään ei poistettu; seuraava synkronointi yrittää uudelleen.</string>
@@ -651,6 +652,7 @@
     <string name="playback_volume_boost_off">Pois</string>
     <string name="playback_volume_boost_value">+%1$d dB</string>
     <string name="playback_effects_cast">Ei käytettävissä Cast-toiston aikana.</string>
+    <string name="playback_speed_cast_limit">Cast-toiston aikana vastaanotin toistaa enintään 2×.</string>
     <string name="playback_effects_active">Hiljaisuuksia lyhennetty tai äänenvoimakkuutta vahvistettu</string>
     <string name="playback_own_book">Nämä asetukset koskevat vain tätä kirjaa.</string>
     <string name="playback_own_episode">Nämä asetukset koskevat vain tätä jaksoa.</string>
@@ -727,6 +729,7 @@
     <string name="podcast_subscriptions">Tilaukset</string>
     <string name="podcast_add">Lisää podcast</string>
     <string name="podcast_add_url">Syötteen osoite</string>
+    <string name="podcast_share_no_address">Jaetusta tekstistä ei löytynyt syötteen osoitetta.</string>
     <string name="podcast_add_confirm">Tilaa</string>
     <string name="podcast_adding">Luetaan syötettä…</string>
     <string name="podcast_add_http_hint">Salaamaton osoite: sovellus yrittää ensin HTTPS-yhteyttä. Jos palvelin ei tarjoa sitä, syöte ladataan salaamattomana – kuka tahansa verkossa näkee, mitä kuuntelet, ja yksityisissä syötteissä myös osoitteeseen sisältyvän käyttöavaimen.</string>

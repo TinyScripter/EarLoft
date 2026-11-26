@@ -135,6 +135,8 @@ class DeferredRemotePlayPlayerTest {
             return Futures.immediateVoidFuture()
         }
 
+        override fun handleRemoveMediaItems(fromIndex: Int, toIndex: Int): ListenableFuture<*> = Futures.immediateVoidFuture()
+
         fun dropFirst(count: Int) {
             ids = ids.drop(count)
             current -= count
@@ -158,6 +160,22 @@ class DeferredRemotePlayPlayerTest {
         player.releaseSeeks()
         shadowOf(Looper.getMainLooper()).idle()
         assertEquals("\"e\" is now at index 2", listOf(2), fake.seeks)
+    }
+
+    @Test
+    fun `removing everything before the current item while casting drops what lay before the window`() {
+        val fake = PlaylistPlayer()
+        var clearedBefore = 0
+        var clearedToEnd = 0
+        val player = DeferredRemotePlayPlayer(fake, onClearedToEnd = { clearedToEnd++ }, onClearedBefore = { clearedBefore++ })
+        player.currentMediaItemIndex
+
+        player.removeMediaItems(0, 1)
+        assertEquals("A single item at the front is no clearing", 0, clearedBefore)
+
+        player.removeMediaItems(0, 3)
+        assertEquals(1, clearedBefore)
+        assertEquals(0, clearedToEnd)
     }
 
     @Test

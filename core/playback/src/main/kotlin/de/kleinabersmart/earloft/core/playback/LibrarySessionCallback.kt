@@ -320,6 +320,9 @@ internal class LibrarySessionCallback(
             spokenId != null -> return@future startSpoken(player, spokenId)
             voiceQuery != null -> when (val target = voiceTarget(player, voiceQuery)) {
                 is VoiceStart.Ready -> return@future target.items
+                is VoiceStart.Restored -> return@future target.restored.let {
+                    windowed(player, it.items, it.startIndex, it.startPositionMs, it.shuffle)
+                }
                 is VoiceStart.Spoken -> return@future startSpoken(player, target.bookId)
                 // Nothing found (unknown name, podcast without episodes, empty library): keep what is playing instead of
                 // replacing it with an empty queue (review G10).
@@ -335,14 +338,30 @@ internal class LibrarySessionCallback(
         }
         val items = resolved.map { it.second }
         val start = queueStart(resolved.map { it.first }, requestedStart, startPositionMs)
+        windowed(player, items, start.index, start.positionMs, player.shuffleModeEnabled)
+    }
+
+    /**
+     * A new queue for [player]: if it is longer than the player allows (cast: 50 titles, one message to the receiver), a window
+     * containing the start title ([queueWindow]); the factory hands over the rest later ([SessionPlayerFactory.onQueueReplaced]).
+     * Every new queue goes through here: a book with 120 files or a restored music queue in one message would be discarded by
+     * the receiver (review4 T11).
+     */
+    private fun windowed(
+        player: Player,
+        items: List<MediaItem>,
+        startIndex: Int,
+        startPositionMs: Long,
+        shuffle: Boolean,
+    ): MediaItemsWithStartPosition {
         val maxSize = maxQueueSize(player)
         if (items.size <= maxSize) {
             playerFactory?.onQueueReplaced(emptyList(), emptyList())
-            return@future MediaItemsWithStartPosition(items, start.index, start.positionMs)
+            return MediaItemsWithStartPosition(items, startIndex, startPositionMs)
         }
-        val window = queueWindow(items, start.index.takeIf { it != C.INDEX_UNSET } ?: 0, maxSize, player.shuffleModeEnabled)
+        val window = queueWindow(items, startIndex.takeIf { it != C.INDEX_UNSET } ?: 0, maxSize, shuffle)
         playerFactory?.onQueueReplaced(window.before, window.after)
-        MediaItemsWithStartPosition(window.items, window.startIndex, start.positionMs)
+        return MediaItemsWithStartPosition(window.items, window.startIndex, startPositionMs)
     }
 
     /**
@@ -360,8 +379,11 @@ internal class LibrarySessionCallback(
 
     /** How the session starts on "Play …". */
     private sealed interface VoiceStart {
-        /** Ready-made queue (resume). */
+        /** What is in the player already (resume); with cast only its window, the rest stays in the factory's reserve. */
         class Ready(val items: MediaItemsWithStartPosition) : VoiceStart
+
+        /** The saved music queue (resume). */
+        class Restored(val restored: RestoredQueue) : VoiceStart
         class Spoken(val bookId: Long) : VoiceStart
         class Songs(val songs: List<Song>) : VoiceStart
     }
@@ -383,7 +405,7 @@ internal class LibrarySessionCallback(
             queuePersistence.restore()?.let { restored ->
                 player.shuffleModeEnabled = restored.shuffle
                 player.repeatMode = restored.repeatMode
-                return VoiceStart.Ready(MediaItemsWithStartPosition(restored.items, restored.startIndex, restored.startPositionMs))
+                return VoiceStart.Restored(restored)
             }
         }
         return browseTree.voiceWithoutQuery().toVoiceStart()
@@ -405,11 +427,10 @@ internal class LibrarySessionCallback(
         val prepared = withContext(Dispatchers.IO) { bookPlaybackSource.prepare(bookId) }
             ?: throw UnsupportedOperationException("Book $bookId not playable")
         val start = prepared.timeline.locate(prepared.startPositionMs)
-        playerFactory?.onQueueReplaced(emptyList(), emptyList())
         // Shuffle and repeat go off only once the book is in the player (PlaybackService): here the music is still loaded, and
-        // switching them off now would be saved as the music's modes.
+        // switching them off now would be saved as the music's modes. The window is in book order regardless.
         player.setPlaybackSpeed(prepared.speed)
-        return MediaItemsWithStartPosition(prepared.toMediaItems(), start.trackIndex, start.offsetMs)
+        return windowed(player, prepared.toMediaItems(), start.trackIndex, start.offsetMs, shuffle = false)
     }
 
     private fun maxQueueSize(player: Player): Int = playerFactory?.maxQueueSize(player) ?: Int.MAX_VALUE
@@ -473,7 +494,7 @@ internal class LibrarySessionCallback(
                 mediaSession.player.shuffleModeEnabled = false
                 mediaSession.player.repeatMode = Player.REPEAT_MODE_OFF
                 mediaSession.player.setPlaybackSpeed(prepared.speed)
-                return@future MediaItemsWithStartPosition(items, start.trackIndex, start.offsetMs)
+                return@future windowed(mediaSession.player, items, start.trackIndex, start.offsetMs, shuffle = false)
             }
         }
         if (SpokenMode.MUSIC !in areas) throw UnsupportedOperationException("Music is turned off")
@@ -490,7 +511,7 @@ internal class LibrarySessionCallback(
         }
         mediaSession.player.shuffleModeEnabled = restored.shuffle
         mediaSession.player.repeatMode = restored.repeatMode
-        MediaItemsWithStartPosition(restored.items, restored.startIndex, restored.startPositionMs)
+        windowed(mediaSession.player, restored.items, restored.startIndex, restored.startPositionMs, restored.shuffle)
     }
 
     private companion object {

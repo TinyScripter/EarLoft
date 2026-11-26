@@ -25,7 +25,8 @@ import androidx.media3.common.util.UnstableApi
  *
  * Every new queue that goes out while casting is reported via [onRemoteQueue] (as the state for the phone in case the
  * receiver can't load it). If someone removes everything up to the end while casting (mix "play next"), that is reported via
- * [onClearedToEnd]: whatever is still in the factory's reserve then counts as removed too.
+ * [onClearedToEnd]: whatever is still in the factory's reserve then counts as removed too. Likewise, removing everything before the
+ * current title ("clear queue") is reported via [onClearedBefore]: what lay before the window counts as removed (review4 T10).
  *
  * Seeks can be held back briefly ([holdSeeks]) while the factory removes played titles before the current one from the
  * receiver: `RemoteCastPlayer` works with a seek's index until it is confirmed, and if the receiver reports
@@ -37,6 +38,7 @@ internal class DeferredRemotePlayPlayer(
     player: Player,
     private val onRemoteQueue: (PlayerTransferState) -> Unit = {},
     private val onClearedToEnd: () -> Unit = {},
+    private val onClearedBefore: () -> Unit = {},
 ) : ForwardingPlayer(player) {
 
     private val handler = Handler(player.applicationLooper)
@@ -99,7 +101,10 @@ internal class DeferredRemotePlayPlayer(
     }
 
     override fun removeMediaItems(fromIndex: Int, toIndex: Int) {
-        if (deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE && toIndex >= mediaItemCount) onClearedToEnd()
+        if (deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) {
+            if (toIndex >= mediaItemCount) onClearedToEnd()
+            if (fromIndex == 0 && toIndex > 0 && toIndex == currentMediaItemIndex) onClearedBefore()
+        }
         super.removeMediaItems(fromIndex, toIndex)
     }
 
