@@ -25,6 +25,7 @@ import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.LOCAL_BOOK_SERVER_ID
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
 import de.kleinabersmart.earloft.core.model.SourceType
+import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -273,6 +274,9 @@ class UserDataBackupTest {
         val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         try {
             newDevice.podcastDao().upsertFeed(PodcastFeedEntity("trial", "https://example.org/feed", "Logbook", subscribed = false))
+            // The trial already has its episodes: the automation must not take them before the backed-up progress is applied.
+            val episode = book(newDevice, "trial", "guid-x")
+            newDevice.bookDao().replaceDetails(episode, listOf(BookTrackEntity(episode, 0, "https://example.org/x.mp3", 0, 1_000_000)), emptyList())
 
             backupFor(newDevice).restore(UserDataSnapshot.ofUser(
                 user.userDataDao().servers(),
@@ -286,6 +290,7 @@ class UserDataBackupTest {
             assertTrue(feed.subscribed)
             assertTrue("Automatic download from the backup", feed.autoDownload)
             assertNull(newDevice.podcastDao().feed("feed-1"))
+            assertEquals(TrackDownload.REMOVED, newDevice.bookDao().tracks(episode).single().downloadState)
         } finally {
             newDevice.close()
         }

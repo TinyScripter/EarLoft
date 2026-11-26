@@ -251,12 +251,18 @@ class UserDataBackup @Inject constructor(
     /**
      * A backed-up subscription that is a trial subscription here (preview open, episode in the queue) becomes a real one, with the
      * backed-up automatic download. Otherwise the backup would be matched to the trial by its address, nothing would be created, and the
-     * progress would land on the trial, which the cleaner deletes later (review4 T23). @return how many.
+     * progress would land on the trial, which the cleaner deletes later (review4 T23). Its episodes are already there: as for a restored
+     * subscription, the automation skips them, otherwise it could download played ones before the backed-up progress arrives; only
+     * what was downloaded on the old device comes back (8.6 Y13). In one transaction with the subscribing, so the automation never sees
+     * the subscription without it. @return how many.
      */
     private suspend fun subscribeTrials(saved: UserDataSnapshot): Int = saved.podcasts.values.count { podcast ->
         val local = podcastDao.feed(podcast.feedId) ?: podcastDao.feedByUrl(podcast.url)
         if (local == null || local.subscribed) return@count false
-        podcastDao.subscribeTrial(local.feedId, podcast.autoDownload)
+        database.withTransaction {
+            podcastDao.excludeAllFromAutomatic(local.feedId)
+            podcastDao.subscribeTrial(local.feedId, podcast.autoDownload)
+        }
         true
     }
 
