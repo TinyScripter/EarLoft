@@ -104,7 +104,7 @@ class PhoneLibrarySync @Inject internal constructor(
             readOrNull("Episodes") { WearCodec.decodeCompressed<WearPodcastManifest>(podcasts) }
                 ?.let { episodeQueue.setOrder(podcastMirror.apply(it)) }
         }
-        planner.plan(replaceSchedule = settingsChanged || phoneBack)
+        planner.plan(replaceSchedule = phoneBack, restart = settingsChanged)
         // A DataItem whose asset was not readable (yet) (phone out of range, transfer running) does not count as
         // applied; otherwise it would only come with the next change on the phone.
         if ((manifestHash == null || manifest != null) && (podcastsHash == null || podcasts != null)) {

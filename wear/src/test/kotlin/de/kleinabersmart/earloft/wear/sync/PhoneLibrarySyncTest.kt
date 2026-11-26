@@ -279,21 +279,22 @@ class PhoneLibrarySyncTest {
     }
 
     @Test
-    fun `changed settings and a returning phone replace the download schedule`() = runTest {
+    fun `changed settings restart and a returning phone replaces the download schedule`() = runTest {
         publish()
         sync.sync()
         sync.sync()
         assertEquals("nothing new: the waiting job stays", listOf(REPLACE, RESUME), scheduler.calls)
 
+        // Changed settings also restart a running job, which would load the rest under the old ones (review4 8.6 Y3).
         phoneData.publish(WearPaths.SETTINGS, WearCodec.encode(WearSettingsDto(requireCharging = false)))
         sync.sync()
-        assertEquals(listOf(REPLACE, RESUME, REPLACE), scheduler.calls)
+        assertEquals(listOf(REPLACE, RESUME, RESTART), scheduler.calls)
         assertFalse(state.settings.value.requireCharging)
 
         // The job waited for the charger because the phone was missing; now it is back.
         state.waitingForPhone = true
         sync.sync()
-        assertEquals(listOf(REPLACE, RESUME, REPLACE, REPLACE), scheduler.calls)
+        assertEquals(listOf(REPLACE, RESUME, RESTART, REPLACE), scheduler.calls)
         assertFalse(state.waitingForPhone)
         assertEquals(1, phone.returnWithdrawn)
 
@@ -364,6 +365,10 @@ class PhoneLibrarySyncTest {
         override suspend fun resume() {
             calls += RESUME
         }
+
+        override suspend fun restart() {
+            calls += RESTART
+        }
     }
 
     private object NoSyncScheduler : SyncScheduler {
@@ -384,6 +389,7 @@ class PhoneLibrarySyncTest {
     private companion object {
         const val NODE = "phone-1"
         const val REPLACE = "replace"
+        const val RESTART = "restart"
         const val RESUME = "resume"
     }
 }

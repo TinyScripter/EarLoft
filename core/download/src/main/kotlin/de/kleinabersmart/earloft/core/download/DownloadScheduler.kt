@@ -18,7 +18,8 @@ interface DownloadScheduler {
     /**
      * A running worker picks up newly enqueued downloads itself; the appended job covers
      * the case that it is just finishing. With [replace] a waiting job is replaced, e.g.
-     * after changing the Wi-Fi setting (a running one is cancelled and restarted).
+     * after changing the Wi-Fi setting (on the phone a running one is cancelled and restarted as well, the watch keeps it; see
+     * [restart]).
      */
     suspend fun enqueue(replace: Boolean = false)
 
@@ -27,6 +28,12 @@ interface DownloadScheduler {
      * [enqueue] would otherwise append a second one, which then starts with an empty queue.
      */
     suspend fun resume() = enqueue()
+
+    /**
+     * After a change of a setting the job depends on (quality, charger): a waiting and a running job start over, so the rest
+     * is not loaded under the old setting. Unlike [enqueue], where a scheduler may keep a running job.
+     */
+    suspend fun restart() = enqueue(replace = true)
 }
 
 /**

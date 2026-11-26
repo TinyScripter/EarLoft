@@ -48,6 +48,16 @@ class WearDownloadScheduler @Inject constructor(
         )
     }
 
+    /**
+     * Also replaces a running job: it reads the quality once and keeps the charger constraint it was started with, so after a change
+     * on the phone it would load the rest of its queue under the old setting (review4 8.6 Y3).
+     */
+    override suspend fun restart() {
+        state.clearRetries()
+        state.setJobOnCharger(false)
+        enqueue(requireCharging = state.settings.value.requireCharging, policy = ExistingWorkPolicy.REPLACE)
+    }
+
     private suspend fun isRunning(): Boolean =
         WorkManager.getInstance(context).getWorkInfosForUniqueWork(WORK_NAME).await().any { it.state == WorkInfo.State.RUNNING }
 

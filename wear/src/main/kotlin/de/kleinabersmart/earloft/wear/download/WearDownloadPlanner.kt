@@ -52,8 +52,11 @@ class WearDownloadPlanner @Inject constructor(
 ) {
     private val mutex = Mutex()
 
-    /** @param replaceSchedule replaces a waiting job, e.g. when the charger constraint has changed. */
-    suspend fun plan(replaceSchedule: Boolean = false) = mutex.withLock {
+    /**
+     * @param replaceSchedule replaces a waiting job, e.g. when the phone is back.
+     * @param restart also replaces a running one: the settings it depends on (quality, charger) have changed.
+     */
+    suspend fun plan(replaceSchedule: Boolean = false, restart: Boolean = false) = mutex.withLock {
         val settings = state.settings.value
         val episodeOrder = episodeQueue.order.first()
         val queued = database.withTransaction {
@@ -108,7 +111,11 @@ class WearDownloadPlanner @Inject constructor(
         // Without new ones a waiting or running job is enough.
         val pending = downloadDao.countPending() + podcastDao.countPendingDownloads() + bookDao.countPendingBookDownloads()
         if (pending > 0 || coversMissing) {
-            if (replaceSchedule || queued > 0) scheduler.enqueue(replace = true) else scheduler.resume()
+            when {
+                restart -> scheduler.restart()
+                replaceSchedule || queued > 0 -> scheduler.enqueue(replace = true)
+                else -> scheduler.resume()
+            }
         }
     }
 
