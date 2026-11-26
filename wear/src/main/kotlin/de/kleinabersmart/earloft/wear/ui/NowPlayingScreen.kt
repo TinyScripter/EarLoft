@@ -562,7 +562,9 @@ private fun CoverBackground(cover: android.graphics.Bitmap?, modifier: Modifier 
 private const val FOCUS_RETRY_MS = 150L
 private const val SEEK_SETTLE_MS = 1_500L
 private const val SEEK_HOLD_MAX_MS = 2_000L
-private val SEEK_BAND_WIDTH = 32.dp
+
+/** Narrow, so that title lines and buttons lie outside; the ring itself is 5 dp (review4 T61). */
+private val SEEK_BAND_WIDTH = 20.dp
 private val RING_STROKE = 5.dp
 
 /** Distance of the cover from the edge: ring (5 dp) plus some air so that the cover does not touch the progress ring. */

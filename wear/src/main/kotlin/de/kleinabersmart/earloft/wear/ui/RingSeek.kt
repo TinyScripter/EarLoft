@@ -47,11 +47,13 @@ internal fun formatPosition(ms: Long): String {
 }
 
 /**
- * Seeking at the edge of the now playing view: tapping the ring seeks to the position ([onSeek]), dragging along the ring reports
- * the position continuously via [onPreview] (`null` at the end) and seeks on release ([onSeek]).
+ * Seeking at the edge of the now playing view: dragging along the ring reports the position continuously via [onPreview]
+ * (`null` at the end) and seeks on release ([onSeek]). A tap does not seek: the band covers much of a small watch, and a tap
+ * on the end of a long title line would otherwise jump, in an episode without chapters by hours (review4 T61).
  *
- * The gesture ignores touches in the inner area (buttons). Likewise movements across the ring: at the left edge that is the
- * "back" swipe gesture, which should not be blocked by it. Only a movement along the ring belongs to the gesture.
+ * The gesture ignores touches in the inner area (buttons). Likewise movements across the ring, and any mostly horizontal
+ * movement to the right, also at the top or bottom of the ring: that is the "back" swipe gesture, which should not be
+ * blocked by it. Only a movement along the ring belongs to the gesture.
  */
 @Composable
 internal fun Modifier.ringSeek(
@@ -81,12 +83,13 @@ internal fun Modifier.ringSeek(
                     val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
                     if (change.isConsumed) return@awaitEachGesture
                     if (change.changedToUp()) {
-                        seek(progress)
+                        if (dragging) seek(progress)
                         return@awaitEachGesture
                     }
                     if (!dragging) {
                         val moved = change.position - down.position
                         if (moved.getDistance() <= slop) continue
+                        if (isBackSwipe(moved)) return@awaitEachGesture
                         val along = abs(moved.x * tangent.x + moved.y * tangent.y)
                         val across = abs(moved.x * radial.x + moved.y * radial.y)
                         if (along <= across) return@awaitEachGesture
@@ -102,6 +105,9 @@ internal fun Modifier.ringSeek(
         }
     }
 }
+
+/** A movement mostly to the right (within 45°): the system's "back" swipe, never seeking. */
+internal fun isBackSwipe(moved: Offset): Boolean = moved.x > 0f && moved.x > abs(moved.y)
 
 private fun angleOf(fromCenter: Offset): Float {
     val degrees = Math.toDegrees(atan2(fromCenter.y, fromCenter.x).toDouble()).toFloat()

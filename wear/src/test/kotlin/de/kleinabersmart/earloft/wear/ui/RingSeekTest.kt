@@ -1,6 +1,9 @@
 package de.kleinabersmart.earloft.wear.ui
 
+import androidx.compose.ui.geometry.Offset
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RingSeekTest {
@@ -40,6 +43,14 @@ class RingSeekTest {
     @Test
     fun `normal movement follows the finger`() {
         assertEquals(0.5f, ringProgress(90f, previous = 0.45f), 0.001f)
+    }
+
+    @Test
+    fun `a mostly rightward movement is the back swipe, never seeking`() {
+        assertTrue(isBackSwipe(Offset(30f, 0f)))
+        assertTrue(isBackSwipe(Offset(30f, -20f)))
+        assertFalse(isBackSwipe(Offset(20f, 30f)))
+        assertFalse(isBackSwipe(Offset(-30f, 0f)))
     }
 
     @Test
