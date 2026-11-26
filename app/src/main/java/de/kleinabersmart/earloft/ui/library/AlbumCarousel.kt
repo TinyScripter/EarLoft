@@ -84,14 +84,14 @@ internal fun AlbumCarousel(
     val state = rememberCarouselState(albums.indexOfFirst { it.id == frontId }.coerceAtLeast(0)) { currentAlbums.size }
     var sliding by remember { mutableStateOf(false) }
     var menuFor by remember { mutableStateOf<Album?>(null) }
-    menuFor?.let { AlbumMenu(it, onDismiss = { menuFor = null }) }
 
     // As in the crate: a new sort or filter starts at the first album, otherwise the current one stays.
     val lastReset = remember { CarouselResetKey(resetKey) }
     LaunchedEffect(albums, resetKey) {
         val current = state.currentItem
         val target = when {
-            lastReset.key != resetKey -> 0
+            // From `null` (filter still loading) to a value is no new filter (review4 T57).
+            lastReset.key != null && lastReset.key != resetKey -> 0
             current == 0 -> 0
             else -> albums.indexOfFirst { it.id == frontId }.takeIf { it >= 0 } ?: current.coerceAtMost((albums.size - 1).coerceAtLeast(0))
         }
@@ -158,6 +158,8 @@ internal fun AlbumCarousel(
                                 ),
                         ) {
                             CarouselCover(album)
+                            // At the cover that was pressed, not at the whole carousel (review4 T51).
+                            if (menuFor?.id == album.id) AlbumMenu(album, onDismiss = { menuFor = null })
                         }
                     }
                     if (albums.size > 1) {
@@ -185,7 +187,9 @@ internal fun AlbumCarousel(
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
-                    carousel(Modifier.fillMaxWidth())
+                    // Details first: with little height (filter row, split screen, mini player) the cover gives way, not play, dice and
+                    // the menu below it (review4 T49).
+                    carousel(Modifier.fillMaxWidth().weight(1f, fill = false))
                     FrontAlbumDetails(
                         front, frontIndex, albums.size, front.id == playingAlbumId, { onPlay(front.id) }, random,
                         Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 12.dp),

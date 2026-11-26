@@ -80,7 +80,9 @@ class LibraryViewModel @Inject constructor(
     val songs: StateFlow<LoadState<List<Song>>> = librarySettings.songSort.distinctUntilChanged()
         .flatMapLatest { libraryRepository.songs(it) }.stateInViewModel()
     val genres: StateFlow<LoadState<List<Genre>>> = libraryRepository.genres().stateInViewModel()
-    val decades: StateFlow<List<Decade>> = libraryRepository.decades().stateInViewModel(emptyList())
+    /** `null` until loaded: until then the selected decades aren't known either ([selectedDecades]). */
+    private val knownDecades: StateFlow<List<Decade>?> = libraryRepository.decades().stateInViewModel(null)
+    val decades: StateFlow<List<Decade>> = knownDecades.map { it.orEmpty() }.stateInViewModel(emptyList())
 
     // Selected chips (on/off, several at once); none selected = all albums. Whatever no longer exists doesn't count anymore.
     // Kept in the saved state, so they survive the end of the process like the tab and the scroll position (review2 J76).
@@ -105,25 +107,29 @@ class LibraryViewModel @Inject constructor(
     /** Tabs in which the "Favorites" chip is on; it filters in addition to the other chips. */
     val favoritesOnly: StateFlow<Set<FavoritesChip>> = chosenFavorites.asStateFlow()
 
-    val selectedDecades: StateFlow<Set<Int>> = combine(chosenDecades, decades) { chosen, all ->
-        chosen.intersect(all.mapTo(HashSet()) { it.startYear })
-    }.stateInViewModel(emptySet())
+    /**
+     * `null` until the decades are loaded. Starting with "none" would look like a new filter once they arrive, and crate and grid
+     * would jump to their start after a process death with a decade chosen (review4 T57, J76).
+     */
+    val selectedDecades: StateFlow<Set<Int>?> = combine(chosenDecades, knownDecades) { chosen, all ->
+        all?.let { chosen.intersect(it.mapTo(HashSet()) { decade -> decade.startYear }) }
+    }.stateInViewModel(null)
 
-    /** Selected genres as [Genre.key]. */
-    val selectedGenres: StateFlow<Set<String>> = combine(chosenGenres, genres) { chosen, all ->
-        chosen.intersect(all.valueOrNull.orEmpty().mapTo(HashSet()) { it.key })
-    }.stateInViewModel(emptySet())
+    /** Selected genres as [Genre.key]; `null` until the genres are loaded (as [selectedDecades]). */
+    val selectedGenres: StateFlow<Set<String>?> = combine(chosenGenres, genres) { chosen, all ->
+        if (all is LoadState.Loading) null else chosen.intersect(all.valueOrNull.orEmpty().mapTo(HashSet()) { it.key })
+    }.stateInViewModel(null)
 
     /** The albums (in their sort order) from the selected decades. */
     val albumsOfDecades: StateFlow<LoadState<List<Album>>> =
-        combine(albums, selectedDecades, favoritesOnly, favoriteAlbumIds) { state, chosen, favoritesOnly, favorites ->
+        combine(albums, selectedDecades.map { it.orEmpty() }, favoritesOnly, favoriteAlbumIds) { state, chosen, favoritesOnly, favorites ->
             state.filterAlbums(chosen.isNotEmpty()) { album -> album.year?.takeIf { it >= 1000 }?.let { it / 10 * 10 in chosen } == true }
                 .filterAlbums(FavoritesChip.ALBUMS in favoritesOnly) { it.id in favorites }
         }.stateInViewModel(LoadState.Loading)
 
     /** The albums (in their sort order) with at least one song from the selected genres. */
     val albumsOfGenres: StateFlow<LoadState<List<Album>>> =
-        combine(albums, selectedGenres, libraryRepository.albumGenreKeys(), favoritesOnly, favoriteAlbumIds) {
+        combine(albums, selectedGenres.map { it.orEmpty() }, libraryRepository.albumGenreKeys(), favoritesOnly, favoriteAlbumIds) {
                 state, chosen, genresOf, favoritesOnly, favorites ->
             state.filterAlbums(chosen.isNotEmpty()) { album -> genresOf[album.id]?.any { it in chosen } == true }
                 .filterAlbums(FavoritesChip.GENRES in favoritesOnly) { it.id in favorites }

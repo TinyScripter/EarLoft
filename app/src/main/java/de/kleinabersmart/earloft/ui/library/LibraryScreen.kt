@@ -119,8 +119,11 @@ fun LibraryScreen(
     val albums by viewModel.albums.collectAsStateWithLifecycle()
     val albumsOfDecades by viewModel.albumsOfDecades.collectAsStateWithLifecycle()
     val albumsOfGenres by viewModel.albumsOfGenres.collectAsStateWithLifecycle()
-    val selectedDecades by viewModel.selectedDecades.collectAsStateWithLifecycle()
-    val selectedGenres by viewModel.selectedGenres.collectAsStateWithLifecycle()
+    // `null` while loading: then the filter isn't known yet, and the reset key stays `null` too (no reset, review4 T57).
+    val knownDecades by viewModel.selectedDecades.collectAsStateWithLifecycle()
+    val knownGenres by viewModel.selectedGenres.collectAsStateWithLifecycle()
+    val selectedDecades = knownDecades.orEmpty()
+    val selectedGenres = knownGenres.orEmpty()
     val artists by viewModel.artists.collectAsStateWithLifecycle()
     val artistsShown by viewModel.artistsShown.collectAsStateWithLifecycle()
     val favoriteAlbumIds by viewModel.favoriteAlbumIds.collectAsStateWithLifecycle()
@@ -188,7 +191,7 @@ fun LibraryScreen(
                         onAlbumClick = onAlbumClick,
                         sort = albumSort,
                         pinHeader = true,
-                        resetKey = Triple(albumSort, selectedDecades, FavoritesChip.ALBUMS in favoritesOnly),
+                        resetKey = knownDecades?.let { Triple(albumSort, it, FavoritesChip.ALBUMS in favoritesOnly) },
                         header = {
                             if (decades.isNotEmpty() || favorites != null) {
                                 FilterHeader(
@@ -266,7 +269,7 @@ fun LibraryScreen(
                             onAlbumClick = onAlbumClick,
                             sort = albumSort,
                             pinHeader = true,
-                            resetKey = Triple(albumSort, selectedGenres, FavoritesChip.GENRES in favoritesOnly),
+                            resetKey = knownGenres?.let { Triple(albumSort, it, FavoritesChip.GENRES in favoritesOnly) },
                             header = {
                                 FilterHeader(
                                     chips = {

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +52,9 @@ import kotlin.math.roundToInt
 /** Thickness of the touch area of an [AlbumScrubber]. */
 internal val SCRUBBER_THICKNESS = 40.dp
 private val THUMB_LENGTH = 48.dp
+
+/** Around the handle, excluded from the system's back gesture as well. */
+private val GESTURE_MARGIN = 24.dp
 private val BUBBLE_SIZE = 56.dp
 
 /**
@@ -148,6 +152,16 @@ internal fun AlbumScrubber(
                     .offset { if (vertical) IntOffset(0, thumbStart()) else IntOffset(thumbStart(), 0) }
                     .then(if (vertical) Modifier.size(width = 8.dp, height = THUMB_LENGTH) else Modifier.size(width = THUMB_LENGTH, height = 8.dp))
                     .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp)),
+            )
+            // At the screen's edge the system's back gesture would take a drag on the handle (review4 T55). Only around the handle:
+            // the system honors at most 200 dp per edge.
+            if (vertical) Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .offset { IntOffset(0, thumbStart() - GESTURE_MARGIN.roundToPx()) }
+                    .fillMaxWidth()
+                    .height(THUMB_LENGTH + GESTURE_MARGIN * 2)
+                    .systemGestureExclusion(),
             )
         }
         AnimatedVisibility(

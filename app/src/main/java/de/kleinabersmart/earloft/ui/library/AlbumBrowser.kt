@@ -69,6 +69,12 @@ import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 /** Below this height the record crate and the carousel show the list instead: chips, cover and details wouldn't fit. */
 private val SINGLE_ALBUM_MIN_HEIGHT = 400.dp
 
+/** Back from the list only with this much more: about the collapsed app header and the hidden mini player. */
+private val LIST_HYSTERESIS = 160.dp
+
+/** Whether the crate or carousel currently shows the list instead (see [LIST_HYSTERESIS]); read and written while composing. */
+private class SingleAlbumLayout(var asList: Boolean = false)
+
 /** A pinch beyond this factor changes the tile size by one step. */
 private const val PINCH_STEP = 1.25f
 
@@ -124,8 +130,12 @@ fun AlbumBrowser(
         }
         // Too low for one album at a time (phone in landscape): the list, which scrolls and lets the app header collapse.
         AlbumView.CRATE, AlbumView.CAROUSEL -> BoxWithConstraints(modifier.fillMaxSize()) {
+            // With hysteresis: the list lets the app header collapse and the mini player hide, which makes room. Without it the
+            // crate came back mid-scroll, where the header doesn't expand again, and the two kept swapping (review4 T56).
+            val layout = remember { SingleAlbumLayout() }
+            layout.asList = maxHeight < SINGLE_ALBUM_MIN_HEIGHT + if (layout.asList) LIST_HYSTERESIS else 0.dp
             when {
-                maxHeight < SINGLE_ALBUM_MIN_HEIGHT -> AlbumRowList(
+                layout.asList -> AlbumRowList(
                     albums, onAlbumClick, scrollLabel, header, pinHeader, resetKey, playingAlbumId, playControl::playOrPauseAlbum,
                 )
                 view == AlbumView.CRATE -> AlbumCrate(

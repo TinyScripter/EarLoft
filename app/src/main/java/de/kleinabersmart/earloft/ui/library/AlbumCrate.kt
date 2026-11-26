@@ -155,9 +155,17 @@ internal fun AlbumCrate(
     // A new sort or filter starts at the first album; otherwise the front album stays in front (see above).
     val lastReset = remember { LastResetKey(resetKey) }
     LaunchedEffect(albums, resetKey) {
+        // While the crate moves (finger, slider, momentum, random run) a new list must not break it off: a jump would cancel the
+        // animation, which happens on every batch of cover colors or listening event (review4 T52). It flips on through the new
+        // list; only the front album is noted, so the next change keeps it in front.
+        if (lastReset.key == resetKey && (touching || sliding || position.isRunning)) {
+            frontId = albums.getOrNull(position.value.roundToInt().coerceIn(0, (albums.size - 1).coerceAtLeast(0)))?.id
+            return@LaunchedEffect
+        }
         val last = (albums.size - 1).coerceAtLeast(0)
         val target = when {
-            lastReset.key != resetKey -> 0
+            // From `null` (filter still loading) to a value is no new filter (review4 T57).
+            lastReset.key != null && lastReset.key != resetKey -> 0
             position.value == 0f -> 0
             else -> albums.indexOfFirst { it.id == frontId }.takeIf { it >= 0 } ?: position.value.roundToInt().coerceAtMost(last)
         }
