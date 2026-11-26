@@ -77,13 +77,14 @@ class EpisodeRowActions @Inject constructor(
 
     /**
      * Takes a book out of "Continue listening" (its state stays) and says so; "Undo" brings it back with the position it had
-     * (review4 T39).
+     * (review4 T39). Reporting it to Audiobookshelf happens in the background: the notice doesn't wait for the server, and leaving
+     * the screen doesn't lose it (Y19).
      */
     suspend fun hideBook(bookId: Long) {
         val item = books.book(bookId).first() ?: return
         val before = item.progress ?: return
         if (before.hidden) return
-        progressSync.hideFromContinueListening(bookId)
+        progressSync.hideFromContinueListening(listOf(bookId))
         notifyRemoved(item.book.title, undo = suspend {
             progressSync.record(bookId, before.positionMs, item.book.durationMs, finished = before.finished, force = true, hidden = false)
         })

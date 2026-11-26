@@ -1,10 +1,14 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import androidx.test.core.app.ApplicationProvider
+import androidx.work.Configuration
+import androidx.work.WorkManager
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
+import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
@@ -12,15 +16,21 @@ import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.download.DownloadStart
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServer
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServerRegistry
 import de.kleinabersmart.earloft.testing.MainDispatcherRule
 import de.kleinabersmart.earloft.testing.awaitReal
 import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
 import de.kleinabersmart.earloft.ui.snackbar.Snackbars
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -31,6 +41,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.net.InetAddress
+import java.net.ServerSocket
 import javax.inject.Inject
 
 /** The episode actions all lists share (review2 J46), with the rule for trial subscriptions (J4). */
@@ -51,6 +63,8 @@ class EpisodeRowActionsTest {
     @Inject lateinit var podcastDao: PodcastDao
     @Inject lateinit var bookDao: BookDao
     @Inject lateinit var snackbars: Snackbars
+    @Inject lateinit var servers: AudiobookshelfServers
+    @Inject lateinit var registry: AbsServerRegistry
 
     @Before
     fun setUp() {
@@ -164,5 +178,29 @@ class EpisodeRowActionsTest {
         messages.single().onAction!!.invoke()
         awaitReal { bookDao.progress(book)?.takeIf { !it.hidden } }
         assertEquals(123_000L, bookDao.progress(book)?.positionMs)
+    }
+
+    @Test
+    fun `taking a book out of continue listening says so without waiting for its server`() = runTest {
+        // A server that takes the connection but never answers: before, the notice came only after its timeout.
+        ServerSocket(0, 50, InetAddress.getLoopbackAddress()).use { silent ->
+            try {
+                WorkManager.initialize(ApplicationProvider.getApplicationContext(), Configuration.Builder().build())
+            } catch (e: IllegalStateException) {
+                // already initialized
+            }
+            servers.server("abs")
+            registry.register(AbsServer("abs", "http://127.0.0.1:${silent.localPort}/".toHttpUrl(), "key"))
+            val book = bookDao.upsertBook(
+                BookEntity(serverId = "abs", kind = BookKind.BOOK, remoteId = "b", title = "Book", normTitle = "book", author = "", durationMs = 600_000),
+            )
+            bookDao.upsertProgress(BookProgressEntity(bookId = book, positionMs = 123_000, durationMs = 600_000, updatedAt = 1))
+            val messages = collectMessages()
+
+            withContext(Dispatchers.Default) { withTimeout(3_000) { rows.hideBook(book) } }
+
+            assertEquals(true, bookDao.progress(book)?.hidden)
+            assertNotNull(messages.single().actionLabel)
+        }
     }
 }
