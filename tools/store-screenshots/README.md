@@ -101,6 +101,11 @@ Notes:
 - A language that has no title in the Play Console yet only validates together with its texts: the first upload of a
   new language has to be `listing` (or `texts` first), not `screenshots` alone.
 - Supply takes one `featureGraphic.*` per language; keep only one file per `images/` folder.
+- `listing publish:true` sends the listing for review by itself. If Google demands that it be sent by hand, supply
+  silently leaves it under *Changes not yet sent for review*; check the publishing overview after an upload.
+- If the console's *Send changes for review* button does nothing (it happened on 2026-11-26: the dialog closed and the
+  changes stayed listed), `bundle exec fastlane submit_review` sends all pending changes, also the ones made in the
+  console, through the API and fails with Google's reason if they are refused.
 
 ```sh
 bundle exec fastlane validate_key             # does the key reach the Play Console?

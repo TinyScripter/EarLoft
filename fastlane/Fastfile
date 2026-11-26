@@ -6,6 +6,7 @@
 #   bundle exec fastlane listing publish:true     really update the listing
 #   bundle exec fastlane texts                    only the texts (title, short and full description)
 #   bundle exec fastlane screenshots              only the screenshots, phone and watch
+#   bundle exec fastlane submit_review            send the changes waiting in the Play Console for review
 #
 # Supply replaces the screenshots that are already in the listing. It does not upload app bundles or release notes.
 
@@ -34,6 +35,34 @@ platform :android do
       UI.user_error!("The key at #{key} did not work: #{e.message}")
     end
     UI.success("The service-account key can reach the Play Console.")
+  end
+
+  desc "Send the changes waiting in the Play Console for review (when the console's button does nothing)"
+  lane :submit_review do
+    # An edit starts from the console's draft, including changes not yet sent for review. Committing it unchanged and
+    # without changesNotSentForReview sends them for review. Unlike supply there is no silent retry with that flag:
+    # if Google refuses, the lane fails with Google's reason.
+    package_name = CredentialsManager::AppfileConfig.try_fetch_value(:package_name)
+    Supply.config = FastlaneCore::Configuration.create(
+      Supply::Options.available_options, { json_key: play_json_key, package_name: package_name }
+    )
+    client = Supply::Client.make_from_config(params: Supply.config)
+    client.begin_edit(package_name: package_name)
+    api = client.client
+    edit_id = client.current_edit.id
+    begin
+      api.validate_edit(package_name, edit_id)
+      api.commit_edit(package_name, edit_id)
+    rescue Google::Apis::Error => e
+      reason = e.respond_to?(:body) && e.body ? e.body : e.message
+      begin
+        api.delete_edit(package_name, edit_id)
+      rescue StandardError
+        # The edit expires on its own.
+      end
+      UI.user_error!("Google refused to send the changes for review: #{reason}")
+    end
+    UI.success("Sent for review. Check the publishing overview in the Play Console: the changes should be in review.")
   end
 
   desc "Upload texts, graphics and screenshots of the store listing (add publish:true to really apply them)"
