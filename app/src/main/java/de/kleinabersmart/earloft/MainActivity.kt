@@ -11,6 +11,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -47,6 +49,7 @@ import de.kleinabersmart.earloft.notification.NewEpisodeActionReceiver
 import de.kleinabersmart.earloft.ui.spoken.BookLauncher
 import de.kleinabersmart.earloft.ui.EarLoftApp
 import de.kleinabersmart.earloft.ui.permission.AudioPermissionGate
+import de.kleinabersmart.earloft.ui.snackbar.SnackbarViewModel
 import de.kleinabersmart.earloft.ui.theme.LocalPlayerCoverColors
 import de.kleinabersmart.earloft.ui.theme.ThemeMode
 import de.kleinabersmart.earloft.ui.theme.ThemeSettings
@@ -73,6 +76,8 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var playbackConnection: PlaybackConnection
 
     @Inject lateinit var bookLauncher: BookLauncher
+
+    private val snackbarModel: SnackbarViewModel by viewModels()
 
     /** Tapping the notification of the playing music should always show the playback screen. */
     private var openNowPlaying by mutableStateOf(false)
@@ -151,7 +156,13 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_VIEW -> intent.dataString?.let(IncomingFeed::fromLink)
             else -> null
         }
-        if (address != null) sharedFeedUrl = address
+        if (address != null) {
+            sharedFeedUrl = address
+        } else if (intent.action == Intent.ACTION_SEND) {
+            // Shared to "Add podcast" without an address in it: say so instead of opening the app without a word (review4 T35).
+            // The snackbar's view model collects from its creation on; at the first start the UI doesn't exist yet.
+            snackbarModel.snackbars.show(getString(R.string.podcast_share_no_address), SnackbarDuration.Long)
+        }
     }
 
     /**

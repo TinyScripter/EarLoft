@@ -28,6 +28,30 @@ class NavigatorTest {
     }
 
     @Test
+    fun `a notification during the wizard opens its page over the wizard instead of dropping it`() {
+        navigator.showSetup()
+
+        navigator.navigate(HomeRoute)
+        navigator.navigate(AlbumDetail)
+
+        assertEquals(listOf(HomeRoute, SetupRoute(SetupPage.entries.first()), AlbumDetail), state.backStacks.getValue(HomeRoute).toList())
+        navigator.goBack()
+        assertTrue(navigator.inSetup)
+    }
+
+    @Test
+    fun `a half filled server form stays below a page opened over its tab`() {
+        navigator.navigate(SettingsRoute)
+        navigator.navigate(AddServerRoute)
+        navigator.navigate(HomeRoute)
+
+        navigator.navigate(SettingsRoute)
+        navigator.navigate(SettingsGeneralRoute)
+
+        assertEquals(listOf(SettingsRoute, AddServerRoute, SettingsGeneralRoute), state.backStacks.getValue(SettingsRoute).toList())
+    }
+
+    @Test
     fun `selecting a tab switches the top level route`() {
         navigator.navigate(LibraryRoute)
 

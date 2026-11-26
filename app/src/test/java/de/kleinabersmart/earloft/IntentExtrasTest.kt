@@ -43,6 +43,21 @@ class IntentExtrasTest {
         assertEquals("link", intent.getStringExtra(Intent.EXTRA_TEXT))
     }
 
+    @Test
+    fun `a bundle extra with an unknown class inside is dropped instead of breaking the start`() {
+        val target = Bundle().apply { putParcelable("foreign", Unreadable()) }
+        val intent = Intent("de.kleinabersmart.earloft.OPEN_NEW_CONTENT").apply { replaceExtras(packed(Bundle().apply { putBundle("target", target) })) }
+
+        assertNull(intent.safeBundleExtra("target"))
+    }
+
+    @Test
+    fun `a readable bundle extra stays`() {
+        val intent = Intent(Intent.ACTION_VIEW).apply { replaceExtras(packed(Bundle().apply { putBundle("target", Bundle().apply { putString("mode", "BOOKS") }) })) }
+
+        assertEquals("BOOKS", intent.safeBundleExtra("target")?.getString("mode"))
+    }
+
     /** [bundle] as it arrives from another app: still packed, unpacked on first access. */
     private fun packed(bundle: Bundle): Bundle {
         val parcel = Parcel.obtain()

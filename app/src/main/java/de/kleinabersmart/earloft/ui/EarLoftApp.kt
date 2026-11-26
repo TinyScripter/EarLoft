@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.ui
 import kotlin.math.roundToInt
 import de.kleinabersmart.earloft.ui.components.LocalLibraryLinks
 import de.kleinabersmart.earloft.ui.components.LibraryLinks
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.expandVertically
@@ -601,6 +602,9 @@ fun EarLoftApp(
             ServerFormScreen(sourceId = route.sourceId, onDone = { navigator.goBack(route) }, alreadySetUp = route.alreadySetUp)
         }
         entry<SetupRoute> { route ->
+            // On the first page "Back" asks whether to end the wizard. Here rather than via `NavDisplay`: its predictive gesture would
+            // already show the page beneath and snap back before the question (review4 T37).
+            BackHandler(enabled = navigator.onFirstSetupPage && navigator.currentRoute == route) { confirmSetupExit = true }
             SetupScreen(
                 page = route.page,
                 onNext = { navigator.navigate(SetupRoute(it)) },

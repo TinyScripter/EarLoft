@@ -30,6 +30,9 @@ internal fun Intent.safeStringExtra(name: String): String? = readSafely(name) { 
 
 internal fun Intent.safeCharSequenceExtra(name: String): CharSequence? = readSafely(name) { getCharSequenceExtra(name) }
 
+/** Read in full right away (`isEmpty` unparcels it): an unknown parcelable in it fails here, not later when reading a value. */
+internal fun Intent.safeBundleExtra(name: String): Bundle? = readSafely(name) { getBundleExtra(name)?.also { it.isEmpty } }
+
 private inline fun <T> Intent.readSafely(name: String, read: () -> T): T? = try {
     read()
 } catch (e: RuntimeException) {

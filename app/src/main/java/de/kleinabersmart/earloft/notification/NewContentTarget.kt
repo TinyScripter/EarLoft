@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.notification
 import android.content.Intent
 import android.os.Bundle
 import de.kleinabersmart.earloft.core.model.SpokenMode
+import de.kleinabersmart.earloft.safeBundleExtra
 
 /**
  * Where tapping a new-content notification leads: Home in area [mode]; if it concerns exactly one album,
@@ -39,7 +40,8 @@ data class NewContentTarget(
         fun Intent.putNewContentTarget(target: NewContentTarget): Intent = putExtra(EXTRA_TARGET, target.toBundle())
 
         fun from(intent: Intent?): NewContentTarget? =
-            if (intent?.action == ACTION_OPEN) from(intent.getBundleExtra(EXTRA_TARGET)) else null
+            // A foreign app could send this action with an unknown parcelable inside (review4 T33).
+            if (intent?.action == ACTION_OPEN) from(intent.safeBundleExtra(EXTRA_TARGET)) else null
 
         fun from(bundle: Bundle?): NewContentTarget? {
             if (bundle == null) return null

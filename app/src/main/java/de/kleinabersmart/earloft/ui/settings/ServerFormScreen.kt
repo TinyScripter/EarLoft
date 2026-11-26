@@ -309,7 +309,7 @@ private fun ResultText(result: ConnectionResult, type: SourceType) {
         ConnectionResult.WrongCredentials -> stringResource(R.string.add_server_wrong_credentials) to true
         ConnectionResult.CredentialsNeeded -> stringResource(R.string.add_server_credentials_needed) to true
         ConnectionResult.UnexpectedServer -> stringResource(notServerText(type)) to true
-        is ConnectionResult.Unreachable -> stringResource(R.string.add_server_unreachable, result.reason.orEmpty()) to true
+        is ConnectionResult.Unreachable -> unreachableText(result.reason) to true
         is ConnectionResult.ServerError ->
             stringResource(R.string.add_server_server_error, result.code, result.message.orEmpty()) to true
         // Only for the moment until the existing server's form opens.

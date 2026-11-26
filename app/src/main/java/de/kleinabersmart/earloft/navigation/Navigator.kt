@@ -42,11 +42,17 @@ class Navigator(private val state: NavigationState) {
      * Programmatic navigation. A tab route shows that tab on its start page (e.g. a notification opening Home with a page on
      * top); every other route goes on top of the current tab, unless that very page is on top already (a quick double tap,
      * "Go to artist" on the artist's own page, review H30). For taps on the navigation bar see [selectTab].
+     *
+     * A tab holding the setup wizard or a server form keeps its pages: the target then goes on top of them. Otherwise a tap on a
+     * notification or "Enter" in the restore notice dropped the wizard without finishing it, or a half-filled form without the
+     * question whether to discard it (review4 T36).
      */
     fun navigate(route: NavKey) {
         if (route in state.backStacks.keys) {
             val stack = state.backStacks.getValue(route)
-            while (stack.size > 1) stack.removeLastOrNull()
+            if (stack.none { it.keepsTab }) {
+                while (stack.size > 1) stack.removeLastOrNull()
+            }
             state.topLevelRoute = route
         } else {
             val stack = currentStack()
@@ -157,6 +163,11 @@ class Navigator(private val state: NavigationState) {
     private fun currentStack() =
         state.backStacks[state.topLevelRoute] ?: error("No back stack for ${state.topLevelRoute}")
 }
+
+/** Pages whose input would be lost if their tab went back to its start page ([Navigator.navigate]). */
+private val NavKey.keepsTab: Boolean
+    get() = this is SetupRoute || this is AddServerRoute || this is EditServerRoute || this is AddAudiobookshelfRoute ||
+        this is EditAudiobookshelfRoute
 
 /** The tabs that show the selected area. */
 private val AREA_TABS = listOf(HomeRoute, LibraryRoute)

@@ -387,13 +387,18 @@ internal fun notServerText(type: SourceType): Int = when (type) {
     else -> R.string.add_server_not_subsonic
 }
 
+/** "Server unreachable", with the reason in brackets only if there is one (review4 T34: otherwise "()"). */
+@Composable
+internal fun unreachableText(reason: String?): String =
+    if (reason.isNullOrBlank()) stringResource(R.string.add_server_unreachable_plain) else stringResource(R.string.add_server_unreachable, reason)
+
 /** The same texts as for the connection test in the server form. */
 @Composable
 /** [type] `null`: an Audiobookshelf server. */
 private fun syncFailureText(failure: SyncFailure, type: SourceType?): String = when (failure) {
     SyncFailure.WrongCredentials -> stringResource(R.string.add_server_wrong_credentials)
     SyncFailure.UnexpectedServer -> stringResource(if (type == null) R.string.spoken_abs_error_unreachable else notServerText(type))
-    is SyncFailure.Unreachable -> stringResource(R.string.add_server_unreachable, failure.reason.orEmpty())
+    is SyncFailure.Unreachable -> unreachableText(failure.reason)
     is SyncFailure.ServerError -> stringResource(R.string.add_server_server_error, failure.code, failure.message.orEmpty())
     is SyncFailure.LibraryChanged -> stringResource(R.string.sync_failed_library_changed, failure.libraryName)
     SyncFailure.PermissionMissing -> stringResource(R.string.sync_failed_permission)

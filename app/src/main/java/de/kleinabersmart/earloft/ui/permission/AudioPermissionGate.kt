@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -121,17 +122,30 @@ fun rememberAudioPermissionRequester(onResult: (granted: Boolean) -> Unit): () -
  * Requests [permission]; if the system shows no dialog any more (permanently denied), the app's page in the system settings
  * opens instead. That is the case only if the rationale flag was `false` before and after and the answer came at once: a
  * dialog closed with Back or by tapping beside it, and a second, deliberate "Don't allow", also end with `false` and
- * must not jump to the settings (review G21).
+ * must not jump to the settings (review G21). Granted there, [onResult] follows with `true` on the return to the app; otherwise
+ * the switch that asked stayed off and needed a second tap (review4 T32).
  */
 @Composable
 internal fun rememberPermissionRequester(permission: String, isGranted: () -> Boolean, onResult: (granted: Boolean) -> Unit): () -> Unit {
     val context = LocalContext.current
     val request = remember { RequestState() }
+    val currentOnResult by rememberUpdatedState(onResult)
+    val currentIsGranted by rememberUpdatedState(isGranted)
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val rationaleAfter = context.findActivity()?.shouldShowRequestPermissionRationale(permission)
         val answeredAtOnce = SystemClock.elapsedRealtime() - request.launchedAt < NO_DIALOG_MS
-        if (!granted && !request.rationaleBefore && rationaleAfter == false && answeredAtOnce) context.openAppSettings()
+        if (!granted && !request.rationaleBefore && rationaleAfter == false && answeredAtOnce) {
+            request.inSettings = true
+            context.openAppSettings()
+        }
         onResult(granted)
+    }
+    LifecycleResumeEffect(Unit) {
+        if (request.inSettings && currentIsGranted()) {
+            request.inSettings = false
+            currentOnResult(true)
+        }
+        onPauseOrDispose { }
     }
     return {
         if (isGranted()) {
@@ -147,6 +161,9 @@ internal fun rememberPermissionRequester(permission: String, isGranted: () -> Bo
 private class RequestState {
     var rationaleBefore = false
     var launchedAt = 0L
+
+    /** The system settings were opened instead of a dialog; a grant there counts on the return. */
+    var inSettings = false
 }
 
 /** Without a dialog the system answers within a few frames; a person needs longer. */
