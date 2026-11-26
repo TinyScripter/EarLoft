@@ -16,16 +16,21 @@ internal fun Intent.withLaunchId(): Intent = putExtra(EXTRA_LAUNCH_ID, UUID.rand
 /**
  * Passes the intent of this trampoline on to [MainActivity] with a fresh launch ID and our own flags: in the running app it arrives via
  * `onNewIntent`; otherwise it starts the app's task (sent directly, the caller's flags would open a second instance in its own task).
+ * Unreadable extras go first: adding the ID unpacks all of them below API 33, and a foreign class among them would crash here, before
+ * [MainActivity] could drop them.
  */
 internal fun Activity.forwardToMainActivity() {
-    startActivity(
-        Intent(intent)
-            .setClass(this, MainActivity::class.java)
-            .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            .withLaunchId(),
-    )
+    startActivity(intent.forwardedToMainActivity(this))
     finish()
 }
+
+/** The copy of [this] that [forwardToMainActivity] sends. */
+internal fun Intent.forwardedToMainActivity(context: Context): Intent =
+    Intent(this)
+        .apply { dropUnreadableExtras() }
+        .setClass(context, MainActivity::class.java)
+        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        .withLaunchId()
 
 /**
  * Which starts from outside [MainActivity] has already carried out. A start with the app closed makes its intent the root intent of the

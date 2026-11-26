@@ -7,7 +7,9 @@ import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
 import org.junit.Assert.assertEquals
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -32,6 +34,31 @@ class IntentExtrasTest {
         assertFalse(intent.getBooleanExtra("any", false))
         assertNull(intent.extras)
         assertEquals("https://example.org/feed.xml", intent.dataString)
+    }
+
+    @Test
+    fun `a share with an extra of an unknown class reaches the app without it instead of crashing the trampoline`() {
+        val shared = Intent(Intent.ACTION_SEND).apply {
+            replaceExtras(packed(Bundle().apply { putString(Intent.EXTRA_TEXT, "link"); putParcelable("foreign", Unreadable()) }))
+        }
+        // Without dropping them first, adding the launch ID unpacks all extras and throws (as on a device below API 33).
+        assertThrows(RuntimeException::class.java) { Intent(shared).withLaunchId() }
+
+        val forwarded = shared.forwardedToMainActivity(ApplicationProvider.getApplicationContext())
+
+        assertEquals(Intent.ACTION_SEND, forwarded.action)
+        assertNotNull(forwarded.getStringExtra(EXTRA_LAUNCH_ID))
+        assertNull(forwarded.getStringExtra(Intent.EXTRA_TEXT))
+    }
+
+    @Test
+    fun `a readable share reaches the app with its text and a launch ID`() {
+        val shared = Intent(Intent.ACTION_SEND).apply { replaceExtras(packed(Bundle().apply { putString(Intent.EXTRA_TEXT, "link") })) }
+
+        val forwarded = shared.forwardedToMainActivity(ApplicationProvider.getApplicationContext())
+
+        assertEquals("link", forwarded.getStringExtra(Intent.EXTRA_TEXT))
+        assertNotNull(forwarded.getStringExtra(EXTRA_LAUNCH_ID))
     }
 
     @Test

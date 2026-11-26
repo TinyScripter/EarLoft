@@ -40,7 +40,8 @@ data class NewContentTarget(
         fun Intent.putNewContentTarget(target: NewContentTarget): Intent = putExtra(EXTRA_TARGET, target.toBundle())
 
         fun from(intent: Intent?): NewContentTarget? =
-            // A foreign app could send this action with an unknown parcelable inside (review4 T33).
+            // A foreign app could send this action with an unknown parcelable inside (review4 T33). From API 33 on, such a value stays
+            // packed, and the typed reads in `from(bundle)` don't unpack it: they see no string or number and give `null`.
             if (intent?.action == ACTION_OPEN) from(intent.safeBundleExtra(EXTRA_TARGET)) else null
 
         fun from(bundle: Bundle?): NewContentTarget? {
