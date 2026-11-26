@@ -842,8 +842,8 @@ class UserDataBackup @Inject constructor(
         val feeds = read("podcast_feeds")
         val stats = read("listening_stats")
         val days = read("listening_days")
-        // Which progress is backed up also depends on the Audiobookshelf servers.
-        val progress = read("book_progress", "spoken_servers")
+        // Which progress is backed up also depends on the Audiobookshelf servers and on which feeds are trials (review4 8.6 Y12).
+        val progress = read("book_progress", "spoken_servers", "podcast_feeds")
         val bookmarks = read("bookmarks", "spoken_servers")
         // Which downloads are backed up depends on the backed-up subscriptions.
         val downloads = read("book_tracks", "podcast_feeds")

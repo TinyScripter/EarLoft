@@ -663,6 +663,22 @@ class UserDataBackupTest {
     }
 
     @Test
+    fun `a trial that becomes a subscription brings its progress into the backup at once`() = runTest {
+        fillMain()
+        main.podcastDao().upsertFeed(PodcastFeedEntity("trial", "https://example.org/trial", "Trial", subscribed = false))
+        main.bookDao().upsertProgress(progress(book(main, "trial", "guid-t"), 100, updatedAt = 10))
+        val backup = backupFor(main)
+        backup.mirror()
+        assertTrue(user.userDataDao().progress().none { it.serverId == "trial" })
+
+        // Subscribed: only the feeds table changes, not the progress.
+        main.podcastDao().upsertFeed(PodcastFeedEntity("trial", "https://example.org/trial", "Trial", subscribed = true))
+        backup.mirror(setOf("podcast_feeds"))
+
+        assertEquals(listOf("guid-t"), user.userDataDao().progress().filter { it.serverId == "trial" }.map { it.remoteId })
+    }
+
+    @Test
     fun `starred episodes are saved, wait for their episode on a new device and go with their subscription`() = runTest {
         fillMain()
         val first = book(main, "feed-1", "guid-1")
