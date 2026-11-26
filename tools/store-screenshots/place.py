@@ -9,6 +9,7 @@ Usage: place.py <rundir> [fastlane-locale ...]
 A run directory may hold only some of these kinds (e.g. only the tablet ones); the others are left untouched.
   media/icon.png                     -> .../images/icon.png            (512x512, 32-bit PNG)
   media/featureGraphic.png           -> .../images/featureGraphic.jpeg (1024x500, centre-cropped if wider; Play takes no alpha)
+  media/featureGraphic.<locale>.png  is used instead for that locale if it exists (feature_text.py makes it)
 Checks the Play rules on the way: phone and tablet longer side at most twice the shorter one and 320-3840 px, watch 1:1 and at
 least 384 px, RGB (no alpha) for screenshots, under 8 MB.
 """
@@ -63,7 +64,9 @@ def graphics(locale):
         if im.size != (512, 512):
             problems.append(f"icon: {im.size}, Play wants 512x512")
         im.convert("RGBA").save(f"{dst}/icon.png", "PNG", optimize=True)
-    feature = f"{repo}/media/featureGraphic.png"
+    feature = f"{repo}/media/featureGraphic.{locale}.png"
+    if not os.path.exists(feature):
+        feature = f"{repo}/media/featureGraphic.png"
     if os.path.exists(feature):
         im = Image.open(feature).convert("RGB")
         w, h = im.size

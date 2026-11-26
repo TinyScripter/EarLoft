@@ -78,7 +78,11 @@ The scripts switch the language per app with `cmd locale set-app-locales`, find 
 
 `place.py` also copies `media/icon.png` (512×512) and `media/featureGraphic.png` into every locale; the feature
 graphic is centre-cropped to the 1024×500 Google Play requires and saved as `featureGraphic.jpeg` (Play takes no alpha
-channel), replacing any other `featureGraphic.*` there. Both languages get the same graphic (English slogan).
+channel), replacing any other `featureGraphic.*` there. `media/featureGraphic.<locale>.png` takes precedence for its
+locale: `feature_text.py <inter-fonts-dir> de-DE` makes the German one from the English graphic (erases the headline
+and subline and sets the translation in Inter, the font of the original; texts in `TEXTS`). `feature_text.py <dir>
+check /tmp/x.png` sets the English text again, which should look like the original; if the graphic is redrawn, the
+measured positions in the script have to be updated.
 
 ## Upload
 
