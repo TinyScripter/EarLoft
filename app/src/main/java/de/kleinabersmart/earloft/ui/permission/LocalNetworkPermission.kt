@@ -24,11 +24,18 @@ import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.repository.ServerRepository
 import de.kleinabersmart.earloft.core.data.share.ShareLinks
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
+import de.kleinabersmart.earloft.core.data.spoken.BookSyncer
+import de.kleinabersmart.earloft.core.data.spoken.SpokenRefresher
+import de.kleinabersmart.earloft.core.data.sync.LibrarySyncer
+import de.kleinabersmart.earloft.core.data.sync.SyncFailure
+import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.ui.orOnError
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -90,14 +97,25 @@ fun rememberLocalNetworkGranted(): Boolean {
 internal fun blockedByHomeNetwork(unreachable: Boolean, address: String, granted: Boolean): Boolean =
     unreachable && !granted && ShareLinks.isHomeNetworkAddress(address)
 
+/**
+ * Ids of the [targets] (id to address) whose last sync did not reach an address on the home network ([failures] by id): once the
+ * permission is granted, they are synced again, so their old timeout does not stay until the next sync.
+ */
+internal fun failedAtHome(targets: List<Pair<String, String>>, failures: Map<String, SyncFailure>): List<String> =
+    targets.filter { (id, address) -> blockedByHomeNetwork(failures[id] is SyncFailure.Unreachable, address, granted = false) }
+        .map { it.first }
+
 /** Whether any of the [addresses] of servers and feeds is on the home network. */
 internal fun needsHomeNetworkAccess(addresses: Collection<String>): Boolean = addresses.any(ShareLinks::isHomeNetworkAddress)
 
 @HiltViewModel
 class HomeNetworkViewModel @Inject constructor(
-    servers: ServerRepository,
-    spokenServers: AudiobookshelfServers,
-    podcasts: PodcastRepository,
+    private val servers: ServerRepository,
+    private val spokenServers: AudiobookshelfServers,
+    private val podcasts: PodcastRepository,
+    private val musicSyncer: LibrarySyncer,
+    private val bookSyncer: BookSyncer,
+    private val bookRefresher: SpokenRefresher,
 ) : ViewModel() {
 
     /** A set up music or Audiobookshelf server, or a podcast feed, is on the home network. */
@@ -110,6 +128,24 @@ class HomeNetworkViewModel @Inject constructor(
     }
         .orOnError(false)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /**
+     * The permission was just granted: syncs the servers and feeds on the home network again whose last sync failed without it.
+     * Otherwise their rows kept showing the old timeout until the next sync, although the cause is gone.
+     */
+    fun resyncFailedAtHome() {
+        viewModelScope.launch {
+            val music = servers.servers().first().filter { it.enabled }.map { it.sourceId to it.baseUrl }
+            failedAtHome(music, musicSyncer.failures.value).forEach(servers::syncNow)
+            val spoken = spokenServers.servers.first().filter { it.enabled }.map { it.serverId to it.baseUrl }
+            failedAtHome(spoken, bookSyncer.failures.value).forEach(bookRefresher::refreshServer)
+            val feeds = podcasts.feeds.first()
+            val feedFailures = feeds
+                .filter { it.failedRefreshes > 0 && (it.refreshError == FeedError.UNREACHABLE || it.refreshError == null) }
+                .associate { it.id to SyncFailure.Unreachable(null) }
+            failedAtHome(feeds.map { it.id to it.url }, feedFailures).forEach { feedId -> launch { podcasts.refresh(feedId) } }
+        }
+    }
 }
 
 /**
@@ -123,6 +159,13 @@ fun HomeNetworkPermissionPrompt(viewModel: HomeNetworkViewModel = hiltViewModel(
     val context = LocalContext.current
     val needed by viewModel.needed.collectAsStateWithLifecycle()
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    // Granted from this request, a form or the app settings ("Open settings" at a sync error): each shows up at the next resume.
+    val granted = rememberLocalNetworkGranted()
+    var wasDenied by remember { mutableStateOf(!granted) }
+    LaunchedEffect(granted) {
+        if (granted && wasDenied) viewModel.resyncFailedAtHome()
+        wasDenied = !granted
+    }
     LaunchedEffect(needed) {
         if (needed && !LocalNetworkPermission.askedThisProcess && !LocalNetworkPermission.isGranted(context)) {
             LocalNetworkPermission.askedThisProcess = true
