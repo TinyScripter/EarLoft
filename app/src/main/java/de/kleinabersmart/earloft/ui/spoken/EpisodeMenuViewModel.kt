@@ -55,10 +55,8 @@ class EpisodeMenuViewModel @Inject constructor(
     private fun act(block: suspend CoroutineScope.() -> Unit): Job = applicationScope.launch(Dispatchers.Main.immediate, block = block)
 
     /** The book or episode in the player; a book from ARD Sounds can't be removed then. */
-    val loadedBookId: StateFlow<Long?> = playback.state
-        .map { it.spoken?.bookId }
-        .orOnError(null)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    private val loadedBookIdSource = playback.state.map { it.spoken?.bookId }.orOnError(null)
+    val loadedBookId: StateFlow<Long?> = loadedBookIdSource.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Download state of a book with its size, for the question before deleting it (review G61). */
     fun bookDownload(bookId: Long): Flow<BookDownload> = books.download(bookId)
@@ -84,7 +82,7 @@ class EpisodeMenuViewModel @Inject constructor(
      * Episodes and books with downloaded files or a running or waiting download (then there is something to delete); also
      * partially downloaded books whose state is "failed" after a failed file.
      */
-    val downloaded: StateFlow<Set<Long>> = combine(
+    private val downloadedSource = combine(
         podcasts.downloadedIds(),
         books.downloads().map { map ->
             // A removed download has nothing left to delete: the menu offers "Download" again, as the book page does.
@@ -94,12 +92,10 @@ class EpisodeMenuViewModel @Inject constructor(
         },
     ) { episodes, bookIds -> episodes + bookIds }
         .orOnError(emptySet())
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    val downloaded: StateFlow<Set<Long>> = downloadedSource.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     /** Episodes with a fully downloaded file; only those can be shared as a file. */
-    val downloadedEpisodes: StateFlow<Set<Long>> = podcasts.downloadedIds()
-        .orOnError(emptySet())
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    private val downloadedEpisodesSource = podcasts.downloadedIds().orOnError(emptySet())
 
     /** The frontmost episode of the row (the current one or the one playback continues with); "Play next" goes after it. */
     val queueHead: StateFlow<Long?> = continueListening.episodes
@@ -107,17 +103,23 @@ class EpisodeMenuViewModel @Inject constructor(
         .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** If the episode is already the second in the row, nothing changes. */
-    val queueSecond: StateFlow<Long?> = continueListening.episodes
-        .map { it.getOrNull(1)?.book?.id }
-        .orOnError(null)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
     /** Trial subscriptions from the preview: their episodes can't be starred (the subscription disappears when leaving the page). */
-    val trialFeeds: StateFlow<Set<String>> = podcasts.trialFeedIds
-        .map { it.toSet() }
-        .orOnError(emptySet())
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    private val trialFeedsSource = podcasts.trialFeedIds.map { it.toSet() }.orOnError(emptySet())
+    val trialFeeds: StateFlow<Set<String>> = trialFeedsSource.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /**
+     * Everything the episode menu shows, at once and `null` until it is known: the menu opens only then, instead of showing
+     * defaults for a moment ("Download" for a downloaded episode, "Add to queue" for a queued one; review4 Y20).
+     */
+    val facts: StateFlow<EpisodeMenuFacts?> = combine(
+        rows.queued,
+        downloadedSource,
+        downloadedEpisodesSource,
+        continueListening.episodes.map { it.firstOrNull()?.book?.id to it.getOrNull(1)?.book?.id }.orOnError(null to null),
+        combine(trialFeedsSource, loadedBookIdSource, ::Pair),
+    ) { queued, downloaded, downloadedEpisodes, (head, second), (trialFeeds, loaded) ->
+        EpisodeMenuFacts(queued, downloaded, downloadedEpisodes, head, second, trialFeeds, loaded)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun playNext(bookId: Long) {
         act { continueListening.playNext(bookId) }
@@ -325,3 +327,17 @@ class EpisodeMenuViewModel @Inject constructor(
         }
     }
 }
+
+/**
+ * What [EpisodeMenu] needs besides the item. [queueHead]: the frontmost episode of the row, "Play next" goes after it; if the
+ * episode already is [queueSecond], nothing would change. [loadedBookId]: a book from ARD Sounds can't be removed while loaded.
+ */
+data class EpisodeMenuFacts(
+    val queued: Set<Long>,
+    val downloaded: Set<Long>,
+    val downloadedEpisodes: Set<Long>,
+    val queueHead: Long?,
+    val queueSecond: Long?,
+    val trialFeeds: Set<String>,
+    val loadedBookId: Long?,
+)

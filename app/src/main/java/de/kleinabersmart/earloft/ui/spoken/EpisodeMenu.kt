@@ -109,13 +109,10 @@ fun EpisodeMenu(
     var confirmDeleteDownload by rememberSaveable { mutableStateOf(false) }
     if (!expanded && !confirmRemove && !confirmDeleteDownload) return
     val viewModel = viewModel ?: hiltViewModel<EpisodeMenuViewModel>()
-    val queued by viewModel.queued.collectAsStateWithLifecycle()
-    val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
-    val downloadedEpisodes by viewModel.downloadedEpisodes.collectAsStateWithLifecycle()
-    val queueHead by viewModel.queueHead.collectAsStateWithLifecycle()
-    val queueSecond by viewModel.queueSecond.collectAsStateWithLifecycle()
-    val trialFeeds by viewModel.trialFeeds.collectAsStateWithLifecycle()
-    val loadedBookId by viewModel.loadedBookId.collectAsStateWithLifecycle()
+    // Opens once everything is known, not with defaults for a moment (review4 Y20).
+    val facts by viewModel.facts.collectAsStateWithLifecycle()
+    val known = facts
+    val (queued, downloaded, downloadedEpisodes, queueHead, queueSecond, trialFeeds, loadedBookId) = known ?: NO_FACTS
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     val id = item.book.id
@@ -132,7 +129,7 @@ fun EpisodeMenu(
         }
     }
 
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+    DropdownMenu(expanded = expanded && known != null, onDismissRequest = onDismiss) {
         DropdownMenuItem(
             text = { Text(item.book.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             onClick = {},
@@ -284,3 +281,5 @@ fun EpisodeMenu(
         )
     }
 }
+
+private val NO_FACTS = EpisodeMenuFacts(emptySet(), emptySet(), emptySet(), null, null, emptySet(), null)
