@@ -43,6 +43,7 @@ import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
 import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
 import de.kleinabersmart.earloft.core.model.TrackDownload
+import de.kleinabersmart.earloft.core.model.hasNoBookServer
 
 /** The contents of `user.db` (or what belongs in it), per table by its stable key. */
 data class UserDataSnapshot(
@@ -77,6 +78,13 @@ data class UserDataSnapshot(
     val hasServersFeedsOrStats: Boolean
         get() = servers.isNotEmpty() || spokenServers.isNotEmpty() || podcasts.isNotEmpty() || listeningStats.isNotEmpty() ||
             listeningDays.isNotEmpty()
+
+    /**
+     * Whether progress or bookmarks of [serverId] have no place: neither an Audiobookshelf server nor a subscription of this snapshot,
+     * nor the device or ARD Sounds (e.g. a trial subscription the cleaner has deleted, review4 T25).
+     */
+    fun isOrphan(serverId: String): Boolean =
+        !hasNoBookServer(serverId) && serverId !in spokenServers && serverId !in podcasts
 
     /** Entries of the backed-up playlists, in their order. */
     fun entriesOf(playlistKey: String): List<UserSongKey> =

@@ -52,6 +52,25 @@ class AbsUploadTest {
     }
 
     @Test
+    fun `a repeated request after a renewed token counts its bytes anew`() = runTest {
+        // Like the token authenticator: the first answer is 401, the request goes out once more with a new token.
+        val renewing = OkHttpClient.Builder()
+            .authenticator { _, response ->
+                if (response.priorResponse != null) null else response.request.newBuilder().header("Authorization", "Bearer new").build()
+            }
+            .build()
+        server.enqueue(MockResponse.Builder().code(401).build())
+        server.enqueue(MockResponse.Builder().code(200).build())
+        val reported = mutableListOf<Long>()
+
+        AbsApi(renewing).uploadBook(absServer, upload()) { done, _ -> synchronized(reported) { reported += done } }
+
+        assertEquals("Never beyond the total", 200_000L, reported.max())
+        assertEquals(200_000L, reported.last())
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
     fun `a rejection stays a rejection`() = runTest {
         server.enqueue(MockResponse.Builder().code(403).body("Forbidden").build())
         try {

@@ -14,6 +14,7 @@ import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.data.repository.PlaybackPolicy
+import de.kleinabersmart.earloft.core.data.spoken.AbsSessionReporter
 import de.kleinabersmart.earloft.core.data.security.SecretStore
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
@@ -74,7 +75,7 @@ class WatchSpokenTest {
         val progressSync = BookProgressSync(context, dao, servers, api, PlaybackPolicy())
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
-        val syncer = BookSyncer(dao, servers, api, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy()), LocalBooks(dao, scanner, SpokenSettings(context), covers, SweepGuard(context)),
+        val syncer = BookSyncer(dao, servers, api, progressSync, AbsSessionReporter(context, db.absSessionDao(), dao, servers, api, PlaybackPolicy()), covers, Bookmarks(context, dao, servers, api, PlaybackPolicy()), LocalBooks(dao, scanner, SpokenSettings(context), covers, SweepGuard(context)),
             ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(OkHttpClient())), SpokenSettings(context), covers, { _, _ -> }),
             ArdUploadAdoption(context, dao, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy())))
         val podcasts = PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("no source switch in tests") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()))

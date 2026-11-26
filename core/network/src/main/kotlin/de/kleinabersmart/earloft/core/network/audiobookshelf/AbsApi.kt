@@ -168,7 +168,7 @@ class AbsApi @Inject constructor(
     suspend fun uploadBook(server: AbsServer, upload: AbsUpload, onProgress: (sent: Long, total: Long) -> Unit = { _, _ -> }) {
         val total = upload.files.sumOf { it.file.length() }
         var sent = 0L
-        val body = MultipartBody.Builder().setType(MultipartBody.FORM)
+        val parts = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("title", upload.title)
             .addFormDataPart("author", upload.author)
             .apply { upload.series?.let { addFormDataPart("series", it) } }
@@ -183,6 +183,17 @@ class AbsApi @Inject constructor(
                 }
             }
             .build()
+        // OkHttp writes the body once more when it repeats the request (renewed token after a 401): the bytes count per attempt,
+        // otherwise the progress went beyond 100 % and an aborted second attempt counted as "everything sent" (review4 T28).
+        val body = object : RequestBody() {
+            override fun contentType(): MediaType = parts.contentType()
+            override fun contentLength(): Long = parts.contentLength()
+            override fun writeTo(sink: BufferedSink) {
+                sent = 0
+                onProgress(0, total)
+                parts.writeTo(sink)
+            }
+        }
         // Large files over a slow network: limit neither the total nor the write time as long as data is flowing. The server
         // answers only after moving the files into the library (in Docker often a copy): 30 s were too short for a large book
         // (review H15).

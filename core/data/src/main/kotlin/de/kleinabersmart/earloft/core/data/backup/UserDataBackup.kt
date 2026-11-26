@@ -196,18 +196,54 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Everything from [saved] as still to be applied; plus the restored subscriptions that have never been synced and have
-     * no episodes yet: after their first sync the automation only downloads there what was downloaded on the old device.
-     * Without the listening history that is already here: otherwise every start would look up each of its songs again.
+     * Everything from [saved] as still to be applied; plus the subscriptions a restore created ([rememberRestoredFeeds]) that have
+     * never been synced and have no episodes yet: after their first sync the automation only downloads there what was downloaded
+     * on the old device. Only those: a subscription added here (OPML import offline) and not synced before a restart is no restored
+     * one, and its automation works as usual (review4 T22). Without the listening history that is already here: otherwise every start
+     * would look up each of its songs again.
      */
-    private suspend fun pendingOf(saved: UserDataSnapshot): Pending {
+    internal suspend fun pendingOf(saved: UserDataSnapshot): Pending {
         val played = if (saved.playEvents.isEmpty()) emptySet() else music.playKeys()
+        val restored = restoredFeeds()
         return Pending.of(saved).copy(
+            // Progress without a backed-up server or subscription (earlier backups kept that of trial subscriptions) never finds
+            // its book; it would be looked up again at every start (review4 T25).
+            // A server or subscription known only here (import under the local identifier, not mirrored yet) still counts.
+            progress = saved.progress.values.filterNot {
+                saved.isOrphan(it.serverId) && bookDao.server(it.serverId) == null && podcastDao.feed(it.serverId)?.subscribed != true
+            },
             playEvents = saved.playEvents.filterKeys { it !in played }.values.toList(),
             restoredFeeds = saved.podcasts.keys.filter { feedId ->
-                podcastDao.feed(feedId)?.lastRefreshAt == 0L && podcastDao.episodeCount(feedId) == 0
+                feedId in restored && podcastDao.feed(feedId)?.lastRefreshAt == 0L && podcastDao.episodeCount(feedId) == 0
             },
         )
+    }
+
+    /**
+     * A backed-up subscription that is a trial subscription here (preview open, episode in the queue) becomes a real one, with the
+     * backed-up automatic download. Otherwise the backup would be matched to the trial by its address, nothing would be created, and the
+     * progress would land on the trial, which the cleaner deletes later (review4 T23). @return how many.
+     */
+    private suspend fun subscribeTrials(saved: UserDataSnapshot): Int = saved.podcasts.values.count { podcast ->
+        val local = podcastDao.feed(podcast.feedId) ?: podcastDao.feedByUrl(podcast.url)
+        if (local == null || local.subscribed) return@count false
+        podcastDao.subscribeTrial(local.feedId, podcast.autoDownload)
+        true
+    }
+
+    /** Subscriptions created by a restore whose first sync is still outstanding; survives a restart. */
+    private suspend fun restoredFeeds(): Set<String> = withContext(Dispatchers.IO) {
+        File(context.noBackupFilesDir, RESTORED_FEEDS).takeIf { it.isFile }?.readLines()?.filterTo(HashSet()) { it.isNotBlank() }.orEmpty()
+    }
+
+    private suspend fun writeRestoredFeeds(feedIds: Collection<String>) = withContext(Dispatchers.IO) {
+        val file = File(context.noBackupFilesDir, RESTORED_FEEDS)
+        if (feedIds.isEmpty()) file.delete() else file.writeText(feedIds.joinToString("\n"))
+    }
+
+    /** [feedIds] were just created by a restore: they count as restored until their first sync ([pendingOf]). */
+    private suspend fun rememberRestoredFeeds(feedIds: Collection<String>) {
+        if (feedIds.isNotEmpty()) writeRestoredFeeds(restoredFeeds() + feedIds)
     }
 
     /**
@@ -231,6 +267,11 @@ class UserDataBackup @Inject constructor(
     private suspend fun applyAndWait(saved: UserDataSnapshot, pending: Pending) {
         val rest = applySaved(saved, pending)
         waiting = if (rest.isEmpty) null else Waiting(saved, rest)
+        // Synced (or removed) ones are done; the others stay restored across a restart.
+        val restored = restoredFeeds()
+        if (restored.isNotEmpty()) {
+            writeRestoredFeeds(restored.filter { podcastDao.feed(it)?.lastRefreshAt == 0L && podcastDao.episodeCount(it) == 0 })
+        }
     }
 
     /**
@@ -262,6 +303,7 @@ class UserDataBackup @Inject constructor(
         // Only after the first apply at startup: otherwise that would overwrite what is waiting here with its older state.
         if (started.get()) firstApplied.await() else restoreFinished.await()
         val (result, ids) = mutex.withLock {
+            val trials = subscribeTrials(saved)
             val ids = localIdsOf(saved)
             val adjusted = withLocalIds(saved, ids)
             val musicIds = sourceDao.getServers().map { it.sourceId }.toSet()
@@ -269,7 +311,7 @@ class UserDataBackup @Inject constructor(
             val result = BackupCounts(
                 musicServers = adjusted.servers.keys.count { it !in musicIds },
                 audiobookServers = adjusted.spokenServers.keys.count { it !in spokenIds },
-                podcasts = adjusted.podcasts.keys.count { podcastDao.feed(it) == null },
+                podcasts = adjusted.podcasts.keys.count { podcastDao.feed(it) == null } + trials,
                 playlists = music.missingPlaylists(adjusted.playlists.keys),
             )
             restore(adjusted, mergeBookStats = true)
@@ -418,6 +460,8 @@ class UserDataBackup @Inject constructor(
      * book statistics that exist here as well keep the larger time instead.
      */
     internal suspend fun restore(saved: UserDataSnapshot, mergeBookStats: Boolean = false) {
+        subscribeTrials(saved)
+        val newFeeds = saved.podcasts.values.filter { podcastDao.feed(it.feedId) == null && podcastDao.feedByUrl(it.url) == null }
         database.withTransaction {
             saved.servers.values.forEach { sourceDao.insertIfAbsent(it.toMain()) }
             saved.spokenServers.values.forEach { if (bookDao.server(it.serverId) == null) bookDao.upsertServer(it.toMain()) }
@@ -440,6 +484,7 @@ class UserDataBackup @Inject constructor(
             }
             music.restorePlaylists(saved.playlists.values)
         }
+        rememberRestoredFeeds(newFeeds.map { it.feedId })
     }
 
     /**
@@ -721,7 +766,8 @@ class UserDataBackup @Inject constructor(
             fun removedWithArdBook(serverId: String, remoteId: String) = serverId == ARD_BOOK_SERVER_ID && remoteId in removedArd
             val progressDeletes = changes.progress.deletes.filter {
                 removedWithArdBook(it.serverId, it.remoteId) ||
-                    BookKey(it.serverId, it.remoteId) !in waitingProgress && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
+                    BookKey(it.serverId, it.remoteId) !in waitingProgress &&
+                    (bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty() || current.isOrphan(it.serverId))
             }
             val bookmarkDeletes = changes.bookmarks.deletes.filter {
                 removedWithArdBook(it.serverId, it.remoteId) ||
@@ -790,7 +836,7 @@ class UserDataBackup @Inject constructor(
             feeds = if (feeds || downloads) podcastDao.keptFeeds() else emptyList(),
             listeningStats = if (stats) statsDao.all() else emptyList(),
             listeningDays = if (days) statsDao.allDays() else emptyList(),
-            progress = if (progress) bookDao.keyedProgress() else emptyList(),
+            progress = if (progress) bookDao.keyedProgressToBackUp() else emptyList(),
             playlists = musicData?.playlists.orEmpty(),
             playlistEntries = musicData?.playlistEntries.orEmpty(),
             favorites = musicData?.favorites.orEmpty(),
@@ -834,6 +880,9 @@ class UserDataBackup @Inject constructor(
     private companion object {
         const val TAG = "UserDataBackup"
         const val RESTORED_MARKER = "user_data_restored"
+
+        /** Feed IDs created by a restore and not synced yet, one per line ([pendingOf]). */
+        const val RESTORED_FEEDS = "restored_feeds"
         const val MIRROR_INTERVAL_MS = 60_000L
         const val FULL_READ_INTERVAL_MS = 30 * 60_000L
         val MUSIC_TABLES = arrayOf("songs", "albums", "artists", "playlists", "playlist_entries", "play_events", "wear_selections")

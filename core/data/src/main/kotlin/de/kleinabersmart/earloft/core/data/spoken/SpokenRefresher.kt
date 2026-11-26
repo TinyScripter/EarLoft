@@ -51,6 +51,7 @@ class SpokenRefresher @Inject constructor(
     private val events: RefreshEvents,
     private val syncer: BookSyncer,
     private val progressSync: BookProgressSync,
+    private val sessions: AbsSessionReporter,
     private val bookmarks: Bookmarks,
     private val servers: AudiobookshelfServers,
     private val dao: BookDao,
@@ -117,6 +118,8 @@ class SpokenRefresher @Inject constructor(
         if (!books) return
         progressSync.pushPending()
         bookmarks.pushPending()
+        // Listening sessions left over after their catch-up worker gave up (review4 T16).
+        sessions.pushPending()
         var fresh = 0
         servers.all().forEach { server ->
             if (now - (dao.server(server.serverId)?.lastFullSyncAt ?: 0) > FULL_SYNC_INTERVAL_MS) {

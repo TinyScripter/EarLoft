@@ -271,9 +271,9 @@ class PodcastSourceSwitchTest {
             rekeyed,
         )
         assertEquals(
-            listOf(ListeningDayEntity(1, BookKind.EPISODE, "new", 7)),
+            listOf(ListeningDayEntity(1, BookKind.EPISODE, "new", 7, savedMs = 5)),
             rekeyDays(
-                listOf(ListeningDayEntity(1, BookKind.EPISODE, "old", 4), ListeningDayEntity(1, BookKind.EPISODE, "new", 3)),
+                listOf(ListeningDayEntity(1, BookKind.EPISODE, "old", 4, savedMs = 2), ListeningDayEntity(1, BookKind.EPISODE, "new", 3, savedMs = 3)),
                 "old",
                 "new",
             ),

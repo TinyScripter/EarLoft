@@ -70,11 +70,14 @@ class WearSelectionRepository @Inject constructor(
      * Resolves all selections. Selections whose album or playlist no longer exists are
      * removed in the process (a foreign key isn't possible because `refId` points to two tables).
      */
-    suspend fun load(): WearContent = database.withTransaction {
-        wearDao.deleteDangling()
+    suspend fun load(): WearContent {
+        database.withTransaction { wearDao.deleteDangling() }
+        // Outside the transaction: with thousands of favorite songs, resolving and checking each download file would hold up every
+        // writer (review4 T26). A change in between doesn't matter, it triggers the next [content] anyway; [resolve] skips
+        // what has disappeared since.
         val selections = wearDao.getSelections().mapNotNull { resolve(it) }
         val songIds = selections.flatMap { it.songIds }.distinct()
-        WearContent(selections, songs(songIds))
+        return WearContent(selections, songs(songIds))
     }
 
     private suspend fun resolve(selection: WearSelectionEntity): WearSelectionContent? {

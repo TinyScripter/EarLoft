@@ -141,7 +141,8 @@ class ArdBookUploader @Inject constructor(
             val parts = withContext(Dispatchers.IO) { packageFor(book, files, work) }
             try {
                 api.uploadBook(
-                    server,
+                    // The sync may have renewed the token; the copy from before would go out with the old one (review4 T28).
+                    servers.server(target.serverId) ?: server,
                     AbsUpload(target.libraryId, target.folderId, book.title, book.author.ifBlank { UNKNOWN_AUTHOR }, files = parts),
                     onProgress,
                 )

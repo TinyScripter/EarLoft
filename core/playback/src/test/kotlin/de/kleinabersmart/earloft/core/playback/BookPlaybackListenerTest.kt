@@ -104,8 +104,9 @@ class BookPlaybackListenerTest {
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
         val bookmarks = Bookmarks(context, dao, servers, api, policy)
+        val sessions = AbsSessionReporter(context, db.absSessionDao(), dao, servers, api, policy)
         val syncer = BookSyncer(
-            dao, servers, api, progressSync, bookmarks, LocalBooks(dao, scanner, settings, covers, SweepGuard(context)),
+            dao, servers, api, progressSync, sessions, covers, bookmarks, LocalBooks(dao, scanner, settings, covers, SweepGuard(context)),
             ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(client)), settings, covers) { _, _ -> },
             ArdUploadAdoption(context, dao, progressSync, bookmarks),
         )
@@ -114,7 +115,7 @@ class BookPlaybackListenerTest {
         settings.setBookResume(ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S))
         listener = BookPlaybackListener(
             player, books, progressSync, settings, StatsRepository(db.statsDao(), dao, db.podcastDao()),
-            AbsSessionReporter(context, db.absSessionDao(), dao, servers, api, policy), mainScope, persistScope,
+            sessions, mainScope, persistScope,
             onEpisodeEnded = { endedEpisodes += it },
             onChapterChanged = { chapters += it },
             effects = effects,

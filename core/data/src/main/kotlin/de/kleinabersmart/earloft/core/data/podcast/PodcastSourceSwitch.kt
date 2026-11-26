@@ -292,4 +292,5 @@ internal fun rekeyStats(
 internal fun rekeyDays(rows: List<ListeningDayEntity>, oldGroup: String, newGroup: String): List<ListeningDayEntity> = rows
     .map { if (it.groupKey == oldGroup) it.copy(groupKey = newGroup) else it }
     .groupBy { Triple(it.day, it.kind, it.groupKey) }
-    .map { (_, same) -> same.reduce { a, b -> a.copy(listenedMs = a.listenedMs + b.listenedMs) } }
+    // Both times: the one saved by "trim silence" belongs to the day as well (review4 T27).
+    .map { (_, same) -> same.reduce { a, b -> a.copy(listenedMs = a.listenedMs + b.listenedMs, savedMs = a.savedMs + b.savedMs) } }

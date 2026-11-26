@@ -72,7 +72,7 @@ class BookPlaybackSourceTest {
         val settings = SpokenSettings(context)
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
-        val syncer = BookSyncer(dao, servers, api, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy()), LocalBooks(dao, scanner, settings, covers, SweepGuard(context)),
+        val syncer = BookSyncer(dao, servers, api, progressSync, AbsSessionReporter(context, db.absSessionDao(), dao, servers, api, PlaybackPolicy()), covers, Bookmarks(context, dao, servers, api, PlaybackPolicy()), LocalBooks(dao, scanner, settings, covers, SweepGuard(context)),
             ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(OkHttpClient())), settings, covers, { _, _ -> }),
             ArdUploadAdoption(context, dao, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy())))
         source = BookPlaybackSource(

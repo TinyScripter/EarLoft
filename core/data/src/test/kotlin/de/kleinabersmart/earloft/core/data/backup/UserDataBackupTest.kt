@@ -208,6 +208,57 @@ class UserDataBackupTest {
     }
 
     @Test
+    fun `only subscriptions a restore created count as restored, also after a restart`() = runTest {
+        fillMain()
+        // Added here (OPML import offline) and not synced yet: no restored subscription.
+        main.podcastDao().upsertFeed(PodcastFeedEntity("feed-2", "https://example.org/other", "Other"))
+        val backup = backupFor(main)
+        backup.mirror()
+        val saved = UserDataSnapshot.ofUser(
+            user.userDataDao().servers(),
+            user.userDataDao().spokenServers(),
+            user.userDataDao().podcasts(),
+            user.userDataDao().listeningStats(),
+            user.userDataDao().listeningDays(),
+        )
+        assertEquals(emptyList<String>(), backup.pendingOf(saved).restoredFeeds)
+
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            backupFor(newDevice).restore(saved)
+            // A new instance, as after a restart before the first sync.
+            assertEquals(setOf("feed-1", "feed-2"), backupFor(newDevice).pendingOf(saved).restoredFeeds.toSet())
+        } finally {
+            newDevice.close()
+        }
+    }
+
+    @Test
+    fun `a trial subscription with the address of a backed-up one becomes a real subscription`() = runTest {
+        fillMain()
+        backupFor(main).mirror()
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            newDevice.podcastDao().upsertFeed(PodcastFeedEntity("trial", "https://example.org/feed", "Logbook", subscribed = false))
+
+            backupFor(newDevice).restore(UserDataSnapshot.ofUser(
+                user.userDataDao().servers(),
+                user.userDataDao().spokenServers(),
+                user.userDataDao().podcasts(),
+                user.userDataDao().listeningStats(),
+                user.userDataDao().listeningDays(),
+            ))
+
+            val feed = newDevice.podcastDao().feed("trial")!!
+            assertTrue(feed.subscribed)
+            assertTrue("Automatic download from the backup", feed.autoDownload)
+            assertNull(newDevice.podcastDao().feed("feed-1"))
+        } finally {
+            newDevice.close()
+        }
+    }
+
+    @Test
     fun `restoring keeps what the main database already has`() = runTest {
         fillMain()
         backupFor(main).mirror()
@@ -559,6 +610,23 @@ class UserDataBackupTest {
         main.podcastDao().deleteFeed("feed-1")
         backup.mirror()
         assertTrue(user.userDataDao().progress().isEmpty())
+    }
+
+    @Test
+    fun `progress of trial subscriptions is not backed up, and the leftovers of a deleted trial are dropped`() = runTest {
+        fillMain()
+        main.podcastDao().upsertFeed(PodcastFeedEntity("trial", "https://example.org/trial", "Trial", subscribed = false))
+        main.bookDao().upsertProgress(progress(book(main, "trial", "guid-t"), 100, updatedAt = 10))
+        main.bookDao().upsertProgress(progress(book(main, "feed-1", "guid-1"), 100, updatedAt = 10))
+        // Left over from an older version: progress of a trial the cleaner has deleted since.
+        user.openHelper.writableDatabase.execSQL(
+            "INSERT INTO book_progress (serverId, remoteId, positionMs, durationMs, finished, speed, updatedAt, dirty, hidden) " +
+                "VALUES ('gone', 'guid-g', 5, 1000, 0, NULL, 1, 0, 0)",
+        )
+
+        backupFor(main).mirror()
+
+        assertEquals(listOf("feed-1"), user.userDataDao().progress().map { it.serverId })
     }
 
     @Test

@@ -11,7 +11,9 @@ import javax.inject.Inject
 interface AbsTokenRefresher {
     /**
      * Blocks until it's clear what a request rejected with [rejected] should be retried with: the already refreshed or
-     * a freshly refreshed access token. `null`: don't retry (API key, no refresh token, foreign token, error).
+     * a freshly refreshed access token. `null`: don't retry (API key, no refresh token, foreign token, refresh token rejected).
+     * @throws java.io.IOException if the server couldn't be asked right now (network, server error): the request then fails as a
+     * network error, not as a rejected login, and is retried later (review4 T29).
      */
     fun renewBlocking(serverId: String, rejected: String): String?
 }

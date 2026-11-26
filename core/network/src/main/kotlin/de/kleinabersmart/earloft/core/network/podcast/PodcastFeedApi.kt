@@ -124,7 +124,10 @@ class PodcastFeedApi @Inject constructor(
      */
     suspend fun image(url: String): ByteArray? = withContext(Dispatchers.IO) {
         val httpUrl = url.toHttpUrlOrNull() ?: return@withContext null
-        client.newCall(Request.Builder().url(httpUrl).header("User-Agent", USER_AGENT).build()).await().use { response ->
+        // Not into the HTTP cache: the caller stores the image itself, and images of up to 40 MB would push out the music covers
+        // held there for offline use (review4 T30).
+        val request = Request.Builder().url(httpUrl).header("User-Agent", USER_AGENT).cacheControl(CacheControl.Builder().noStore().build()).build()
+        client.newCall(request).await().use { response ->
             if (response.code == 404 || response.code == 410) return@use null
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             if (response.body.contentLength() > MAX_IMAGE_BYTES) throw IOException("Image larger than $MAX_IMAGE_BYTES bytes")

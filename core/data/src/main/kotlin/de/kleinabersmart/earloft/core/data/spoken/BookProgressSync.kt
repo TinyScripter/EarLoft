@@ -178,6 +178,13 @@ class BookProgressSync @Inject constructor(
         if (!policy.syncsWithBookServers) return PullResult(local, tookRemote = false, noticeable = false)
         val book = dao.book(bookId) ?: return PullResult(local, tookRemote = false, noticeable = false)
         val server = servers.server(book.serverId) ?: return PullResult(local, tookRemote = false, noticeable = false)
+        // Listened here but not yet reported (offline): this state goes to the server first. Comparing it with the server's
+        // `lastUpdate` would mix two clocks, and a server clock a few minutes ahead would throw the newer state here away
+        // (review4 T19). Sent (or the server too slow to wait for): the own state applies.
+        if (dao.progress(bookId)?.dirty == true) {
+            val pushed = withTimeoutOrNull(PULL_TIMEOUT_MS) { push(bookId) }
+            if (pushed != false) return PullResult(local, tookRemote = false, noticeable = false)
+        }
         // Short: the user is waiting for playback to start (headphones, continue listening). If the server is only reachable at
         // home, playing and resuming would otherwise hang until the connection timeout (15 s); then the own state applies.
         val remote = try {

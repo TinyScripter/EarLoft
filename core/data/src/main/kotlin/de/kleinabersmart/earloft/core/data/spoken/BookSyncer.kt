@@ -46,6 +46,8 @@ class BookSyncer @Inject constructor(
     private val servers: AudiobookshelfServers,
     private val api: AbsApi,
     private val progressSync: BookProgressSync,
+    private val sessions: AbsSessionReporter,
+    private val covers: BookCovers,
     private val bookmarks: Bookmarks,
     private val localBooks: LocalBooks,
     private val ardBooks: ArdBooks,
@@ -116,9 +118,12 @@ class BookSyncer @Inject constructor(
                 throw IOException("${library.name} changed during the sync")
             }
         }
+        invalidateChangedCovers(server.serverId, stored)
         // First upload unreported progress: deleted books take it with them.
         progressSync.pushPending()
         bookmarks.pushPending()
+        // Listening sessions too: their catch-up worker gives up after about 8 h, after that only this sends them (review4 T16).
+        sessions.pushPending()
         // An aborted sync never gets this far and therefore deletes nothing.
         if (hidden.isEmpty()) dao.deleteUnseen(server.serverId, generation)
         else dao.deleteUnseenOutside(server.serverId, generation, hidden.map { it.id })
@@ -225,6 +230,20 @@ class BookSyncer @Inject constructor(
     }
 
     private fun String?.orNullIfBlank(): String? = this?.trim()?.ifEmpty { null }
+
+    /**
+     * A book changed on the server since [stored] (new `updatedAt`) may have a new cover: the cached one is dropped and loaded
+     * again on the next display. Otherwise a cover replaced in Audiobookshelf would never arrive (review4 T18). Any change counts,
+     * the server doesn't tell which one; loading a cover once more is cheap.
+     */
+    private suspend fun invalidateChangedCovers(serverId: String, stored: List<BookEntity>) {
+        if (stored.isEmpty()) return
+        val before = stored.associate { it.bookId to it.remoteUpdatedAt }
+        dao.booksOf(serverId).forEach { book ->
+            val previous = before[book.bookId] ?: return@forEach
+            if (previous != book.remoteUpdatedAt) covers.invalidate(book.bookId)
+        }
+    }
 
     /**
      * Reads a library page by page (by `addedAt`, new ones go to the end) and writes each book with [generation].

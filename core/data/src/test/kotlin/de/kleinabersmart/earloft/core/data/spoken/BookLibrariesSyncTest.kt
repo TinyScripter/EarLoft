@@ -12,6 +12,7 @@ import de.kleinabersmart.earloft.core.data.repository.PlaybackPolicy
 import de.kleinabersmart.earloft.core.data.security.SecretStore
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.BookDao
+import de.kleinabersmart.earloft.core.database.entity.AbsSessionEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.datasource.local.LocalBookScanner
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
@@ -22,6 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -29,14 +31,18 @@ import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
 import okhttp3.OkHttpClient
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicLong
 
 /** Several book libraries per server (`books_improvements.md` M3) and genres (S9) in the sync, against a mocked server. */
 @RunWith(RobolectricTestRunner::class)
@@ -48,6 +54,15 @@ class BookLibrariesSyncTest {
     private lateinit var servers: AudiobookshelfServers
     private lateinit var syncer: BookSyncer
     private lateinit var books: BookRepository
+    private lateinit var covers: BookCovers
+    private lateinit var progressSync: BookProgressSync
+
+    /** Progress the server reports for `li_1` (its clock 10 min ahead) and the positions (s) sent to it. */
+    private val serverProgressAt = AtomicLong(0)
+    private val sentPositions = CopyOnWriteArrayList<Double>()
+
+    /** `updatedAt` per item on the server; 1 if not set. */
+    private val updatedAt = ConcurrentHashMap<String, Long>()
 
     /** Entries per library (id, title, genres); changeable between two syncs. */
     private val items = ConcurrentHashMap(
@@ -83,11 +98,11 @@ class BookLibrariesSyncTest {
             }
         }
         servers = testAudiobookshelfServers(dao, secrets, api, registry, client)
-        val progressSync = BookProgressSync(context, dao, servers, api, PlaybackPolicy())
+        progressSync = BookProgressSync(context, dao, servers, api, PlaybackPolicy())
         val scanner = LocalBookScanner(context)
-        val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
+        covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
         syncer = BookSyncer(
-            dao, servers, api, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy()),
+            dao, servers, api, progressSync, AbsSessionReporter(context, db.absSessionDao(), dao, servers, api, PlaybackPolicy()), covers, Bookmarks(context, dao, servers, api, PlaybackPolicy()),
             LocalBooks(dao, scanner, SpokenSettings(context), covers, SweepGuard(context)),
             ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(OkHttpClient())), SpokenSettings(context), covers, { _, _ -> }),
             ArdUploadAdoption(context, dao, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy())),
@@ -121,6 +136,55 @@ class BookLibrariesSyncTest {
         assertEquals("lib-a", all.getValue("Crime").book.libraryId)
         assertEquals("lib-b", all.getValue("Drama").book.libraryId)
         assertEquals(listOf("Police", "Thriller"), all.getValue("Crime").book.genres)
+    }
+
+    @Test
+    fun `a sync sends listening sessions the catch-up worker gave up on`() = runTest {
+        val id = connect()
+        sync(id)
+        val book = dao.booksOf(id).single { it.title == "Crime" }
+        val now = System.currentTimeMillis()
+        db.absSessionDao().upsert(
+            AbsSessionEntity("s1", book.bookId, startedAt = now - 60_000, updatedAt = now, timeListeningMs = 60_000, startPositionMs = 0, currentPositionMs = 60_000, durationMs = 600_000),
+        )
+
+        assertTrue(sync(id).ok)
+
+        assertEquals(false, db.absSessionDao().session("s1")?.dirty)
+    }
+
+    @Test
+    fun `a book changed on the server drops its cached cover, an unchanged one keeps it`() = runTest {
+        val id = connect()
+        sync(id)
+        val changed = dao.booksOf(id).single { it.title == "Crime" }.bookId
+        val unchanged = dao.booksOf(id).single { it.title == "Novel" }.bookId
+        covers.store(changed, byteArrayOf(1))
+        covers.store(unchanged, byteArrayOf(2))
+
+        updatedAt["li_1"] = 2
+        assertTrue(sync(id).ok)
+
+        assertNull("Loaded again on the next display", covers.coverBytes(changed))
+        assertArrayEquals(byteArrayOf(2), covers.coverBytes(unchanged))
+    }
+
+    @Test
+    fun `before playback a state listened offline goes to the server instead of losing against its clock`() = runBlocking {
+        // Real time: the pull waits for the server with a timeout, which virtual time would end at once.
+        val id = connect()
+        sync(id)
+        val book = dao.booksOf(id).single { it.title == "Crime" }.bookId
+        val now = System.currentTimeMillis()
+        // Five minutes listened offline; the server's own state is older but its clock runs 10 min ahead.
+        dao.upsertProgress(BookProgressEntity(book, positionMs = 300_000, durationMs = 600_000, updatedAt = now, dirty = true))
+        serverProgressAt.set(now + 5 * 60_000)
+
+        val result = progressSync.pull(book)
+
+        assertEquals(300_000L, result.progress?.positionMs)
+        assertEquals(300_000L, dao.progress(book)?.positionMs)
+        assertEquals(listOf(300.0), sentPositions)
     }
 
     @Test
@@ -340,6 +404,15 @@ class BookLibrariesSyncTest {
             return when {
                 path == "/ping" -> json("""{"success":true}""")
                 path == "/api/me" -> json("""{"id":"user-1","mediaProgress":[],"bookmarks":[]}""")
+                path == "/api/session/local" -> json("{}")
+                path == "/api/me/progress/li_1" && request.method == "PATCH" -> {
+                    val body = request.body?.utf8().orEmpty()
+                    Regex(""""currentTime":([0-9.]+)""").find(body)?.groupValues?.get(1)?.toDouble()?.let(sentPositions::add)
+                    json("{}")
+                }
+                path == "/api/me/progress/li_1" -> json(
+                    """{"libraryItemId":"li_1","duration":600,"currentTime":10,"lastUpdate":${serverProgressAt.get()}}""",
+                )
                 path == "/api/libraries" -> {
                     val names = mapOf("lib-a" to "Audiobooks", "lib-b" to "Radio plays")
                     val libraries = items.keys.sorted().joinToString(",") { """{"id":"$it","name":"${names[it]}","mediaType":"book"}""" }
@@ -366,6 +439,7 @@ class BookLibrariesSyncTest {
                         else -> json("""{"authors":[{"id":"au2","name":"Bert Author","description":"Writes radio plays."}]}""")
                     }
                 }
+                path.endsWith("/cover") -> MockResponse.Builder().code(404).build()
                 path.startsWith("/api/items/") -> {
                     val itemId = path.removePrefix("/api/items/")
                     val entry = items.values.flatten().firstOrNull { it.first == itemId }
@@ -379,7 +453,7 @@ class BookLibrariesSyncTest {
             val genreList = genres.joinToString(",") { "\"$it\"" }
             val count = audioFiles[id]?.let { ",\"numAudioFiles\":$it" }.orEmpty()
             val isMissing = if (id in missing) ",\"isMissing\":true" else ""
-            return """{"id":"$id","addedAt":1,"updatedAt":1$isMissing,"media":{"metadata":{"title":"$title","authorName":"A","genres":[$genreList]},"duration":60$count}}"""
+            return """{"id":"$id","addedAt":1,"updatedAt":${updatedAt[id] ?: 1}$isMissing,"media":{"metadata":{"title":"$title","authorName":"A","genres":[$genreList]},"duration":60$count}}"""
         }
 
         private fun json(body: String) = MockResponse.Builder().addHeader("Content-Type", "application/json").body(body).build()

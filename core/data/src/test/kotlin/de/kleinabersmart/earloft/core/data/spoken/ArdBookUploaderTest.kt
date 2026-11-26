@@ -122,7 +122,7 @@ class ArdBookUploaderTest {
         val settings = SpokenSettings(context)
         val adoption = ArdUploadAdoption(context, dao, progressSync, bookmarks)
         syncer = BookSyncer(
-            dao, servers, api, progressSync, bookmarks,
+            dao, servers, api, progressSync, AbsSessionReporter(context, db.absSessionDao(), dao, servers, api, PlaybackPolicy()), covers, bookmarks,
             LocalBooks(dao, scanner, settings, covers, SweepGuard(context)),
             ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(client)), settings, covers, { _, _ -> }),
             adoption,

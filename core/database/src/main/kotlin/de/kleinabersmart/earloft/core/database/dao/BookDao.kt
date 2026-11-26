@@ -448,6 +448,16 @@ abstract class BookDao {
     @Query("SELECT b.serverId AS serverId, b.remoteId AS remoteId, p.* FROM book_progress p JOIN books b ON b.bookId = p.bookId")
     abstract suspend fun keyedProgress(): List<KeyedProgress>
 
+    /**
+     * Like [keyedProgress], without episodes of trial subscriptions: those are not backed up, and their progress would stay in the
+     * backup for good once the cleaner has deleted the trial (review4 T25).
+     */
+    @Query(
+        "SELECT b.serverId AS serverId, b.remoteId AS remoteId, p.* FROM book_progress p JOIN books b ON b.bookId = p.bookId " +
+            "WHERE b.serverId NOT IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0)",
+    )
+    abstract suspend fun keyedProgressToBackUp(): List<KeyedProgress>
+
     // --- Bookmarks (concept 12.6) ---
 
     @Query("SELECT * FROM bookmarks WHERE bookId = :bookId AND deleted = 0 ORDER BY positionMs, createdAt")

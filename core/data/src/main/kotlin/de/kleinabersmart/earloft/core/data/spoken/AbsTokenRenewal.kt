@@ -77,7 +77,13 @@ class AbsTokenRenewal @Inject constructor(
         val current = registry[serverId] ?: return null
         val expiresAt = AbsAuthApi.expiresAt(current.token) ?: return current.token
         if (expiresAt - System.currentTimeMillis() / 1000 >= minValiditySeconds) return current.token
-        refreshLocked(current) ?: registry[serverId]?.token
+        // Not reachable right now: the current token, as long as it lasts.
+        val renewed = try {
+            refreshLocked(current)
+        } catch (e: IOException) {
+            null
+        }
+        renewed ?: registry[serverId]?.token
     }
 
     /** After a new login or removal: old tokens no longer count as this server's. */
@@ -91,21 +97,24 @@ class AbsTokenRenewal @Inject constructor(
      */
     private suspend fun refreshLocked(server: AbsServer): String? = withContext(NonCancellable) { refreshNow(server) }
 
+    /** `null` if the server rejected the refresh token (login expired). @throws IOException if it couldn't be asked right now. */
     private suspend fun refreshNow(server: AbsServer): String? {
         val refreshToken = secretStore.get(AbsSecrets.refresh(server.serverId)) ?: return null
         val tokens = try {
             withContext(Dispatchers.IO) { authApi.refreshBlocking(server.baseUrl, refreshToken) }
         } catch (e: AbsException) {
-            if (e.code == 401) {
-                Log.w(TAG, "Login at ${server.baseUrl} expired", e)
-                expire(server.serverId)
-            } else {
+            if (e.code != 401) {
                 Log.w(TAG, "Renewal at ${server.baseUrl} failed", e)
+                throw IOException("Token renewal at ${server.baseUrl} failed temporarily", e)
             }
+            Log.w(TAG, "Login at ${server.baseUrl} expired", e)
+            expire(server.serverId)
             return null
         } catch (e: IOException) {
+            // Not a rejection: the original 401 would otherwise reach the caller and count as a refused login, and a download
+            // would give up at once instead of retrying later (review4 T29).
             Log.w(TAG, "Renewal at ${server.baseUrl} not possible", e)
-            return null
+            throw IOException("Token renewal at ${server.baseUrl} not possible", e)
         }
         secretStore.put(AbsSecrets.token(server.serverId), tokens.accessToken)
         tokens.refreshToken?.let { secretStore.put(AbsSecrets.refresh(server.serverId), it) }

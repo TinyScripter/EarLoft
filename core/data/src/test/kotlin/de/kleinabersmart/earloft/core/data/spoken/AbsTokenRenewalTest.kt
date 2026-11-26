@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.core.data.spoken
 import android.app.Application
 import de.kleinabersmart.earloft.core.data.podcast.MemorySecretStore
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthApi
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsException
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServer
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServerRegistry
 import kotlinx.coroutines.test.runTest
@@ -13,12 +14,15 @@ import mockwebserver3.RecordedRequest
 import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.IOException
 import java.util.concurrent.Callable
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -122,10 +126,15 @@ class AbsTokenRenewalTest {
     }
 
     @Test
-    fun `a server error keeps the login`() = runTest {
+    fun `a server error keeps the login and fails like a network error, not as a rejection`() = runTest {
         answer = { MockResponse.Builder().code(503).build() }
 
-        assertNull(renewal.renew(SERVER, "access-1"))
+        try {
+            renewal.renew(SERVER, "access-1")
+            fail("A temporary failure must not look like a rejected login")
+        } catch (e: IOException) {
+            assertFalse(e is AbsException)
+        }
 
         assertEquals(0, renewal.expired.value)
         assertEquals("access-1", registry[SERVER]?.token)
