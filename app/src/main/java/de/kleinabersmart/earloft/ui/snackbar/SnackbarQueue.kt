@@ -20,6 +20,9 @@ import kotlinx.coroutines.channels.Channel
 internal class SnackbarQueue(private val host: SnackbarHostState) {
     private val waiting = ArrayDeque<SnackbarMessage>()
     private var visible: SnackbarMessage? = null
+
+    /** [visible] was withdrawn: it must not come back when its root goes away right after. */
+    private var visibleWithdrawn = false
     private val wake = Channel<Unit>(Channel.CONFLATED)
 
     /** The messages still to come, in order (for tests). */
@@ -47,7 +50,10 @@ internal class SnackbarQueue(private val host: SnackbarHostState) {
     /** Exactly this [message] (the same instance) no longer shows; if it is visible, it disappears. */
     fun withdraw(message: SnackbarMessage) {
         waiting.removeAll { it === message }
-        if (visible === message) host.currentSnackbarData?.dismiss()
+        if (visible === message) {
+            visibleWithdrawn = true
+            host.currentSnackbarData?.dismiss()
+        }
     }
 
     /** Shows the messages one after another; runs as long as the UI root does. A new root takes over with the same queue. */
@@ -59,12 +65,14 @@ internal class SnackbarQueue(private val host: SnackbarHostState) {
                 continue
             }
             visible = next
+            visibleWithdrawn = false
             val result = try {
                 host.showSnackbar(AppSnackbarVisuals(next))
             } catch (e: CancellationException) {
                 // The UI root went away while the message was visible (rotation, switch of theme or language): the next root shows
-                // it again; dismissed, expired and withdrawn messages return normally (review T31).
-                waiting.addFirst(next)
+                // it again; dismissed, expired and withdrawn messages return normally (review T31). Not one its list withdrew while
+                // going away with the same root ("New at the start"): "Show" would do nothing (review4 8.6 Y5).
+                if (!visibleWithdrawn) waiting.addFirst(next)
                 throw e
             } finally {
                 visible = null

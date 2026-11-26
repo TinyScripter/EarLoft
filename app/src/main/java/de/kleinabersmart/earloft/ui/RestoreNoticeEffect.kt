@@ -18,11 +18,26 @@ import de.kleinabersmart.earloft.ui.settings.backupRestoredMessage
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import javax.inject.Inject
 
 @HiltViewModel
 class RestoreNoticeViewModel @Inject constructor(notice: RestoreNotice) : ViewModel() {
     val reports: Flow<RestoreReport> = notice.reports
+
+    private val _enterRequests = MutableSharedFlow<MissingCredentials>(extraBufferCapacity = 1)
+
+    /** Taps on "Enter", for whichever UI root is current then ([enter]). */
+    val enterRequests: Flow<MissingCredentials> = _enterRequests.asSharedFlow()
+
+    /**
+     * The snackbar's action: it outlives a rotation (review T31), the navigation of the root that showed it does not. So the tap
+     * goes through here, and the current root navigates (review4 8.6 Y5).
+     */
+    fun enter(missing: MissingCredentials) {
+        _enterRequests.tryEmit(missing)
+    }
 }
 
 /**
@@ -37,6 +52,9 @@ fun RestoreNoticeEffect(onEnter: ((MissingCredentials) -> Unit)?, viewModel: Res
     val resources = LocalResources.current
     val enter by rememberUpdatedState(onEnter)
     LaunchedEffect(viewModel) {
+        viewModel.enterRequests.collect { missing -> enter?.invoke(missing) }
+    }
+    LaunchedEffect(viewModel) {
         viewModel.reports.collect { report ->
             val missing = report.missing
             val action = enter?.takeIf { missing.total > 0 }
@@ -44,7 +62,7 @@ fun RestoreNoticeEffect(onEnter: ((MissingCredentials) -> Unit)?, viewModel: Res
                 SnackbarMessage(
                     text = restoreText(resources, report),
                     actionLabel = action?.let { resources.getString(R.string.restore_missing_credentials_action) },
-                    onAction = action?.let { { it(missing) } },
+                    onAction = action?.let { { viewModel.enter(missing) } },
                     // If something is missing, the hint stays until the user taps "Enter" or "Close".
                     duration = if (missing.total > 0) SnackbarDuration.Indefinite else SnackbarDuration.Long,
                     keep = missing.total > 0,

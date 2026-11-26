@@ -5,6 +5,7 @@ import androidx.compose.material3.SnackbarHostState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runCurrent
@@ -108,6 +109,40 @@ class SnackbarQueueTest {
         queue.offer(kept("Import failed"))
 
         assertEquals(listOf(hint), queue.pending)
+    }
+
+    @Test
+    fun `a message its list withdraws while the root goes away does not come back, in either order`() = runTest {
+        val hint = SnackbarMessage("New at the start", actionLabel = "Show", onAction = {}, keep = true)
+
+        // The list's withdrawal arrives first, the root ends before the dismissal is dispatched: like on the main thread, where
+        // the cancellation then wins over the dismissal.
+        var root = backgroundScope.launch(StandardTestDispatcher(testScheduler)) { queue.run() }
+        queue.offer(hint)
+        runCurrent()
+        assertEquals("New at the start", shown)
+        queue.withdraw(hint)
+        root.cancel()
+        runCurrent()
+        assertEquals(emptyList<SnackbarMessage>(), queue.pending)
+
+        // The root's end first, then the withdrawal.
+        root = backgroundScope.launch(StandardTestDispatcher(testScheduler)) { queue.run() }
+        queue.offer(hint)
+        runCurrent()
+        assertEquals("New at the start", shown)
+        root.cancel()
+        runCurrent()
+        queue.withdraw(hint)
+        assertEquals(emptyList<SnackbarMessage>(), queue.pending)
+
+        // The next root shows the new list's live hint, not a dead one blocking it (review4 8.6 Y5).
+        val live = SnackbarMessage("New at the start", actionLabel = "Show", onAction = {}, keep = true)
+        start()
+        queue.offer(live)
+        runCurrent()
+        assertEquals("New at the start", shown)
+        assertEquals(emptyList<SnackbarMessage>(), queue.pending)
     }
 
     @Test
