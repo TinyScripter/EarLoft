@@ -16,6 +16,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
@@ -49,6 +50,10 @@ fun StorageScreen(viewModel: StorageViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val removeFailed by viewModel.removeFailed.collectAsStateWithLifecycle()
+    LifecycleStartEffect(viewModel) {
+        viewModel.watchWifi()
+        onStopOrDispose { viewModel.stopWatchingWifi() }
+    }
     StorageContent(
         state,
         entries = entries,

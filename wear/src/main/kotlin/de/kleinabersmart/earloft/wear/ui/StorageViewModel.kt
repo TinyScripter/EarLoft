@@ -4,6 +4,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.BatteryManager
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
@@ -27,6 +31,7 @@ import de.kleinabersmart.earloft.wear.download.WatchStorageRepository
 import de.kleinabersmart.earloft.wear.download.WearDownloadPlanner
 import de.kleinabersmart.earloft.wear.sync.PhoneSelections
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +40,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -89,14 +95,14 @@ data class StoredEntry(
 
 @HiltViewModel
 class StorageViewModel @Inject constructor(
-    @ApplicationContext context: Context,
+    @param:ApplicationContext private val context: Context,
     private val downloads: DownloadRepository,
     private val phoneSelections: PhoneSelections,
     private val storage: WatchStorageRepository,
     private val watchState: WatchState,
     private val bookDao: BookDao,
     private val planner: WearDownloadPlanner,
-    scheduler: WearDownloadScheduler,
+    private val scheduler: WearDownloadScheduler,
 ) : ViewModel() {
 
     private val _removeFailed = MutableStateFlow(false)
@@ -176,6 +182,30 @@ class StorageViewModel @Inject constructor(
         _removeFailed.value = false
     }
 
+    private var wifiWatch: Job? = null
+
+    /**
+     * While the screen is shown: if the waiting job only starts on the charger after repeated attempts without Wi-Fi, but the
+     * watch is on Wi-Fi (now or later), a normal job replaces it once and the downloads continue right away (review4 T58).
+     * Otherwise turning on Wi-Fi after the hint "Continues on the charger" changed nothing until the watch was on power.
+     * Only a connected Wi-Fi counts: Wi-Fi switched on without a known network in reach would start the attempts again each
+     * time the screen is opened.
+     */
+    fun watchWifi() {
+        wifiWatch?.cancel()
+        wifiWatch = viewModelScope.launch {
+            combine(scheduler.nextJobOnCharger, context.wifiConnectedFlow(), ::Pair).first { (jobOnCharger, wifi) ->
+                replacesChargerJob(jobOnCharger, watchState.settings.value.requireCharging, context.isCharging(), wifi)
+            }
+            scheduler.enqueue(replace = true)
+        }
+    }
+
+    fun stopWatchingWifi() {
+        wifiWatch?.cancel()
+        wifiWatch = null
+    }
+
     /** Songs as well as episodes and books; the latter would otherwise wait until the phone adds them to the manifest again. */
     fun retryFailed() {
         watchState.clearAllServerFailures()
@@ -187,6 +217,14 @@ class StorageViewModel @Inject constructor(
         }
     }
 }
+
+/**
+ * Whether a job that only starts on the charger after repeated attempts without Wi-Fi ([jobOnCharger]) should be replaced by a
+ * normal one: the watch is on Wi-Fi now ([wifiOn]) and nothing else holds it back. Not with the phone's setting "only on the charger" (the normal job
+ * would wait just the same) and not on the charger (the job starts anyway).
+ */
+internal fun replacesChargerJob(jobOnCharger: Boolean, requireCharging: Boolean, charging: Boolean, wifiOn: Boolean): Boolean =
+    jobOnCharger && wifiOn && !requireCharging && !charging
 
 /** The phone sends the manifest after 2 s of quiet; as with the "On the watch" switch, the desired state applies at most that long. */
 private const val REMOVING_TIMEOUT_MS = 20_000L
@@ -219,3 +257,35 @@ private fun Context.chargingFlow(): Flow<Boolean> = callbackFlow {
 }.distinctUntilChanged()
 
 private fun Intent.isPlugged(): Boolean = getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
+
+/** Like [chargingFlow], once: the sticky broadcast without a receiver. */
+private fun Context.isCharging(): Boolean =
+    ContextCompat.registerReceiver(this, null, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+        ?.isPlugged() == true
+
+/**
+ * Whether the watch is connected to a Wi-Fi with internet. Only listens: unlike the worker's request (`WifiNetwork`) it does not
+ * turn Wi-Fi on.
+ */
+private fun Context.wifiConnectedFlow(): Flow<Boolean> = callbackFlow {
+    val connectivity = getSystemService(ConnectivityManager::class.java)
+    val networks = mutableSetOf<Network>()
+    val callback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            networks += network
+            trySend(true)
+        }
+
+        override fun onLost(network: Network) {
+            networks -= network
+            trySend(networks.isNotEmpty())
+        }
+    }
+    trySend(false)
+    val request = NetworkRequest.Builder()
+        .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        .build()
+    connectivity.registerNetworkCallback(request, callback)
+    awaitClose { connectivity.unregisterNetworkCallback(callback) }
+}.distinctUntilChanged()
