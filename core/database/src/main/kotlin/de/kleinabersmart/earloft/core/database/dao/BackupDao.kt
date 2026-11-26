@@ -8,6 +8,7 @@ import androidx.room.Query
 import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.PlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.WearSelectionEntity
+import de.kleinabersmart.earloft.core.model.ARD_BOOK_SERVER_ID
 import de.kleinabersmart.earloft.core.model.FavoriteKind
 
 /** Columns of a song together with its key from the metadata (see [KeyedSong]). */
@@ -125,6 +126,53 @@ abstract class BackupDao {
 
     @Query("SELECT playlistId FROM playlists WHERE boundSourceId = :sourceId AND remotePlaylistId = :remoteId LIMIT 1")
     abstract suspend fun serverPlaylistId(sourceId: String, remoteId: String): Long?
+
+    /**
+     * How many rows of each kind the backup holds (coarsely, without its filters): if one of them shrinks, something was
+     * removed, and the backup mirrors it right away instead of in its usual interval (review4 T20).
+     */
+    @Query(
+        "SELECT (SELECT COUNT(*) FROM sources) AS sources, (SELECT COUNT(*) FROM spoken_servers) AS spokenServers, " +
+            "(SELECT COUNT(*) FROM podcast_feeds WHERE subscribed = 1) AS feeds, (SELECT COUNT(*) FROM book_progress) AS progress, " +
+            "(SELECT COUNT(*) FROM bookmarks) AS bookmarks, (SELECT COUNT(*) FROM songs WHERE isFavorite = 1) AS favoriteSongs, " +
+            "(SELECT COUNT(*) FROM albums WHERE isFavorite = 1) + (SELECT COUNT(*) FROM artists WHERE isFavorite = 1) AS favoriteCollections, " +
+            "(SELECT COUNT(*) FROM playlists WHERE boundSourceId IS NULL) AS playlists, (SELECT COUNT(*) FROM playlist_entries) AS playlistEntries, " +
+            "(SELECT COUNT(*) FROM play_events) AS playEvents, (SELECT COUNT(*) FROM wear_selections) AS wearSelections, " +
+            "(SELECT COUNT(*) FROM listening_stats) AS listeningStats, (SELECT COUNT(*) FROM listening_days) AS listeningDays, " +
+            "(SELECT COUNT(*) FROM books WHERE kind = 'EPISODE' AND starredAt IS NOT NULL) AS starredEpisodes, " +
+            "(SELECT COUNT(*) FROM books WHERE serverId = '$ARD_BOOK_SERVER_ID') AS ardBooks, " +
+            "(SELECT COUNT(*) FROM book_tracks t JOIN books b ON b.bookId = t.bookId WHERE b.kind = 'EPISODE' AND t.trackIndex = 0 " +
+            "AND t.downloadState NOT IN ('NONE', 'REMOVED')) AS episodeDownloads",
+    )
+    abstract suspend fun rowCounts(): BackupRowCounts
+}
+
+/** See [BackupDao.rowCounts]. */
+data class BackupRowCounts(
+    val sources: Int,
+    val spokenServers: Int,
+    val feeds: Int,
+    val progress: Int,
+    val bookmarks: Int,
+    val favoriteSongs: Int,
+    val favoriteCollections: Int,
+    val playlists: Int,
+    val playlistEntries: Int,
+    val playEvents: Int,
+    val wearSelections: Int,
+    val listeningStats: Int,
+    val listeningDays: Int,
+    val starredEpisodes: Int,
+    val ardBooks: Int,
+    val episodeDownloads: Int,
+) {
+    /** Whether any kind has fewer rows than in [before]. */
+    fun shrankSince(before: BackupRowCounts): Boolean =
+        sources < before.sources || spokenServers < before.spokenServers || feeds < before.feeds || progress < before.progress ||
+            bookmarks < before.bookmarks || favoriteSongs < before.favoriteSongs || favoriteCollections < before.favoriteCollections ||
+            playlists < before.playlists || playlistEntries < before.playlistEntries || playEvents < before.playEvents ||
+            wearSelections < before.wearSelections || listeningStats < before.listeningStats || listeningDays < before.listeningDays ||
+            starredEpisodes < before.starredEpisodes || ardBooks < before.ardBooks || episodeDownloads < before.episodeDownloads
 }
 
 /**

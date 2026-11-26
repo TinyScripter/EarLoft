@@ -11,6 +11,7 @@ import de.kleinabersmart.earloft.core.data.source.DataSourceRegistry
 import de.kleinabersmart.earloft.core.data.spoken.ArdBooks
 import de.kleinabersmart.earloft.core.data.spoken.decodeArdParts
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
+import de.kleinabersmart.earloft.core.database.dao.BackupRowCounts
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.dao.SourceDao
@@ -29,6 +30,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -39,6 +41,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import de.kleinabersmart.earloft.core.model.ARD_BOOK_SERVER_ID
 import de.kleinabersmart.earloft.core.model.BookKind
 import java.io.File
@@ -68,7 +71,7 @@ import javax.inject.Singleton
  *   first sync and only downloads episodes published afterwards. Before each decision it applies what already fits
  *   ([applyWaiting]); otherwise it would download after syncing a restored subscription, before the progress is there.
  * - **Mirroring:** After that, every change to the affected tables transfers only the differences, at most once per
- *   [MIRROR_INTERVAL_MS]. The backup runs rarely anyway (cloud roughly daily); this way no write path can be forgotten.
+ *   [MIRROR_INTERVAL_MS]; after a removal sooner ([REMOVAL_MIRROR_DELAY_MS]), so it cannot come back. The backup runs rarely anyway (cloud roughly daily); this way no write path can be forgotten.
  *   Only the parts whose tables changed are read (while listening to a book, only progress and statistics every 15 s
  *   instead of all user data); every [FULL_READ_INTERVAL_MS] everything again, for changes through unobserved
  *   tables (e.g. renamed albums in the keys).
@@ -163,6 +166,8 @@ class UserDataBackup @Inject constructor(
                 .conflate()
                 .collect {
                     val tables = changed.toSet().also { changed.removeAll(it) }
+                    // Counted before mirroring: what is removed meanwhile is either in this mirror already or shrinks the count.
+                    val counts = rowCountsOrNull()
                     try {
                         mutex.withLock { mirror(tables) }
                     } catch (e: CancellationException) {
@@ -171,9 +176,33 @@ class UserDataBackup @Inject constructor(
                         Log.e(TAG, "User data could not be backed up", e)
                         mirrored = null
                     }
-                    delay(MIRROR_INTERVAL_MS)
+                    awaitNextMirror(counts)
                 }
         }
+    }
+
+    /**
+     * The pause until the next mirroring: [MIRROR_INTERVAL_MS], unless something was removed meanwhile (fewer rows than
+     * [counts]); that goes after [REMOVAL_MIRROR_DELAY_MS]. Otherwise a removed star, bookmark, watch selection, ARD book or
+     * an undone "mark as played" would come back from `user.db` if the process ends within the interval (review4 T20).
+     * Mere progress and statistics keep the interval.
+     */
+    private suspend fun awaitNextMirror(counts: BackupRowCounts?) {
+        withTimeoutOrNull(MIRROR_INTERVAL_MS) {
+            delay(REMOVAL_MIRROR_DELAY_MS)
+            counts ?: awaitCancellation()
+            // Emits once right away: a removal during the mirroring or the delay counts as well.
+            database.invalidationTracker.createFlow(*MIRRORED_TABLES).first { rowCountsOrNull()?.shrankSince(counts) == true }
+        }
+    }
+
+    private suspend fun rowCountsOrNull(): BackupRowCounts? = try {
+        database.backupDao().rowCounts()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "Rows of the backup could not be counted", e)
+        null
     }
 
     /**
@@ -884,6 +913,9 @@ class UserDataBackup @Inject constructor(
         /** Feed IDs created by a restore and not synced yet, one per line ([pendingOf]). */
         const val RESTORED_FEEDS = "restored_feeds"
         const val MIRROR_INTERVAL_MS = 60_000L
+
+        /** After a removal; short, but several removals in a row (selecting, undoing) still go in one mirroring. */
+        const val REMOVAL_MIRROR_DELAY_MS = 2_000L
         const val FULL_READ_INTERVAL_MS = 30 * 60_000L
         val MUSIC_TABLES = arrayOf("songs", "albums", "artists", "playlists", "playlist_entries", "play_events", "wear_selections")
         const val APPLY_INTERVAL_MS = 5_000L

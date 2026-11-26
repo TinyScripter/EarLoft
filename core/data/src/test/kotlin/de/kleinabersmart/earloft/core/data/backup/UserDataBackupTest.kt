@@ -26,9 +26,13 @@ import de.kleinabersmart.earloft.core.model.LOCAL_BOOK_SERVER_ID
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
 import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.test.TestScope
@@ -64,7 +68,7 @@ class UserDataBackupTest {
     }
 
     /** A device: main database [db] and the same [user] database (which comes along when switching devices). */
-    private fun backupFor(db: EarLoftDatabase, ard: ArdBooks? = null) = UserDataBackup(
+    private fun backupFor(db: EarLoftDatabase, ard: ArdBooks? = null, scope: CoroutineScope = TestScope()) = UserDataBackup(
         context = context,
         database = db,
         userDao = user.userDataDao(),
@@ -76,7 +80,7 @@ class UserDataBackupTest {
         restoreNotice = RestoreNotice(context, { error("not needed") }, { error("not needed") }),
         registry = Lazy<DataSourceRegistry> { error("not needed") },
         ardBooks = { ard ?: error("not needed") },
-        scope = TestScope(),
+        scope = scope,
     )
 
     private fun ardAnswer(group: String = "urn:ard:show:gs") = MockResponse.Builder().body(
@@ -147,6 +151,35 @@ class UserDataBackupTest {
         assertEquals(90_000L, dao.listeningDays().single().listenedMs)
         assertTrue(dao.podcasts().isEmpty())
         assertEquals(1, dao.servers().size)
+    }
+
+    @Test
+    fun `a removal is mirrored right away, an addition waits for the interval`() = runBlocking {
+        fillMain()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            backupFor(main, scope = scope).start()
+            val dao = user.userDataDao()
+            withTimeout(10_000) { while (dao.podcasts().isEmpty()) delay(50) }
+
+            main.statsDao().addListening(
+                ListeningStatEntity(
+                    source = ListeningStatEntity.SOURCE_APP, kind = BookKind.EPISODE, groupKey = "https://example.org/feed",
+                    groupTitle = "Logbook", itemKey = "guid-1", itemTitle = "Episode 1", listenedMs = 30_000, lastListenedAt = 2_000,
+                ),
+                day = 20_000,
+            )
+            // Longer than the delay after a removal (2 s), far shorter than the interval (60 s).
+            delay(3_000)
+            assertEquals(60_000L, dao.listeningStats().single().listenedMs)
+
+            main.podcastDao().deleteFeed("feed-1")
+            withTimeout(7_000) { while (dao.podcasts().isNotEmpty()) delay(50) }
+            // The waiting addition goes along.
+            assertEquals(90_000L, dao.listeningStats().single().listenedMs)
+        } finally {
+            scope.cancel()
+        }
     }
 
     @Test
