@@ -202,8 +202,10 @@ internal fun AlbumCrate(
     }
 
     val goTo: (Int) -> Unit = { index -> scope.launch { position.animateTo(index.coerceIn(0, lastIndex).toFloat(), settleSpring()) } }
-    // The crate settles on the nearer album by itself once nothing moves it.
-    val hold: () -> Unit = { scope.launch { position.stop() } }
+    // Holds the moving crate on the front album: the settling itself, from standstill. Stopping alone would leave it to the settle loop
+    // above, and a second tap that stops that settling would leave the crate between two albums for good, since the loop's condition
+    // reads the same as before and emits nothing new (review4 8.6 Y4).
+    val hold: () -> Unit = { scope.launch { position.animateTo(frontIndex.toFloat(), settleSpring(), initialVelocity = 0f) } }
     val jumpTo: (Int) -> Unit = { index -> scope.launch { position.snapTo(index.coerceIn(0, lastIndex).toFloat()) } }
     // A random other album of the shown ones; the crate visibly flips through the last few records before it.
     val random: () -> Unit = {
