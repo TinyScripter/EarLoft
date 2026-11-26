@@ -98,8 +98,17 @@ object ShareLinks {
         return host in ownHosts || isLocalHost(host)
     }
 
-    /** The address leads to the home network (private, loopback or link-local address, or a local name). */
-    fun isHomeNetworkAddress(url: String): Boolean = url.trim().toHttpUrlOrNull()?.host?.lowercase()?.let(::isLocalHost) == true
+    /**
+     * The address leads to the home network as Android 17 means it for its permission (private, link-local and carrier-grade
+     * NAT address, or a local name). Not the device itself: loopback needs no permission (review4 Y22).
+     */
+    fun isHomeNetworkAddress(url: String): Boolean {
+        val host = url.trim().toHttpUrlOrNull()?.host?.lowercase() ?: return false
+        return isLocalHost(host) && !isLoopback(host)
+    }
+
+    private fun isLoopback(host: String): Boolean =
+        host == "localhost" || host.endsWith(".localhost") || host == "::1" || host.startsWith("127.")
 
     private fun isSecretParameter(name: String): Boolean {
         val key = name.lowercase().replace("-", "_")

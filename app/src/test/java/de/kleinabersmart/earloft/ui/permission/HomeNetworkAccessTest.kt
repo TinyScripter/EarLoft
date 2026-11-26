@@ -20,4 +20,11 @@ class HomeNetworkAccessTest {
         assertEquals(false, needsHomeNetworkAccess(listOf("https://jellyfin.example.com", "https://feeds.example.org/show.xml")))
         assertEquals(false, needsHomeNetworkAccess(listOf("not an address")))
     }
+
+    @Test
+    fun `the device itself needs no permission, carrier-grade NAT does`() {
+        // review4 Y22: Android counts 100.64/10 as local network, the loopback address not.
+        assertEquals(false, needsHomeNetworkAccess(listOf("http://127.0.0.1:4533", "http://localhost:8096", "http://[::1]:13378")))
+        assertEquals(true, needsHomeNetworkAccess(listOf("http://100.101.102.103:4533")))
+    }
 }
