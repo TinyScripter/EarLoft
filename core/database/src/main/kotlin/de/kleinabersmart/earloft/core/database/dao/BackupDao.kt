@@ -128,15 +128,21 @@ abstract class BackupDao {
     abstract suspend fun serverPlaylistId(sourceId: String, remoteId: String): Long?
 
     /**
-     * How many rows of each kind the backup holds (coarsely, without its filters): if one of them shrinks, something was
-     * removed, and the backup mirrors it right away instead of in its usual interval (review4 T20).
+     * How many rows of each kind the backup holds (coarsely, without all its filters): if one of them shrinks, something was
+     * removed, and the backup mirrors it right away instead of in its usual interval (review4 T20). Progress and playlist entries
+     * are counted as the backup takes them: trial subscriptions cleaned up and songs dropping out of server playlists happen with
+     * every sync and mirrored the backup every few seconds then.
      */
     @Query(
         "SELECT (SELECT COUNT(*) FROM sources) AS sources, (SELECT COUNT(*) FROM spoken_servers) AS spokenServers, " +
-            "(SELECT COUNT(*) FROM podcast_feeds WHERE subscribed = 1) AS feeds, (SELECT COUNT(*) FROM book_progress) AS progress, " +
+            "(SELECT COUNT(*) FROM podcast_feeds WHERE subscribed = 1) AS feeds, " +
+            "(SELECT COUNT(*) FROM book_progress p JOIN books b ON b.bookId = p.bookId " +
+            "WHERE b.serverId NOT IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0)) AS progress, " +
             "(SELECT COUNT(*) FROM bookmarks) AS bookmarks, (SELECT COUNT(*) FROM songs WHERE isFavorite = 1) AS favoriteSongs, " +
             "(SELECT COUNT(*) FROM albums WHERE isFavorite = 1) + (SELECT COUNT(*) FROM artists WHERE isFavorite = 1) AS favoriteCollections, " +
-            "(SELECT COUNT(*) FROM playlists WHERE boundSourceId IS NULL) AS playlists, (SELECT COUNT(*) FROM playlist_entries) AS playlistEntries, " +
+            "(SELECT COUNT(*) FROM playlists WHERE boundSourceId IS NULL) AS playlists, " +
+            "(SELECT COUNT(*) FROM playlist_entries WHERE playlistId IN (SELECT playlistId FROM playlists WHERE boundSourceId IS NULL)) " +
+            "AS playlistEntries, " +
             "(SELECT COUNT(*) FROM play_events) AS playEvents, (SELECT COUNT(*) FROM wear_selections) AS wearSelections, " +
             "(SELECT COUNT(*) FROM listening_stats) AS listeningStats, (SELECT COUNT(*) FROM listening_days) AS listeningDays, " +
             "(SELECT COUNT(*) FROM books WHERE kind = 'EPISODE' AND starredAt IS NOT NULL) AS starredEpisodes, " +

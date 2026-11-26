@@ -127,4 +127,18 @@ class PodcastDaoTest {
         assertTrue(kept.none { it.remoteId == "never" || it.remoteId == "e0" })
         assertTrue(KeyedEpisodeDownload("f2", "x1", TrackDownload.REMOVED) in kept)
     }
+
+    @Test
+    fun `cleaning up a trial does not count as a removal from the backup`() = runTest {
+        dao.upsertFeed(PodcastFeedEntity(feedId = "trial", url = "https://example.org/trial.xml", title = "Trial", subscribed = false))
+        val kept = episode("f1", "e1")
+        val tried = episode("trial", "t1")
+        listOf(kept, tried).forEach { bookDao.upsertProgress(BookProgressEntity(it, 1_000, 600_000, false, 1f, 1)) }
+        val before = db.backupDao().rowCounts()
+
+        dao.deleteFeed("trial")
+
+        assertEquals(1, before.progress)
+        assertTrue(!db.backupDao().rowCounts().shrankSince(before))
+    }
 }
