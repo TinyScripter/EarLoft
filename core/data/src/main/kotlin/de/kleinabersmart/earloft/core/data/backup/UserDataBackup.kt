@@ -48,6 +48,7 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -191,12 +192,20 @@ class UserDataBackup @Inject constructor(
         withTimeoutOrNull(MIRROR_INTERVAL_MS) {
             delay(REMOVAL_MIRROR_DELAY_MS)
             counts ?: awaitCancellation()
-            // Emits once right away: a removal during the mirroring or the delay counts as well.
-            database.invalidationTracker.createFlow(*MIRRORED_TABLES).first { rowCountsOrNull()?.shrankSince(counts) == true }
+            // Emits once right away: a removal during the mirroring or the delay counts as well. Counted at most about every
+            // [COUNT_INTERVAL_MS]: during a large sync the tables change all the time, and each count runs through them; the changes
+            // meanwhile come as one (review4 8.6 Y16).
+            database.invalidationTracker.createFlow(*MIRRORED_TABLES).conflate().first {
+                (rowCountsOrNull()?.shrankSince(counts) == true).also { shrank -> if (!shrank) delay(COUNT_INTERVAL_MS) }
+            }
         }
     }
 
+    /** How often the rows were counted (tests). */
+    internal val rowCountsRead = AtomicInteger()
+
     private suspend fun rowCountsOrNull(): BackupRowCounts? = try {
+        rowCountsRead.incrementAndGet()
         database.backupDao().rowCounts()
     } catch (e: CancellationException) {
         throw e
@@ -922,6 +931,9 @@ class UserDataBackup @Inject constructor(
 
         /** After a removal; short, but several removals in a row (selecting, undoing) still go in one mirroring. */
         const val REMOVAL_MIRROR_DELAY_MS = 2_000L
+
+        /** Between two counts of the rows while waiting for a removal. */
+        const val COUNT_INTERVAL_MS = 1_000L
         const val FULL_READ_INTERVAL_MS = 30 * 60_000L
         val MUSIC_TABLES = arrayOf("songs", "albums", "artists", "playlists", "playlist_entries", "play_events", "wear_selections")
         const val APPLY_INTERVAL_MS = 5_000L

@@ -184,6 +184,37 @@ class UserDataBackupTest {
     }
 
     @Test
+    fun `waiting for a removal does not count the rows on every change`() = runBlocking {
+        fillMain()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val backup = backupFor(main, scope = scope)
+            backup.start()
+            val dao = user.userDataDao()
+            withTimeout(10_000) { while (dao.podcasts().isEmpty()) delay(50) }
+            // Past the delay after mirroring: from now on it waits for a removal.
+            delay(2_500)
+            val before = backup.rowCountsRead.get()
+
+            // Like a large sync: a change every 20 ms for a second and a half.
+            repeat(75) { day ->
+                main.statsDao().addListening(
+                    ListeningStatEntity(
+                        source = ListeningStatEntity.SOURCE_APP, kind = BookKind.EPISODE, groupKey = "https://example.org/feed",
+                        groupTitle = "Logbook", itemKey = "guid-1", itemTitle = "Episode 1", listenedMs = 1_000, lastListenedAt = 2_000,
+                    ),
+                    day = 20_000L + day,
+                )
+                delay(20)
+            }
+
+            assertTrue("Counted ${backup.rowCountsRead.get() - before} times", backup.rowCountsRead.get() - before <= 4)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun `a mirror after a change reads only the changed parts`() = runTest {
         fillMain()
         val backup = backupFor(main)
