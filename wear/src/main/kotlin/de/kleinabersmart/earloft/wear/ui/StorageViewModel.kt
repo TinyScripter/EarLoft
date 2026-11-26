@@ -22,6 +22,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearThumbnailFile
 import de.kleinabersmart.earloft.wear.download.SelectionItem
 import de.kleinabersmart.earloft.wear.download.StoredSpoken
 import de.kleinabersmart.earloft.wear.download.WatchState
+import de.kleinabersmart.earloft.wear.download.WearDownloadScheduler
 import de.kleinabersmart.earloft.wear.download.WatchStorageRepository
 import de.kleinabersmart.earloft.wear.download.WearDownloadPlanner
 import de.kleinabersmart.earloft.wear.sync.PhoneSelections
@@ -95,6 +96,7 @@ class StorageViewModel @Inject constructor(
     private val watchState: WatchState,
     private val bookDao: BookDao,
     private val planner: WearDownloadPlanner,
+    scheduler: WearDownloadScheduler,
 ) : ViewModel() {
 
     private val _removeFailed = MutableStateFlow(false)
@@ -118,7 +120,7 @@ class StorageViewModel @Inject constructor(
         watchState.settings,
         watchState.missingForStorage,
         watchState.lastError,
-        combine(context.chargingFlow(), watchState.waitingForWifi, watchState.jobOnCharger, ::Triple),
+        combine(context.chargingFlow(), watchState.waitingForWifi, scheduler.nextJobOnCharger, ::Triple),
     ) { overview, settings: WearSettingsDto, missing, error, (charging, noWifi, jobOnCharger) ->
         val backlog = if (overview.pendingSongs > 0) storage.phoneBacklogBytes(settings.quality) else 0
         StorageUiState(overview, settings.storageLimitBytes, missing, error, backlog, settings.requireCharging, charging, noWifi, jobOnCharger)

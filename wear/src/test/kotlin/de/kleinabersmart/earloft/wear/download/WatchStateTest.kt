@@ -123,13 +123,4 @@ class WatchStateTest {
         assertFalse(state.hasServerFailedTooOften("nd:1"))
         assertEquals(1, state.recordServerFailure("nd:1"))
     }
-
-    @Test
-    fun `a job that waits for the charger is remembered across a restart until it runs or is replaced`() {
-        assertFalse(state.jobOnCharger.value)
-        state.setJobOnCharger(true)
-        assertTrue(WatchState(ApplicationProvider.getApplicationContext()).jobOnCharger.value)
-        state.setJobOnCharger(false)
-        assertFalse(WatchState(ApplicationProvider.getApplicationContext()).jobOnCharger.value)
-    }
 }

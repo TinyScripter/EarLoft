@@ -15,6 +15,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.core.download.DownloadScheduler
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.guava.await
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -38,10 +41,7 @@ class WearDownloadScheduler @Inject constructor(
         // (review4 T63). Then appending is enough.
         val replaceNow = replace && !isRunning()
         // A replaced job starts from scratch, including the attempts without Wi-Fi (like a fresh runAttemptCount used to).
-        if (replaceNow) {
-            state.clearRetries()
-            state.setJobOnCharger(false)
-        }
+        if (replaceNow) state.clearRetries()
         enqueue(
             requireCharging = state.settings.value.requireCharging,
             policy = if (replaceNow) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE,
@@ -54,7 +54,6 @@ class WearDownloadScheduler @Inject constructor(
      */
     override suspend fun restart() {
         state.clearRetries()
-        state.setJobOnCharger(false)
         enqueue(requireCharging = state.settings.value.requireCharging, policy = ExistingWorkPolicy.REPLACE)
     }
 
@@ -76,7 +75,6 @@ class WearDownloadScheduler @Inject constructor(
      */
     fun enqueueOnCharger() {
         state.clearRetries()
-        state.setJobOnCharger(true)
         enqueue(requireCharging = true, policy = ExistingWorkPolicy.APPEND_OR_REPLACE, onCharger = true)
     }
 
@@ -86,7 +84,6 @@ class WearDownloadScheduler @Inject constructor(
      * charging), WorkManager reschedules it without a growing backoff (Review W1). [onCharger] keeps the current one's charging constraint.
      */
     fun enqueueRetry(delayMs: Long, onCharger: Boolean) {
-        state.setJobOnCharger(onCharger)
         enqueue(
             requireCharging = onCharger || state.settings.value.requireCharging,
             policy = ExistingWorkPolicy.APPEND_OR_REPLACE,
@@ -94,6 +91,16 @@ class WearDownloadScheduler @Inject constructor(
             delayMs = delayMs,
         )
     }
+
+    /**
+     * The download job that starts next only starts on the charger because Wi-Fi or the phone was missing repeatedly
+     * ([enqueueOnCharger]); the setting of the phone is another reason. Without it the watch would keep asking for Wi-Fi although
+     * turning it on changes nothing until it is on power (review4 T58). Read from WorkManager: with jobs appended to a running one
+     * a flag described the one appended last, not the next (8.6 Y28).
+     */
+    val nextJobOnCharger: Flow<Boolean> = WorkManager.getInstance(context).getWorkInfosForUniqueWorkFlow(WORK_NAME)
+        .map(::startsNextOnCharger)
+        .distinctUntilChanged()
 
     private fun enqueue(requireCharging: Boolean, policy: ExistingWorkPolicy, onCharger: Boolean = false, delayMs: Long = 0) {
         val request = OneTimeWorkRequestBuilder<WearDownloadWorker>()
@@ -107,12 +114,19 @@ class WearDownloadScheduler @Inject constructor(
             .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
             .setInputData(workDataOf(WearDownloadWorker.KEY_ON_CHARGER to onCharger))
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .apply { if (onCharger) addTag(TAG_ON_CHARGER) }
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, policy, request)
     }
 
-    private companion object {
+    internal companion object {
         const val WORK_NAME = "wear-downloads"
+        const val TAG_ON_CHARGER = "on-charger"
+
+        /** While a job runs nothing waits; otherwise the job that starts next (the enqueued one, later ones are blocked behind it). */
+        fun startsNextOnCharger(jobs: List<WorkInfo>): Boolean =
+            jobs.none { it.state == WorkInfo.State.RUNNING } &&
+                jobs.firstOrNull { it.state == WorkInfo.State.ENQUEUED }?.tags?.contains(TAG_ON_CHARGER) == true
     }
 }
 
