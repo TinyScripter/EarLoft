@@ -79,6 +79,8 @@ class MainActivity : ComponentActivity() {
 
     private val snackbarModel: SnackbarViewModel by viewModels()
 
+    private val handledLaunches by lazy { HandledLaunches(applicationContext) }
+
     /** Tapping the notification of the playing music should always show the playback screen. */
     private var openNowPlaying by mutableStateOf(false)
 
@@ -203,8 +205,9 @@ class MainActivity : ComponentActivity() {
         // Only on a fresh start: after recreation (rotation, process death) the intent is still on the activity. Whatever the
         // UI hasn't picked up by then (e.g. while asking for the permission) comes from the saved state.
         // From "Recents" the system redelivers the intent of the first start (play, voice search, shared
-        // link); but that job was already done and must not run again.
-        if (savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0) {
+        // link); but that job was already done and must not run again. After an app update even the launcher does, without
+        // either sign: then the launch ID tells (review4 8.4).
+        if (savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0 && handledLaunches.claim(intent)) {
             openNowPlaying = intent.safeBooleanExtra(EXTRA_OPEN_NOW_PLAYING)
             playFromSearch(intent)
             playNewEpisode(intent)

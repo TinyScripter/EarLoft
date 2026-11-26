@@ -14,6 +14,7 @@ import androidx.core.graphics.scale
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.MainActivity
 import de.kleinabersmart.earloft.R
+import de.kleinabersmart.earloft.withLaunchId
 import de.kleinabersmart.earloft.core.data.refresh.NewContent
 import de.kleinabersmart.earloft.core.data.refresh.NewContentNotifier
 import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
@@ -68,6 +69,8 @@ class AppNewContentNotifier @Inject constructor(
             .setAction(NewContentTarget.ACTION_OPEN)
             .putNewContentTarget(message.target)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            // Not again after an app update ([HandledLaunches]); the notification disappears on the tap.
+            .withLaunchId()
         // Separate requestCode per area: otherwise the notifications (and the playback one, code 0) would share one
         // PendingIntent, and FLAG_UPDATE_CURRENT would overwrite the others' target.
         val pending = PendingIntent.getActivity(
@@ -159,6 +162,8 @@ class AppNewContentNotifier @Inject constructor(
             .setAction(ACTION_PLAY_EPISODE)
             .putExtra(NewEpisodeActionReceiver.EXTRA_BOOK_ID, bookId)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            // Otherwise an app update would play the episode again on the next start from the launcher ([HandledLaunches]).
+            .withLaunchId()
         fun broadcast(action: String, requestCode: Int) = PendingIntent.getBroadcast(
             context,
             requestCode,

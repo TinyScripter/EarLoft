@@ -55,7 +55,19 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Voice search ("Play … with EarLoft"); Android Auto goes through the session. -->
+        </activity>
+
+        <!--
+            Voice search ("Play … with EarLoft"); Android Auto goes through the session. A trampoline like the share target, so
+            that the search carries a launch ID and an app update does not play it again (review4 8.4).
+        -->
+        <activity
+            android:name=".VoiceSearchActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
 
