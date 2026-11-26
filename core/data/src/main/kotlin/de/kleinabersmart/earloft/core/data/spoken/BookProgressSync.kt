@@ -138,8 +138,12 @@ class BookProgressSync @Inject constructor(
         BookProgressWorker.schedule(context, replace = true)
     }
 
-    /** `true` if nothing is pending anymore. */
-    suspend fun push(bookId: Long): Boolean {
+    /**
+     * `true` if nothing is pending anymore. [checkServer] for states that may be old when they are delivered (catch-up,
+     * from the watch): the newer timestamp wins even over an unsent state, so if the server's state is newer it is adopted
+     * instead of overwritten (review4 Y18). A state just recorded here is newer anyway and goes up without asking.
+     */
+    suspend fun push(bookId: Long, checkServer: Boolean = false): Boolean {
         val progress = dao.progress(bookId) ?: return true
         if (!progress.dirty) return true
         // Watch: it reports the state to the phone (Wear concept 16.2).
@@ -153,6 +157,10 @@ class BookProgressSync @Inject constructor(
         val server = servers.server(book.serverId) ?: return false
         lastPush[bookId] = System.currentTimeMillis()
         return try {
+            if (checkServer) {
+                val remote = api.progress(server, book.remoteId)
+                if (remote != null && applyRemote(book.serverId, remote)) return true
+            }
             api.updateProgress(server, book.remoteId, progress.toUpdate())
             if (reopened.remove(bookId) && !progress.finished && progress.positionMs > 0) {
                 api.updateProgress(server, book.remoteId, progress.toUpdate())
@@ -167,7 +175,7 @@ class BookProgressSync @Inject constructor(
     }
 
     /** Sends everything pending. `true` if nothing is open anymore. */
-    suspend fun pushPending(): Boolean = dao.dirtyProgress().map { push(it.bookId) }.all { it }
+    suspend fun pushPending(): Boolean = dao.dirtyProgress().map { push(it.bookId, checkServer = true) }.all { it }
 
     /**
      * Adopt the whole account's progress where the server is newer (during a full sync). Returns the response so that
@@ -188,22 +196,21 @@ class BookProgressSync @Inject constructor(
         if (!policy.syncsWithBookServers) return PullResult(local, tookRemote = false, noticeable = false)
         val book = dao.book(bookId) ?: return PullResult(local, tookRemote = false, noticeable = false)
         val server = servers.server(book.serverId) ?: return PullResult(local, tookRemote = false, noticeable = false)
-        // Listened here but not yet reported (offline): this state goes to the server first. Comparing it with the server's
-        // `lastUpdate` would mix two clocks, and a server clock a few minutes ahead would throw the newer state here away
-        // (review4 T19). Sent (or the server too slow to wait for): the own state applies.
-        if (dao.progress(bookId)?.dirty == true) {
-            val pushed = withTimeoutOrNull(PULL_TIMEOUT_MS) { push(bookId) }
-            if (pushed != false) return PullResult(local, tookRemote = false, noticeable = false)
-        }
         // Short: the user is waiting for playback to start (headphones, continue listening). If the server is only reachable at
         // home, playing and resuming would otherwise hang until the connection timeout (15 s); then the own state applies.
+        var reached = false
         val remote = try {
-            withTimeoutOrNull(PULL_TIMEOUT_MS) { api.progress(server, book.remoteId) }
+            withTimeoutOrNull(PULL_TIMEOUT_MS) { api.progress(server, book.remoteId).also { reached = true } }
         } catch (e: IOException) {
             Log.w(TAG, "Progress of ${book.title} not available", e)
             null
-        } ?: return PullResult(local, tookRemote = false, noticeable = false)
-        val tookRemote = applyRemote(server.serverId, remote)
+        }
+        if (!reached) return PullResult(local, tookRemote = false, noticeable = false)
+        // The newer timestamp wins, also over a state listened here and not reported yet (review4 Y18; with a server clock
+        // running ahead the server can win, T19). A newer own state goes up right away.
+        val tookRemote = remote != null && applyRemote(server.serverId, remote)
+        if (!tookRemote && dao.progress(bookId)?.dirty == true) withTimeoutOrNull(PULL_TIMEOUT_MS) { push(bookId) }
+        if (remote == null) return PullResult(dao.progress(bookId)?.toModel(), tookRemote = false, noticeable = false)
         val now = dao.progress(bookId)?.toModel()
         return PullResult(now, tookRemote, tookRemote && ProgressConflict.isNoticeable(local, remote.toModel()))
     }

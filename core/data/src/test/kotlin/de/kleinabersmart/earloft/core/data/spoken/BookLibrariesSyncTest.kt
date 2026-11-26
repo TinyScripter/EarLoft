@@ -56,7 +56,7 @@ class BookLibrariesSyncTest {
     private lateinit var covers: BookCovers
     private lateinit var progressSync: BookProgressSync
 
-    /** Progress the server reports for `li_1` (its clock 10 min ahead) and the positions (s) sent to it. */
+    /** `lastUpdate` of the progress the server reports for `li_1` (at 10 s) and the positions (s) sent to it. */
     private val serverProgressAt = AtomicLong(0)
     private val sentPositions = CopyOnWriteArrayList<Double>()
 
@@ -211,21 +211,60 @@ class BookLibrariesSyncTest {
     }
 
     @Test
-    fun `before playback a state listened offline goes to the server instead of losing against its clock`() = runBlocking {
+    fun `before playback a newer server state wins over one listened offline here`() = runBlocking {
         // Real time: the pull waits for the server with a timeout, which virtual time would end at once.
-        val id = connect()
-        sync(id)
-        val book = dao.booksOf(id).single { it.title == "Crime" }.bookId
-        val now = System.currentTimeMillis()
-        // Five minutes listened offline; the server's own state is older but its clock runs 10 min ahead.
-        dao.upsertProgress(BookProgressEntity(book, positionMs = 300_000, durationMs = 600_000, updatedAt = now, dirty = true))
-        serverProgressAt.set(now + 5 * 60_000)
+        val book = offlineState()
+        serverProgressAt.set(System.currentTimeMillis() + 5 * 60_000)
+
+        val result = progressSync.pull(book)
+
+        assertEquals(10_000L, result.progress?.positionMs)
+        assertEquals(false, dao.progress(book)?.dirty)
+        assertEquals(emptyList<Double>(), sentPositions)
+    }
+
+    @Test
+    fun `before playback a state listened offline that is newer than the server's goes up`() = runBlocking {
+        val book = offlineState()
+        serverProgressAt.set(System.currentTimeMillis() - 60_000)
 
         val result = progressSync.pull(book)
 
         assertEquals(300_000L, result.progress?.positionMs)
+        assertEquals(false, dao.progress(book)?.dirty)
+        assertEquals(listOf(300.0), sentPositions)
+    }
+
+    @Test
+    fun `a state delivered late adopts a newer one on the server instead of overwriting it`() = runBlocking {
+        val book = offlineState()
+        serverProgressAt.set(System.currentTimeMillis() + 60_000)
+
+        assertTrue(progressSync.pushPending())
+
+        assertEquals(10_000L, dao.progress(book)?.positionMs)
+        assertEquals(false, dao.progress(book)?.dirty)
+        assertEquals(emptyList<Double>(), sentPositions)
+    }
+
+    @Test
+    fun `a state delivered late that is still newer than the server's goes up`() = runBlocking {
+        val book = offlineState()
+        serverProgressAt.set(System.currentTimeMillis() - 60_000)
+
+        assertTrue(progressSync.pushPending())
+
         assertEquals(300_000L, dao.progress(book)?.positionMs)
         assertEquals(listOf(300.0), sentPositions)
+    }
+
+    /** Five minutes of "Crime" listened here offline, not reported yet. */
+    private suspend fun offlineState(): Long {
+        val id = connect()
+        sync(id)
+        val book = dao.booksOf(id).single { it.title == "Crime" }.bookId
+        dao.upsertProgress(BookProgressEntity(book, positionMs = 300_000, durationMs = 600_000, updatedAt = System.currentTimeMillis(), dirty = true))
+        return book
     }
 
     @Test

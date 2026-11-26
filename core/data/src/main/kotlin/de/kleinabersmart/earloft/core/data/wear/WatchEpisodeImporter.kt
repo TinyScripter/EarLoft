@@ -116,7 +116,8 @@ class WatchEpisodeImporter @Inject constructor(
             sessions.record(it.bookId, it.listenedMs, it.positionMs, it.durationMs, now = it.at, push = false)
         }
         // Without a connection the state stays `dirty`; the BookProgressSync worker delivers it later.
-        toServer.forEach { progressSync.push(it) }
+        // Listened on the watch, maybe hours ago: a newer state of another device on the server wins (review4 Y18).
+        toServer.forEach { progressSync.push(it, checkServer = true) }
         sessionIds.forEach { sessions.push(it) }
         applied
     }
