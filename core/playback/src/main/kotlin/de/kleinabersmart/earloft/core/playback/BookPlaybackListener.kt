@@ -113,6 +113,15 @@ internal class BookPlaybackListener(
     private var adopting = false
 
     /**
+     * Such a jump the player held back instead of reporting it right away (casting, while the receiver's queue is refilled): when it
+     * is carried out later, it is still the other device's state, not a seek of this one (review4 8.6 Y7). Until [HeldAdoption.until].
+     */
+    private var heldAdoption: HeldAdoption? = null
+
+    /** Seeks reported by the player, to tell whether an adopting jump was reported right away. */
+    private var seekReports = 0
+
+    /**
      * The last states this device saved, at most [OWN_SAVES]. Each save is written on its own, so after quick seeks while paused
      * an earlier one can land last; [followStoredProgress] must not take it for a foreign state and pull the player back
      * (review4 8.6 Y7). Only a row written shortly after the save counts as it ([OWN_SAVE_LANDS_MS]): a later state of another
@@ -258,6 +267,7 @@ internal class BookPlaybackListener(
                 if (item.bookId != bookId) return@collect
                 if (ownSaves.any { it.matches(bookId, stored) }) return@collect
                 val target = storedPositionToAdopt(stored, position, player.playWhenReady) ?: return@collect
+                val reportsBefore = seekReports
                 adopting = true
                 val jumped = try {
                     seekInBook(timeline, target)
@@ -265,6 +275,12 @@ internal class BookPlaybackListener(
                     adopting = false
                 }
                 if (!jumped) return@collect
+                heldAdoption = if (seekReports == reportsBefore) {
+                    val located = timeline.locate(target)
+                    HeldAdoption(bookId, located.trackIndex, located.offsetMs, SystemClock.elapsedRealtime() + WINDOW_LOAD_MS)
+                } else {
+                    null
+                }
                 // The jump is not a state of this device (ExoPlayer reports it as a seek synchronously): otherwise switching away later
                 // or the service ending would write this position with a new timestamp over what the other device stores after it.
                 touched -= bookId
@@ -501,26 +517,35 @@ internal class BookPlaybackListener(
         }
     }
 
+    private fun onSeek(newPosition: Player.PositionInfo) {
+        seekReports++
+        val seeked = newPosition.mediaItem
+        val seekedBookId = seeked?.bookId
+        // The first seek after a held-back adopting jump decides: either it is that jump, or the user was quicker.
+        val held = heldAdoption.takeIf { !adopting }?.also { heldAdoption = null }
+        if (held != null && seekedBookId != null && held.matches(seekedBookId, seeked.bookTrackIndex ?: 0, newPosition.positionMs)) {
+            touched -= seekedBookId
+            return
+        }
+        seekedBookId?.let { touched += it }
+        // Scrubbing a paused book is its new state: it is only saved when the playback stops, and nothing would stop here. Without
+        // it, the next foreign write to the row would see a position other than the player's and move it back (review4 T3).
+        // A book taken out of "Continue listening" stays out: the jump to the start after "unplayed" or a reset comes this way
+        // too (review4 8.6 Y2). A seek is no stop: scrubbing close to the end does not finish the book yet (review4 8.6 Y6).
+        if (!adopting && !player.playWhenReady && seeked != null && seekedBookId != null) {
+            record(
+                seekedBookId, seeked.isEpisode, seeked.bookTrackIndex ?: 0, newPosition.positionMs, force = false,
+                keepHidden = true, seek = true,
+            )
+        }
+    }
+
     override fun onPositionDiscontinuity(
         oldPosition: Player.PositionInfo,
         newPosition: Player.PositionInfo,
         reason: Int,
     ) {
-        if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) {
-            val seeked = newPosition.mediaItem
-            val seekedBookId = seeked?.bookId
-            seekedBookId?.let { touched += it }
-            // Scrubbing a paused book is its new state: it is only saved when the playback stops, and nothing would stop here. Without
-            // it, the next foreign write to the row would see a position other than the player's and move it back (review4 T3).
-            // A book taken out of "Continue listening" stays out: the jump to the start after "unplayed" or a reset comes this way
-            // too (review4 8.6 Y2). A seek is no stop: scrubbing close to the end does not finish the book yet (review4 8.6 Y6).
-            if (!adopting && !player.playWhenReady && seeked != null && seekedBookId != null) {
-                record(
-                    seekedBookId, seeked.isEpisode, seeked.bookTrackIndex ?: 0, newPosition.positionMs, force = false,
-                    keepHidden = true, seek = true,
-                )
-            }
-        }
+        if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) onSeek(newPosition)
         if (reason == Player.DISCONTINUITY_REASON_SILENCE_SKIP) collectSkippedSilence()
         if (reason != Player.DISCONTINUITY_REASON_REMOVE) {
             if (player.isPlaying) sampleRemoteEnd() else remoteEnd.reset()
@@ -721,6 +746,13 @@ internal class BookPlaybackListener(
     }
 
     /** A state this device saved: book, position in the book, wall-clock time of the save (as `updatedAt` of the row). */
+    /** See [heldAdoption]; [until] in elapsed realtime. */
+    private class HeldAdoption(val bookId: Long, val trackIndex: Int, val offsetMs: Long, val until: Long) {
+        fun matches(bookId: Long, trackIndex: Int, positionMs: Long): Boolean =
+            bookId == this.bookId && trackIndex == this.trackIndex && abs(positionMs - offsetMs) <= ADOPT_TOLERANCE_MS &&
+                SystemClock.elapsedRealtime() <= until
+    }
+
     private class OwnSave(val bookId: Long, val positionMs: Long, val at: Long) {
         /** Is [stored] the row of this save: same book, same spot, written right after it? */
         fun matches(bookId: Long, stored: BookProgress): Boolean =

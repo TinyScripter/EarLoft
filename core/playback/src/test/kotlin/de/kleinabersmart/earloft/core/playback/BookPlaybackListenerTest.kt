@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.core.playback
 import android.content.Context
 import android.os.Looper
 import androidx.media3.common.C
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
@@ -81,6 +82,9 @@ class BookPlaybackListenerTest {
     private val settings = SpokenSettings(context)
     private val player = BookPlayer()
 
+    /** What the listener controls: [player], whose seeks can be held back as while casting. */
+    private val holding = HoldingPlayer(player)
+
     private val mainScope = CoroutineScope(Dispatchers.Main + Job())
     private val persistScope = CoroutineScope(Dispatchers.IO + Job())
 
@@ -119,7 +123,7 @@ class BookPlaybackListenerTest {
         effects = SpokenEffectsRepository(dao, db.podcastDao(), settings)
         settings.setBookResume(ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S))
         listener = BookPlaybackListener(
-            player, books, progressSync, settings, StatsRepository(db.statsDao(), dao, db.podcastDao()),
+            holding, books, progressSync, settings, StatsRepository(db.statsDao(), dao, db.podcastDao()),
             sessions, mainScope, persistScope,
             onEpisodeEnded = { endedEpisodes += it },
             onChapterChanged = { chapters += it },
@@ -327,6 +331,32 @@ class BookPlaybackListenerTest {
     }
 
     @Test
+    fun `a held-back jump to a foreign state is not saved as a state of this device when it is carried out`() = runBlocking {
+        val bookId = book()
+        load(bookId, positionMs = 300_000)
+        player.play()
+        idle()
+        player.pause()
+        eventually { assertEquals(300_000L, runBlocking { progress(bookId) }?.positionMs) }
+
+        // Casting, the receiver's queue is being refilled: the player holds seeks back. The watch saves 120 s meanwhile.
+        holding.holdSeeks = true
+        val foreignAt = System.currentTimeMillis() + 1_000
+        db.bookDao().upsertProgress(progress(bookId)!!.copy(positionMs = 120_000, updatedAt = foreignAt))
+        eventually { assertEquals(1, holding.held.size) }
+        holding.releaseSeeks()
+
+        eventually { assertEquals(120_000L, player.currentPosition) }
+        quiet()
+        // The row still holds the watch's state, not a copy with a new timestamp of this device.
+        assertEquals(foreignAt, progress(bookId)!!.updatedAt)
+        // Switching away later doesn't write it again either: the book wasn't touched here.
+        player.load(emptyList(), 0, 0)
+        quiet()
+        assertEquals(foreignAt, progress(bookId)!!.updatedAt)
+    }
+
+    @Test
     fun `scrubbing a paused book close to the end does not finish it`() = runBlocking {
         val bookId = book()
         load(bookId, positionMs = 300_000)
@@ -517,6 +547,22 @@ class BookPlaybackListenerTest {
 
         eventually { assertEquals(2, player.currentMediaItemIndex) }
         assertEquals(0L, player.currentPosition)
+    }
+
+    /** Holds seeks back while [holdSeeks], as the cast player does while it refills the receiver's queue; [releaseSeeks] carries them out. */
+    private class HoldingPlayer(player: Player) : ForwardingPlayer(player) {
+        var holdSeeks = false
+        val held = mutableListOf<Pair<Int, Long>>()
+
+        override fun seekTo(mediaItemIndex: Int, positionMs: Long) {
+            if (holdSeeks) held += mediaItemIndex to positionMs else super.seekTo(mediaItemIndex, positionMs)
+        }
+
+        fun releaseSeeks() {
+            holdSeeks = false
+            held.toList().also { held.clear() }.forEach { (index, position) -> super.seekTo(index, position) }
+            shadowOf(Looper.getMainLooper()).idle()
+        }
     }
 
     /** Holds a queue and a position the test sets; plays nothing by itself. */
