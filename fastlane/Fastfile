@@ -12,11 +12,18 @@
 opt_out_usage # no anonymous usage statistics to Google/fastlane
 default_platform(:android)
 
+# Absolute path of the service-account key. Lane code runs in the fastlane folder, but actions run in the project root,
+# so the relative default from the Appfile would not be found by upload_to_play_store; it gets this path instead.
+def play_json_key
+  key = File.expand_path(ENV["PLAY_JSON_KEY"] || "play-service-account.json")
+  UI.user_error!("No service-account key at #{key}. See tools/store-screenshots/README.md.") unless File.exist?(key)
+  key
+end
+
 platform :android do
   desc "Check that the service-account key can reach the Play Console"
   lane :validate_key do
-    key = File.expand_path(ENV["PLAY_JSON_KEY"] || "play-service-account.json")
-    UI.user_error!("No service-account key at #{key}. See tools/store-screenshots/README.md.") unless File.exist?(key)
+    key = play_json_key
     begin
       # The action validate_play_store_json_key only logs a failure, so the client is created here to make the lane fail.
       config = FastlaneCore::Configuration.create(
@@ -46,6 +53,10 @@ platform :android do
 
   private_lane :upload_listing do |options|
     upload_to_play_store(
+      # The listing belongs to the app, not to a track, but supply still looks up a release on the track
+      # and fails if there is none. Production is empty as long as the app is only in testing.
+      track: ENV["PLAY_TRACK"] || "internal",
+      json_key: play_json_key,
       skip_upload_apk: true,
       skip_upload_aab: true,
       skip_upload_changelogs: true,

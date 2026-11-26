@@ -8,7 +8,7 @@ Usage: place.py <rundir> [fastlane-locale ...]
   <rundir>/<locale>/tenInch/N_name.png   -> .../images/tenInchScreenshots/   (promo.py compose with PROFILE=tablet10)
 A run directory may hold only some of these kinds (e.g. only the tablet ones); the others are left untouched.
   media/icon.png                     -> .../images/icon.png            (512x512, 32-bit PNG)
-  media/featureGraphic.jpeg          -> .../images/featureGraphic.jpeg (1024x500, centre-cropped if wider)
+  media/featureGraphic.png           -> .../images/featureGraphic.jpeg (1024x500, centre-cropped if wider; Play takes no alpha)
 Checks the Play rules on the way: phone and tablet longer side at most twice the shorter one and 320-3840 px, watch 1:1 and at
 least 384 px, RGB (no alpha) for screenshots, under 8 MB.
 """
@@ -63,7 +63,7 @@ def graphics(locale):
         if im.size != (512, 512):
             problems.append(f"icon: {im.size}, Play wants 512x512")
         im.convert("RGBA").save(f"{dst}/icon.png", "PNG", optimize=True)
-    feature = f"{repo}/media/featureGraphic.jpeg"
+    feature = f"{repo}/media/featureGraphic.png"
     if os.path.exists(feature):
         im = Image.open(feature).convert("RGB")
         w, h = im.size
@@ -73,6 +73,10 @@ def graphics(locale):
         if im.size != (1024, 500):
             problems.append(f"featureGraphic: {im.size}, Play wants exactly 1024x500")
         im.save(f"{dst}/featureGraphic.jpeg", "JPEG", quality=95, subsampling=0)
+        # Supply uploads only one feature graphic per language; drop any other format left over.
+        for ext in ("png", "jpg"):
+            if os.path.exists(f"{dst}/featureGraphic.{ext}"):
+                os.remove(f"{dst}/featureGraphic.{ext}")
 
 
 for locale in sorted(l for l in os.listdir(run) if not only or l in only):

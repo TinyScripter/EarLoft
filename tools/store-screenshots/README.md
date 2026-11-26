@@ -76,8 +76,9 @@ Use a new output directory and sheet name every time; the IDE shows stale images
 The scripts switch the language per app with `cmd locale set-app-locales`, find buttons by the texts in the
 `strings.xml` files, and print `WARN …` when a screen is not where it should be. Check the sheet before placing.
 
-`place.py` also copies `media/icon.png` (512×512) and `media/featureGraphic.jpeg` into every locale; the feature
-graphic is centre-cropped to the 1024×500 Google Play requires.
+`place.py` also copies `media/icon.png` (512×512) and `media/featureGraphic.png` into every locale; the feature
+graphic is centre-cropped to the 1024×500 Google Play requires and saved as `featureGraphic.jpeg` (Play takes no alpha
+channel), replacing any other `featureGraphic.*` there. Both languages get the same graphic (English slogan).
 
 ## Upload
 
@@ -89,8 +90,17 @@ Setup is in `Gemfile` and `fastlane/` (`Appfile`, `Fastfile`). One-time:
    `$(ruby -e 'puts Gem.user_dir')/bin` to `PATH`.
 2. In Google Cloud create a service account with a JSON key; in the Play Console under **Users and permissions** invite
    the service account's e-mail address with the permission to edit the store listing.
-3. Save the key as `fastlane/play-service-account.json` (git ignores it) or point `PLAY_JSON_KEY` at it.
-   The app must exist in the Play Console and have had its first release uploaded by hand.
+3. Save the key as `fastlane/play-service-account.json` (git ignores it; a symlink to a key elsewhere works too) or
+   point `PLAY_JSON_KEY` at it. The app must exist in the Play Console and have had its first release uploaded by hand.
+4. `bundle exec fastlane validate_key`, then `bundle exec fastlane listing` (validation only) before `publish:true`.
+
+Notes:
+
+- The listing belongs to the app, but supply still needs exactly one release on the track it is given. The lanes use
+  `internal` while production is empty; `PLAY_TRACK=<track>` picks another one.
+- A language that has no title in the Play Console yet only validates together with its texts: the first upload of a
+  new language has to be `listing` (or `texts` first), not `screenshots` alone.
+- Supply takes one `featureGraphic.*` per language; keep only one file per `images/` folder.
 
 ```sh
 bundle exec fastlane validate_key             # does the key reach the Play Console?

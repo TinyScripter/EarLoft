@@ -2,5 +2,6 @@
 package_name("de.kleinabersmart.earloft")
 
 # Service-account key of the Play Console. The file is not part of the repository; PLAY_JSON_KEY can point elsewhere.
-# Relative paths start in the fastlane folder (__dir__ is not available in an Appfile).
+# The Fastfile resolves this path itself (relative to the fastlane folder) and passes it to the actions, because
+# actions run in the project root and __dir__ is not available in an Appfile.
 json_key_file(ENV["PLAY_JSON_KEY"] || "play-service-account.json")
