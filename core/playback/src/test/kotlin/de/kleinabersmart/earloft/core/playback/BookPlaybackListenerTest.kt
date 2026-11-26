@@ -307,6 +307,26 @@ class BookPlaybackListenerTest {
     }
 
     @Test
+    fun `a later foreign state at the spot of an earlier own save is adopted`() = runBlocking {
+        val bookId = book()
+        load(bookId, positionMs = 300_000)
+        player.play()
+        idle()
+        player.pause()
+        eventually { assertEquals(300_000L, runBlocking { progress(bookId) }?.positionMs) }
+        // Here: to the start of the first chapter and on to 180 s.
+        player.seekTo(0, 0)
+        eventually { assertEquals(0L, runBlocking { progress(bookId) }?.positionMs) }
+        player.seekTo(0, 180_000)
+        eventually { assertEquals(180_000L, runBlocking { progress(bookId) }?.positionMs) }
+
+        // A minute later the watch jumps to the start as well: that is its state, not a late own save.
+        db.bookDao().upsertProgress(progress(bookId)!!.copy(positionMs = 0, updatedAt = System.currentTimeMillis() + 60_000))
+
+        eventually { assertEquals(0L, player.currentPosition) }
+    }
+
+    @Test
     fun `scrubbing a paused book close to the end does not finish it`() = runBlocking {
         val bookId = book()
         load(bookId, positionMs = 300_000)
@@ -402,6 +422,26 @@ class BookPlaybackListenerTest {
         load(bookId, positionMs = 30_000)
         quiet()
         assertEquals(30_000L, progress(bookId)!!.positionMs)
+    }
+
+    @Test
+    fun `a jump outside the cast window while playing saves the jump, not the old position or the end`() = runBlocking {
+        val bookId = book(files = 3)
+        // Five seconds before the end, within the tolerance of a stopped book.
+        load(bookId, positionMs = 3 * FILE_MS - 5_000, windowStart = 1)
+        player.play()
+        idle()
+
+        assertTrue(listener.seekToTrack(0, 30_000))
+        assertEquals(listOf(Triple(bookId, 0, 30_000L)), outsideWindow)
+        eventually { assertEquals(30_000L, runBlocking { progress(bookId) }?.positionMs) }
+
+        // The receiver empties its queue, then the new window plays.
+        player.load(emptyList(), 0, 0)
+        load(bookId, positionMs = 30_000)
+        quiet()
+        assertEquals(30_000L, progress(bookId)!!.positionMs)
+        assertFalse(progress(bookId)!!.finished)
     }
 
     @Test

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.playback
 
+import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.DeviceInfo
@@ -112,11 +113,18 @@ internal class BookPlaybackListener(
     private var adopting = false
 
     /**
-     * The last states this device saved (book, position in the book), at most [OWN_SAVES]. Each save is written on its own, so
-     * after quick seeks while paused an earlier one can land last; [followStoredProgress] must not take it for a foreign state
-     * and pull the player back (review4 8.6 Y7).
+     * The last states this device saved, at most [OWN_SAVES]. Each save is written on its own, so after quick seeks while paused
+     * an earlier one can land last; [followStoredProgress] must not take it for a foreign state and pull the player back
+     * (review4 8.6 Y7). Only a row written shortly after the save counts as it ([OWN_SAVE_LANDS_MS]): a later state of another
+     * device at the same spot (both jumped to a chapter start, or reset to 0) is foreign and is adopted.
      */
-    private val ownSaves = ArrayDeque<Pair<Long, Long>>()
+    private val ownSaves = ArrayDeque<OwnSave>()
+
+    /**
+     * A jump outside the cast window loads a new window ([seekOutsideWindow]) for this book until this time (elapsed realtime).
+     * The receiver empties its queue before the window arrives; that is no end of the book and no switch to another one.
+     */
+    private var windowLoad: Pair<Long, Long>? = null
 
     /** Cast reports no `STATE_ENDED`; the watchdog detects the end when the receiver stands still. */
     private val remoteEnd = RemoteEndWatch()
@@ -135,6 +143,9 @@ internal class BookPlaybackListener(
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         syncMeter()
+        // Something else than the book of the window was started: an empty queue no longer belongs to the window load. Items of
+        // the book itself may come before the receiver's empty queue (the player shows the new queue at once), so they keep it.
+        if (mediaItem != null && mediaItem.bookId != windowLoad?.first) windowLoad = null
         val previousIndex = lastItemIndex
         lastItemIndex = player.currentMediaItemIndex
         if (mediaItem?.isUnavailablePart == true && !player.awaitsRemoteQueue && skipUnavailable(previousIndex)) return
@@ -245,7 +256,7 @@ internal class BookPlaybackListener(
                 stored ?: return@collect
                 val (item, timeline, position) = current() ?: return@collect
                 if (item.bookId != bookId) return@collect
-                if (ownSaves.any { (id, saved) -> id == bookId && abs(saved - stored.positionMs) <= ADOPT_TOLERANCE_MS }) return@collect
+                if (ownSaves.any { it.matches(bookId, stored) }) return@collect
                 val target = storedPositionToAdopt(stored, position, player.playWhenReady) ?: return@collect
                 adopting = true
                 val jumped = try {
@@ -330,16 +341,19 @@ internal class BookPlaybackListener(
         }
         if (index == null) {
             if (!seekOutsideWindow(bookId, trackIndex, offsetMs)) return false
-            // The new window comes with new items, not as a seek: a paused jump is saved here as in onPositionDiscontinuity
-            // (review4 8.6 Y8). Adopting a foreign state is no state of this device.
+            // The receiver empties its queue before the new window arrives: that looks like the end of the book, and the old
+            // position would be saved over the jump with force (seen on the device), or the book would count as finished if the
+            // jump started close to its end.
+            windowLoad = bookId to SystemClock.elapsedRealtime() + WINDOW_LOAD_MS
+            remoteEnd.reset()
+            // The new window comes with new items, not as a seek: the jump is saved here as in onPositionDiscontinuity
+            // (review4 8.6 Y8), while playing too. Adopting a foreign state is no state of this device.
             if (!adopting) {
                 touched += bookId
-                if (!player.playWhenReady) {
-                    record(bookId, item.isEpisode, trackIndex, offsetMs, force = false, keepHidden = true, seek = true)
-                    // The receiver empties its queue before the new window arrives: that looks like the end of the book, and the
-                    // old position would be saved over the jump (seen on the device). The state is saved; playing touches it again.
-                    touched -= bookId
-                }
+                val paused = !player.playWhenReady
+                record(bookId, item.isEpisode, trackIndex, offsetMs, force = false, keepHidden = paused, seek = true)
+                // Paused, the state is saved; playing touches it again.
+                if (paused) touched -= bookId
             }
             return true
         }
@@ -516,6 +530,7 @@ internal class BookPlaybackListener(
         val oldItem = oldPosition.mediaItem ?: return
         val oldBookId = oldItem.bookId ?: return
         if (oldBookId == newPosition.mediaItem?.bookId) return
+        if (newPosition.mediaItem == null && loadsWindow(oldBookId)) return
         record(oldBookId, oldItem.isEpisode, oldItem.bookTrackIndex ?: 0, oldPosition.positionMs, force = true)
     }
 
@@ -599,6 +614,8 @@ internal class BookPlaybackListener(
     private fun checkRemoteEnd() {
         if (player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE) return
         if (player.playbackState != Player.STATE_IDLE || player.playerError != null) return
+        // The empty queue before a new window is no end.
+        if (player.currentMediaItem == null && windowLoad?.let { loadsWindow(it.first) } == true) return
         val ended = remoteEnd.ended() ?: return
         // Whatever comes afterwards (position 0 of the unloaded file) must not overwrite this state.
         touched -= ended.bookId
@@ -691,9 +708,24 @@ internal class BookPlaybackListener(
         val lastChapterStart = timeline.chapters.lastOrNull()?.startMs ?: 0L
         val finished = isFinishedAt(position, timeline.durationMs, isEpisode, stopped, lastChapterStart) ||
             (player.playbackState == Player.STATE_ENDED && current)
-        ownSaves.addLast(bookId to position)
+        ownSaves.addLast(OwnSave(bookId, position, System.currentTimeMillis()))
         if (ownSaves.size > OWN_SAVES) ownSaves.removeFirst()
         persistScope.launch { progressSync.record(bookId, position, timeline.durationMs, finished, force, keepHidden = keepHidden) }
+    }
+
+    /** A window of [bookId] is on its way to the receiver ([windowLoad]). */
+    private fun loadsWindow(bookId: Long): Boolean {
+        val (loading, until) = windowLoad ?: return false
+        if (SystemClock.elapsedRealtime() > until) windowLoad = null
+        return loading == bookId && windowLoad != null
+    }
+
+    /** A state this device saved: book, position in the book, wall-clock time of the save (as `updatedAt` of the row). */
+    private class OwnSave(val bookId: Long, val positionMs: Long, val at: Long) {
+        /** Is [stored] the row of this save: same book, same spot, written right after it? */
+        fun matches(bookId: Long, stored: BookProgress): Boolean =
+            bookId == this.bookId && abs(positionMs - stored.positionMs) <= ADOPT_TOLERANCE_MS &&
+                abs(stored.updatedAt - at) <= OWN_SAVE_LANDS_MS
     }
 
     private companion object {
@@ -701,6 +733,12 @@ internal class BookPlaybackListener(
 
         /** Own saves that can still be on their way to the database: a few quick seeks while paused. */
         const val OWN_SAVES = 8
+
+        /** An own save is in the database this soon after it was made; a row stamped later at the same spot is foreign. */
+        const val OWN_SAVE_LANDS_MS = 10_000L
+
+        /** The receiver has the new window by then; afterwards an empty queue counts as such again. */
+        const val WINDOW_LOAD_MS = 15_000L
 
         /** Only check shortly after the chapter start, so the position is surely in the new chapter already. */
         const val CHAPTER_SLACK_MS = 200L
