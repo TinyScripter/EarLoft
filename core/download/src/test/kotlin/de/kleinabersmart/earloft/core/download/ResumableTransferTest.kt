@@ -1,6 +1,8 @@
 package de.kleinabersmart.earloft.core.download
 
+import de.kleinabersmart.earloft.core.model.DownloadFailure
 import de.kleinabersmart.earloft.core.network.HttpStatusException
+import de.kleinabersmart.earloft.core.network.isAuthRejection
 import kotlinx.coroutines.test.runTest
 import kotlin.system.measureTimeMillis
 import java.util.concurrent.TimeUnit
@@ -294,9 +296,38 @@ class ResumableTransferTest {
                 run()
                 fail("HTTP $code must be retried later")
             } catch (e: IOException) {
-                assertTrue(e !is HttpStatusException)
+                // Temporary, never a rejected login.
+                assertFalse(e.isAuthRejection)
             }
         }
+    }
+
+    @Test
+    fun `every permanent failure carries its reason`() = runTest {
+        listOf(404 to DownloadFailure.NOT_FOUND, 410 to DownloadFailure.NOT_FOUND, 400 to DownloadFailure.SERVER).forEach { (code, failure) ->
+            server.enqueue(MockResponse.Builder().code(code).build())
+            assertEquals("HTTP $code", failure, (run() as TransferResult.Failed).failure)
+        }
+        server.enqueue(MockResponse.Builder().addHeader("Content-Type", "text/html").body("<html>").build())
+        assertEquals(DownloadFailure.NOT_AUDIO, (run() as TransferResult.Failed).failure)
+    }
+
+    @Test
+    fun `a server error is retried and reported as one when the retries are used up`() = runTest {
+        listOf(503, 429).forEach { code ->
+            server.enqueue(MockResponse.Builder().code(code).build())
+            try {
+                run()
+                fail("HTTP $code must be retried later")
+            } catch (e: HttpStatusException) {
+                assertEquals(code, e.status)
+                assertFalse(e.isAuthRejection)
+                assertEquals(DownloadFailure.SERVER, DownloadOutcome.Retry(e).failure)
+            }
+        }
+        // Without any answer it is the network; a rejected login stays a login problem.
+        assertEquals(DownloadFailure.NETWORK, DownloadOutcome.Retry(IOException("timeout")).failure)
+        assertEquals(DownloadFailure.DENIED, DownloadOutcome.Retry(HttpStatusException(401)).failure)
     }
 
     @Test
@@ -310,7 +341,7 @@ class ResumableTransferTest {
         }
 
         server.enqueue(MockResponse.Builder().code(403).build())
-        assertEquals(TransferResult.Failed("Not signed in", forbidden = true), run())
+        assertEquals(TransferResult.Failed("Not signed in", DownloadFailure.DENIED, forbidden = true), run())
     }
 
     @Test

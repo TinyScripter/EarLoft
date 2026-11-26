@@ -23,6 +23,7 @@ import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.model.ChapterSource
 import de.kleinabersmart.earloft.core.model.EffectOverrides
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import de.kleinabersmart.earloft.core.model.DownloadFailure
 import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.FeedStats
@@ -49,6 +50,11 @@ import de.kleinabersmart.earloft.core.network.podcast.splitCredentials
 import de.kleinabersmart.earloft.core.network.podcast.directory.feedKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -211,6 +217,9 @@ class PodcastRepository @Inject constructor(
     /** Download state per episode of a podcast (episodes without an entry are not downloaded). */
     fun downloadStates(feedId: String): Flow<Map<Long, TrackDownload>> =
         dao.observeDownloadStates(feedId).map { rows -> rows.associate { it.bookId to it.state } }
+
+    /** Why the episode's download failed; `null` while it hasn't failed or the reason is unknown (failed before v48). */
+    fun downloadFailure(bookId: Long): Flow<DownloadFailure?> = dao.observeDownloadFailure(bookId).distinctUntilChanged()
 
     /**
      * Episodes of a podcast, newest first, with progress; without those hidden by "Keep episodes" ([keepNewest]), and
@@ -902,14 +911,19 @@ class PodcastRepository @Inject constructor(
      * Syncs all subscriptions, with [which] only some of them (the stale ones when opening the app). Paused subscriptions
      * ([PodcastFeedEntity.syncsWithOthers]) are always left out; only [refresh] fetches them. The episodes of a subscription being
      * synced for the first time don't count as new (otherwise every fresh subscription would report its entire episode list).
+     * Up to [PARALLEL_FETCHES] feeds are fetched at the same time; adopting them stays one after the other ([refreshOne]).
      */
     suspend fun refreshAll(which: (PodcastFeedEntity) -> Boolean = { true }): PodcastRefreshSummary {
         val failures = mutableMapOf<String, FeedError>()
         val news = mutableListOf<NewEpisodes>()
         val moved = mutableListOf<String>()
         val feeds = dao.feeds().filter { !it.isLocal && it.syncsWithOthers && which(it) }
-        feeds.forEach { feed ->
-            when (val outcome = mutex.withLock { refreshLocked(feed.feedId) }) {
+        val gate = Semaphore(PARALLEL_FETCHES)
+        val outcomes = coroutineScope {
+            feeds.map { feed -> async { gate.withPermit { refreshOne(feed.feedId) } } }.awaitAll()
+        }
+        feeds.zip(outcomes).forEach { (feed, outcome) ->
+            when (outcome) {
                 is RefreshOutcome.Failed -> failures[feed.feedId] = outcome.error
                 is RefreshOutcome.Done -> {
                     val ids = outcome.result.newEpisodeIds
@@ -933,7 +947,7 @@ class PodcastRepository @Inject constructor(
      * counts toward the subscription's error status). If the feed announces a new address, the subscription moves there afterwards.
      */
     suspend fun refresh(feedId: String): RefreshResult? =
-        when (val outcome = mutex.withLock { refreshLocked(feedId) }) {
+        when (val outcome = refreshOne(feedId)) {
             is RefreshOutcome.Failed -> {
                 dao.recordRefreshFailure(feedId, outcome.error, System.currentTimeMillis())
                 null
@@ -947,7 +961,12 @@ class PodcastRepository @Inject constructor(
         data class Failed(val error: FeedError) : RefreshOutcome
     }
 
-    private suspend fun refreshLocked(feedId: String): RefreshOutcome {
+    /**
+     * Fetches the feed without the lock (so that several feeds can load at once), then adopts it under the lock. If the
+     * subscription has moved to another address meanwhile (source switch, feed move), the result belongs to the old source and is
+     * dropped: adopting it would bring back the old IDs as new episodes.
+     */
+    private suspend fun refreshOne(feedId: String): RefreshOutcome {
         val feed = dao.feed(feedId) ?: return RefreshOutcome.Done(RefreshResult(emptyList()))
         // Podcasts from the device have no feed; [LocalPodcasts] syncs their episodes.
         if (feed.isLocal) return RefreshOutcome.Done(RefreshResult(emptyList()))
@@ -962,12 +981,19 @@ class PodcastRepository @Inject constructor(
             return RefreshOutcome.Failed(feedError(e))
         }
         deniedMoves.update { it - feedId }
-        val result = when (fetched) {
-            is FeedFetch.NotModified -> {
-                dao.recordNotModified(feedId, System.currentTimeMillis())
-                RefreshResult(emptyList())
+        val result = mutex.withLock {
+            val current = dao.feed(feedId)
+            if (current == null || current.url != feed.url) {
+                Log.i(TAG, "${feed.title} changed its address during the sync, result dropped")
+                return RefreshOutcome.Done(RefreshResult(emptyList()))
             }
-            is FeedFetch.Fetched -> apply(feed, fetched)
+            when (fetched) {
+                is FeedFetch.NotModified -> {
+                    dao.recordNotModified(feedId, System.currentTimeMillis())
+                    RefreshResult(emptyList())
+                }
+                is FeedFetch.Fetched -> apply(feed, fetched)
+            }
         }
         _refreshed.tryEmit(feedId)
         val movedTo = fetched.movedTo ?: (fetched as? FeedFetch.Fetched)?.feed?.newFeedUrl
@@ -985,8 +1011,8 @@ class PodcastRepository @Inject constructor(
     }
 
     /**
-     * Runs [block] while no sync is running (switch source, concept 12.10): a sync of the old source
-     * in between would bring back the old IDs as new episodes.
+     * Runs [block] while no sync adopts a feed (switch source, concept 12.10). Fetches run outside the lock; one that
+     * fetched the old source is dropped afterwards ([refreshOne]), otherwise it would bring back the old IDs as new episodes.
      */
     internal suspend fun <T> withFeedLock(block: suspend () -> T): T = mutex.withLock { block() }
 
@@ -1064,7 +1090,7 @@ class PodcastRepository @Inject constructor(
             if (knownPersons[id].orEmpty() != persons) bookDao.replacePersons(id, persons)
             val track = BookTrackEntity(id, 0, episode.audioUrl, 0, episode.durationMs.takeIf { it > 0 } ?: existing?.durationMs ?: 0, episode.mimeType)
             // The download state isn't part of the feed and must not trigger a write.
-            val stored = bookDao.tracks(id).map { it.copy(downloadState = TrackDownload.NONE, filePath = null, fileSize = 0) }
+            val stored = bookDao.tracks(id).map { it.copy(downloadState = TrackDownload.NONE, filePath = null, fileSize = 0, downloadFailure = null) }
             if (stored != listOf(track)) dao.setTrack(track)
             if (episode.chapters.isNotEmpty()) storeChapters(id, episode.chapters, ChapterSource.FEED, track.durationMs, existing?.chapterSource)
         }
@@ -1253,6 +1279,12 @@ class PodcastRepository @Inject constructor(
 
         /** SQLite limit for parameters per query, with margin. */
         const val MAX_ARGS = 500
+
+        /**
+         * Feeds fetched at the same time by [refreshAll]: most of a sync is waiting for servers; more would mostly load the same
+         * hosts harder (ARD Sounds, Podigee, Libsyn carry many subscriptions).
+         */
+        const val PARALLEL_FETCHES = 4
 
         /** How long starting an episode waits for its chapter list (like `BookProgressSync.PULL_TIMEOUT_MS`). */
         const val CHAPTERS_TIMEOUT_MS = 3_000L

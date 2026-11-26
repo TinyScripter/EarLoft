@@ -100,7 +100,7 @@ import java.io.File
         EpisodePersonEntity::class,
         SongGenreEntity::class,
     ],
-    version = 47,
+    version = 48,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -149,6 +149,7 @@ import java.io.File
         AutoMigration(from = 44, to = 45, spec = EarLoftDatabase.SeveralGenres::class),
         AutoMigration(from = 45, to = 46, spec = EarLoftDatabase.FoldSortKeys::class),
         AutoMigration(from = 46, to = 47),
+        AutoMigration(from = 47, to = 48),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {

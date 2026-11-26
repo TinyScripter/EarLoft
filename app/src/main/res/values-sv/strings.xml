@@ -847,6 +847,14 @@
     <string name="book_download_delete_message">Detta frigör %1$s. Boken finns kvar i ditt bibliotek och kan fortfarande streamas.</string>
     <string name="book_download_delete_confirm">Radera</string>
     <string name="book_download_failed">Nedladdningen misslyckades</string>
+    <string name="download_failed_because">Nedladdningen misslyckades: %1$s</string>
+    <string name="download_failure_not_found">filen finns inte längre på servern</string>
+    <string name="download_failure_denied">åtkomst nekad</string>
+    <string name="download_failure_server">serverfel</string>
+    <string name="download_failure_not_audio">servern skickade ingen ljudfil</string>
+    <string name="download_failure_invalid_address">ogiltig filadress i flödet</string>
+    <string name="download_failure_network">servern går inte att nå</string>
+    <string name="download_failure_other">okänt fel</string>
     <plurals name="book_download_partial">
         <item quantity="one">Delvis nedladdad: %1$d av %2$d fil</item>
         <item quantity="other">Delvis nedladdad: %1$d av %2$d filer</item>

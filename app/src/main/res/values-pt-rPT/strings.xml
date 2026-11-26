@@ -879,6 +879,14 @@
     <string name="book_download_delete_message">Isto liberta %1$s. O livro permanece na sua biblioteca e continua disponível por streaming.</string>
     <string name="book_download_delete_confirm">Eliminar</string>
     <string name="book_download_failed">Falha na transferência</string>
+    <string name="download_failed_because">Falha na transferência: %1$s</string>
+    <string name="download_failure_not_found">o ficheiro já não está no servidor</string>
+    <string name="download_failure_denied">acesso negado</string>
+    <string name="download_failure_server">erro do servidor</string>
+    <string name="download_failure_not_audio">o servidor não enviou um ficheiro de áudio</string>
+    <string name="download_failure_invalid_address">endereço de ficheiro inválido no feed</string>
+    <string name="download_failure_network">servidor inacessível</string>
+    <string name="download_failure_other">erro desconhecido</string>
     <plurals name="book_download_partial">
         <item quantity="one">Parcialmente transferido: %1$d de %2$d ficheiro</item>
         <item quantity="many">Parcialmente transferido: %1$d de %2$d ficheiros</item>

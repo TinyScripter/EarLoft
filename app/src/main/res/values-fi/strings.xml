@@ -847,6 +847,14 @@
     <string name="book_download_delete_message">Tämä vapauttaa tilaa: %1$s. Kirja pysyy kirjastossasi, ja sitä voi edelleen suoratoistaa.</string>
     <string name="book_download_delete_confirm">Poista</string>
     <string name="book_download_failed">Lataus epäonnistui</string>
+    <string name="download_failed_because">Lataus epäonnistui: %1$s</string>
+    <string name="download_failure_not_found">tiedostoa ei ole enää palvelimella</string>
+    <string name="download_failure_denied">pääsy estetty</string>
+    <string name="download_failure_server">palvelinvirhe</string>
+    <string name="download_failure_not_audio">palvelin ei lähettänyt äänitiedostoa</string>
+    <string name="download_failure_invalid_address">virheellinen tiedoston osoite syötteessä</string>
+    <string name="download_failure_network">palvelimeen ei saada yhteyttä</string>
+    <string name="download_failure_other">tuntematon virhe</string>
     <plurals name="book_download_partial">
         <item quantity="one">Osittain ladattu: %1$d/%2$d tiedosto</item>
         <item quantity="other">Osittain ladattu: %1$d/%2$d tiedostoa</item>

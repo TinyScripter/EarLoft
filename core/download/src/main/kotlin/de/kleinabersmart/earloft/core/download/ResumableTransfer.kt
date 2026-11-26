@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import de.kleinabersmart.earloft.core.model.DownloadFailure
 import de.kleinabersmart.earloft.core.network.HttpStatusException
 import okhttp3.CacheControl
 import okhttp3.HttpUrl
@@ -20,8 +21,11 @@ internal sealed interface TransferResult {
     /** The file is complete as `.part`. [mimeType] only if the server reported an audio type. */
     data class Completed(val mimeType: String?) : TransferResult
 
-    /** Failed permanently; the partial file has been discarded. [forbidden]: the server denies access (403). */
-    data class Failed(val reason: String, val forbidden: Boolean = false) : TransferResult
+    /**
+     * Failed permanently; the partial file has been discarded. [forbidden]: the server denies access (403). [failure]: the
+     * reason for the user.
+     */
+    data class Failed(val reason: String, val failure: DownloadFailure, val forbidden: Boolean = false) : TransferResult
 
     /** No longer wanted along the way (download removed); the caller discards the partial file. */
     data object Cancelled : TransferResult
@@ -89,16 +93,19 @@ internal class ResumableTransfer(
                         }
                         // Overloaded or rate-limited (a proxy with "everything from one server") is temporary, not a broken file
                         // (review G25); the worker's backoff pauses.
-                        response.code in 500..599 || response.code in TRANSIENT_CODES -> throw IOException("HTTP ${response.code}")
+                        // As HttpStatusException, so that a file that gives up after the retries says "server error".
+                        response.code in 500..599 || response.code in TRANSIENT_CODES -> throw HttpStatusException(response.code)
                         // 401 is a network error from the caller's point of view: on the watch a new key may come from the phone.
                         response.code == 401 -> throw HttpStatusException(response.code)
-                        response.code == 403 -> return@withContext TransferResult.Failed("Not signed in", forbidden = true)
-                        !response.isSuccessful -> return@withContext TransferResult.Failed("HTTP ${response.code}")
+                        response.code == 403 -> return@withContext TransferResult.Failed("Not signed in", DownloadFailure.DENIED, forbidden = true)
+                        response.code == 404 || response.code == 410 ->
+                            return@withContext TransferResult.Failed("HTTP ${response.code}", DownloadFailure.NOT_FOUND)
+                        !response.isSuccessful -> return@withContext TransferResult.Failed("HTTP ${response.code}", DownloadFailure.SERVER)
                     }
                     val contentType = response.header("Content-Type").orEmpty().substringBefore(';').trim().lowercase()
                     if (contentType.startsWith("text/") || contentType.contains("json") || contentType.contains("xml")) {
                         storage.deletePart(bookId, trackIndex)
-                        return@withContext TransferResult.Failed("Not an audio file ($contentType)")
+                        return@withContext TransferResult.Failed("Not an audio file ($contentType)", DownloadFailure.NOT_AUDIO)
                     }
 
                     val length = response.body.contentLength().takeIf { it > 0 }

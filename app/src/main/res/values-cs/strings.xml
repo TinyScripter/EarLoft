@@ -911,6 +911,14 @@
     <string name="book_download_delete_message">Uvolní se %1$s. Kniha zůstane ve vaší knihovně a dál ji lze streamovat.</string>
     <string name="book_download_delete_confirm">Smazat</string>
     <string name="book_download_failed">Stahování se nezdařilo</string>
+    <string name="download_failed_because">Stahování selhalo: %1$s</string>
+    <string name="download_failure_not_found">soubor už na serveru není</string>
+    <string name="download_failure_denied">přístup odepřen</string>
+    <string name="download_failure_server">chyba serveru</string>
+    <string name="download_failure_not_audio">server neposlal zvukový soubor</string>
+    <string name="download_failure_invalid_address">neplatná adresa souboru ve feedu</string>
+    <string name="download_failure_network">server není dostupný</string>
+    <string name="download_failure_other">neznámá chyba</string>
     <plurals name="book_download_partial">
         <item quantity="one">Částečně staženo: %1$d z %2$d souboru</item>
         <item quantity="few">Částečně staženo: %1$d z %2$d souborů</item>

@@ -848,6 +848,14 @@
     <string name="book_download_delete_message">Das gibt %1$s frei. Das Buch bleibt in der Bibliothek und lässt sich weiter streamen.</string>
     <string name="book_download_delete_confirm">Löschen</string>
     <string name="book_download_failed">Download fehlgeschlagen</string>
+    <string name="download_failed_because">Download fehlgeschlagen: %1$s</string>
+    <string name="download_failure_not_found">Die Datei liegt nicht mehr auf dem Server</string>
+    <string name="download_failure_denied">Zugriff verweigert</string>
+    <string name="download_failure_server">Serverfehler</string>
+    <string name="download_failure_not_audio">Der Server lieferte keine Audiodatei</string>
+    <string name="download_failure_invalid_address">Ungültige Dateiadresse im Feed</string>
+    <string name="download_failure_network">Server nicht erreichbar</string>
+    <string name="download_failure_other">Unbekannter Fehler</string>
     <plurals name="book_download_partial">
         <item quantity="one">Teilweise geladen: %1$d von %2$d Datei</item>
         <item quantity="other">Teilweise geladen: %1$d von %2$d Dateien</item>

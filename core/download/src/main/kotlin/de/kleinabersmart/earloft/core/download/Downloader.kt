@@ -7,6 +7,7 @@ import de.kleinabersmart.earloft.core.database.dao.DownloadDao
 import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
 import de.kleinabersmart.earloft.core.datasource.PlaybackLocation
 import de.kleinabersmart.earloft.core.datasource.RemoteTranscoding
+import de.kleinabersmart.earloft.core.model.DownloadFailure
 import de.kleinabersmart.earloft.core.network.HttpStatusException
 import de.kleinabersmart.earloft.core.network.isAuthRejection
 import de.kleinabersmart.earloft.core.network.subsonic.subsonicErrorIn
@@ -29,9 +30,13 @@ sealed interface DownloadOutcome {
 
     /**
      * Failed permanently (e.g. file gone from the server). [sourceUnavailable]: this device doesn't know the source at all,
-     * which affects all of its tracks.
+     * which affects all of its tracks. [failure]: the reason for the user (episodes store it).
      */
-    data class Failed(val reason: String, val sourceUnavailable: Boolean = false) : DownloadOutcome
+    data class Failed(
+        val reason: String,
+        val sourceUnavailable: Boolean = false,
+        val failure: DownloadFailure = DownloadFailure.OTHER,
+    ) : DownloadOutcome
 
     /**
      * The file doesn't fit into the storage, before or during the transfer (`ENOSPC`). The partial file is discarded, the
@@ -44,6 +49,14 @@ sealed interface DownloadOutcome {
     data class Retry(val cause: Exception) : DownloadOutcome {
         /** The server rejected the credentials: new ones will work (the watch then asks the phone). */
         val isAuthRejection: Boolean get() = cause.isAuthRejection
+
+        /** The reason for the user if the file gives up after the retries. */
+        val failure: DownloadFailure
+            get() = when {
+                isAuthRejection -> DownloadFailure.DENIED
+                cause is HttpStatusException -> DownloadFailure.SERVER
+                else -> DownloadFailure.NETWORK
+            }
     }
 
     /** The entry was removed during the download. */

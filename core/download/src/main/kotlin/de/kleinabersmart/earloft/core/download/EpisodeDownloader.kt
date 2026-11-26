@@ -5,6 +5,7 @@ import android.util.Log
 import de.kleinabersmart.earloft.core.data.podcast.FeedCredentials
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
+import de.kleinabersmart.earloft.core.model.DownloadFailure
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.network.podcast.PodcastFeedApi
 import kotlinx.coroutines.CancellationException
@@ -43,7 +44,7 @@ class EpisodeDownloader @Inject constructor(
         if (dao.markDownloadRunning(bookId) == 0) return DownloadOutcome.Cancelled
         return try {
             fetch(track, network, onProgress).also { outcome ->
-                if (outcome is DownloadOutcome.Failed) dao.markDownloadFailed(bookId)
+                if (outcome is DownloadOutcome.Failed) dao.markDownloadFailed(bookId, outcome.failure)
                 if (outcome is DownloadOutcome.Failed || outcome is DownloadOutcome.Cancelled) storage.deletePart(bookId, 0)
             }
         } catch (e: CancellationException) {
@@ -63,11 +64,12 @@ class EpisodeDownloader @Inject constructor(
     private suspend fun fetch(track: BookTrackEntity, network: Network?, onProgress: suspend (Long, Long?) -> Unit): DownloadOutcome {
         // The process may have been started for the download before the credentials of all subscriptions are available.
         val auth = dao.feedIdOf(track.bookId)?.let { credentials.forFeed(it) }
-        val request = api.audioRequest(track.remoteFileId, auth) ?: return DownloadOutcome.Failed("Invalid address")
+        val request = api.audioRequest(track.remoteFileId, auth)
+            ?: return DownloadOutcome.Failed("Invalid address", failure = DownloadFailure.INVALID_ADDRESS)
         val transfer = if (network == null) transfer else ResumableTransfer(clientFor(network), storage)
         // "Remove download" resets the state; without this check the transfer would keep running to the end.
         return when (val result = transfer.run(request, track.bookId, 0, onProgress, { stillRunning(track.bookId) })) {
-            is TransferResult.Failed -> DownloadOutcome.Failed(result.reason)
+            is TransferResult.Failed -> DownloadOutcome.Failed(result.reason, failure = result.failure)
             TransferResult.Cancelled -> DownloadOutcome.Cancelled
             is TransferResult.NoSpace -> DownloadOutcome.NoSpace(result.totalBytes)
             is TransferResult.Completed -> finish(track.bookId, result.mimeType ?: track.mimeType)

@@ -1,13 +1,21 @@
 package de.kleinabersmart.earloft.core.data.spoken
 
 import de.kleinabersmart.earloft.core.database.dao.BookDownloadRow
+import de.kleinabersmart.earloft.core.model.DownloadFailure
 import de.kleinabersmart.earloft.core.model.TrackDownload
 
 /**
  * Download state of a book with the size of the fully downloaded files. [doneFiles] of [totalFiles] are downloaded; with
  * [TrackDownload.FAILED] and finished files the book is [partial] – the finished ones play from the device, the rest streams.
+ * [failure]: why it failed (episodes), if known.
  */
-data class BookDownload(val state: TrackDownload, val bytes: Long, val doneFiles: Int = 0, val totalFiles: Int = 0) {
+data class BookDownload(
+    val state: TrackDownload,
+    val bytes: Long,
+    val doneFiles: Int = 0,
+    val totalFiles: Int = 0,
+    val failure: DownloadFailure? = null,
+) {
     val partial: Boolean get() = state == TrackDownload.FAILED && doneFiles > 0
 }
 

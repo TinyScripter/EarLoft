@@ -9,6 +9,30 @@ enum class BookKind { BOOK, EPISODE }
  */
 enum class TrackDownload { NONE, QUEUED, RUNNING, DONE, FAILED, REMOVED }
 
+/** Why a download failed for good ([TrackDownload.FAILED]); shown next to the error so the user can tell whether trying again helps. */
+enum class DownloadFailure {
+    /** 404/410: the file is no longer at its address. */
+    NOT_FOUND,
+
+    /** 401/403: the server wants a login or refuses the request. */
+    DENIED,
+
+    /** Other HTTP errors, or 5xx/429 that did not go away over the retries. */
+    SERVER,
+
+    /** The server answered with a web page or a message instead of the audio file. */
+    NOT_AUDIO,
+
+    /** The address of the file in the feed is not a valid web address. */
+    INVALID_ADDRESS,
+
+    /** No connection to the server over all retries (unknown host, timeout, connection refused). */
+    NETWORK,
+
+    /** Anything else (e.g. the file could not be stored). */
+    OTHER,
+}
+
 /**
  * Where an episode's chapters come from, in ascending rank (concept 12.5 "chapter sources"): from the downloaded file
  * (ID3 `CHAP`, MP4), from the feed (Podlove Simple Chapters) or from the feed's chapter list (`podcast:chapters`, JSON).

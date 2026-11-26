@@ -17,6 +17,7 @@ import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.DownloadFailure
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -128,6 +129,9 @@ class EpisodeDownloadWorkerTest {
 
         // Which of the two parallel ones comes back first is up to the network.
         assertEquals(listOf(TrackDownload.FAILED, TrackDownload.QUEUED), states(first, second).sortedBy { it.name })
+        // The one that gave up says why: no connection over all attempts.
+        val failed = listOf(first, second).single { db.podcastDao().trackOf(it)!!.downloadState == TrackDownload.FAILED }
+        assertEquals(DownloadFailure.NETWORK, db.podcastDao().trackOf(failed)!!.downloadFailure)
     }
 
     private suspend fun runWorker(attempt: Int = 0): ListenableWorker.Result =

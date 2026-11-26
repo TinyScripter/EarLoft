@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.wear.download
 
+import de.kleinabersmart.earloft.core.model.DownloadFailure
 import android.util.Log
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.DownloadDao
@@ -138,7 +139,7 @@ class PhoneFileFetcher @Inject internal constructor(
             }
             when (received) {
                 FileReceive.Missing -> {
-                    podcastDao.markDownloadFailed(bookId)
+                    podcastDao.markDownloadFailed(bookId, DownloadFailure.NOT_FOUND)
                     DownloadOutcome.Failed(MISSING_ON_PHONE)
                 }
                 is FileReceive.Received -> {

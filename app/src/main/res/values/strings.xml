@@ -857,6 +857,14 @@
     <string name="book_download_delete_message">This frees %1$s. The book stays in your library and can still be streamed.</string>
     <string name="book_download_delete_confirm">Delete</string>
     <string name="book_download_failed">Download failed</string>
+    <string name="download_failed_because">Download failed: %1$s</string>
+    <string name="download_failure_not_found">the file is no longer on the server</string>
+    <string name="download_failure_denied">access denied</string>
+    <string name="download_failure_server">server error</string>
+    <string name="download_failure_not_audio">the server sent no audio file</string>
+    <string name="download_failure_invalid_address">invalid file address in the feed</string>
+    <string name="download_failure_network">server not reachable</string>
+    <string name="download_failure_other">unknown error</string>
     <plurals name="book_download_partial">
         <item quantity="one">Partly downloaded: %1$d of %2$d file</item>
         <item quantity="other">Partly downloaded: %1$d of %2$d files</item>

@@ -7,6 +7,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.ChapterSource
+import de.kleinabersmart.earloft.core.model.DownloadFailure
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
 import de.kleinabersmart.earloft.core.model.EpisodeType
 import de.kleinabersmart.earloft.core.model.FeedError
@@ -243,6 +244,8 @@ data class BookTrackEntity(
      * assigns its titles to a different group (the key in [BookEntity.remoteId] then leads nowhere).
      */
     val remoteItemId: String? = null,
+    /** Episodes (v48): why the download failed, as long as [downloadState] is `FAILED`; `null` if unknown. */
+    val downloadFailure: DownloadFailure? = null,
 )
 
 @Entity(

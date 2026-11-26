@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flowOf
@@ -138,7 +139,11 @@ class BookViewModel @AssistedInject constructor(
             if (feedId == null) {
                 books.download(bookId)
             } else {
-                podcasts.downloadStates(feedId).map { BookDownload(it[bookId] ?: TrackDownload.NONE, 0) }.distinctUntilChanged()
+                // With the reason of a failed download (shown below the buttons).
+                combine(podcasts.downloadStates(feedId), podcasts.downloadFailure(bookId)) { states, failure ->
+                    val state = states[bookId] ?: TrackDownload.NONE
+                    BookDownload(state, 0, failure = failure.takeIf { state == TrackDownload.FAILED })
+                }.distinctUntilChanged()
             }
         }
         .orOnError(BookDownload(TrackDownload.NONE, 0))

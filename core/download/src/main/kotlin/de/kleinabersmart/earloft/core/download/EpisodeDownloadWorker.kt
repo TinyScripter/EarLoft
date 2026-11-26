@@ -130,7 +130,7 @@ class EpisodeDownloadWorker internal constructor(
                     dao.requeueDownload(next.bookId)
                     return false
                 }
-                dao.markDownloadFailed(next.bookId)
+                dao.markDownloadFailed(next.bookId, outcome.failure)
                 storage.deletePart(next.bookId, 0)
             }
             is DownloadOutcome.Failed -> Log.w(TAG, "Episode ${next.bookId} failed: ${outcome.reason}")

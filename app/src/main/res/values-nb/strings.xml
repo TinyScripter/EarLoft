@@ -847,6 +847,14 @@
     <string name="book_download_delete_message">Dette frigjør %1$s. Boken blir værende i biblioteket ditt og kan fortsatt strømmes.</string>
     <string name="book_download_delete_confirm">Slett</string>
     <string name="book_download_failed">Nedlastingen mislyktes</string>
+    <string name="download_failed_because">Nedlasting mislyktes: %1$s</string>
+    <string name="download_failure_not_found">filen finnes ikke lenger på serveren</string>
+    <string name="download_failure_denied">tilgang nektet</string>
+    <string name="download_failure_server">serverfeil</string>
+    <string name="download_failure_not_audio">serveren sendte ingen lydfil</string>
+    <string name="download_failure_invalid_address">ugyldig filadresse i strømmen</string>
+    <string name="download_failure_network">serveren kan ikke nås</string>
+    <string name="download_failure_other">ukjent feil</string>
     <plurals name="book_download_partial">
         <item quantity="one">Delvis nedlastet: %1$d av %2$d fil</item>
         <item quantity="other">Delvis nedlastet: %1$d av %2$d filer</item>

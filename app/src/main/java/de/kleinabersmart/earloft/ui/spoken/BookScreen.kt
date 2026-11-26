@@ -82,6 +82,8 @@ import de.kleinabersmart.earloft.core.download.BookTransfer
 import de.kleinabersmart.earloft.core.download.EpisodeDownloadProgress
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.model.TrackDownload
+import de.kleinabersmart.earloft.core.model.DownloadFailure
+import androidx.annotation.StringRes
 import de.kleinabersmart.earloft.ui.formatBytes
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 import androidx.compose.foundation.layout.Box
@@ -181,6 +183,7 @@ fun BookScreen(
                 onToggleQueue = viewModel::toggleQueued,
                 download = download.state,
                 partial = download.takeIf { it.partial }?.let { it.doneFiles to it.totalFiles },
+                failure = download.failure,
                 transfer = transfer,
                 episodeFraction = episodeFraction,
                 onPlay = viewModel::play,
@@ -241,6 +244,8 @@ private fun BookHeader(
     download: TrackDownload,
     /** Partially downloaded: finished and all files. */
     partial: Pair<Int, Int>?,
+    /** Why the download failed (episodes), if known. */
+    failure: DownloadFailure?,
     transfer: BookTransfer?,
     episodeFraction: Float?,
     onPlay: () -> Unit,
@@ -401,8 +406,31 @@ private fun BookHeader(
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
+        // Tells whether "Retry" can help: a file that is gone stays gone, a server that was down may be back.
+        if (download == TrackDownload.FAILED && failure != null) {
+            Text(
+                stringResource(R.string.download_failed_because, stringResource(failure.label)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
     }
 }
+
+/** Text for the reason of a failed download. */
+@get:StringRes
+internal val DownloadFailure.label: Int
+    get() = when (this) {
+        DownloadFailure.NOT_FOUND -> R.string.download_failure_not_found
+        DownloadFailure.DENIED -> R.string.download_failure_denied
+        DownloadFailure.SERVER -> R.string.download_failure_server
+        DownloadFailure.NOT_AUDIO -> R.string.download_failure_not_audio
+        DownloadFailure.INVALID_ADDRESS -> R.string.download_failure_invalid_address
+        DownloadFailure.NETWORK -> R.string.download_failure_network
+        DownloadFailure.OTHER -> R.string.download_failure_other
+    }
 
 /** Download; while downloading cancel, afterwards delete (with confirmation), after an error retry. */
 @Composable

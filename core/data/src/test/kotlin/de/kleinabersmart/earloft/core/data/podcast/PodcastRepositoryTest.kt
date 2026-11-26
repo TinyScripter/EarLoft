@@ -13,6 +13,7 @@ import de.kleinabersmart.earloft.core.model.filterEpisodes
 import de.kleinabersmart.earloft.core.database.model.BookPeopleRow
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.ChapterSource
+import de.kleinabersmart.earloft.core.model.DownloadFailure
 import de.kleinabersmart.earloft.core.model.FEED_PROBLEM_AFTER
 import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
@@ -65,8 +66,8 @@ class PodcastRepositoryTest {
     /** `false`: the host doesn't speak HTTPS. */
     private var httpsAvailable = true
 
-    /** All fetched addresses in order. */
-    private val requested = mutableListOf<String>()
+    /** All fetched addresses in order (feeds are fetched in parallel, so synchronized). */
+    private val requested: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
     /** Runs while the feed is being fetched (changes made during a sync). */
     private var duringFetch: () -> Unit = {}
@@ -1448,7 +1449,7 @@ class PodcastRepositoryTest {
         val dao = db.podcastDao()
         dao.queueDownload(a)
         dao.markDownloadRunning(a)
-        dao.markDownloadFailed(a)
+        dao.markDownloadFailed(a, DownloadFailure.NOT_FOUND)
         served = served!!.replace("https://example.com/A.mp3", "https://example.com/A-new.mp3")
 
         repository.refresh(feedId)
@@ -1456,6 +1457,32 @@ class PodcastRepositoryTest {
         val track = dao.trackOf(a)!!
         assertEquals("https://example.com/A-new.mp3", track.remoteFileId)
         assertEquals(TrackDownload.NONE, track.downloadState)
+        assertEquals(null, track.downloadFailure)
+    }
+
+    @Test
+    fun `the reason of a failed download is kept until it is retried or removed and syncs do not touch it`() = runTest {
+        val feedId = subscribe()
+        val a = idOf(feedId, "A")
+        val dao = db.podcastDao()
+        assertEquals(null, repository.downloadFailure(a).first())
+        dao.queueDownload(a)
+        dao.markDownloadRunning(a)
+        dao.markDownloadFailed(a, DownloadFailure.NOT_FOUND)
+        assertEquals(DownloadFailure.NOT_FOUND, repository.downloadFailure(a).first())
+
+        // Same address: the sync leaves the failed state and its reason alone.
+        repository.refresh(feedId)
+        assertEquals(DownloadFailure.NOT_FOUND, repository.downloadFailure(a).first())
+
+        // Retrying clears it; a finished download has none.
+        assertEquals(1, dao.queueDownload(a))
+        assertEquals(null, dao.trackOf(a)!!.downloadFailure)
+        dao.markDownloadRunning(a)
+        dao.markDownloadFailed(a, DownloadFailure.SERVER)
+        dao.markDownloadRemoved(a)
+        assertEquals(null, dao.trackOf(a)!!.downloadFailure)
+        assertEquals(null, repository.downloadFailure(a).first())
     }
 
     @Test
@@ -1555,6 +1582,48 @@ class PodcastRepositoryTest {
         val result = repository.refresh(feedId)!!
 
         assertEquals(listOf(idOf(feedId, "Fall 3")), result.newEpisodeIds)
+    }
+
+    @Test
+    fun `syncing all fetches several feeds at once but never more than the limit`() = runTest {
+        val feedIds = (1..6).map { (repository.subscribe("https://example.com/feed$it.xml") as SubscribeResult.Added).feedId }
+        served = feed("New" to "Fri, 31 Oct 2025 06:00:00 GMT", "A" to "Thu, 30 Oct 2025 06:00:00 GMT")
+        val inFlight = java.util.concurrent.atomic.AtomicInteger()
+        val most = java.util.concurrent.atomic.AtomicInteger()
+        duringFetch = {
+            most.accumulateAndGet(inFlight.incrementAndGet(), ::maxOf)
+            Thread.sleep(200)
+            inFlight.decrementAndGet()
+        }
+
+        val summary = repository.refreshAll()
+
+        assertTrue("at most ${most.get()} at once", most.get() in 2..4)
+        assertTrue(summary.ok)
+        // Every subscription adopted its own result.
+        assertEquals(feedIds.toSet(), summary.newEpisodes.map { it.feedId }.toSet())
+        feedIds.forEach { id -> assertTrue(db.bookDao().booksOf(id).any { it.title == "New" }) }
+    }
+
+    @Test
+    fun `a fetch of the old address is dropped when the subscription moves meanwhile`() = runTest {
+        val feedId = subscribe()
+        served = feed("Old source" to "Fri, 31 Oct 2025 06:00:00 GMT", "A" to "Thu, 30 Oct 2025 06:00:00 GMT")
+        duringFetch = {
+            duringFetch = {}
+            kotlinx.coroutines.runBlocking {
+                val feed = db.podcastDao().feed(feedId)!!
+                db.podcastDao().upsertFeed(feed.copy(url = "https://example.com/moved.xml", etag = null, lastModified = null))
+            }
+        }
+
+        assertEquals(emptyList<Long>(), repository.refresh(feedId)!!.newEpisodeIds)
+        assertTrue(db.bookDao().booksOf(feedId).none { it.title == "Old source" })
+
+        // The next sync fetches the new address and adopts it.
+        repository.refresh(feedId)
+        assertEquals("https://example.com/moved.xml", requested.last())
+        assertTrue(db.bookDao().booksOf(feedId).any { it.title == "Old source" })
     }
 
     @Test

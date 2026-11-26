@@ -879,6 +879,14 @@
     <string name="book_download_delete_message">Se liberarán %1$s. El libro sigue en tu biblioteca y se puede seguir reproduciendo en streaming.</string>
     <string name="book_download_delete_confirm">Eliminar</string>
     <string name="book_download_failed">Error en la descarga</string>
+    <string name="download_failed_because">Error en la descarga: %1$s</string>
+    <string name="download_failure_not_found">el archivo ya no está en el servidor</string>
+    <string name="download_failure_denied">acceso denegado</string>
+    <string name="download_failure_server">error del servidor</string>
+    <string name="download_failure_not_audio">el servidor no envió un archivo de audio</string>
+    <string name="download_failure_invalid_address">dirección de archivo no válida en el feed</string>
+    <string name="download_failure_network">servidor inaccesible</string>
+    <string name="download_failure_other">error desconocido</string>
     <plurals name="book_download_partial">
         <item quantity="one">Descargado en parte: %1$d de %2$d archivo</item>
         <item quantity="many">Descargado en parte: %1$d de %2$d archivos</item>

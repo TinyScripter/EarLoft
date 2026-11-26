@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.database.model.EpisodeDuration
+import de.kleinabersmart.earloft.core.model.DownloadFailure
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
 import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
@@ -359,7 +360,7 @@ abstract class PodcastDao {
 
     /** Manual: failed and removed episodes download again too. */
     @Query(
-        "UPDATE book_tracks SET downloadState = 'QUEUED', autoDownload = 0 " +
+        "UPDATE book_tracks SET downloadState = 'QUEUED', autoDownload = 0, downloadFailure = NULL " +
             "WHERE bookId = :bookId AND trackIndex = 0 AND downloadState IN ('NONE', 'FAILED', 'REMOVED')",
     )
     abstract suspend fun queueDownload(bookId: Long): Int
@@ -486,19 +487,32 @@ abstract class PodcastDao {
     @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND trackIndex = 0 AND downloadState = 'RUNNING'")
     abstract suspend fun requeueDownload(bookId: Long)
 
-    /** Only a waiting or running download: one removed in the meantime stays removed (the automation doesn't download it again). */
+    /**
+     * Only a waiting or running download: one removed in the meantime stays removed (the automation doesn't download it again).
+     * [failure] is shown with the error.
+     */
     @Query(
-        "UPDATE book_tracks SET downloadState = 'FAILED', filePath = NULL, fileSize = 0 " +
+        "UPDATE book_tracks SET downloadState = 'FAILED', filePath = NULL, fileSize = 0, downloadFailure = :failure " +
             "WHERE bookId = :bookId AND trackIndex = 0 AND downloadState IN ('QUEUED', 'RUNNING')",
     )
-    abstract suspend fun markDownloadFailed(bookId: Long)
+    abstract suspend fun markDownloadFailed(bookId: Long, failure: DownloadFailure)
+
+    /** Why the episode's download failed; `null` while it hasn't failed (or the reason is unknown). */
+    @Query("SELECT downloadFailure FROM book_tracks WHERE bookId = :bookId AND trackIndex = 0 AND downloadState = 'FAILED'")
+    abstract fun observeDownloadFailure(bookId: Long): Flow<DownloadFailure?>
 
     /** `0` if the entry has been removed or reset in the meantime. */
-    @Query("UPDATE book_tracks SET downloadState = 'DONE', filePath = :path, fileSize = :size WHERE bookId = :bookId AND trackIndex = 0 AND downloadState = 'RUNNING'")
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'DONE', filePath = :path, fileSize = :size, downloadFailure = NULL " +
+            "WHERE bookId = :bookId AND trackIndex = 0 AND downloadState = 'RUNNING'",
+    )
     abstract suspend fun markDownloadDone(bookId: Long, path: String, size: Long): Int
 
     /** Removes the download (including a waiting one) and remembers that the automation should not re-download the episode. */
-    @Query("UPDATE book_tracks SET downloadState = 'REMOVED', filePath = NULL, fileSize = 0 WHERE bookId = :bookId AND trackIndex = 0 AND downloadState != 'NONE'")
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'REMOVED', filePath = NULL, fileSize = 0, downloadFailure = NULL " +
+            "WHERE bookId = :bookId AND trackIndex = 0 AND downloadState != 'NONE'",
+    )
     abstract suspend fun markDownloadRemoved(bookId: Long)
 
     @Query(

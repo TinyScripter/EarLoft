@@ -911,6 +911,14 @@
     <string name="book_download_delete_message">Zwolni to %1$s. Książka pozostanie w bibliotece i nadal będzie można ją odtwarzać strumieniowo.</string>
     <string name="book_download_delete_confirm">Usuń</string>
     <string name="book_download_failed">Pobieranie nie powiodło się</string>
+    <string name="download_failed_because">Pobieranie nie powiodło się: %1$s</string>
+    <string name="download_failure_not_found">pliku nie ma już na serwerze</string>
+    <string name="download_failure_denied">odmowa dostępu</string>
+    <string name="download_failure_server">błąd serwera</string>
+    <string name="download_failure_not_audio">serwer nie przesłał pliku audio</string>
+    <string name="download_failure_invalid_address">nieprawidłowy adres pliku w kanale</string>
+    <string name="download_failure_network">serwer jest nieosiągalny</string>
+    <string name="download_failure_other">nieznany błąd</string>
     <plurals name="book_download_partial">
         <item quantity="one">Pobrano częściowo: %1$d z %2$d pliku</item>
         <item quantity="few">Pobrano częściowo: %1$d z %2$d plików</item>

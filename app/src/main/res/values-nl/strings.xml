@@ -847,6 +847,14 @@
     <string name="book_download_delete_message">Hiermee komt %1$s vrij. Het boek blijft in je bibliotheek en kan nog steeds worden gestreamd.</string>
     <string name="book_download_delete_confirm">Verwijderen</string>
     <string name="book_download_failed">Download mislukt</string>
+    <string name="download_failed_because">Downloaden mislukt: %1$s</string>
+    <string name="download_failure_not_found">het bestand staat niet meer op de server</string>
+    <string name="download_failure_denied">toegang geweigerd</string>
+    <string name="download_failure_server">serverfout</string>
+    <string name="download_failure_not_audio">de server stuurde geen audiobestand</string>
+    <string name="download_failure_invalid_address">ongeldig bestandsadres in de feed</string>
+    <string name="download_failure_network">server niet bereikbaar</string>
+    <string name="download_failure_other">onbekende fout</string>
     <plurals name="book_download_partial">
         <item quantity="one">Deels gedownload: %1$d van %2$d bestand</item>
         <item quantity="other">Deels gedownload: %1$d van %2$d bestanden</item>
