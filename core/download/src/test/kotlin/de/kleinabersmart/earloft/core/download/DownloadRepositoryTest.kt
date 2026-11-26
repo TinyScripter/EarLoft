@@ -248,6 +248,50 @@ class DownloadRepositoryTest {
     }
 
     @Test
+    fun `a removed favorite stays removed until it is downloaded by hand`() = runTest {
+        val albumId = library.album("Takk")
+        val liked = library.song(albumId, "A", "home" to "a")
+        val other = library.song(albumId, "B", "home" to "b")
+        library.db.syncDao().setSongFavorite(liked, true, 1)
+        library.db.syncDao().setSongFavorite(other, true, 1)
+        repository.reconcileFavoriteDownloads(enabled = true)
+
+        repository.removeSongs(listOf(liked))
+        repository.reconcileFavoriteDownloads(enabled = true)
+        repository.reconcileServerDownloads(setOf("home"))
+
+        // Neither the favorites nor a whole server bring it back; the other favorite is untouched.
+        assertEquals(listOf("home:b"), library.db.downloadDao().getAll().map { it.sourceUid })
+
+        // Downloaded by hand it is wanted again: if that file goes some other way (e.g. its source vanished), the
+        // automation looks after it as before.
+        assertEquals(1, repository.downloadSongs(listOf(liked)))
+        assertEquals("manual", library.db.downloadDao().get("home:a")!!.pinnedBy)
+        library.db.downloadDao().delete(listOf("home:a"))
+        repository.reconcileFavoriteDownloads(enabled = true)
+        assertEquals("favorites", library.db.downloadDao().get("home:a")!!.pinnedBy)
+    }
+
+    @Test
+    fun `removing everything keeps the automations away, their own cleanup does not`() = runTest {
+        val albumId = library.album("Takk")
+        val liked = library.song(albumId, "A", "home" to "a")
+        library.db.syncDao().setSongFavorite(liked, true, 1)
+        repository.reconcileFavoriteDownloads(enabled = true)
+
+        // Unstarred and starred again: the automation removed it itself, so it comes back.
+        library.db.syncDao().setSongFavorite(liked, false, 2)
+        repository.reconcileFavoriteDownloads(enabled = true)
+        library.db.syncDao().setSongFavorite(liked, true, 3)
+        repository.reconcileFavoriteDownloads(enabled = true)
+        assertEquals(listOf("home:a"), library.db.downloadDao().getAll().map { it.sourceUid })
+
+        repository.removeAll()
+        repository.reconcileFavoriteDownloads(enabled = true)
+        assertTrue(library.db.downloadDao().getAll().isEmpty())
+    }
+
+    @Test
     fun `a manual download keeps a song that was fetched as favorite`() = runTest {
         val albumId = library.album("Takk")
         val liked = library.song(albumId, "A", "home" to "a")

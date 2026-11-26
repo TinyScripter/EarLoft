@@ -293,7 +293,7 @@
     <string name="settings_licenses">Licenze</string>
     <string name="server_auto_download">Tutto viene scaricato automaticamente</string>
     <string name="server_form_auto_download">Scarica tutto automaticamente</string>
-    <string name="server_form_auto_download_summary">Ogni brano di questo server viene scaricato sul dispositivo, anche quelli aggiunti in seguito. Richiede molto spazio di archiviazione.</string>
+    <string name="server_form_auto_download_summary">Ogni brano di questo server viene scaricato sul dispositivo, anche quelli aggiunti in seguito. Richiede molto spazio di archiviazione. I download che rimuovi tu restano rimossi finché non li scarichi di nuovo.</string>
     <string name="about_title">Informazioni sull’app</string>
     <string name="about_version">Versione %1$s</string>
     <string name="about_text">EarLoft è un player per la tua collezione: musica, podcast e libri, da questo dispositivo e dalla rete, ciascuno in un’unica libreria condivisa. La musica arriva anche dai tuoi server Navidrome, Subsonic, Jellyfin o Emby, i podcast da qualsiasi feed e i libri dal tuo server Audiobookshelf. Tutto può essere scaricato per l’ascolto offline, l’avanzamento dei libri viene sincronizzato con il server, e musica, podcast e libri si possono ascoltare anche sul tuo orologio Wear OS.</string>
@@ -447,8 +447,8 @@
     <string name="downloads_retry">Riprova</string>
     <string name="downloads_remove_all">Rimuovi tutti i download</string>
     <string name="downloads_remove_all_title">Rimuovere tutti i download?</string>
-    <string name="downloads_remove_all_text">Tutti i file scaricati verranno eliminati. La libreria resta.</string>
-    <string name="downloads_remove_all_text_shown">I file scaricati delle sezioni mostrate qui verranno eliminati. Quelli delle sezioni nascoste e la libreria restano.</string>
+    <string name="downloads_remove_all_text">Tutti i file scaricati verranno eliminati. La libreria resta. I download automatici li saltano finché non li scarichi tu di nuovo.</string>
+    <string name="downloads_remove_all_text_shown">I file scaricati delle sezioni mostrate qui verranno eliminati. Quelli delle sezioni nascoste e la libreria restano. I download automatici li saltano finché non li scarichi tu di nuovo.</string>
     <string name="downloads_hidden_areas">Altri %1$s in sezioni nascoste</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d di %2$d brano · %3$s</item>
@@ -458,13 +458,13 @@
     <string name="settings_music_mobile">Usa anche i dati mobili</string>
     <string name="settings_music_mobile_summary">Disattivato: la musica viene scaricata solo con il Wi-Fi.</string>
     <string name="settings_auto_download_favorites">Scarica automaticamente i preferiti</string>
-    <string name="settings_auto_download_favorites_summary">I nuovi preferiti vengono scaricati, quelli rimossi vengono di nuovo eliminati. Gli album preferiti vengono scaricati per intero. Vale per i server da cui non viene già scaricato tutto.</string>
+    <string name="settings_auto_download_favorites_summary">I nuovi preferiti vengono scaricati, quelli rimossi vengono di nuovo eliminati. Gli album preferiti vengono scaricati per intero. Vale per i server da cui non viene già scaricato tutto. I download che rimuovi tu restano rimossi finché non li scarichi di nuovo.</string>
     <string name="settings_auto_download_favorite_artists">Includi artisti preferiti</string>
     <string name="settings_auto_download_favorite_artists_summary">Scarica anche tutto dei tuoi artisti preferiti. Può occupare molto spazio di archiviazione.</string>
     <string name="settings_auto_download_newest_albums">Scarica automaticamente gli album più recenti</string>
-    <string name="settings_auto_download_newest_albums_summary">Gli album aggiunti più di recente sui tuoi server. Gli album che escono dalla selezione vengono di nuovo eliminati.</string>
+    <string name="settings_auto_download_newest_albums_summary">Gli album aggiunti più di recente sui tuoi server. Gli album che escono dalla selezione vengono di nuovo eliminati. I download che rimuovi tu restano rimossi finché non li scarichi di nuovo.</string>
     <string name="settings_auto_download_most_played_albums">Scarica automaticamente gli album più ascoltati</string>
-    <string name="settings_auto_download_most_played_albums_summary">Gli album più ascoltati negli ultimi 90 giorni (almeno 3 ascolti). Gli album che escono dalla selezione vengono di nuovo eliminati.</string>
+    <string name="settings_auto_download_most_played_albums_summary">Gli album più ascoltati negli ultimi 90 giorni (almeno 3 ascolti). Gli album che escono dalla selezione vengono di nuovo eliminati. I download che rimuovi tu restano rimossi finché non li scarichi di nuovo.</string>
     <string name="settings_auto_download_albums_off">Disattivato</string>
     <string name="settings_auto_download_albums_custom">Numero personalizzato</string>
     <string name="settings_auto_download_albums_apply">Applica</string>
@@ -899,7 +899,7 @@
     <string name="downloads_remove_music_title">Eliminare tutti i download di musica?</string>
     <string name="downloads_remove_books_title">Eliminare tutti i download di libri?</string>
     <string name="downloads_remove_podcasts_title">Eliminare tutti i download di podcast?</string>
-    <string name="downloads_remove_category_text">I file scaricati vengono eliminati da questo dispositivo. La libreria resta e tutto si può ancora ascoltare in streaming.</string>
+    <string name="downloads_remove_category_text">I file scaricati vengono eliminati da questo dispositivo. La libreria resta e tutto si può ancora ascoltare in streaming. I download automatici li saltano finché non li scarichi tu di nuovo.</string>
     <string name="podcast_downloads_delete_title">Eliminare i download di “%1$s”?</string>
     <string name="podcast_downloads_delete_message">Verranno liberati %1$s. Gli episodi restano nell’elenco e si possono ancora ascoltare in streaming.</string>
     <plurals name="downloads_podcast_summary">

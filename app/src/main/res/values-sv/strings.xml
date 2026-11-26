@@ -279,7 +279,7 @@
     <string name="settings_licenses">Licenser</string>
     <string name="server_auto_download">Allt laddas ned automatiskt</string>
     <string name="server_form_auto_download">Ladda ned allt automatiskt</string>
-    <string name="server_form_auto_download_summary">Alla spår på den här servern laddas ned till enheten, även nytillagda. Kräver mycket lagringsutrymme.</string>
+    <string name="server_form_auto_download_summary">Alla spår på den här servern laddas ned till enheten, även nytillagda. Kräver mycket lagringsutrymme. Nedladdningar som du själv tar bort förblir borttagna tills du laddar ned dem igen.</string>
     <string name="about_title">Om appen</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_text">EarLoft är en spelare för din egen samling: musik, poddar och böcker, från den här enheten och från nätverket, var och en i ett gemensamt bibliotek. Musik kommer även från dina Navidrome-, Subsonic-, Jellyfin- eller Emby-servrar, poddar från valfritt flöde och böcker från din Audiobookshelf-server. Allt kan laddas ned för att lyssna offline, bokförloppet synkroniseras med din server, och musik, poddar och böcker spelas även på din Wear OS-klocka.</string>
@@ -424,8 +424,8 @@
     <string name="downloads_retry">Försök igen</string>
     <string name="downloads_remove_all">Ta bort alla nedladdningar</string>
     <string name="downloads_remove_all_title">Vill du ta bort alla nedladdningar?</string>
-    <string name="downloads_remove_all_text">Alla nedladdade filer raderas. Biblioteket behålls.</string>
-    <string name="downloads_remove_all_text_shown">De nedladdade filerna i områdena som visas här raderas. Filerna i dolda områden och biblioteket behålls.</string>
+    <string name="downloads_remove_all_text">Alla nedladdade filer raderas. Biblioteket behålls. Automatiska nedladdningar hoppar över dem tills du själv laddar ned dem igen.</string>
+    <string name="downloads_remove_all_text_shown">De nedladdade filerna i områdena som visas här raderas. Filerna i dolda områden och biblioteket behålls. Automatiska nedladdningar hoppar över dem tills du själv laddar ned dem igen.</string>
     <string name="downloads_hidden_areas">Ytterligare %1$s i dolda områden</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d av %2$d låt · %3$s</item>
@@ -434,13 +434,13 @@
     <string name="settings_music_mobile">Använd även mobildata</string>
     <string name="settings_music_mobile_summary">Av: musik laddas bara ned via wifi.</string>
     <string name="settings_auto_download_favorites">Ladda ned favoriter automatiskt</string>
-    <string name="settings_auto_download_favorites_summary">Nya favoriter laddas ned och borttagna favoriter raderas igen. Favoritalbum laddas ned i sin helhet. Gäller servrar där inte allt laddas ned ändå.</string>
+    <string name="settings_auto_download_favorites_summary">Nya favoriter laddas ned och borttagna favoriter raderas igen. Favoritalbum laddas ned i sin helhet. Gäller servrar där inte allt laddas ned ändå. Nedladdningar som du själv tar bort förblir borttagna tills du laddar ned dem igen.</string>
     <string name="settings_auto_download_favorite_artists">Inkludera favoritartister</string>
     <string name="settings_auto_download_favorite_artists_summary">Laddar även ned allt av dina favoritartister. Det kan ta mycket lagringsutrymme.</string>
     <string name="settings_auto_download_newest_albums">Ladda ned nyaste album automatiskt</string>
-    <string name="settings_auto_download_newest_albums_summary">De senast tillagda albumen på dina servrar. Album som faller bort raderas igen.</string>
+    <string name="settings_auto_download_newest_albums_summary">De senast tillagda albumen på dina servrar. Album som faller bort raderas igen. Nedladdningar som du själv tar bort förblir borttagna tills du laddar ned dem igen.</string>
     <string name="settings_auto_download_most_played_albums">Ladda ned mest spelade album automatiskt</string>
-    <string name="settings_auto_download_most_played_albums_summary">De album som spelats mest de senaste 90 dagarna (minst 3 uppspelningar). Album som faller bort raderas igen.</string>
+    <string name="settings_auto_download_most_played_albums_summary">De album som spelats mest de senaste 90 dagarna (minst 3 uppspelningar). Album som faller bort raderas igen. Nedladdningar som du själv tar bort förblir borttagna tills du laddar ned dem igen.</string>
     <string name="settings_auto_download_albums_off">Av</string>
     <string name="settings_auto_download_albums_custom">Anpassat antal</string>
     <string name="settings_auto_download_albums_apply">Verkställ</string>
@@ -866,7 +866,7 @@
     <string name="downloads_remove_music_title">Vill du radera alla musiknedladdningar?</string>
     <string name="downloads_remove_books_title">Vill du radera alla boknedladdningar?</string>
     <string name="downloads_remove_podcasts_title">Vill du radera alla poddnedladdningar?</string>
-    <string name="downloads_remove_category_text">De nedladdade filerna raderas från den här enheten. Biblioteket finns kvar och allt kan fortfarande streamas.</string>
+    <string name="downloads_remove_category_text">De nedladdade filerna raderas från den här enheten. Biblioteket finns kvar och allt kan fortfarande streamas. Automatiska nedladdningar hoppar över dem tills du själv laddar ned dem igen.</string>
     <string name="podcast_downloads_delete_title">Vill du radera nedladdningarna av ”%1$s”?</string>
     <string name="podcast_downloads_delete_message">Detta frigör %1$s. Avsnitten finns kvar i listan och kan fortfarande streamas.</string>
     <plurals name="downloads_podcast_summary">

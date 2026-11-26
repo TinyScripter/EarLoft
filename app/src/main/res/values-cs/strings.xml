@@ -307,7 +307,7 @@
     <string name="settings_licenses">Licence</string>
     <string name="server_auto_download">Vše se stahuje automaticky</string>
     <string name="server_form_auto_download">Automaticky stahovat vše</string>
-    <string name="server_form_auto_download_summary">Každá skladba na tomto serveru se stáhne do zařízení, včetně nově přidaných. Vyžaduje hodně úložiště.</string>
+    <string name="server_form_auto_download_summary">Každá skladba na tomto serveru se stáhne do zařízení, včetně nově přidaných. Vyžaduje hodně úložiště. Stažené soubory, které sami odstraníte, zůstanou odstraněné, dokud je znovu nestáhnete.</string>
     <string name="about_title">O aplikaci</string>
     <string name="about_version">Verze %1$s</string>
     <string name="about_text">EarLoft je přehrávač pro vaši vlastní sbírku: hudba, podcasty a knihy z tohoto zařízení i ze sítě, vždy v jedné společné knihovně. Hudbu přehraje také z vašich serverů Navidrome, Subsonic, Jellyfin nebo Emby, podcasty z libovolného kanálu a knihy z vašeho serveru Audiobookshelf. Vše si můžete stáhnout k poslechu offline, průběh poslechu knih se synchronizuje s vaším serverem a hudba, podcasty i knihy hrají také na hodinkách s Wear OS.</string>
@@ -470,8 +470,8 @@
     <string name="downloads_retry">Zkusit znovu</string>
     <string name="downloads_remove_all">Odstranit všechny stažené soubory</string>
     <string name="downloads_remove_all_title">Odstranit všechny stažené soubory?</string>
-    <string name="downloads_remove_all_text">Všechny stažené soubory budou smazány. Knihovna zůstane zachována.</string>
-    <string name="downloads_remove_all_text_shown">Stažené soubory zde zobrazených sekcí budou smazány. Soubory skrytých sekcí a knihovna zůstanou.</string>
+    <string name="downloads_remove_all_text">Všechny stažené soubory budou smazány. Knihovna zůstane zachována. Automatické stahování je vynechá, dokud je sami znovu nestáhnete.</string>
+    <string name="downloads_remove_all_text_shown">Stažené soubory zde zobrazených sekcí budou smazány. Soubory skrytých sekcí a knihovna zůstanou. Automatické stahování je vynechá, dokud je sami znovu nestáhnete.</string>
     <string name="downloads_hidden_areas">Dalších %1$s ve skrytých sekcích</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d z %2$d skladby · %3$s</item>
@@ -482,13 +482,13 @@
     <string name="settings_music_mobile">Používat i mobilní data</string>
     <string name="settings_music_mobile_summary">Vypnuto: hudba se stahuje jen přes Wi-Fi.</string>
     <string name="settings_auto_download_favorites">Automaticky stahovat oblíbené</string>
-    <string name="settings_auto_download_favorites_summary">Nové oblíbené položky se stáhnou, odebrané se zase smažou. Oblíbená alba se stáhnou celá. Platí pro servery, ze kterých se stejně nestahuje vše.</string>
+    <string name="settings_auto_download_favorites_summary">Nové oblíbené položky se stáhnou, odebrané se zase smažou. Oblíbená alba se stáhnou celá. Platí pro servery, ze kterých se stejně nestahuje vše. Stažené soubory, které sami odstraníte, zůstanou odstraněné, dokud je znovu nestáhnete.</string>
     <string name="settings_auto_download_favorite_artists">Zahrnout oblíbené interprety</string>
     <string name="settings_auto_download_favorite_artists_summary">Stáhne také vše od vašich oblíbených interpretů. Může to zabrat hodně úložiště.</string>
     <string name="settings_auto_download_newest_albums">Automaticky stahovat nejnovější alba</string>
-    <string name="settings_auto_download_newest_albums_summary">Naposledy přidaná alba na vašich serverech. Alba, která ze seznamu vypadnou, se zase smažou.</string>
+    <string name="settings_auto_download_newest_albums_summary">Naposledy přidaná alba na vašich serverech. Alba, která ze seznamu vypadnou, se zase smažou. Stažené soubory, které sami odstraníte, zůstanou odstraněné, dokud je znovu nestáhnete.</string>
     <string name="settings_auto_download_most_played_albums">Automaticky stahovat nejpřehrávanější alba</string>
-    <string name="settings_auto_download_most_played_albums_summary">Alba nejčastěji přehrávaná za posledních 90 dní (alespoň 3 přehrání). Alba, která ze seznamu vypadnou, se zase smažou.</string>
+    <string name="settings_auto_download_most_played_albums_summary">Alba nejčastěji přehrávaná za posledních 90 dní (alespoň 3 přehrání). Alba, která ze seznamu vypadnou, se zase smažou. Stažené soubory, které sami odstraníte, zůstanou odstraněné, dokud je znovu nestáhnete.</string>
     <string name="settings_auto_download_albums_off">Vypnuto</string>
     <string name="settings_auto_download_albums_custom">Vlastní počet</string>
     <string name="settings_auto_download_albums_apply">Použít</string>
@@ -932,7 +932,7 @@
     <string name="downloads_remove_music_title">Smazat všechnu staženou hudbu?</string>
     <string name="downloads_remove_books_title">Smazat všechny stažené knihy?</string>
     <string name="downloads_remove_podcasts_title">Smazat všechny stažené podcasty?</string>
-    <string name="downloads_remove_category_text">Stažené soubory budou z tohoto zařízení smazány. Knihovna zůstane a vše lze dál streamovat.</string>
+    <string name="downloads_remove_category_text">Stažené soubory budou z tohoto zařízení smazány. Knihovna zůstane a vše lze dál streamovat. Automatické stahování je vynechá, dokud je sami znovu nestáhnete.</string>
     <string name="podcast_downloads_delete_title">Smazat stažené soubory podcastu „%1$s“?</string>
     <string name="podcast_downloads_delete_message">Uvolní se %1$s. Epizody zůstanou v seznamu a dál je lze streamovat.</string>
     <plurals name="downloads_podcast_summary">

@@ -279,7 +279,7 @@
     <string name="settings_licenses">Lisenser</string>
     <string name="server_auto_download">Alt lastes ned automatisk</string>
     <string name="server_form_auto_download">Last ned alt automatisk</string>
-    <string name="server_form_auto_download_summary">Hvert spor på denne serveren lastes ned til enheten, også nye spor som legges til. Krever mye lagringsplass.</string>
+    <string name="server_form_auto_download_summary">Hvert spor på denne serveren lastes ned til enheten, også nye spor som legges til. Krever mye lagringsplass. Nedlastinger du fjerner selv, forblir fjernet til du laster dem ned igjen.</string>
     <string name="about_title">Om appen</string>
     <string name="about_version">Versjon %1$s</string>
     <string name="about_text">EarLoft er en spiller for din egen samling: musikk, podkaster og bøker, fra denne enheten og fra nettverket, hver samlet i ett felles bibliotek. Musikk kommer også fra Navidrome-, Subsonic-, Jellyfin- eller Emby-serverne dine, podkaster fra hvilken som helst feed og bøker fra Audiobookshelf-serveren din. Alt kan lastes ned for lytting uten nett, fremdriften i bøker synkroniseres med serveren din, og musikk, podkaster og bøker kan også spilles av på Wear OS-klokken din.</string>
@@ -424,8 +424,8 @@
     <string name="downloads_retry">Prøv igjen</string>
     <string name="downloads_remove_all">Fjern alle nedlastinger</string>
     <string name="downloads_remove_all_title">Vil du fjerne alle nedlastinger?</string>
-    <string name="downloads_remove_all_text">Alle nedlastede filer slettes. Biblioteket beholdes.</string>
-    <string name="downloads_remove_all_text_shown">De nedlastede filene fra områdene som vises her, slettes. Filene fra skjulte områder og biblioteket beholdes.</string>
+    <string name="downloads_remove_all_text">Alle nedlastede filer slettes. Biblioteket beholdes. Automatiske nedlastinger hopper over dem til du laster dem ned selv igjen.</string>
+    <string name="downloads_remove_all_text_shown">De nedlastede filene fra områdene som vises her, slettes. Filene fra skjulte områder og biblioteket beholdes. Automatiske nedlastinger hopper over dem til du laster dem ned selv igjen.</string>
     <string name="downloads_hidden_areas">Ytterligere %1$s i skjulte områder</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d av %2$d sang · %3$s</item>
@@ -434,13 +434,13 @@
     <string name="settings_music_mobile">Bruk også mobildata</string>
     <string name="settings_music_mobile_summary">Av: Musikk lastes bare ned via Wi-Fi.</string>
     <string name="settings_auto_download_favorites">Last ned favoritter automatisk</string>
-    <string name="settings_auto_download_favorites_summary">Nye favoritter lastes ned, og fjernede favoritter slettes igjen. Favorittalbum lastes ned i sin helhet. Gjelder servere der ikke alt lastes ned uansett.</string>
+    <string name="settings_auto_download_favorites_summary">Nye favoritter lastes ned, og fjernede favoritter slettes igjen. Favorittalbum lastes ned i sin helhet. Gjelder servere der ikke alt lastes ned uansett. Nedlastinger du fjerner selv, forblir fjernet til du laster dem ned igjen.</string>
     <string name="settings_auto_download_favorite_artists">Ta med favorittartister</string>
     <string name="settings_auto_download_favorite_artists_summary">Laster også ned alt av favorittartistene dine. Dette kan kreve mye lagringsplass.</string>
     <string name="settings_auto_download_newest_albums">Last ned nyeste album automatisk</string>
-    <string name="settings_auto_download_newest_albums_summary">De sist tilføyde albumene på serverne dine. Album som faller ut, slettes igjen.</string>
+    <string name="settings_auto_download_newest_albums_summary">De sist tilføyde albumene på serverne dine. Album som faller ut, slettes igjen. Nedlastinger du fjerner selv, forblir fjernet til du laster dem ned igjen.</string>
     <string name="settings_auto_download_most_played_albums">Last ned mest spilte album automatisk</string>
-    <string name="settings_auto_download_most_played_albums_summary">Albumene som er spilt mest de siste 90 dagene (minst 3 avspillinger). Album som faller ut, slettes igjen.</string>
+    <string name="settings_auto_download_most_played_albums_summary">Albumene som er spilt mest de siste 90 dagene (minst 3 avspillinger). Album som faller ut, slettes igjen. Nedlastinger du fjerner selv, forblir fjernet til du laster dem ned igjen.</string>
     <string name="settings_auto_download_albums_off">Av</string>
     <string name="settings_auto_download_albums_custom">Egendefinert antall</string>
     <string name="settings_auto_download_albums_apply">Bruk</string>
@@ -866,7 +866,7 @@
     <string name="downloads_remove_music_title">Vil du slette alle musikknedlastinger?</string>
     <string name="downloads_remove_books_title">Vil du slette alle boknedlastinger?</string>
     <string name="downloads_remove_podcasts_title">Vil du slette alle podkastnedlastinger?</string>
-    <string name="downloads_remove_category_text">De nedlastede filene slettes fra denne enheten. Biblioteket beholdes, og alt kan fortsatt strømmes.</string>
+    <string name="downloads_remove_category_text">De nedlastede filene slettes fra denne enheten. Biblioteket beholdes, og alt kan fortsatt strømmes. Automatiske nedlastinger hopper over dem til du laster dem ned selv igjen.</string>
     <string name="podcast_downloads_delete_title">Vil du slette nedlastingene av «%1$s»?</string>
     <string name="podcast_downloads_delete_message">Dette frigjør %1$s. Episodene blir værende i listen og kan fortsatt strømmes.</string>
     <plurals name="downloads_podcast_summary">

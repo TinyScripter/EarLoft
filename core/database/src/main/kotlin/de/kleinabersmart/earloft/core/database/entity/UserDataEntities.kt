@@ -33,6 +33,21 @@ data class DownloadEntity(
     val pinnedBy: String? = null,
 )
 
+/**
+ * A song whose download the user removed (v49): the automations (favorites, whole server, newest and most played albums)
+ * leave it alone until the user downloads it again themselves. Goes with its song.
+ */
+@Entity(
+    tableName = "download_exclusions",
+    foreignKeys = [
+        ForeignKey(entity = SongEntity::class, parentColumns = ["songId"], childColumns = ["songId"], onDelete = ForeignKey.CASCADE),
+    ],
+)
+data class DownloadExclusionEntity(
+    @PrimaryKey val songId: Long,
+    val excludedAt: Long,
+)
+
 @Entity(tableName = "playlists")
 data class PlaylistEntity(
     @PrimaryKey(autoGenerate = true) val playlistId: Long = 0,

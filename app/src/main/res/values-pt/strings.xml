@@ -293,7 +293,7 @@
     <string name="settings_licenses">Licenças</string>
     <string name="server_auto_download">Tudo é baixado automaticamente</string>
     <string name="server_form_auto_download">Baixar tudo automaticamente</string>
-    <string name="server_form_auto_download_summary">Todas as faixas deste servidor são baixadas para o dispositivo, inclusive as adicionadas depois. Ocupa muito armazenamento.</string>
+    <string name="server_form_auto_download_summary">Todas as faixas deste servidor são baixadas para o dispositivo, inclusive as adicionadas depois. Ocupa muito armazenamento. Os downloads que você remover continuam removidos até você baixá-los de novo.</string>
     <string name="about_title">Sobre o app</string>
     <string name="about_version">Versão %1$s</string>
     <string name="about_text">O EarLoft é um player para a sua própria coleção: músicas, podcasts e livros, deste dispositivo e da rede, cada um em uma biblioteca comum. As músicas também vêm dos seus servidores Navidrome, Subsonic, Jellyfin ou Emby, os podcasts de qualquer feed e os livros do seu servidor Audiobookshelf. Tudo pode ser baixado para ouvir off-line, o progresso dos livros é sincronizado com o seu servidor, e músicas, podcasts e livros também tocam no seu relógio Wear OS.</string>
@@ -447,8 +447,8 @@
     <string name="downloads_retry">Tentar novamente</string>
     <string name="downloads_remove_all">Remover todos os downloads</string>
     <string name="downloads_remove_all_title">Remover todos os downloads?</string>
-    <string name="downloads_remove_all_text">Todos os arquivos baixados serão excluídos. A biblioteca é mantida.</string>
-    <string name="downloads_remove_all_text_shown">Os arquivos baixados das áreas mostradas aqui serão excluídos. Os das áreas ocultas e a biblioteca são mantidos.</string>
+    <string name="downloads_remove_all_text">Todos os arquivos baixados serão excluídos. A biblioteca é mantida. Os downloads automáticos os ignoram até você baixá-los de novo.</string>
+    <string name="downloads_remove_all_text_shown">Os arquivos baixados das áreas mostradas aqui serão excluídos. Os das áreas ocultas e a biblioteca são mantidos. Os downloads automáticos os ignoram até você baixá-los de novo.</string>
     <string name="downloads_hidden_areas">Mais %1$s em áreas ocultas</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d de %2$d música · %3$s</item>
@@ -458,13 +458,13 @@
     <string name="settings_music_mobile">Usar também dados móveis</string>
     <string name="settings_music_mobile_summary">Desativado: as músicas só são baixadas pelo Wi-Fi.</string>
     <string name="settings_auto_download_favorites">Baixar favoritos automaticamente</string>
-    <string name="settings_auto_download_favorites_summary">Novos favoritos são baixados, e os removidos são excluídos de novo. Álbuns favoritos são baixados por completo. Vale para servidores dos quais nem tudo já é baixado.</string>
+    <string name="settings_auto_download_favorites_summary">Novos favoritos são baixados, e os removidos são excluídos de novo. Álbuns favoritos são baixados por completo. Vale para servidores dos quais nem tudo já é baixado. Os downloads que você remover continuam removidos até você baixá-los de novo.</string>
     <string name="settings_auto_download_favorite_artists">Incluir artistas favoritos</string>
     <string name="settings_auto_download_favorite_artists_summary">Baixa também tudo dos seus artistas favoritos. Isso pode ocupar muito armazenamento.</string>
     <string name="settings_auto_download_newest_albums">Baixar álbuns mais novos automaticamente</string>
-    <string name="settings_auto_download_newest_albums_summary">Os álbuns adicionados mais recentemente aos seus servidores. Álbuns que saem da lista são excluídos de novo.</string>
+    <string name="settings_auto_download_newest_albums_summary">Os álbuns adicionados mais recentemente aos seus servidores. Álbuns que saem da lista são excluídos de novo. Os downloads que você remover continuam removidos até você baixá-los de novo.</string>
     <string name="settings_auto_download_most_played_albums">Baixar álbuns mais tocados automaticamente</string>
-    <string name="settings_auto_download_most_played_albums_summary">Os álbuns mais tocados nos últimos 90 dias (pelo menos 3 reproduções). Álbuns que saem da lista são excluídos de novo.</string>
+    <string name="settings_auto_download_most_played_albums_summary">Os álbuns mais tocados nos últimos 90 dias (pelo menos 3 reproduções). Álbuns que saem da lista são excluídos de novo. Os downloads que você remover continuam removidos até você baixá-los de novo.</string>
     <string name="settings_auto_download_albums_off">Desativado</string>
     <string name="settings_auto_download_albums_custom">Número personalizado</string>
     <string name="settings_auto_download_albums_apply">Aplicar</string>
@@ -899,7 +899,7 @@
     <string name="downloads_remove_music_title">Excluir todos os downloads de música?</string>
     <string name="downloads_remove_books_title">Excluir todos os downloads de livros?</string>
     <string name="downloads_remove_podcasts_title">Excluir todos os downloads de podcasts?</string>
-    <string name="downloads_remove_category_text">Os arquivos baixados serão excluídos deste dispositivo. A biblioteca permanece e tudo ainda pode ser reproduzido por streaming.</string>
+    <string name="downloads_remove_category_text">Os arquivos baixados serão excluídos deste dispositivo. A biblioteca permanece e tudo ainda pode ser reproduzido por streaming. Os downloads automáticos os ignoram até você baixá-los de novo.</string>
     <string name="podcast_downloads_delete_title">Excluir downloads de “%1$s”?</string>
     <string name="podcast_downloads_delete_message">Isso libera %1$s. Os episódios continuam na lista e ainda podem ser reproduzidos por streaming.</string>
     <plurals name="downloads_podcast_summary">

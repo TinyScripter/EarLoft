@@ -293,7 +293,7 @@
     <string name="settings_licenses">Licencias</string>
     <string name="server_auto_download">Todo se descarga automáticamente</string>
     <string name="server_form_auto_download">Descargar todo automáticamente</string>
-    <string name="server_form_auto_download_summary">Todas las pistas de este servidor se descargan en el dispositivo, también las que se añadan. Necesita mucho espacio de almacenamiento.</string>
+    <string name="server_form_auto_download_summary">Todas las pistas de este servidor se descargan en el dispositivo, también las que se añadan. Necesita mucho espacio de almacenamiento. Las descargas que quites tú se quedan quitadas hasta que las vuelvas a descargar.</string>
     <string name="about_title">Información de la app</string>
     <string name="about_version">Versión %1$s</string>
     <string name="about_text">EarLoft es un reproductor para tu propia colección: música, podcasts y libros, de este dispositivo y de la red, cada uno en una biblioteca común. La música también puede venir de tus servidores Navidrome, Subsonic, Jellyfin o Emby; los podcasts, de cualquier feed, y los libros, de tu servidor Audiobookshelf. Todo se puede descargar para escucharlo sin conexión, el progreso de los libros se sincroniza con tu servidor, y la música, los podcasts y los libros también se reproducen en tu reloj Wear OS.</string>
@@ -447,8 +447,8 @@
     <string name="downloads_retry">Reintentar</string>
     <string name="downloads_remove_all">Quitar todas las descargas</string>
     <string name="downloads_remove_all_title">¿Quitar todas las descargas?</string>
-    <string name="downloads_remove_all_text">Se eliminarán todos los archivos descargados. La biblioteca se conserva.</string>
-    <string name="downloads_remove_all_text_shown">Se eliminarán los archivos descargados de las secciones mostradas aquí. Los de las secciones ocultas y la biblioteca se conservan.</string>
+    <string name="downloads_remove_all_text">Se eliminarán todos los archivos descargados. La biblioteca se conserva. Las descargas automáticas las omiten hasta que las vuelvas a descargar tú.</string>
+    <string name="downloads_remove_all_text_shown">Se eliminarán los archivos descargados de las secciones mostradas aquí. Los de las secciones ocultas y la biblioteca se conservan. Las descargas automáticas las omiten hasta que las vuelvas a descargar tú.</string>
     <string name="downloads_hidden_areas">Otros %1$s en secciones ocultas</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d de %2$d canción · %3$s</item>
@@ -458,13 +458,13 @@
     <string name="settings_music_mobile">Usar también datos móviles</string>
     <string name="settings_music_mobile_summary">Desactivado: la música solo se descarga con Wi-Fi.</string>
     <string name="settings_auto_download_favorites">Descargar favoritos automáticamente</string>
-    <string name="settings_auto_download_favorites_summary">Los nuevos favoritos se descargan y los que quitas se vuelven a eliminar. Los álbumes favoritos se descargan completos. Se aplica a los servidores de los que no se descarga todo de por sí.</string>
+    <string name="settings_auto_download_favorites_summary">Los nuevos favoritos se descargan y los que quitas se vuelven a eliminar. Los álbumes favoritos se descargan completos. Se aplica a los servidores de los que no se descarga todo de por sí. Las descargas que quites tú se quedan quitadas hasta que las vuelvas a descargar.</string>
     <string name="settings_auto_download_favorite_artists">Incluir artistas favoritos</string>
     <string name="settings_auto_download_favorite_artists_summary">También descarga todo lo de tus artistas favoritos. Puede ocupar mucho espacio de almacenamiento.</string>
     <string name="settings_auto_download_newest_albums">Descargar automáticamente los álbumes más nuevos</string>
-    <string name="settings_auto_download_newest_albums_summary">Los álbumes añadidos más recientemente a tus servidores. Los álbumes que salen de la lista se vuelven a eliminar.</string>
+    <string name="settings_auto_download_newest_albums_summary">Los álbumes añadidos más recientemente a tus servidores. Los álbumes que salen de la lista se vuelven a eliminar. Las descargas que quites tú se quedan quitadas hasta que las vuelvas a descargar.</string>
     <string name="settings_auto_download_most_played_albums">Descargar automáticamente los álbumes más reproducidos</string>
-    <string name="settings_auto_download_most_played_albums_summary">Los álbumes más reproducidos en los últimos 90 días (al menos 3 reproducciones). Los álbumes que salen de la lista se vuelven a eliminar.</string>
+    <string name="settings_auto_download_most_played_albums_summary">Los álbumes más reproducidos en los últimos 90 días (al menos 3 reproducciones). Los álbumes que salen de la lista se vuelven a eliminar. Las descargas que quites tú se quedan quitadas hasta que las vuelvas a descargar.</string>
     <string name="settings_auto_download_albums_off">Desactivado</string>
     <string name="settings_auto_download_albums_custom">Número personalizado</string>
     <string name="settings_auto_download_albums_apply">Aplicar</string>
@@ -899,7 +899,7 @@
     <string name="downloads_remove_music_title">¿Eliminar todas las descargas de música?</string>
     <string name="downloads_remove_books_title">¿Eliminar todas las descargas de libros?</string>
     <string name="downloads_remove_podcasts_title">¿Eliminar todas las descargas de podcasts?</string>
-    <string name="downloads_remove_category_text">Los archivos descargados se eliminarán de este dispositivo. La biblioteca se conserva y todo se puede seguir reproduciendo en streaming.</string>
+    <string name="downloads_remove_category_text">Los archivos descargados se eliminarán de este dispositivo. La biblioteca se conserva y todo se puede seguir reproduciendo en streaming. Las descargas automáticas las omiten hasta que las vuelvas a descargar tú.</string>
     <string name="podcast_downloads_delete_title">¿Eliminar las descargas de «%1$s»?</string>
     <string name="podcast_downloads_delete_message">Se liberarán %1$s. Los episodios siguen en la lista y se pueden seguir reproduciendo en streaming.</string>
     <plurals name="downloads_podcast_summary">

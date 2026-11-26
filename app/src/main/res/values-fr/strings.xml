@@ -293,7 +293,7 @@
     <string name="settings_licenses">Licences</string>
     <string name="server_auto_download">Tout est téléchargé automatiquement</string>
     <string name="server_form_auto_download">Tout télécharger automatiquement</string>
-    <string name="server_form_auto_download_summary">Chaque morceau de ce serveur est téléchargé sur l’appareil, y compris les nouveaux ajouts. Nécessite beaucoup d’espace de stockage.</string>
+    <string name="server_form_auto_download_summary">Chaque morceau de ce serveur est téléchargé sur l’appareil, y compris les nouveaux ajouts. Nécessite beaucoup d’espace de stockage. Les téléchargements que vous supprimez vous-même restent supprimés jusqu’à ce que vous les téléchargiez à nouveau.</string>
     <string name="about_title">À propos de l’application</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_text">EarLoft est un lecteur pour votre propre collection : musique, podcasts et livres, depuis cet appareil et depuis le réseau, chacun dans une bibliothèque commune. La musique provient aussi de vos serveurs Navidrome, Subsonic, Jellyfin ou Emby, les podcasts de n’importe quel flux et les livres de votre serveur Audiobookshelf. Tout peut être téléchargé pour une écoute hors connexion, la progression des livres est synchronisée avec votre serveur, et musique, podcasts et livres sont également lisibles sur votre montre Wear OS.</string>
@@ -447,8 +447,8 @@
     <string name="downloads_retry">Réessayer</string>
     <string name="downloads_remove_all">Supprimer tous les téléchargements</string>
     <string name="downloads_remove_all_title">Supprimer tous les téléchargements ?</string>
-    <string name="downloads_remove_all_text">Tous les fichiers téléchargés seront supprimés. La bibliothèque est conservée.</string>
-    <string name="downloads_remove_all_text_shown">Les fichiers téléchargés des sections affichées ici seront supprimés. Ceux des sections masquées et la bibliothèque sont conservés.</string>
+    <string name="downloads_remove_all_text">Tous les fichiers téléchargés seront supprimés. La bibliothèque est conservée. Les téléchargements automatiques les ignorent jusqu’à ce que vous les téléchargiez vous-même.</string>
+    <string name="downloads_remove_all_text_shown">Les fichiers téléchargés des sections affichées ici seront supprimés. Ceux des sections masquées et la bibliothèque sont conservés. Les téléchargements automatiques les ignorent jusqu’à ce que vous les téléchargiez vous-même.</string>
     <string name="downloads_hidden_areas">Encore %1$s dans des sections masquées</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d morceau sur %2$d · %3$s</item>
@@ -458,13 +458,13 @@
     <string name="settings_music_mobile">Utiliser aussi les données mobiles</string>
     <string name="settings_music_mobile_summary">Désactivé : la musique n’est téléchargée qu’en Wi-Fi.</string>
     <string name="settings_auto_download_favorites">Télécharger automatiquement les favoris</string>
-    <string name="settings_auto_download_favorites_summary">Les nouveaux favoris sont téléchargés, ceux que vous retirez sont à nouveau supprimés. Les albums favoris sont téléchargés en entier. S’applique aux serveurs dont tout n’est pas déjà téléchargé.</string>
+    <string name="settings_auto_download_favorites_summary">Les nouveaux favoris sont téléchargés, ceux que vous retirez sont à nouveau supprimés. Les albums favoris sont téléchargés en entier. S’applique aux serveurs dont tout n’est pas déjà téléchargé. Les téléchargements que vous supprimez vous-même restent supprimés jusqu’à ce que vous les téléchargiez à nouveau.</string>
     <string name="settings_auto_download_favorite_artists">Inclure les artistes favoris</string>
     <string name="settings_auto_download_favorite_artists_summary">Télécharge aussi tout ce qui est de vos artistes favoris. Cela peut occuper beaucoup d’espace de stockage.</string>
     <string name="settings_auto_download_newest_albums">Télécharger automatiquement les derniers albums</string>
-    <string name="settings_auto_download_newest_albums_summary">Les albums ajoutés le plus récemment sur vos serveurs. Les albums qui sortent de la sélection sont à nouveau supprimés.</string>
+    <string name="settings_auto_download_newest_albums_summary">Les albums ajoutés le plus récemment sur vos serveurs. Les albums qui sortent de la sélection sont à nouveau supprimés. Les téléchargements que vous supprimez vous-même restent supprimés jusqu’à ce que vous les téléchargiez à nouveau.</string>
     <string name="settings_auto_download_most_played_albums">Télécharger automatiquement les albums les plus écoutés</string>
-    <string name="settings_auto_download_most_played_albums_summary">Les albums les plus écoutés au cours des 90 derniers jours (au moins 3 écoutes). Les albums qui sortent de la sélection sont à nouveau supprimés.</string>
+    <string name="settings_auto_download_most_played_albums_summary">Les albums les plus écoutés au cours des 90 derniers jours (au moins 3 écoutes). Les albums qui sortent de la sélection sont à nouveau supprimés. Les téléchargements que vous supprimez vous-même restent supprimés jusqu’à ce que vous les téléchargiez à nouveau.</string>
     <string name="settings_auto_download_albums_off">Désactivé</string>
     <string name="settings_auto_download_albums_custom">Nombre personnalisé</string>
     <string name="settings_auto_download_albums_apply">Appliquer</string>
@@ -899,7 +899,7 @@
     <string name="downloads_remove_music_title">Supprimer tous les téléchargements de musique ?</string>
     <string name="downloads_remove_books_title">Supprimer tous les téléchargements de livres ?</string>
     <string name="downloads_remove_podcasts_title">Supprimer tous les téléchargements de podcasts ?</string>
-    <string name="downloads_remove_category_text">Les fichiers téléchargés sont supprimés de cet appareil. La bibliothèque est conservée et tout peut toujours être lu en streaming.</string>
+    <string name="downloads_remove_category_text">Les fichiers téléchargés sont supprimés de cet appareil. La bibliothèque est conservée et tout peut toujours être lu en streaming. Les téléchargements automatiques les ignorent jusqu’à ce que vous les téléchargiez vous-même.</string>
     <string name="podcast_downloads_delete_title">Supprimer les téléchargements de « %1$s » ?</string>
     <string name="podcast_downloads_delete_message">%1$s seront libérés. Les épisodes restent dans la liste et peuvent toujours être lus en streaming.</string>
     <plurals name="downloads_podcast_summary">

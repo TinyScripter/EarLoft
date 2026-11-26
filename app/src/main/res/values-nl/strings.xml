@@ -279,7 +279,7 @@
     <string name="settings_licenses">Licenties</string>
     <string name="server_auto_download">Alles wordt automatisch gedownload</string>
     <string name="server_form_auto_download">Alles automatisch downloaden</string>
-    <string name="server_form_auto_download_summary">Elke track op deze server wordt naar het apparaat gedownload, ook nieuw toegevoegde. Vraagt veel opslagruimte.</string>
+    <string name="server_form_auto_download_summary">Elke track op deze server wordt naar het apparaat gedownload, ook nieuw toegevoegde. Vraagt veel opslagruimte. Downloads die je zelf verwijdert, blijven verwijderd tot je ze opnieuw downloadt.</string>
     <string name="about_title">Over de app</string>
     <string name="about_version">Versie %1$s</string>
     <string name="about_text">EarLoft is een speler voor je eigen collectie: muziek, podcasts en boeken, van dit apparaat en uit het netwerk, elk in één gezamenlijke bibliotheek. Muziek komt ook van je Navidrome-, Subsonic-, Jellyfin- of Emby-servers, podcasts van elke willekeurige feed en boeken van je Audiobookshelf-server. Alles kan worden gedownload om offline te luisteren, de voortgang van boeken wordt gesynchroniseerd met je server, en muziek, podcasts en boeken spelen ook af op je Wear OS-horloge.</string>
@@ -424,8 +424,8 @@
     <string name="downloads_retry">Opnieuw proberen</string>
     <string name="downloads_remove_all">Alle downloads verwijderen</string>
     <string name="downloads_remove_all_title">Alle downloads verwijderen?</string>
-    <string name="downloads_remove_all_text">Alle gedownloade bestanden worden verwijderd. De bibliotheek blijft behouden.</string>
-    <string name="downloads_remove_all_text_shown">De gedownloade bestanden van de hier getoonde onderdelen worden verwijderd. Die van verborgen onderdelen en de bibliotheek blijven.</string>
+    <string name="downloads_remove_all_text">Alle gedownloade bestanden worden verwijderd. De bibliotheek blijft behouden. Automatische downloads slaan ze over tot je ze zelf weer downloadt.</string>
+    <string name="downloads_remove_all_text_shown">De gedownloade bestanden van de hier getoonde onderdelen worden verwijderd. Die van verborgen onderdelen en de bibliotheek blijven. Automatische downloads slaan ze over tot je ze zelf weer downloadt.</string>
     <string name="downloads_hidden_areas">Nog %1$s in verborgen onderdelen</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d van %2$d nummer · %3$s</item>
@@ -434,13 +434,13 @@
     <string name="settings_music_mobile">Ook mobiele data gebruiken</string>
     <string name="settings_music_mobile_summary">Uit: muziek wordt alleen via wifi gedownload.</string>
     <string name="settings_auto_download_favorites">Favorieten automatisch downloaden</string>
-    <string name="settings_auto_download_favorites_summary">Nieuwe favorieten worden gedownload, verwijderde favorieten worden weer gewist. Favoriete albums worden volledig gedownload. Geldt voor servers waarvan niet al alles wordt gedownload.</string>
+    <string name="settings_auto_download_favorites_summary">Nieuwe favorieten worden gedownload, verwijderde favorieten worden weer gewist. Favoriete albums worden volledig gedownload. Geldt voor servers waarvan niet al alles wordt gedownload. Downloads die je zelf verwijdert, blijven verwijderd tot je ze opnieuw downloadt.</string>
     <string name="settings_auto_download_favorite_artists">Favoriete artiesten meenemen</string>
     <string name="settings_auto_download_favorite_artists_summary">Downloadt ook alles van je favoriete artiesten. Dit kan veel opslagruimte kosten.</string>
     <string name="settings_auto_download_newest_albums">Nieuwste albums automatisch downloaden</string>
-    <string name="settings_auto_download_newest_albums_summary">De albums die het laatst aan je servers zijn toegevoegd. Albums die uit de selectie vallen, worden weer gewist.</string>
+    <string name="settings_auto_download_newest_albums_summary">De albums die het laatst aan je servers zijn toegevoegd. Albums die uit de selectie vallen, worden weer gewist. Downloads die je zelf verwijdert, blijven verwijderd tot je ze opnieuw downloadt.</string>
     <string name="settings_auto_download_most_played_albums">Meest afgespeelde albums automatisch downloaden</string>
-    <string name="settings_auto_download_most_played_albums_summary">De albums die de afgelopen 90 dagen het meest zijn afgespeeld (minstens 3 keer). Albums die uit de selectie vallen, worden weer gewist.</string>
+    <string name="settings_auto_download_most_played_albums_summary">De albums die de afgelopen 90 dagen het meest zijn afgespeeld (minstens 3 keer). Albums die uit de selectie vallen, worden weer gewist. Downloads die je zelf verwijdert, blijven verwijderd tot je ze opnieuw downloadt.</string>
     <string name="settings_auto_download_albums_off">Uit</string>
     <string name="settings_auto_download_albums_custom">Aangepast aantal</string>
     <string name="settings_auto_download_albums_apply">Toepassen</string>
@@ -866,7 +866,7 @@
     <string name="downloads_remove_music_title">Alle muziekdownloads verwijderen?</string>
     <string name="downloads_remove_books_title">Alle boekdownloads verwijderen?</string>
     <string name="downloads_remove_podcasts_title">Alle podcastdownloads verwijderen?</string>
-    <string name="downloads_remove_category_text">De gedownloade bestanden worden van dit apparaat verwijderd. De bibliotheek blijft behouden en alles kan nog steeds worden gestreamd.</string>
+    <string name="downloads_remove_category_text">De gedownloade bestanden worden van dit apparaat verwijderd. De bibliotheek blijft behouden en alles kan nog steeds worden gestreamd. Automatische downloads slaan ze over tot je ze zelf weer downloadt.</string>
     <string name="podcast_downloads_delete_title">Downloads van ‘%1$s’ verwijderen?</string>
     <string name="podcast_downloads_delete_message">Hiermee komt %1$s vrij. De afleveringen blijven in de lijst en kunnen nog steeds worden gestreamd.</string>
     <plurals name="downloads_podcast_summary">

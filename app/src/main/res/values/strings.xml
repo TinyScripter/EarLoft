@@ -280,7 +280,7 @@
     <string name="settings_licenses">Licenses</string>
     <string name="server_auto_download">Everything is downloaded automatically</string>
     <string name="server_form_auto_download">Download everything automatically</string>
-    <string name="server_form_auto_download_summary">Every track on this server is downloaded to the device, including newly added ones. Needs a lot of storage.</string>
+    <string name="server_form_auto_download_summary">Every track on this server is downloaded to the device, including newly added ones. Needs a lot of storage. Downloads you remove yourself stay removed until you download them again.</string>
     <string name="about_title">About the app</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_text">EarLoft is a player for your own collection: music, podcasts and books, from this device and from the network, each in one shared library. Music also comes from your Navidrome, Subsonic, Jellyfin or Emby servers, podcasts from any feed, and books from your Audiobookshelf server. Everything can be downloaded for offline listening, book progress is synced with your server, and music, podcasts and books also play on your Wear OS watch.</string>
@@ -434,8 +434,8 @@
     <string name="downloads_retry">Try again</string>
     <string name="downloads_remove_all">Remove all downloads</string>
     <string name="downloads_remove_all_title">Remove all downloads?</string>
-    <string name="downloads_remove_all_text">All downloaded files will be deleted. The library is kept.</string>
-    <string name="downloads_remove_all_text_shown">The downloaded files of the sections shown here will be deleted. Those of hidden sections and the library are kept.</string>
+    <string name="downloads_remove_all_text">All downloaded files will be deleted. The library is kept. Automatic downloads leave them out until you download them yourself.</string>
+    <string name="downloads_remove_all_text_shown">The downloaded files of the sections shown here will be deleted. Those of hidden sections and the library are kept. Automatic downloads leave them out until you download them yourself.</string>
     <string name="downloads_hidden_areas">Another %1$s in hidden sections</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d of %2$d song · %3$s</item>
@@ -444,13 +444,13 @@
     <string name="settings_music_mobile">Also use mobile data</string>
     <string name="settings_music_mobile_summary">Off: music is only downloaded on Wi-Fi.</string>
     <string name="settings_auto_download_favorites">Download favorites automatically</string>
-    <string name="settings_auto_download_favorites_summary">New favorites are downloaded, removed favorites are deleted again. Favorite albums are downloaded in full. Applies to servers from which not everything is downloaded anyway.</string>
+    <string name="settings_auto_download_favorites_summary">New favorites are downloaded, removed favorites are deleted again. Favorite albums are downloaded in full. Applies to servers from which not everything is downloaded anyway. Downloads you remove yourself stay removed until you download them again.</string>
     <string name="settings_auto_download_favorite_artists">Include favorite artists</string>
     <string name="settings_auto_download_favorite_artists_summary">Also downloads everything by your favorite artists. This can take a lot of storage.</string>
     <string name="settings_auto_download_newest_albums">Download newest albums automatically</string>
-    <string name="settings_auto_download_newest_albums_summary">The most recently added albums on your servers. Albums that drop out are deleted again.</string>
+    <string name="settings_auto_download_newest_albums_summary">The most recently added albums on your servers. Albums that drop out are deleted again. Downloads you remove yourself stay removed until you download them again.</string>
     <string name="settings_auto_download_most_played_albums">Download most played albums automatically</string>
-    <string name="settings_auto_download_most_played_albums_summary">The albums played most in the last 90 days (at least 3 plays). Albums that drop out are deleted again.</string>
+    <string name="settings_auto_download_most_played_albums_summary">The albums played most in the last 90 days (at least 3 plays). Albums that drop out are deleted again. Downloads you remove yourself stay removed until you download them again.</string>
     <string name="settings_auto_download_albums_off">Off</string>
     <string name="settings_auto_download_albums_custom">Custom number</string>
     <string name="settings_auto_download_albums_apply">Apply</string>
@@ -876,7 +876,7 @@
     <string name="downloads_remove_music_title">Delete all music downloads?</string>
     <string name="downloads_remove_books_title">Delete all book downloads?</string>
     <string name="downloads_remove_podcasts_title">Delete all podcast downloads?</string>
-    <string name="downloads_remove_category_text">The downloaded files are deleted from this device. The library stays and everything can still be streamed.</string>
+    <string name="downloads_remove_category_text">The downloaded files are deleted from this device. The library stays and everything can still be streamed. Automatic downloads leave them out until you download them yourself.</string>
     <string name="podcast_downloads_delete_title">Delete downloads of “%1$s”?</string>
     <string name="podcast_downloads_delete_message">This frees %1$s. The episodes stay in the list and can still be streamed.</string>
     <plurals name="downloads_podcast_summary">

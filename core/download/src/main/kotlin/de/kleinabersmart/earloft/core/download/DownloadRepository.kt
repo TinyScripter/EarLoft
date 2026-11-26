@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.database.dao.DownloadDao
 import de.kleinabersmart.earloft.core.database.dao.LibraryDao
 import de.kleinabersmart.earloft.core.database.dao.PlaylistDao
 import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
+import de.kleinabersmart.earloft.core.database.entity.DownloadExclusionEntity
 import de.kleinabersmart.earloft.core.database.model.SongOfflineRow
 import de.kleinabersmart.earloft.core.model.Album
 import de.kleinabersmart.earloft.core.model.AlbumDownloadSummary
@@ -58,13 +59,21 @@ class DownloadRepository @Inject constructor(
 
     /**
      * Enqueues the best server source for each song. Songs with a local file or an existing
-     * download are skipped; failed downloads of these songs are retried.
+     * download are skipped; failed downloads of these songs are retried. An automation ([isAutomatic]) skips songs whose
+     * download the user removed; a manual download takes them back (concept 5.3 "Removed by the user").
      * @return number of newly enqueued or retried songs.
      */
     private suspend fun enqueue(songIds: List<Long>, pinnedBy: String, retryFailed: Boolean = true): Int {
         if (songIds.isEmpty()) return 0
         val count = database.withTransaction {
-            val chunks = songIds.distinct().chunked(SQLITE_MAX_VARIABLES)
+            val wanted = songIds.distinct().chunked(SQLITE_MAX_VARIABLES)
+            val chunks = if (isAutomatic(pinnedBy)) {
+                val excluded = wanted.flatMapTo(HashSet()) { downloadDao.getExcluded(it) }
+                wanted.flatten().filter { it !in excluded }.chunked(SQLITE_MAX_VARIABLES)
+            } else {
+                wanted.forEach { downloadDao.unexclude(it) }
+                wanted
+            }
             // A download belongs to the strongest rule that wants it (manual > whole server > newest/most played albums >
             // favorites): whoever requests an automatically downloaded song themselves keeps it even without a favorite.
             weakerPins(pinnedBy).forEach { weaker -> chunks.forEach { downloadDao.repinForSongs(weaker, pinnedBy, it) } }
@@ -96,20 +105,39 @@ class DownloadRepository @Inject constructor(
         return count
     }
 
-    suspend fun removeAlbum(albumId: Long) = remove(downloadDao.getForAlbum(albumId))
+    /** The user removes downloads (including waiting ones): the automations no longer download these songs ([removeByUser]). */
+    suspend fun removeAlbum(albumId: Long) = removeByUser(downloadDao.getForAlbum(albumId))
 
     suspend fun removeArtist(artistId: Long) = downloadDao.getAlbumIdsOfArtist(artistId).forEach { removeAlbum(it) }
 
     suspend fun removeSongs(songIds: List<Long>) =
-        remove(songIds.distinct().chunked(SQLITE_MAX_VARIABLES).flatMap { downloadDao.getForSongs(it) })
+        removeByUser(songIds.distinct().chunked(SQLITE_MAX_VARIABLES).flatMap { downloadDao.getForSongs(it) })
 
     suspend fun removePlaylist(playlistId: Long) = removeSongs(playlistDao.getSongIds(playlistId))
 
     /**
+     * Removed by the user: the songs are remembered so that no automation brings them back on its next reconcile (previously a
+     * removed favorite came back right away). Downloading them manually releases them again. Removals by the automations
+     * themselves ([remove]) remember nothing.
+     */
+    private suspend fun removeByUser(downloads: List<DownloadEntity>) {
+        if (downloads.isEmpty()) return
+        exclude(downloads.map { it.sourceUid }.chunked(SQLITE_MAX_VARIABLES).flatMap { downloadDao.getSongIdsOfSources(it) })
+        remove(downloads)
+    }
+
+    private suspend fun exclude(songIds: List<Long>) {
+        val now = System.currentTimeMillis()
+        songIds.distinct().chunked(SQLITE_MAX_VARIABLES).forEach { chunk ->
+            downloadDao.exclude(chunk.map { DownloadExclusionEntity(it, now) })
+        }
+    }
+
+    /**
      * Reconciles the automatic downloads with the favorites ([enabled] = setting): favorites and the songs of
      * favorited albums – with [withArtists] also those of favorited artists – are downloaded, what nobody wants anymore
-     * is removed. If the automation is off, its downloads are kept (now as manual). Whoever removes an automatically
-     * downloaded song afterwards gets it back on the next reconcile while the automation is on.
+     * is removed. If the automation is off, its downloads are kept (now as manual). A song whose download the user removed
+     * stays removed until they download it themselves ([removeByUser]).
      */
     suspend fun reconcileFavoriteDownloads(enabled: Boolean, withArtists: Boolean = false) {
         if (!enabled) {
@@ -180,8 +208,10 @@ class DownloadRepository @Inject constructor(
             SongOfflineLookup(rows.associate { it.songId to it.toStatus() }, local.toHashSet())
         }
 
+    /** "Remove all": like [removeByUser], the automations leave the songs alone afterwards. */
     suspend fun removeAll() {
         val all = downloadDao.getAll()
+        exclude(downloadDao.getSongIdsOfAllDownloads())
         downloadDao.deleteAll()
         withContext(Dispatchers.IO) { all.forEach(storage::delete) }
     }
@@ -290,6 +320,10 @@ class DownloadRepository @Inject constructor(
         const val PINNED_AUTO_ALBUMS = "auto-albums"
         const val PINNED_SERVER_PREFIX = "server:"
         const val SQLITE_MAX_VARIABLES = 900
+
+        /** Downloads of an automation (not requested by the user): they skip songs the user removed. */
+        fun isAutomatic(pinnedBy: String): Boolean =
+            pinnedBy == PINNED_FAVORITES || pinnedBy == PINNED_AUTO_ALBUMS || pinnedBy.startsWith(PINNED_SERVER_PREFIX)
 
         /** The automatic rules whose downloads [pinnedBy] takes over. */
         fun weakerPins(pinnedBy: String): List<String> = when (pinnedBy) {

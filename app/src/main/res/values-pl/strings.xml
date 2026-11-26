@@ -307,7 +307,7 @@
     <string name="settings_licenses">Licencje</string>
     <string name="server_auto_download">Wszystko jest pobierane automatycznie</string>
     <string name="server_form_auto_download">Pobieraj wszystko automatycznie</string>
-    <string name="server_form_auto_download_summary">Każdy utwór z tego serwera jest pobierany na urządzenie, także nowo dodane. Wymaga dużo miejsca w pamięci.</string>
+    <string name="server_form_auto_download_summary">Każdy utwór z tego serwera jest pobierany na urządzenie, także nowo dodane. Wymaga dużo miejsca w pamięci. Pobrane pliki, które sam usuniesz, pozostaną usunięte, dopóki nie pobierzesz ich ponownie.</string>
     <string name="about_title">O aplikacji</string>
     <string name="about_version">Wersja %1$s</string>
     <string name="about_text">EarLoft to odtwarzacz Twojej własnej kolekcji: muzyki, podcastów i książek – z tego urządzenia i z sieci, w jednej wspólnej bibliotece dla każdej kategorii. Muzyka pochodzi też z Twoich serwerów Navidrome, Subsonic, Jellyfin lub Emby, podcasty z dowolnego kanału, a książki z Twojego serwera Audiobookshelf. Wszystko można pobrać, by słuchać offline, postęp książek jest synchronizowany z serwerem, a muzyka, podcasty i książki grają też na zegarku z Wear OS.</string>
@@ -470,8 +470,8 @@
     <string name="downloads_retry">Spróbuj ponownie</string>
     <string name="downloads_remove_all">Usuń wszystkie pobrane</string>
     <string name="downloads_remove_all_title">Usunąć wszystkie pobrane?</string>
-    <string name="downloads_remove_all_text">Wszystkie pobrane pliki zostaną usunięte. Biblioteka pozostanie bez zmian.</string>
-    <string name="downloads_remove_all_text_shown">Pobrane pliki widocznych tu sekcji zostaną usunięte. Pliki ukrytych sekcji i biblioteka pozostaną.</string>
+    <string name="downloads_remove_all_text">Wszystkie pobrane pliki zostaną usunięte. Biblioteka pozostanie bez zmian. Automatyczne pobieranie je pominie, dopóki sam ich ponownie nie pobierzesz.</string>
+    <string name="downloads_remove_all_text_shown">Pobrane pliki widocznych tu sekcji zostaną usunięte. Pliki ukrytych sekcji i biblioteka pozostaną. Automatyczne pobieranie je pominie, dopóki sam ich ponownie nie pobierzesz.</string>
     <string name="downloads_hidden_areas">Jeszcze %1$s w ukrytych sekcjach</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d z %2$d utworu · %3$s</item>
@@ -482,13 +482,13 @@
     <string name="settings_music_mobile">Używaj też mobilnej transmisji danych</string>
     <string name="settings_music_mobile_summary">Wyłączone: muzyka jest pobierana tylko przez Wi-Fi.</string>
     <string name="settings_auto_download_favorites">Automatycznie pobieraj ulubione</string>
-    <string name="settings_auto_download_favorites_summary">Nowe ulubione są pobierane, a usunięte z ulubionych – z powrotem kasowane. Ulubione albumy są pobierane w całości. Dotyczy serwerów, z których i tak nie wszystko jest pobierane.</string>
+    <string name="settings_auto_download_favorites_summary">Nowe ulubione są pobierane, a usunięte z ulubionych – z powrotem kasowane. Ulubione albumy są pobierane w całości. Dotyczy serwerów, z których i tak nie wszystko jest pobierane. Pobrane pliki, które sam usuniesz, pozostaną usunięte, dopóki nie pobierzesz ich ponownie.</string>
     <string name="settings_auto_download_favorite_artists">Uwzględnij ulubionych wykonawców</string>
     <string name="settings_auto_download_favorite_artists_summary">Pobiera też wszystko od ulubionych wykonawców. Może to zająć dużo miejsca.</string>
     <string name="settings_auto_download_newest_albums">Automatycznie pobieraj najnowsze albumy</string>
-    <string name="settings_auto_download_newest_albums_summary">Ostatnio dodane albumy na Twoich serwerach. Albumy, które wypadną z listy, są z powrotem usuwane.</string>
+    <string name="settings_auto_download_newest_albums_summary">Ostatnio dodane albumy na Twoich serwerach. Albumy, które wypadną z listy, są z powrotem usuwane. Pobrane pliki, które sam usuniesz, pozostaną usunięte, dopóki nie pobierzesz ich ponownie.</string>
     <string name="settings_auto_download_most_played_albums">Automatycznie pobieraj najczęściej odtwarzane albumy</string>
-    <string name="settings_auto_download_most_played_albums_summary">Albumy najczęściej odtwarzane w ostatnich 90 dniach (co najmniej 3 odtworzenia). Albumy, które wypadną z listy, są z powrotem usuwane.</string>
+    <string name="settings_auto_download_most_played_albums_summary">Albumy najczęściej odtwarzane w ostatnich 90 dniach (co najmniej 3 odtworzenia). Albumy, które wypadną z listy, są z powrotem usuwane. Pobrane pliki, które sam usuniesz, pozostaną usunięte, dopóki nie pobierzesz ich ponownie.</string>
     <string name="settings_auto_download_albums_off">Wyłączone</string>
     <string name="settings_auto_download_albums_custom">Własna liczba</string>
     <string name="settings_auto_download_albums_apply">Zastosuj</string>
@@ -932,7 +932,7 @@
     <string name="downloads_remove_music_title">Usunąć całą pobraną muzykę?</string>
     <string name="downloads_remove_books_title">Usunąć wszystkie pobrane książki?</string>
     <string name="downloads_remove_podcasts_title">Usunąć wszystkie pobrane podcasty?</string>
-    <string name="downloads_remove_category_text">Pobrane pliki zostaną usunięte z tego urządzenia. Biblioteka pozostanie i wszystko nadal będzie można odtwarzać strumieniowo.</string>
+    <string name="downloads_remove_category_text">Pobrane pliki zostaną usunięte z tego urządzenia. Biblioteka pozostanie i wszystko nadal będzie można odtwarzać strumieniowo. Automatyczne pobieranie je pominie, dopóki sam ich ponownie nie pobierzesz.</string>
     <string name="podcast_downloads_delete_title">Usunąć pobrane odcinki podcastu „%1$s”?</string>
     <string name="podcast_downloads_delete_message">Zwolni to %1$s. Odcinki pozostaną na liście i nadal będzie można odtwarzać je strumieniowo.</string>
     <plurals name="downloads_podcast_summary">

@@ -293,7 +293,7 @@
     <string name="settings_licenses">Licenças</string>
     <string name="server_auto_download">Tudo é transferido automaticamente</string>
     <string name="server_form_auto_download">Transferir tudo automaticamente</string>
-    <string name="server_form_auto_download_summary">Todas as faixas deste servidor são transferidas para o dispositivo, incluindo as que forem adicionadas. Requer muito armazenamento.</string>
+    <string name="server_form_auto_download_summary">Todas as faixas deste servidor são transferidas para o dispositivo, incluindo as que forem adicionadas. Requer muito armazenamento. As transferências que remover ficam removidas até as transferir de novo.</string>
     <string name="about_title">Acerca da app</string>
     <string name="about_version">Versão %1$s</string>
     <string name="about_text">A EarLoft é um leitor para a sua própria coleção: música, podcasts e livros, deste dispositivo e da rede, cada um numa biblioteca comum. A música vem também dos seus servidores Navidrome, Subsonic, Jellyfin ou Emby, os podcasts de qualquer feed e os livros do seu servidor Audiobookshelf. Tudo pode ser transferido para ouvir offline, o progresso dos livros é sincronizado com o seu servidor, e a música, os podcasts e os livros também se reproduzem no seu relógio Wear OS.</string>
@@ -447,8 +447,8 @@
     <string name="downloads_retry">Tentar novamente</string>
     <string name="downloads_remove_all">Remover todas as transferências</string>
     <string name="downloads_remove_all_title">Remover todas as transferências?</string>
-    <string name="downloads_remove_all_text">Todos os ficheiros transferidos serão eliminados. A biblioteca é mantida.</string>
-    <string name="downloads_remove_all_text_shown">Os ficheiros transferidos das áreas mostradas aqui serão eliminados. Os das áreas ocultas e a biblioteca são mantidos.</string>
+    <string name="downloads_remove_all_text">Todos os ficheiros transferidos serão eliminados. A biblioteca é mantida. As transferências automáticas ignoram-nas até as transferir de novo.</string>
+    <string name="downloads_remove_all_text_shown">Os ficheiros transferidos das áreas mostradas aqui serão eliminados. Os das áreas ocultas e a biblioteca são mantidos. As transferências automáticas ignoram-nas até as transferir de novo.</string>
     <string name="downloads_hidden_areas">Mais %1$s em áreas ocultas</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d de %2$d música · %3$s</item>
@@ -458,13 +458,13 @@
     <string name="settings_music_mobile">Utilizar também dados móveis</string>
     <string name="settings_music_mobile_summary">Desativado: a música só é transferida por Wi-Fi.</string>
     <string name="settings_auto_download_favorites">Transferir favoritos automaticamente</string>
-    <string name="settings_auto_download_favorites_summary">Os novos favoritos são transferidos e os favoritos removidos voltam a ser eliminados. Os álbuns favoritos são transferidos na íntegra. Aplica-se aos servidores dos quais não é já transferido tudo.</string>
+    <string name="settings_auto_download_favorites_summary">Os novos favoritos são transferidos e os favoritos removidos voltam a ser eliminados. Os álbuns favoritos são transferidos na íntegra. Aplica-se aos servidores dos quais não é já transferido tudo. As transferências que remover ficam removidas até as transferir de novo.</string>
     <string name="settings_auto_download_favorite_artists">Incluir artistas favoritos</string>
     <string name="settings_auto_download_favorite_artists_summary">Transfere também tudo dos seus artistas favoritos. Isto pode ocupar muito armazenamento.</string>
     <string name="settings_auto_download_newest_albums">Transferir automaticamente os álbuns mais recentes</string>
-    <string name="settings_auto_download_newest_albums_summary">Os álbuns adicionados mais recentemente aos seus servidores. Os álbuns que saem da lista voltam a ser eliminados.</string>
+    <string name="settings_auto_download_newest_albums_summary">Os álbuns adicionados mais recentemente aos seus servidores. Os álbuns que saem da lista voltam a ser eliminados. As transferências que remover ficam removidas até as transferir de novo.</string>
     <string name="settings_auto_download_most_played_albums">Transferir automaticamente os álbuns mais reproduzidos</string>
-    <string name="settings_auto_download_most_played_albums_summary">Os álbuns mais reproduzidos nos últimos 90 dias (pelo menos 3 reproduções). Os álbuns que saem da lista voltam a ser eliminados.</string>
+    <string name="settings_auto_download_most_played_albums_summary">Os álbuns mais reproduzidos nos últimos 90 dias (pelo menos 3 reproduções). Os álbuns que saem da lista voltam a ser eliminados. As transferências que remover ficam removidas até as transferir de novo.</string>
     <string name="settings_auto_download_albums_off">Desativado</string>
     <string name="settings_auto_download_albums_custom">Número personalizado</string>
     <string name="settings_auto_download_albums_apply">Aplicar</string>
@@ -899,7 +899,7 @@
     <string name="downloads_remove_music_title">Eliminar todas as transferências de música?</string>
     <string name="downloads_remove_books_title">Eliminar todas as transferências de livros?</string>
     <string name="downloads_remove_podcasts_title">Eliminar todas as transferências de podcasts?</string>
-    <string name="downloads_remove_category_text">Os ficheiros transferidos são eliminados deste dispositivo. A biblioteca mantém-se e tudo continua disponível por streaming.</string>
+    <string name="downloads_remove_category_text">Os ficheiros transferidos são eliminados deste dispositivo. A biblioteca mantém-se e tudo continua disponível por streaming. As transferências automáticas ignoram-nas até as transferir de novo.</string>
     <string name="podcast_downloads_delete_title">Eliminar as transferências de «%1$s»?</string>
     <string name="podcast_downloads_delete_message">Isto liberta %1$s. Os episódios permanecem na lista e continuam disponíveis por streaming.</string>
     <plurals name="downloads_podcast_summary">

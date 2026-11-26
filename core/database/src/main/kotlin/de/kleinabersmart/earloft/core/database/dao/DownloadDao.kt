@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
+import de.kleinabersmart.earloft.core.database.entity.DownloadExclusionEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.model.AlbumDownloadRow
 import de.kleinabersmart.earloft.core.database.model.AlbumDownloadSummaryRow
@@ -164,6 +165,27 @@ interface DownloadDao {
 
     @Query("DELETE FROM downloads")
     suspend fun deleteAll()
+
+    // --- Removed by the user (the automations leave these songs alone) ---
+
+    /** The songs the [sourceUids] currently belong to. */
+    @Query("SELECT DISTINCT songId FROM song_sources WHERE uid IN (:sourceUids)")
+    suspend fun getSongIdsOfSources(sourceUids: List<String>): List<Long>
+
+    /** Songs of all downloads ("Remove all"). */
+    @Query("SELECT DISTINCT ss.songId FROM downloads d JOIN song_sources ss ON ss.uid = d.sourceUid")
+    suspend fun getSongIdsOfAllDownloads(): List<Long>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun exclude(exclusions: List<DownloadExclusionEntity>)
+
+    /** The user downloads these songs again: the automations may keep them up to date as before. */
+    @Query("DELETE FROM download_exclusions WHERE songId IN (:songIds)")
+    suspend fun unexclude(songIds: List<Long>)
+
+    /** Those of [songIds] whose download the user removed. */
+    @Query("SELECT songId FROM download_exclusions WHERE songId IN (:songIds)")
+    suspend fun getExcluded(songIds: List<Long>): List<Long>
 
     // --- Favorite downloads (smart downloads) ---
 

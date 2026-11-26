@@ -279,7 +279,7 @@
     <string name="settings_licenses">Lisenssit</string>
     <string name="server_auto_download">Kaikki ladataan automaattisesti</string>
     <string name="server_form_auto_download">Lataa kaikki automaattisesti</string>
-    <string name="server_form_auto_download_summary">Jokainen tämän palvelimen raita ladataan laitteelle, myös uudet. Vie paljon tallennustilaa.</string>
+    <string name="server_form_auto_download_summary">Jokainen tämän palvelimen raita ladataan laitteelle, myös uudet. Vie paljon tallennustilaa. Itse poistamasi lataukset pysyvät poistettuina, kunnes lataat ne uudelleen.</string>
     <string name="about_title">Tietoja sovelluksesta</string>
     <string name="about_version">Versio %1$s</string>
     <string name="about_text">EarLoft on soitin omalle kokoelmallesi: musiikkia, podcasteja ja kirjoja tältä laitteelta ja verkosta, kukin laji yhdessä yhteisessä kirjastossa. Musiikki tulee myös Navidrome-, Subsonic-, Jellyfin- tai Emby-palvelimiltasi, podcastit mistä tahansa syötteestä ja kirjat Audiobookshelf-palvelimeltasi. Kaiken voi ladata offline-kuunteluun, kirjojen edistyminen synkronoidaan palvelimesi kanssa, ja musiikki, podcastit ja kirjat soivat myös Wear OS -kellossasi.</string>
@@ -424,8 +424,8 @@
     <string name="downloads_retry">Yritä uudelleen</string>
     <string name="downloads_remove_all">Poista kaikki lataukset</string>
     <string name="downloads_remove_all_title">Poistetaanko kaikki lataukset?</string>
-    <string name="downloads_remove_all_text">Kaikki ladatut tiedostot poistetaan. Kirjasto säilyy.</string>
-    <string name="downloads_remove_all_text_shown">Tässä näkyvien osioiden ladatut tiedostot poistetaan. Piilotettujen osioiden tiedostot ja kirjasto säilyvät.</string>
+    <string name="downloads_remove_all_text">Kaikki ladatut tiedostot poistetaan. Kirjasto säilyy. Automaattiset lataukset ohittavat ne, kunnes lataat ne itse uudelleen.</string>
+    <string name="downloads_remove_all_text_shown">Tässä näkyvien osioiden ladatut tiedostot poistetaan. Piilotettujen osioiden tiedostot ja kirjasto säilyvät. Automaattiset lataukset ohittavat ne, kunnes lataat ne itse uudelleen.</string>
     <string name="downloads_hidden_areas">Lisäksi %1$s piilotetuissa osioissa</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d/%2$d kappale · %3$s</item>
@@ -434,13 +434,13 @@
     <string name="settings_music_mobile">Käytä myös mobiilidataa</string>
     <string name="settings_music_mobile_summary">Pois: musiikki ladataan vain Wi-Fi-yhteydellä.</string>
     <string name="settings_auto_download_favorites">Lataa suosikit automaattisesti</string>
-    <string name="settings_auto_download_favorites_summary">Uudet suosikit ladataan, ja suosikeista poistetut poistetaan taas laitteelta. Suosikkialbumit ladataan kokonaan. Koskee palvelimia, joilta ei muutenkaan ladata kaikkea.</string>
+    <string name="settings_auto_download_favorites_summary">Uudet suosikit ladataan, ja suosikeista poistetut poistetaan taas laitteelta. Suosikkialbumit ladataan kokonaan. Koskee palvelimia, joilta ei muutenkaan ladata kaikkea. Itse poistamasi lataukset pysyvät poistettuina, kunnes lataat ne uudelleen.</string>
     <string name="settings_auto_download_favorite_artists">Myös suosikkiartistit</string>
     <string name="settings_auto_download_favorite_artists_summary">Lataa myös kaiken suosikkiartisteiltasi. Tämä voi viedä paljon tallennustilaa.</string>
     <string name="settings_auto_download_newest_albums">Lataa uusimmat albumit automaattisesti</string>
-    <string name="settings_auto_download_newest_albums_summary">Palvelimillesi viimeksi lisätyt albumit. Joukosta pudonneet albumit poistetaan taas.</string>
+    <string name="settings_auto_download_newest_albums_summary">Palvelimillesi viimeksi lisätyt albumit. Joukosta pudonneet albumit poistetaan taas. Itse poistamasi lataukset pysyvät poistettuina, kunnes lataat ne uudelleen.</string>
     <string name="settings_auto_download_most_played_albums">Lataa soitetuimmat albumit automaattisesti</string>
-    <string name="settings_auto_download_most_played_albums_summary">Viimeisten 90 päivän aikana eniten soitetut albumit (vähintään 3 toistokertaa). Joukosta pudonneet albumit poistetaan taas.</string>
+    <string name="settings_auto_download_most_played_albums_summary">Viimeisten 90 päivän aikana eniten soitetut albumit (vähintään 3 toistokertaa). Joukosta pudonneet albumit poistetaan taas. Itse poistamasi lataukset pysyvät poistettuina, kunnes lataat ne uudelleen.</string>
     <string name="settings_auto_download_albums_off">Pois</string>
     <string name="settings_auto_download_albums_custom">Mukautettu määrä</string>
     <string name="settings_auto_download_albums_apply">Käytä</string>
@@ -866,7 +866,7 @@
     <string name="downloads_remove_music_title">Poistetaanko kaikki musiikkilataukset?</string>
     <string name="downloads_remove_books_title">Poistetaanko kaikki kirjalataukset?</string>
     <string name="downloads_remove_podcasts_title">Poistetaanko kaikki podcast-lataukset?</string>
-    <string name="downloads_remove_category_text">Ladatut tiedostot poistetaan tältä laitteelta. Kirjasto säilyy, ja kaikkea voi edelleen suoratoistaa.</string>
+    <string name="downloads_remove_category_text">Ladatut tiedostot poistetaan tältä laitteelta. Kirjasto säilyy, ja kaikkea voi edelleen suoratoistaa. Automaattiset lataukset ohittavat ne, kunnes lataat ne itse uudelleen.</string>
     <string name="podcast_downloads_delete_title">Poistetaanko podcastin ”%1$s” lataukset?</string>
     <string name="podcast_downloads_delete_message">Tämä vapauttaa tilaa: %1$s. Jaksot pysyvät listassa, ja niitä voi edelleen suoratoistaa.</string>
     <plurals name="downloads_podcast_summary">

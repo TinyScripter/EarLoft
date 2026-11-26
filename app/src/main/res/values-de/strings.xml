@@ -279,7 +279,7 @@
     <string name="settings_licenses">Lizenzen</string>
     <string name="server_auto_download">Alles wird automatisch heruntergeladen</string>
     <string name="server_form_auto_download">Alles automatisch herunterladen</string>
-    <string name="server_form_auto_download_summary">Jeder Titel dieses Servers wird auf das Gerät geladen, auch neu hinzugekommene. Braucht entsprechend viel Speicher.</string>
+    <string name="server_form_auto_download_summary">Jeder Titel dieses Servers wird auf das Gerät geladen, auch neu hinzugekommene. Braucht entsprechend viel Speicher. Downloads, die du selbst entfernst, bleiben entfernt, bis du sie wieder lädst.</string>
     <string name="about_title">Über die App</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_text">EarLoft ist ein Player für deine eigene Sammlung: Musik, Podcasts und Bücher, vom Gerät und aus dem Netz, jeweils in einer gemeinsamen Bibliothek. Musik kommt außerdem von deinen Navidrome-, Subsonic-, Jellyfin- oder Emby-Servern, Podcasts aus beliebigen Feeds und Bücher von deinem Audiobookshelf-Server. Alles lässt sich für unterwegs herunterladen, der Fortschritt der Bücher wird mit deinem Server abgeglichen, und Musik, Podcasts und Bücher spielen auch auf der Wear-OS-Uhr.</string>
@@ -425,8 +425,8 @@
     <string name="downloads_retry">Erneut versuchen</string>
     <string name="downloads_remove_all">Alle Downloads entfernen</string>
     <string name="downloads_remove_all_title">Alle Downloads entfernen?</string>
-    <string name="downloads_remove_all_text">Alle heruntergeladenen Dateien werden gelöscht. Die Bibliothek bleibt erhalten.</string>
-    <string name="downloads_remove_all_text_shown">Die geladenen Dateien der hier gezeigten Bereiche werden gelöscht. Die der ausgeblendeten Bereiche und die Bibliothek bleiben.</string>
+    <string name="downloads_remove_all_text">Alle heruntergeladenen Dateien werden gelöscht. Die Bibliothek bleibt erhalten. Automatische Downloads lassen sie aus, bis du sie selbst wieder lädst.</string>
+    <string name="downloads_remove_all_text_shown">Die geladenen Dateien der hier gezeigten Bereiche werden gelöscht. Die der ausgeblendeten Bereiche und die Bibliothek bleiben. Automatische Downloads lassen sie aus, bis du sie selbst wieder lädst.</string>
     <string name="downloads_hidden_areas">Weitere %1$s in ausgeblendeten Bereichen</string>
     <plurals name="downloads_album_summary">
         <item quantity="one">%1$d von %2$d Song · %3$s</item>
@@ -435,13 +435,13 @@
     <string name="settings_music_mobile">Auch über Mobilfunk laden</string>
     <string name="settings_music_mobile_summary">Aus: Musik wird nur im WLAN heruntergeladen.</string>
     <string name="settings_auto_download_favorites">Favoriten automatisch herunterladen</string>
-    <string name="settings_auto_download_favorites_summary">Neue Favoriten werden geladen, entfernte Favoriten wieder gelöscht. Favorisierte Alben werden ganz geladen. Gilt für Server, von denen nicht ohnehin alles geladen wird.</string>
+    <string name="settings_auto_download_favorites_summary">Neue Favoriten werden geladen, entfernte Favoriten wieder gelöscht. Favorisierte Alben werden ganz geladen. Gilt für Server, von denen nicht ohnehin alles geladen wird. Downloads, die du selbst entfernst, bleiben entfernt, bis du sie wieder lädst.</string>
     <string name="settings_auto_download_favorite_artists">Favorisierte Künstler mitladen</string>
     <string name="settings_auto_download_favorite_artists_summary">Lädt auch alles von deinen Lieblingskünstlern. Das kann viel Speicher belegen.</string>
     <string name="settings_auto_download_newest_albums">Neueste Alben automatisch herunterladen</string>
-    <string name="settings_auto_download_newest_albums_summary">Die zuletzt hinzugefügten Alben deiner Server. Alben, die herausfallen, werden wieder gelöscht.</string>
+    <string name="settings_auto_download_newest_albums_summary">Die zuletzt hinzugefügten Alben deiner Server. Alben, die herausfallen, werden wieder gelöscht. Downloads, die du selbst entfernst, bleiben entfernt, bis du sie wieder lädst.</string>
     <string name="settings_auto_download_most_played_albums">Meistgehörte Alben automatisch herunterladen</string>
-    <string name="settings_auto_download_most_played_albums_summary">Die in den letzten 90 Tagen am häufigsten gehörten Alben (mindestens 3 Wiedergaben). Alben, die herausfallen, werden wieder gelöscht.</string>
+    <string name="settings_auto_download_most_played_albums_summary">Die in den letzten 90 Tagen am häufigsten gehörten Alben (mindestens 3 Wiedergaben). Alben, die herausfallen, werden wieder gelöscht. Downloads, die du selbst entfernst, bleiben entfernt, bis du sie wieder lädst.</string>
     <string name="settings_auto_download_albums_off">Aus</string>
     <string name="settings_auto_download_albums_custom">Eigene Anzahl</string>
     <string name="settings_auto_download_albums_apply">Übernehmen</string>
@@ -867,7 +867,7 @@
     <string name="downloads_remove_music_title">Alle Musik-Downloads löschen?</string>
     <string name="downloads_remove_books_title">Alle Buch-Downloads löschen?</string>
     <string name="downloads_remove_podcasts_title">Alle Podcast-Downloads löschen?</string>
-    <string name="downloads_remove_category_text">Die heruntergeladenen Dateien werden von diesem Gerät gelöscht. Die Bibliothek bleibt erhalten, alles lässt sich weiter streamen.</string>
+    <string name="downloads_remove_category_text">Die heruntergeladenen Dateien werden von diesem Gerät gelöscht. Die Bibliothek bleibt erhalten, alles lässt sich weiter streamen. Automatische Downloads lassen sie aus, bis du sie selbst wieder lädst.</string>
     <string name="podcast_downloads_delete_title">Downloads von „%1$s“ löschen?</string>
     <string name="podcast_downloads_delete_message">Das gibt %1$s frei. Die Folgen bleiben in der Liste und lassen sich weiter streamen.</string>
     <plurals name="downloads_podcast_summary">
