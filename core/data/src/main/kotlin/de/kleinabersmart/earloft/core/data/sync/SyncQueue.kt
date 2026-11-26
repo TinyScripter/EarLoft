@@ -151,8 +151,13 @@ class SyncQueueProcessor @Inject constructor(
                 if (keepsAfter(e, action)) {
                     Log.w(TAG, "${action.actionType} to ${action.sourceId}: retrying later", e)
                     // An unreachable server or a wrong password doesn't use up the attempts (review G23); the first failure is
-                    // still counted, because an aborted playlist upload must win next time (see upsertPlaylist).
-                    if (failureOf(e) == Failure.SERVER || action.attempts == 0) syncDao.incrementAttempts(action.actionId)
+                    // still counted, because an aborted playlist upload must win next time (see upsertPlaylist). If the playlist was
+                    // changed during the attempt, its new action replaced this one and takes that over (review4 8.6 Y17).
+                    if ((failureOf(e) == Failure.SERVER || action.attempts == 0) && syncDao.incrementAttempts(action.actionId) == 0 &&
+                        action.actionType == SyncActionType.UPSERT_PLAYLIST
+                    ) {
+                        syncDao.markRetried(action.sourceId, action.actionType, action.targetKey)
+                    }
                     unreachable += action.sourceId
                 } else {
                     Log.w(TAG, "${action.actionType} to ${action.sourceId} discarded", e)

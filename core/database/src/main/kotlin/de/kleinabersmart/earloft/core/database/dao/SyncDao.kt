@@ -37,8 +37,13 @@ interface SyncDao {
     @Query("SELECT targetKey FROM sync_actions WHERE sourceId = :sourceId AND actionType = :actionType AND attempts > 0")
     suspend fun getRetriedTargets(sourceId: String, actionType: SyncActionType): List<String>
 
+    /** @return 0 if the action is gone (replaced by a newer one meanwhile). */
     @Query("UPDATE sync_actions SET attempts = attempts + 1 WHERE actionId = :actionId")
-    suspend fun incrementAttempts(actionId: Long)
+    suspend fun incrementAttempts(actionId: Long): Int
+
+    /** The action that replaced a failed one for the same target is no first attempt either. */
+    @Query("UPDATE sync_actions SET attempts = 1 WHERE sourceId = :sourceId AND actionType = :actionType AND targetKey = :targetKey AND attempts = 0")
+    suspend fun markRetried(sourceId: String, actionType: SyncActionType, targetKey: String)
 
     // --- Favorites ---
 

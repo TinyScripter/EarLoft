@@ -32,6 +32,9 @@ internal class FakeServer(
     override val displayName = sourceId
     val calls = mutableListOf<String>()
     var failure: Exception? = null
+
+    /** Runs when a playlist is being replaced, before anything happens (e.g. a change in the app meanwhile). */
+    var whileReplacing: (suspend () -> Unit)? = null
     val playlists = LinkedHashMap<String, RemotePlaylist>()
     val lyrics = HashMap<String, Lyrics>()
     /** For the quick sync: new albums and favorites (`remoteId` → timestamp). */
@@ -80,6 +83,7 @@ internal class FakeServer(
     }
 
     override suspend fun replacePlaylist(current: RemotePlaylist, name: String, songRemoteIds: List<String>): RemotePlaylistInfo {
+        whileReplacing?.invoke()
         failure?.let { throw it }
         val remoteId = current.info.remoteId
         calls += "replace $remoteId $name $songRemoteIds"

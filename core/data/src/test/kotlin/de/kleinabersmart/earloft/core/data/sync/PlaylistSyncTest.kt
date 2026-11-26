@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -214,6 +215,27 @@ class PlaylistSyncTest {
         assertTrue(processor().process())
         assertEquals(listOf("replace pl1 Mix [a, b, c, a]"), nd.calls)
         assertEquals(0, db.syncDao().countActions())
+    }
+
+    @Test
+    fun `a change during a sending that then breaks off keeps the local playlist ahead of the half written server one`() = runTest {
+        val remoteId = nd.putPlaylist("Mix", listOf("a", "b"))
+        syncer.syncAdding(db, nd)
+        val id = playlists.playlists().first().single().id
+        playlists.addSongs(id, listOf(songId("c")))
+        // While the first try is under way, the playlist changes in the app; then the try breaks off half written (Emby).
+        nd.whileReplacing = {
+            nd.whileReplacing = null
+            playlists.addSongs(id, listOf(songId("a")))
+            nd.putPlaylist("Mix", listOf("a"), remoteId)
+            nd.failure = java.io.IOException("connection lost")
+        }
+        assertFalse(processor().process())
+        nd.failure = null
+
+        assertTrue(processor().process())
+        assertEquals(listOf("replace pl1 Mix [a, b, c, a]"), nd.calls)
+        assertEquals(listOf("A", "B", "C", "A"), titles(id))
     }
 
     @Test
