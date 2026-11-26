@@ -102,6 +102,16 @@ class WearDownloadWorkerTest {
     }
 
     @Test
+    fun `an unexpected error does not fail the run but schedules the next one`() = runTest {
+        // A failed run would take a selection appended to it down with it (review4 8.6 Y29).
+        book(files = 1)
+        edges.server = { throw IllegalStateException("Unexpected") }
+
+        assertEquals(ListenableWorker.Result.success(), runWorker())
+        assertTrue(retryScheduled())
+    }
+
+    @Test
     fun `while the phone is away the book keeps its count and the next run asks the phone directly`() = runTest {
         val bookId = book(files = 2)
         edges.server = { DownloadOutcome.Retry(IOException("Server unreachable")) }

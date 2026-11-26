@@ -114,7 +114,20 @@ class WearDownloadWorker internal constructor(
      */
     private var stoppedForStorage = false
 
-    override suspend fun doWork(): Result {
+    /**
+     * Never fails: a new selection is appended to a running job (review4 T63), and a failed job would take it down with it, so it
+     * waited for the next sync (8.6 Y29). Anything unexpected is retried like a missing server instead.
+     */
+    override suspend fun doWork(): Result = try {
+        download()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.e(TAG, "Download run failed, retrying later", e)
+        retryLater()
+    }
+
+    private suspend fun download(): Result {
         downloadDao.requeueRunning()
         podcastDao.requeueRunningDownloads()
         bookDao.requeueRunningBookDownloads()
