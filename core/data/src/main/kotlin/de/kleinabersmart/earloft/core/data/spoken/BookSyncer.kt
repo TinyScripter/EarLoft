@@ -105,6 +105,7 @@ class BookSyncer @Inject constructor(
         val firstSync = entity.lastFullSyncAt == 0L
         val stored = if (firstSync) emptyList() else dao.booksOf(server.serverId)
         val known = stored.mapTo(HashSet()) { it.remoteId }
+        val previous = stored.associateBy { it.remoteId }
         // Only libraries the last sync already read: the books of a deselected one are still there with an older generation.
         val syncedBefore = stored.filter { it.seenInGeneration == entity.syncGeneration }.mapNotNullTo(HashSet()) { it.libraryId }
         val fresh = HashSet<String>()
@@ -112,13 +113,12 @@ class BookSyncer @Inject constructor(
             val countsAsNew = library.id in syncedBefore
             // If a book disappears along the way (deletion, scan on the server), start over once; twice in a row aborts the
             // sync without deleting anything (review D3, like R8 for Jellyfin/Emby).
-            if (!scanLibrary(server, library.id, generation) { if (countsAsNew && it !in known) fresh += it } &&
-                !scanLibrary(server, library.id, generation) { if (countsAsNew && it !in known) fresh += it }
+            if (!scanLibrary(server, library.id, generation, previous) { if (countsAsNew && it !in known) fresh += it } &&
+                !scanLibrary(server, library.id, generation, previous) { if (countsAsNew && it !in known) fresh += it }
             ) {
                 throw IOException("${library.name} changed during the sync")
             }
         }
-        invalidateChangedCovers(server.serverId, stored)
         // First upload unreported progress: deleted books take it with them.
         progressSync.pushPending()
         bookmarks.pushPending()
@@ -232,20 +232,6 @@ class BookSyncer @Inject constructor(
     private fun String?.orNullIfBlank(): String? = this?.trim()?.ifEmpty { null }
 
     /**
-     * A book changed on the server since [stored] (new `updatedAt`) may have a new cover: the cached one is dropped and loaded
-     * again on the next display. Otherwise a cover replaced in Audiobookshelf would never arrive (review4 T18). Any change counts,
-     * the server doesn't tell which one; loading a cover once more is cheap.
-     */
-    private suspend fun invalidateChangedCovers(serverId: String, stored: List<BookEntity>) {
-        if (stored.isEmpty()) return
-        val before = stored.associate { it.bookId to it.remoteUpdatedAt }
-        dao.booksOf(serverId).forEach { book ->
-            val previous = before[book.bookId] ?: return@forEach
-            if (previous != book.remoteUpdatedAt) covers.invalidate(book.bookId)
-        }
-    }
-
-    /**
      * Reads a library page by page (by `addedAt`, new ones go to the end) and writes each book with [generation].
      * After each page the last entry of the previous one is still in its place; otherwise something before it disappeared and the
      * first one of this page would be missing – `deleteUnseen` would delete it along with its download. The check happens after
@@ -253,7 +239,13 @@ class BookSyncer @Inject constructor(
      * has already seen counts as seen: a book that was just deleted is thus only dropped on the next sync. [onStored] receives the
      * identifier of every written book. @return `false` on a shift.
      */
-    private suspend fun scanLibrary(server: AbsServer, libraryId: String, generation: Long, onStored: (String) -> Unit): Boolean {
+    private suspend fun scanLibrary(
+        server: AbsServer,
+        libraryId: String,
+        generation: Long,
+        previous: Map<String, BookEntity>,
+        onStored: (String) -> Unit,
+    ): Boolean {
         var page = 0
         var lastId: String? = null
         while (true) {
@@ -274,6 +266,10 @@ class BookSyncer @Inject constructor(
                 // that lost its audio files disappears like one deleted on the server.
                 if (it.media.numAudioFiles == 0) return@forEach
                 val entityToStore = it.toEntity(server.serverId, libraryId, generation)
+                // A book changed on the server (new `updatedAt`) may have a new cover: loaded again on the next display, otherwise a
+                // cover replaced in Audiobookshelf would never arrive (review4 T18). Any change counts, the server doesn't tell which
+                // one. Before writing: a sync aborted afterwards would otherwise have stored the new `updatedAt` already (8.6 Y11).
+                previous[it.id]?.takeIf { old -> old.remoteUpdatedAt != entityToStore.remoteUpdatedAt }?.let { old -> covers.invalidate(old.bookId) }
                 dao.upsertBook(entityToStore)
                 onStored(entityToStore.remoteId)
             }

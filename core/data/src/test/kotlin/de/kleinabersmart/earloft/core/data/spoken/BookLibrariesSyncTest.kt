@@ -34,7 +34,6 @@ import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -63,6 +62,12 @@ class BookLibrariesSyncTest {
 
     /** `updatedAt` per item on the server; 1 if not set. */
     private val updatedAt = ConcurrentHashMap<String, Long>()
+
+    /** The cover the server delivers for every item; `null`: not reachable (404). */
+    @Volatile private var serverCover: ByteArray? = null
+
+    /** A library whose entries the server can't deliver (500). */
+    @Volatile private var failingLibrary: String? = null
 
     /** Entries per library (id, title, genres); changeable between two syncs. */
     private val items = ConcurrentHashMap(
@@ -154,7 +159,7 @@ class BookLibrariesSyncTest {
     }
 
     @Test
-    fun `a book changed on the server drops its cached cover, an unchanged one keeps it`() = runTest {
+    fun `a book changed on the server loads its cover again, an unchanged one keeps it`() = runTest {
         val id = connect()
         sync(id)
         val changed = dao.booksOf(id).single { it.title == "Crime" }.bookId
@@ -164,9 +169,45 @@ class BookLibrariesSyncTest {
 
         updatedAt["li_1"] = 2
         assertTrue(sync(id).ok)
+        serverCover = byteArrayOf(3)
 
-        assertNull("Loaded again on the next display", covers.coverBytes(changed))
+        assertArrayEquals("Loaded again on the next display", byteArrayOf(3), covers.coverBytes(changed))
         assertArrayEquals(byteArrayOf(2), covers.coverBytes(unchanged))
+    }
+
+    @Test
+    fun `a replaced cover that can not be loaded yet keeps showing the previous one`() = runTest {
+        val id = connect()
+        sync(id)
+        val changed = dao.booksOf(id).single { it.title == "Crime" }.bookId
+        covers.store(changed, byteArrayOf(1))
+
+        updatedAt["li_1"] = 2
+        assertTrue(sync(id).ok)
+
+        // Offline: the previous cover rather than none.
+        assertArrayEquals(byteArrayOf(1), covers.coverBytes(changed))
+        serverCover = byteArrayOf(3)
+        assertArrayEquals(byteArrayOf(3), covers.coverBytes(changed))
+        assertEquals(0, covers.retainKnown())
+    }
+
+    @Test
+    fun `a changed cover still arrives when the sync aborts after its library`() = runTest {
+        val id = connect()
+        sync(id)
+        val changed = dao.booksOf(id).single { it.title == "Crime" }.bookId
+        covers.store(changed, byteArrayOf(1))
+
+        // "Crime" is in the first library; the second one fails, after the first was written.
+        updatedAt["li_1"] = 2
+        failingLibrary = "lib-b"
+        assertFalse(sync(id).ok)
+        failingLibrary = null
+        assertTrue(sync(id).ok)
+        serverCover = byteArrayOf(3)
+
+        assertArrayEquals(byteArrayOf(3), covers.coverBytes(changed))
     }
 
     @Test
@@ -420,6 +461,7 @@ class BookLibrariesSyncTest {
                 }
                 path.startsWith("/api/libraries/") && path.endsWith("/items") -> {
                     val library = path.removePrefix("/api/libraries/").removeSuffix("/items")
+                    if (library == failingLibrary) return MockResponse.Builder().code(500).build()
                     val entries = items[library].orEmpty()
                     // Like the server: start = page * limit, limit 0 = everything.
                     val limit = url.queryParameter("limit")?.toInt() ?: 0
@@ -439,7 +481,8 @@ class BookLibrariesSyncTest {
                         else -> json("""{"authors":[{"id":"au2","name":"Bert Author","description":"Writes radio plays."}]}""")
                     }
                 }
-                path.endsWith("/cover") -> MockResponse.Builder().code(404).build()
+                path.endsWith("/cover") -> serverCover?.let { MockResponse.Builder().body(okio.Buffer().write(it)).build() }
+                    ?: MockResponse.Builder().code(404).build()
                 path.startsWith("/api/items/") -> {
                     val itemId = path.removePrefix("/api/items/")
                     val entry = items.values.flatten().firstOrNull { it.first == itemId }

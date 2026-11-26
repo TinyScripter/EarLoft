@@ -62,7 +62,7 @@ class BookCovers @Inject constructor(
      */
     suspend fun store(bookId: Long, bytes: ByteArray) = withContext(Dispatchers.IO) {
         val book = dao.book(bookId) ?: return@withContext
-        write(ownFile(book), bytes)
+        writeOwn(book, bytes)
     }
 
     /** Downloads the image into the cache if it's still missing there. @return `false` if there is none or it couldn't be loaded. */
@@ -92,7 +92,7 @@ class BookCovers @Inject constructor(
         val own = ownFile(book)
         if (own.exists()) return true
         return try {
-            loadOwn(book)?.let { write(own, it) }
+            loadOwn(book)?.let { writeOwn(book, it) }
             true
         } catch (e: IOException) {
             Log.w(TAG, "Cover of ${book.title} not available", e)
@@ -128,7 +128,10 @@ class BookCovers @Inject constructor(
      */
     suspend fun retainKnown(): Int = withContext(Dispatchers.IO) {
         val keep = HashSet<String>()
-        dao.coverRows().forEach { keep += ownFile(it.bookId, episodeUrl(it.kind, it.serverId, it.coverUrl)).name }
+        dao.coverRows().forEach {
+            keep += ownFile(it.bookId, episodeUrl(it.kind, it.serverId, it.coverUrl)).name
+            keep += staleFile(it.bookId).name
+        }
         podcastDao.allImageUrls().filter { it.startsWith("http") }.forEach { keep += urlFile(it).name }
         // `.part` files are currently being written by someone.
         directory.listFiles()?.count { it.name !in keep && !it.name.endsWith(PART_SUFFIX) && it.delete() } ?: 0
@@ -144,7 +147,9 @@ class BookCovers @Inject constructor(
     private suspend fun file(bookId: Long, withFeedImage: Boolean = true, load: Boolean = true): File? {
         val book = dao.book(bookId) ?: return null
         val own = ownFile(book)
-        if (own.exists() || (load && fetchOwn(book, own))) return own
+        if (own.exists() || (load && fetchOwn(book))) return own
+        // A replaced cover that can't be loaded right now (offline): the previous one rather than none (review4 8.6 Y11).
+        staleFile(bookId).takeIf { book.episodeUrl == null && it.exists() }?.let { return it }
         if (!withFeedImage) return null
         val image = feedImage(book) ?: return null
         return imageFile(image, ownerId = bookId, load = load, label = book.title)
@@ -170,11 +175,15 @@ class BookCovers @Inject constructor(
         return podcastDao.feed(book.serverId)?.imageUrl?.takeIf { it != book.episodeUrl }
     }
 
-    /** Downloads the own image of [book] to [file]. @return `false` if there is none or it couldn't be loaded. */
-    private suspend fun fetchOwn(book: BookEntity, file: File): Boolean {
+    /** Downloads the own image of [book]. @return `false` if there is none or it couldn't be loaded. */
+    private suspend fun fetchOwn(book: BookEntity): Boolean {
         val bytes = fetch(book.title) { loadOwn(book) } ?: return false
-        return write(file, bytes)
+        return writeOwn(book, bytes)
     }
+
+    /** Stores [bytes] as the own image of [book]; a replaced previous one is no longer needed then. */
+    private fun writeOwn(book: BookEntity, bytes: ByteArray): Boolean =
+        write(ownFile(book), bytes).also { if (it) staleFile(book.bookId).delete() }
 
     /** The own image of [book]; `null` if there is none. @throws IOException if it couldn't be loaded. */
     private suspend fun loadOwn(book: BookEntity): ByteArray? {
@@ -208,6 +217,9 @@ class BookCovers @Inject constructor(
     /** Episodes of a podcast usually share an image: the file is then named after the address, not the episode. */
     private fun ownFile(bookId: Long, episodeUrl: String?): File = episodeUrl?.let(::urlFile) ?: File(directory, "$bookId.img")
 
+    /** The previous cover of [bookId] after [invalidate], until the new one is loaded. */
+    private fun staleFile(bookId: Long): File = File(directory, "$bookId.old")
+
     /** The file used to be named after `hashCode`; [retainKnown] thus moves all known ones once and clears away the rest. */
     private fun urlFile(url: String) = File(directory, "u${hashedName(url)}.img").adoptingLegacy(File(directory, "u${url.hashCode()}.img"))
 
@@ -232,9 +244,17 @@ class BookCovers @Inject constructor(
     private fun episodeUrl(kind: BookKind, serverId: String, coverUrl: String?): String? =
         coverUrl.takeIf { kind == BookKind.EPISODE && !isLocalSource(serverId) }
 
-    /** The cached cover is no longer valid (local books whose file has changed). */
+    /**
+     * The cached cover is no longer valid (book changed on the server, local books whose file has changed): it is loaded again on the
+     * next display. Until that succeeds, the previous one is still shown ([staleFile]), e.g. offline (review4 8.6 Y11).
+     */
     fun invalidate(bookId: Long) {
-        File(directory, "$bookId.img").delete()
+        val own = File(directory, "$bookId.img")
+        if (own.exists()) {
+            val stale = staleFile(bookId)
+            stale.delete()
+            if (!own.renameTo(stale)) own.delete()
+        }
         seedColors.remove(bookId)
     }
 
