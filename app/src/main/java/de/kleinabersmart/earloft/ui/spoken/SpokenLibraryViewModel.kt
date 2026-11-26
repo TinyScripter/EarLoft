@@ -87,6 +87,11 @@ class SpokenLibraryViewModel @Inject constructor(
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Whether the library has any book, for the hint on the start page, which doesn't need the books (review4 Y21). */
+    val hasBooks: StateFlow<LoadState<Boolean>> = books.hasBooks()
+        .asLoadState()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
+
     val allBooks: StateFlow<LoadState<List<BookWithProgress>>> = books.books()
         .asLoadState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)

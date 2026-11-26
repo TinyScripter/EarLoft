@@ -129,6 +129,10 @@ abstract class BookDao {
     @Query("SELECT * FROM books WHERE kind = 'BOOK' AND $BOOK_LISTED ORDER BY normTitle")
     abstract fun observeBooks(): Flow<List<BookEntity>>
 
+    /** Whether [observeBooks] has anything, without loading the books (review4 Y21). */
+    @Query("SELECT EXISTS(SELECT 1 FROM books WHERE kind = 'BOOK' AND $BOOK_LISTED)")
+    abstract fun observeHasBooks(): Flow<Boolean>
+
     @Query("SELECT * FROM books WHERE bookId = :bookId AND $BOOK_VISIBLE")
     abstract fun observeBook(bookId: Long): Flow<BookEntity?>
 

@@ -35,6 +35,9 @@ class BookRepository @Inject constructor(
     private val syncer: BookSyncer,
 ) {
     /** All books alphabetically, each with its progress. */
+    /** Whether [books] has anything; changes only when that changes. */
+    fun hasBooks(): Flow<Boolean> = dao.observeHasBooks().distinctUntilChanged()
+
     fun books(): Flow<List<BookWithProgress>> =
         combine(dao.observeBooks(), dao.observeAllProgress()) { books, progress ->
             val byBook = progress.associateBy { it.bookId }

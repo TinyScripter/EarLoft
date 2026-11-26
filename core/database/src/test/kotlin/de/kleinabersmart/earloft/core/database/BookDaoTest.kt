@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.WearBookEntity
 import de.kleinabersmart.earloft.core.model.ARD_BOOK_SERVER_ID
+import de.kleinabersmart.earloft.core.model.BookKind
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -56,5 +58,19 @@ class BookDaoTest {
         listOf(ard, local, orphan).forEachIndexed { index, id -> db.wearDao().insertBook(WearBookEntity(id, addedAt = index.toLong())) }
 
         assertEquals(listOf(ard, local), db.wearDao().selectedSpokenIds())
+    }
+
+    @Test
+    fun `the library has books exactly when the list of books has some`() = runTest {
+        val dao = db.bookDao()
+        assertEquals(false, dao.observeHasBooks().first())
+
+        // An episode is in the same table, but not in the list of books.
+        dao.upsertBook(BookEntity(serverId = "feed", kind = BookKind.EPISODE, remoteId = "e", title = "E", normTitle = "e", author = "", durationMs = 0))
+        assertEquals(dao.observeBooks().first().isNotEmpty(), dao.observeHasBooks().first())
+
+        dao.upsertBook(BookEntity(serverId = "local-books", remoteId = "b", title = "B", normTitle = "b", author = "", durationMs = 0))
+        assertEquals(true, dao.observeHasBooks().first())
+        assertEquals(true, dao.observeBooks().first().isNotEmpty())
     }
 }

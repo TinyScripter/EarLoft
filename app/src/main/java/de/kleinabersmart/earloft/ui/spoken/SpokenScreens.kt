@@ -173,7 +173,7 @@ fun SpokenHomeScreen(
     val continueSeries by viewModel.continueSeries.collectAsStateWithLifecycle()
     val hasServer by viewModel.hasServer.collectAsStateWithLifecycle()
     val signInNeeded by viewModel.signInNeeded.collectAsStateWithLifecycle()
-    val allBooksState by viewModel.allBooks.collectAsStateWithLifecycle()
+    val hasBooks by viewModel.hasBooks.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val continueListening = continueState.valueOrNull.orEmpty()
     val recent = recentState.valueOrNull.orEmpty()
@@ -234,7 +234,7 @@ fun SpokenHomeScreen(
                     }
                     if (continueState == LoadState.Failed || recentState == LoadState.Failed) {
                         item(key = "failed") { LoadFailedHint() }
-                    } else if (showsNoBooksHint(continueState, recentState, allBooksState, hasServer)) {
+                    } else if (showsNoBooksHint(continueState, recentState, hasBooks, hasServer)) {
                         item(key = "empty") { NoBooksHint(signInNeeded, onEditServer, viewModel::syncNow) }
                     }
                     // Audiobooks and radio plays from ARD Sounds (books_improvements M9), like "Add podcast" below the shelves.
@@ -259,12 +259,12 @@ fun SpokenHomeScreen(
 internal fun showsNoBooksHint(
     continueListening: LoadState<List<*>>,
     recentlyAdded: LoadState<List<*>>,
-    allBooks: LoadState<List<*>>,
+    hasBooks: LoadState<Boolean>,
     hasServer: Boolean?,
 ): Boolean = hasServer == true &&
     continueListening.valueOrNull?.isEmpty() == true &&
     recentlyAdded.valueOrNull?.isEmpty() == true &&
-    allBooks.valueOrNull?.isEmpty() == true
+    hasBooks.valueOrNull == false
 
 private enum class BookTab(@StringRes val label: Int) {
     ALL(R.string.spoken_tab_all),

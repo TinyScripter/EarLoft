@@ -9,29 +9,31 @@ class NoBooksHintTest {
 
     private val none = LoadState.Ready(emptyList<Int>())
     private val some = LoadState.Ready(listOf(1))
+    private val noBooks = LoadState.Ready(false)
+    private val books = LoadState.Ready(true)
 
     @Test
     fun `an empty library shows the hint`() {
-        assertEquals(true, showsNoBooksHint(none, none, none, hasServer = true))
+        assertEquals(true, showsNoBooksHint(none, none, noBooks, hasServer = true))
     }
 
     @Test
     fun `a library whose books are all heard or hidden shows no hint`() {
         // Both shelves are empty, but syncing would change nothing.
-        assertEquals(false, showsNoBooksHint(none, none, some, hasServer = true))
+        assertEquals(false, showsNoBooksHint(none, none, books, hasServer = true))
     }
 
     @Test
     fun `nothing is said while something loads or fails, or without a server`() {
-        assertEquals(false, showsNoBooksHint(LoadState.Loading, none, none, hasServer = true))
+        assertEquals(false, showsNoBooksHint(LoadState.Loading, none, noBooks, hasServer = true))
         assertEquals(false, showsNoBooksHint(none, none, LoadState.Failed, hasServer = true))
-        assertEquals(false, showsNoBooksHint(none, none, none, hasServer = false))
-        assertEquals(false, showsNoBooksHint(none, none, none, hasServer = null))
+        assertEquals(false, showsNoBooksHint(none, none, noBooks, hasServer = false))
+        assertEquals(false, showsNoBooksHint(none, none, noBooks, hasServer = null))
     }
 
     @Test
     fun `a shelf with books shows no hint`() {
-        assertEquals(false, showsNoBooksHint(some, none, none, hasServer = true))
-        assertEquals(false, showsNoBooksHint(none, some, none, hasServer = true))
+        assertEquals(false, showsNoBooksHint(some, none, noBooks, hasServer = true))
+        assertEquals(false, showsNoBooksHint(none, some, noBooks, hasServer = true))
     }
 }
