@@ -98,12 +98,16 @@ internal fun blockedByHomeNetwork(unreachable: Boolean, address: String, granted
     unreachable && !granted && ShareLinks.isHomeNetworkAddress(address)
 
 /**
- * Ids of the [targets] (id to address) whose last sync did not reach an address on the home network ([failures] by id): once the
- * permission is granted, they are synced again, so their old timeout does not stay until the next sync.
+ * Ids of the [targets] (id to address) on the home network to sync again once the permission is granted, so an old timeout does not
+ * stay until the next sync: all but those whose last sync failed for another reason ([failures] by id, e.g. wrong credentials).
+ * Without a failure counts too: a sync started before the grant (the one on opening the app, next to the prompt) only fails once its
+ * timeout has run out, after the grant; the syncs of one server run one after the other, so the new one follows it.
  */
 internal fun failedAtHome(targets: List<Pair<String, String>>, failures: Map<String, SyncFailure>): List<String> =
-    targets.filter { (id, address) -> blockedByHomeNetwork(failures[id] is SyncFailure.Unreachable, address, granted = false) }
-        .map { it.first }
+    targets.filter { (id, address) ->
+        val failure = failures[id]
+        blockedByHomeNetwork(failure == null || failure is SyncFailure.Unreachable, address, granted = false)
+    }.map { it.first }
 
 /** Whether any of the [addresses] of servers and feeds is on the home network. */
 internal fun needsHomeNetworkAccess(addresses: Collection<String>): Boolean = addresses.any(ShareLinks::isHomeNetworkAddress)
@@ -130,8 +134,8 @@ class HomeNetworkViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /**
-     * The permission was just granted: syncs the servers and feeds on the home network again whose last sync failed without it.
-     * Otherwise their rows kept showing the old timeout until the next sync, although the cause is gone.
+     * The permission was just granted: syncs the servers and feeds on the home network again whose last sync failed without it or is
+     * still running ([failedAtHome]). Otherwise their rows kept showing the old timeout until the next sync, although the cause is gone.
      */
     fun resyncFailedAtHome() {
         viewModelScope.launch {
@@ -142,8 +146,8 @@ class HomeNetworkViewModel @Inject constructor(
             // Paused subscriptions are only synced on their own page.
             val feeds = podcasts.feeds.first().filter { !it.isPaused }
             val feedFailures = feeds
-                .filter { it.failedRefreshes > 0 && (it.refreshError == FeedError.UNREACHABLE || it.refreshError == null) }
-                .associate { it.id to SyncFailure.Unreachable(null) }
+                .filter { it.failedRefreshes > 0 && it.refreshError != FeedError.UNREACHABLE && it.refreshError != null }
+                .associate { it.id to SyncFailure.Other(it.refreshError.toString()) }
             failedAtHome(feeds.map { it.id to it.url }, feedFailures).forEach { feedId -> launch { podcasts.refresh(feedId) } }
         }
     }

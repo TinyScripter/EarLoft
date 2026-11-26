@@ -35,10 +35,9 @@ class BlockedByHomeNetworkTest {
     }
 
     @Test
-    fun `once granted only the home network targets that did not get through are synced again`() {
+    fun `once granted the home network targets that did not get through are synced again`() {
         val targets = listOf(
             "home-failed" to "http://192.168.0.140:8096",
-            "home-ok" to "http://192.168.0.141:4533",
             "home-wrong-password" to "http://10.0.2.2:8096",
             "internet-failed" to "https://music.example.com",
         )
@@ -48,5 +47,13 @@ class BlockedByHomeNetworkTest {
             "internet-failed" to SyncFailure.Unreachable("timeout"),
         )
         assertEquals(listOf("home-failed"), failedAtHome(targets, failures))
+    }
+
+    @Test
+    fun `a home network sync still running at the grant is synced again`() {
+        // Started next to the prompt, before the grant: it fails only once its timeout has run out, so nothing is recorded yet.
+        val targets = listOf("home-syncing" to "http://192.168.0.141:4533", "internet-syncing" to "https://music.example.com")
+
+        assertEquals(listOf("home-syncing"), failedAtHome(targets, emptyMap()))
     }
 }
