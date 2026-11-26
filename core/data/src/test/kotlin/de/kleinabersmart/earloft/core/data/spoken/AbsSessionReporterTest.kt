@@ -10,6 +10,7 @@ import de.kleinabersmart.earloft.core.data.security.SecretStore
 import de.kleinabersmart.earloft.core.data.wear.CredentialsStamps
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
+import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
@@ -108,6 +109,17 @@ class AbsSessionReporterTest {
         assertEquals(90.0, sent[1].getDouble("timeListening"), 0.001)
         assertEquals(640.0, sent[1].getDouble("currentTime"), 0.001)
         assertTrue(db.absSessionDao().dirty().isEmpty())
+    }
+
+    @Test
+    fun `a finished book reports its end, so the session does not make it unfinished on the server`() = runTest {
+        // Stopped shortly before the end: finished here, the session still stands where playback stopped.
+        db.bookDao().upsertProgress(
+            BookProgressEntity(bookId, positionMs = 35_900_000, durationMs = 36_000_000, finished = true, updatedAt = 1_000_000),
+        )
+        reporter.record(bookId, 60_000, positionMs = 35_900_000, durationMs = 36_000_000, force = true, now = 1_000_010)
+
+        assertEquals(36_000.0, sessions().single().getDouble("currentTime"), 0.001)
     }
 
     @Test

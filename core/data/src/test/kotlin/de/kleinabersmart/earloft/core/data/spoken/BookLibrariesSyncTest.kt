@@ -280,6 +280,19 @@ class BookLibrariesSyncTest {
         assertEquals(listenedAt + 5 * 60_000, serverProgressAt.get())
     }
 
+    @Test
+    fun `a book finished shortly before its end goes to the server at its end, or it would not count as finished there`() = runBlocking {
+        val book = offlineState()
+        dao.upsertProgress(dao.progress(book)!!.copy(positionMs = 590_000, finished = true))
+        serverProgressAt.set(System.currentTimeMillis() - 60_000)
+
+        assertTrue(progressSync.pushPending())
+
+        assertEquals(listOf(600.0), sentPositions)
+        // Here the book keeps the spot where it stopped.
+        assertEquals(590_000L, dao.progress(book)?.positionMs)
+    }
+
     /** Five minutes of "Crime" listened here offline, not reported yet. */
     private suspend fun offlineState(): Long {
         val id = connect()

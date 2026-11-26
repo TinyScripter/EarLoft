@@ -118,7 +118,10 @@ class AbsSessionReporter @Inject constructor(
         lastPush[sessionId] = System.currentTimeMillis()
         return try {
             val userId = userIds[server.serverId] ?: api.me(server).id.also { userIds[server.serverId] = it }
-            api.syncLocalSession(server, session.toPayload(userId, book.remoteId, book.title, book.author))
+            // Audiobookshelf takes the session's position into the progress if the session is newer, and a position before the end
+            // makes a finished book unfinished again (checked on 2.38.0). A finished book therefore reports its end, as its progress does.
+            val finished = bookDao.progress(session.bookId)?.finished == true
+            api.syncLocalSession(server, session.toPayload(userId, book.remoteId, book.title, book.author, atEnd = finished))
             dao.markClean(session.sessionId, session.updatedAt)
             Sent.DONE
         } catch (e: IOException) {
@@ -157,7 +160,7 @@ class AbsSessionReporter @Inject constructor(
         return done
     }
 
-    private fun AbsSessionEntity.toPayload(userId: String, itemId: String, title: String, author: String): AbsLocalSession {
+    private fun AbsSessionEntity.toPayload(userId: String, itemId: String, title: String, author: String, atEnd: Boolean): AbsLocalSession {
         val day = Instant.ofEpochMilli(updatedAt).atZone(ZoneId.systemDefault())
         return AbsLocalSession(
             id = sessionId,
@@ -180,7 +183,7 @@ class AbsSessionReporter @Inject constructor(
             dayOfWeek = day.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH),
             timeListening = timeListeningMs / 1000.0,
             startTime = startPositionMs / 1000.0,
-            currentTime = currentPositionMs / 1000.0,
+            currentTime = (if (atEnd && durationMs > 0) durationMs else currentPositionMs) / 1000.0,
             startedAt = startedAt,
             updatedAt = updatedAt,
         )

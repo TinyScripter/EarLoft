@@ -256,10 +256,17 @@ class BookProgressSync @Inject constructor(
         finishedAt = finishedAt ?: updatedAt.takeIf { finished },
     )
 
+    /**
+     * The position for Audiobookshelf: a finished state at its end. The app counts a book stopped shortly before the end as finished,
+     * but Audiobookshelf makes a finished state unfinished again if the same update moves the position to before the end (checked on
+     * 2.38.0); the book would stay unfinished on the server and on every other device.
+     */
+    private fun BookProgressEntity.sentPositionMs(): Long = if (finished && durationMs > 0) durationMs else positionMs
+
     private fun BookProgressEntity.toUpdate() = AbsProgressUpdate(
-        currentTime = positionMs / 1000.0,
+        currentTime = sentPositionMs() / 1000.0,
         duration = durationMs / 1000.0,
-        progress = if (durationMs > 0) (positionMs.toDouble() / durationMs).coerceIn(0.0, 1.0) else 0.0,
+        progress = if (durationMs > 0) (sentPositionMs().toDouble() / durationMs).coerceIn(0.0, 1.0) else 0.0,
         isFinished = finished,
         hideFromContinueListening = hidden,
         // The time it came about here, not the time it arrives: otherwise a state delivered late would beat newer ones.
