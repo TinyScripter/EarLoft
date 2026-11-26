@@ -915,6 +915,20 @@ internal fun BookRow(
     }
 }
 
+/** What a change at the front does in a [rememberFrontRow] the user had scrolled away from its start. */
+enum class AwayFromStart {
+    /** An entry that wasn't in the row before (a sync, a refresh) leaves it where it is, and a snackbar offers to show the start
+     * ([rememberNewFrontHint]); an entry moving up from further back glides there like at the start. */
+    ANNOUNCE,
+
+    /** Glides to the start like at the start (the music queue: what plays next is what counts). */
+    GLIDE,
+
+    /** Stays where it is, without a hint (album shelves: they reorder with every play, sync and batch of cover colors, and gliding
+     * back would pull the user away from the album they scrolled to). */
+    STAY,
+}
+
 /** Row from [rememberFrontRow]: its scroll state and its entries in the order it currently shows. */
 class FrontRow<T>(val state: LazyListState, val items: List<T>)
 
@@ -927,12 +941,10 @@ class FrontRow<T>(val state: LazyListState, val items: List<T>)
  * played, started, removed from the queue), the rest moves up immediately with a glide ([rowItemAnimation]); a
  * jump to the start would cut that animation off. The front entries survive leaving the screen: back
  * from a book page, the row stays where it was as long as nothing new is at the front, otherwise it shows its start right away.
- * If the user had scrolled the row away from its start and an entry arrives that wasn't in it before (a sync, a refresh),
- * the row stays where it is and a snackbar offers to show its start ([rememberNewFrontHint]); with [announce] off (queue)
- * it glides there as well.
+ * If the user had scrolled the row away from its start, [away] decides what a change at the front does there.
  */
 @Composable
-fun <T> rememberFrontRow(items: List<T>, announce: Boolean = true, key: (T) -> Long): FrontRow<T> {
+fun <T> rememberFrontRow(items: List<T>, away: AwayFromStart = AwayFromStart.ANNOUNCE, key: (T) -> Long): FrontRow<T> {
     val state = rememberLazyListState()
     val saved = rememberSaveable(saver = FrontIdsSaver) { FrontIds(emptyList()) }
     val ids = items.map(key)
@@ -941,7 +953,11 @@ fun <T> rememberFrontRow(items: List<T>, announce: Boolean = true, key: (T) -> L
     val atStart by remember(state) { derivedStateOf { state.atStart() } }
     // Read before the row has laid out the new entries: afterwards it has already shifted to the previous first one.
     val startBefore = remember(ids) { atStart }
-    val quiet = announce && !startBefore && shown?.let { ids.firstOrNull() !in it } == true
+    val quiet = !startBefore && when (away) {
+        AwayFromStart.ANNOUNCE -> shown?.let { ids.firstOrNull() !in it } == true
+        AwayFromStart.GLIDE -> false
+        AwayFromStart.STAY -> true
+    }
     val held = shown?.takeIf { !quiet && frontChange(it, ids) == FrontChange.MOVED }
     val visible = if (held == null) items else items.associateBy(key).let { byId -> held.mapNotNull(byId::get) }
     val hint = rememberNewFrontHint { state.glideToStart() }
@@ -952,7 +968,7 @@ fun <T> rememberFrontRow(items: List<T>, announce: Boolean = true, key: (T) -> L
         } else if (frontChange(before, ids) != FrontChange.NONE) {
             if (quiet) {
                 // The row already shows the new order and stays at the entry the user is looking at.
-                hint.announceSoon { state.atStart() }
+                if (away == AwayFromStart.ANNOUNCE) hint.announceSoon { state.atStart() }
             } else {
                 delay(FRONT_HOLD)
                 // Together with the new order, otherwise the row would hold on to the previous first one.

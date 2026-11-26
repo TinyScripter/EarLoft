@@ -28,6 +28,7 @@ import de.kleinabersmart.earloft.core.playback.SavedMusicQueue
 import de.kleinabersmart.earloft.ui.components.AlbumArt
 import de.kleinabersmart.earloft.ui.components.PlayPauseButton
 import de.kleinabersmart.earloft.ui.player.PlayerViewModel
+import de.kleinabersmart.earloft.ui.spoken.AwayFromStart
 import de.kleinabersmart.earloft.ui.spoken.rememberFrontRow
 import de.kleinabersmart.earloft.ui.spoken.rowItemAnimation
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
@@ -234,7 +235,7 @@ private fun LazyListScope.queueSection(queue: QueueRowState) {
                 }
             },
         ) {
-            val row = rememberFrontRow(queue.entries, announce = false) { it.index.toLong() }
+            val row = rememberFrontRow(queue.entries, AwayFromStart.GLIDE) { it.index.toLong() }
             LazyRow(
                 state = row.state,
                 modifier = Modifier.keepHorizontalScroll(row.state),

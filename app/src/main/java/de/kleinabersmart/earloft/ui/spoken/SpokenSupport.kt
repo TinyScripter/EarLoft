@@ -67,7 +67,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -316,7 +320,10 @@ private fun SpokenModeScaffold(
                     HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize(), key = { pages[it].ordinal }) { page ->
                         // Inside pull-to-refresh: the mini player sees a list pushed against its start before the refresh takes it.
                         Box(Modifier.fillMaxSize().nestedScroll(handoff).nestedScroll(LocalMiniPlayerScrollHide.current)) {
-                            CompositionLocalProvider(LocalHeaderActions provides headerActions.getValue(pages[page])) {
+                            CompositionLocalProvider(
+                                LocalHeaderActions provides headerActions.getValue(pages[page]),
+                                LocalAppHeaderCollapsed provides collapse.collapsed,
+                            ) {
                                 content(pages[page])
                             }
                         }
@@ -384,6 +391,9 @@ private class HeaderCollapse(private val enabled: Boolean) : NestedScrollConnect
     var height by mutableFloatStateOf(0f)
     var offset by mutableFloatStateOf(0f)
 
+    /** Whether a scroll has taken some of the header away; changes only at the start and end of that, not every frame. */
+    val collapsed: State<Boolean> = derivedStateOf { offset < 0f }
+
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
         if (!enabled || height <= 0f) return Offset.Zero
         val target = (offset + available.y).coerceIn(-height, 0f)
@@ -401,6 +411,12 @@ private fun Modifier.collapsingHeader(state: HeaderCollapse): Modifier = clipToB
 }
 
 private const val APP_HEADER_KEY = "app-header"
+
+/**
+ * Whether scrolling has collapsed some of the app header above the area pages (small phones only). Outside those pages, or with a
+ * header that doesn't collapse, always `false`.
+ */
+val LocalAppHeaderCollapsed = staticCompositionLocalOf<State<Boolean>> { mutableStateOf(false) }
 
 /** Below this the header also collapses in portrait (small phone); not a window class boundary, those only jump at 900 dp. */
 private val SHORT_PHONE_HEIGHT = 700.dp

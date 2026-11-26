@@ -149,7 +149,9 @@ internal fun AlbumCrate(
     // Dragging the crate or the slider; until the crate has settled again, the record stays in its sleeve.
     var touching by remember { mutableStateOf(false) }
     var sliding by remember { mutableStateOf(false) }
-    val frontIndex by remember { derivedStateOf { position.value.roundToInt().coerceIn(0, lastIndex) } }
+    // Reads the current list: the crate may first show while a sync still adds albums, and a bound kept from then would hold the
+    // front below the new albums, so none of them could ever be opened.
+    val frontIndex by remember { derivedStateOf { position.value.roundToInt().coerceIn(0, (currentAlbums.size - 1).coerceAtLeast(0)) } }
     val settled by remember { derivedStateOf { !touching && !sliding && !position.isRunning && position.value == frontIndex.toFloat() } }
 
     // A new sort or filter starts at the first album; otherwise the front album stays in front (see above).

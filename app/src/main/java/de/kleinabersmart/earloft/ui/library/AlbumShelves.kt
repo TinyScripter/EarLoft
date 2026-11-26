@@ -33,6 +33,7 @@ import de.kleinabersmart.earloft.ui.components.ShelfInset
 import de.kleinabersmart.earloft.ui.components.foldedLetterOf
 import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
 import de.kleinabersmart.earloft.ui.spoken.ShowStartOnNewFront
+import de.kleinabersmart.earloft.ui.spoken.AwayFromStart
 import de.kleinabersmart.earloft.ui.spoken.rememberFrontRow
 import de.kleinabersmart.earloft.ui.spoken.rowItemAnimation
 import androidx.core.text.util.LocalePreferences
@@ -165,7 +166,8 @@ internal fun AlbumShelves(
                     },
                 ) {
                     // A played or new album moves to the front: without this the row would hold on to its previous first album (review T47).
-                    val row = rememberFrontRow(shelf.albums, announce = false) { it.id }
+                    // Scrolled away, the row stays at the album the user looks at.
+                    val row = rememberFrontRow(shelf.albums, AwayFromStart.STAY) { it.id }
                     LazyRow(
                         state = row.state,
                         modifier = Modifier.keepHorizontalScroll(row.state),

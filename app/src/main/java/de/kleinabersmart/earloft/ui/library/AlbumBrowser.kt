@@ -64,6 +64,8 @@ import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
 import de.kleinabersmart.earloft.ui.components.foldedLetterOf
 import de.kleinabersmart.earloft.ui.components.gridContentPadding
 import de.kleinabersmart.earloft.ui.components.groupedItems
+import de.kleinabersmart.earloft.ui.player.LocalMiniPlayerScrollHide
+import de.kleinabersmart.earloft.ui.spoken.LocalAppHeaderCollapsed
 import de.kleinabersmart.earloft.ui.spoken.ShowStartOnNewFront
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbarHeight
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
@@ -71,16 +73,20 @@ import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 /** Below this height the record crate and the carousel show the list instead: chips, cover and details wouldn't fit. */
 private val SINGLE_ALBUM_MIN_HEIGHT = 400.dp
 
-/** Back from the list only with this much more: about the collapsed app header and the hidden mini player. */
+/** Back from a scrolled list only with this much more: about the collapsed app header and the hidden mini player. */
 private val LIST_HYSTERESIS = 160.dp
 
 /**
- * Whether the crate or carousel shows the list instead, with [height] available and the list shown so far ([asList], see
- * [LIST_HYSTERESIS]). The height a [snackbar] takes away doesn't count: a passing message switched to the list for good on a small
- * phone, since it gives back less than the hysteresis (review4 Y27).
+ * Whether the crate or carousel shows the list instead, with [height] available and the list shown so far ([asList]). The height a
+ * [snackbar] takes away doesn't count: a passing message switched to the list for good on a small phone (review4 Y27).
+ *
+ * Scrolling the list collapses the app header and hides the mini player, which gives it room the crate wouldn't have; while that
+ * lasts ([scrolledAway]) it needs [LIST_HYSTERESIS] more to go back, or the two kept swapping mid-scroll (review4 T56). A list at
+ * rest has the crate's height, so there the plain bound decides: the crate comes back once a mini player that pushed it to the list
+ * goes again.
  */
-internal fun singleAlbumAsList(height: Dp, snackbar: Dp, asList: Boolean): Boolean =
-    height + snackbar < SINGLE_ALBUM_MIN_HEIGHT + if (asList) LIST_HYSTERESIS else 0.dp
+internal fun singleAlbumAsList(height: Dp, snackbar: Dp, asList: Boolean, scrolledAway: Boolean): Boolean =
+    height + snackbar < SINGLE_ALBUM_MIN_HEIGHT + if (asList && scrolledAway) LIST_HYSTERESIS else 0.dp
 
 /** Whether the crate or carousel currently shows the list instead (see [LIST_HYSTERESIS]); read and written while composing. */
 private class SingleAlbumLayout(var asList: Boolean = false)
@@ -144,7 +150,9 @@ fun AlbumBrowser(
             // crate came back mid-scroll, where the header doesn't expand again, and the two kept swapping (review4 T56).
             val layout = remember { SingleAlbumLayout() }
             val snackbar by LocalSnackbarHeight.current
-            layout.asList = singleAlbumAsList(maxHeight, snackbar, layout.asList)
+            val headerCollapsed by LocalAppHeaderCollapsed.current
+            val scrolledAway = headerCollapsed || LocalMiniPlayerScrollHide.current.hidden
+            layout.asList = singleAlbumAsList(maxHeight, snackbar, layout.asList, scrolledAway)
             when {
                 layout.asList -> AlbumRowList(
                     albums, onAlbumClick, scrollLabel, header, pinHeader, resetKey, playingAlbumId, playControl::playOrPauseAlbum,
