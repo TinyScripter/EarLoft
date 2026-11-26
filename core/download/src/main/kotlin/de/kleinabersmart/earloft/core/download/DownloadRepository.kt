@@ -194,8 +194,9 @@ class DownloadRepository @Inject constructor(
         // The cover stays: it belongs to the offline images as long as the album exists (`OfflineImages`).
     }
 
-    suspend fun retryFailed() {
-        if (downloadDao.retryFailed() > 0) scheduler.enqueue()
+    /** [replace]: the job starts now instead of after a waiting one (e.g. one that only runs on the charger, review4 T62). */
+    suspend fun retryFailed(replace: Boolean = false) {
+        if (downloadDao.retryFailed() > 0) scheduler.enqueue(replace)
     }
 
     /** After saving a server (e.g. new password): retry its failed downloads. */

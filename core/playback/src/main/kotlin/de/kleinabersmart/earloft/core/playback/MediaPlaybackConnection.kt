@@ -342,7 +342,10 @@ class MediaPlaybackConnection @Inject constructor(
     }
 
     override fun togglePlayPause() = withController {
-        if (isPlaying) {
+        // Waiting for a suitable output (watch without headphones) counts as playing: otherwise the start couldn't be called off,
+        // and music would begin later when headphones connect (review4 T60).
+        val waitingForOutput = playWhenReady && playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT
+        if (isPlaying || waitingForOutput) {
             pause()
         } else {
             if (playbackState == Player.STATE_IDLE) prepare()
@@ -418,7 +421,8 @@ class MediaPlaybackConnection @Inject constructor(
             queue = queue,
             currentIndex = currentMediaItemIndex,
             laterIndices = if (orderChanged) laterIndices() else previous.laterIndices,
-            outputSuppressed = playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT,
+            // Only a start that waits for the output: paused, nothing is held back (review4 T60).
+            outputSuppressed = playWhenReady && playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT,
             isRemote = deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE,
             deviceVolume = deviceVolume,
             maxDeviceVolume = deviceInfo.maxVolume,

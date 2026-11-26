@@ -6,6 +6,7 @@ import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import dagger.Binds
@@ -14,6 +15,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.core.download.DownloadScheduler
+import kotlinx.coroutines.guava.await
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,16 +33,23 @@ class WearDownloadScheduler @Inject constructor(
 ) : DownloadScheduler {
 
     override suspend fun enqueue(replace: Boolean) {
+        // Only a waiting job is replaced. A running one takes new entries from the database itself; replacing it would start the
+        // song it is loading from 0 again and restart the foreground service and the Wi-Fi request with every new selection
+        // (review4 T63). Then appending is enough.
+        val replaceNow = replace && !isRunning()
         // A replaced job starts from scratch, including the attempts without Wi-Fi (like a fresh runAttemptCount used to).
-        if (replace) {
+        if (replaceNow) {
             state.clearRetries()
             state.setJobOnCharger(false)
         }
         enqueue(
             requireCharging = state.settings.value.requireCharging,
-            policy = if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE,
+            policy = if (replaceNow) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE,
         )
     }
+
+    private suspend fun isRunning(): Boolean =
+        WorkManager.getInstance(context).getWorkInfosForUniqueWork(WORK_NAME).await().any { it.state == WorkInfo.State.RUNNING }
 
     /**
      * On every process start and sync: a waiting job stays – including one that only runs on the charger or is waiting for

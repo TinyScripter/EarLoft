@@ -170,6 +170,7 @@ private fun NowPlayingHost(
     val volume by model.volume.collectAsStateWithLifecycle()
     val volumeVisible by model.volumeVisible.collectAsStateWithLifecycle()
     val seedColor by model.seedColor.collectAsStateWithLifecycle()
+    val notice by model.notice.collectAsStateWithLifecycle()
     // The badge shows whole minutes: read only inside derivedStateOf and rounded up to the minute, the 1 s tick of the timer
     // recomposes the view once a minute.
     val sleepTimer = model.sleepTimerRemainingMs.collectAsStateWithLifecycle()
@@ -202,6 +203,7 @@ private fun NowPlayingHost(
             onCrown = model::onCrown,
             onSeek = { ms -> model.seekTo(window?.toBook(ms) ?: ms) },
             chapterRing = window != null,
+            notice = notice,
         )
     }
 }
@@ -230,6 +232,7 @@ private fun NowPlayingContent(
     onCrown: (Float) -> Unit,
     onSeek: (Long) -> Unit,
     chapterRing: Boolean = false,
+    notice: Int? = null,
 ) {
     val duration = state.durationMs
     val spoken = state.spoken
@@ -301,8 +304,8 @@ private fun NowPlayingContent(
                     bottomToCenter = PLAY_BUTTON_SIZE / 2,
                     // Children: [chapter,] title, artist or hint. Without output the hint is the most important, otherwise the title.
                     priority = when {
-                        chapterLine == null -> if (state.outputSuppressed) listOf(1, 0) else listOf(0, 1)
-                        state.outputSuppressed -> listOf(2, 1, 0)
+                        chapterLine == null -> if (state.outputSuppressed || notice != null) listOf(1, 0) else listOf(0, 1)
+                        state.outputSuppressed || notice != null -> listOf(2, 1, 0)
                         else -> listOf(1, 0, 2)
                     },
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = TEXT_PADDING),
@@ -325,8 +328,12 @@ private fun NowPlayingContent(
                         style = MaterialTheme.typography.titleSmall,
                     )
                     Text(
-                        if (state.outputSuppressed) stringResource(R.string.player_no_output) else current?.artist ?: spoken?.author.orEmpty(),
-                        modifier = if (state.outputSuppressed) {
+                        when {
+                            notice != null -> stringResource(notice)
+                            state.outputSuppressed -> stringResource(R.string.player_no_output)
+                            else -> current?.artist ?: spoken?.author.orEmpty()
+                        },
+                        modifier = if (state.outputSuppressed && notice == null) {
                             Modifier.clickable(onClickLabel = stringResource(R.string.player_output), onClick = onOutput)
                         } else {
                             Modifier
@@ -344,9 +351,11 @@ private fun NowPlayingContent(
                     } else {
                         ControlButton(R.drawable.ic_skip_previous, R.string.player_previous, SKIP_BUTTON_SIZE, onPrevious)
                     }
+                    // Waiting for headphones is a start that can be called off: pause, not play (review4 T60).
+                    val playing = state.isPlaying || state.outputSuppressed
                     ControlButton(
-                        if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
-                        if (state.isPlaying) R.string.player_pause else R.string.player_play,
+                        if (playing) R.drawable.ic_pause else R.drawable.ic_play,
+                        if (playing) R.string.player_pause else R.string.player_play,
                         PLAY_BUTTON_SIZE,
                         onPlayPause,
                         active = true,

@@ -16,7 +16,10 @@ import de.kleinabersmart.earloft.core.wearsync.WearRemoteAction
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteChaptersDto
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteMediaKind
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteStateDto
+import de.kleinabersmart.earloft.wear.R
+import de.kleinabersmart.earloft.wear.sync.PhoneConnection
 import de.kleinabersmart.earloft.wear.sync.PhoneRemote
+import de.kleinabersmart.earloft.wear.sync.PhoneStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -30,6 +33,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -42,8 +46,27 @@ import kotlin.math.roundToInt
 @HiltViewModel
 class RemotePlayerViewModel @Inject constructor(
     private val remote: PhoneRemote,
+    phoneConnection: PhoneConnection,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel(), NowPlayingModel, ChaptersModel, SleepTimerModel {
+
+    /**
+     * Without the phone the last report stays: it would go on "playing" and counting, and controls would only seem to work
+     * (review4 T59). While the state is still being checked, the phone counts as there, so the view doesn't flicker.
+     */
+    private val phoneReachable: StateFlow<Boolean> = phoneConnection.status
+        .map { it is PhoneStatus.Connected || it is PhoneStatus.Checking }
+        .onStart { emit(true) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    /** A command just didn't reach the phone. */
+    private val sendFailed = MutableStateFlow(false)
+    private var sendFailedJob: Job? = null
+
+    override val notice: StateFlow<Int?> = combine(phoneReachable, sendFailed) { reachable, failed ->
+        if (!reachable || failed) R.string.remote_unreachable else null
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val remoteState: StateFlow<WearRemoteStateDto?> =
         // The side effects hang on the flow, not on a separate collector: a permanent collector would keep the subscription
@@ -72,7 +95,8 @@ class RemotePlayerViewModel @Inject constructor(
         pendingPlaying,
         pendingShuffle,
         pendingRepeat,
-    ) { remote, playing, shuffle, repeat ->
+        phoneReachable,
+    ) { remote, playing, shuffle, repeat, reachable ->
         val dto = remote ?: return@combine PlayerState()
         val spoken = dto.hasMedia && dto.isSpoken
         PlayerState(
@@ -91,7 +115,7 @@ class RemotePlayerViewModel @Inject constructor(
                 null
             },
             speed = dto.speed,
-            isPlaying = playing ?: dto.isPlaying,
+            isPlaying = reachable && (playing ?: dto.isPlaying),
             durationMs = dto.durationMs,
             shuffle = shuffle ?: dto.shuffle,
             repeatMode = repeat ?: dto.repeatMode,
@@ -104,13 +128,14 @@ class RemotePlayerViewModel @Inject constructor(
      * the monotonic clock counts, so that a time sync along the way does not make the display jump.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    override val positionMs: StateFlow<Long> = remoteState
-        .flatMapLatest { dto ->
+    override val positionMs: StateFlow<Long> = combine(remoteState, phoneReachable, ::Pair)
+        .flatMapLatest { (dto, reachable) ->
             flow {
-                val start = dto?.positionAt(System.currentTimeMillis()) ?: 0L
+                // Without the phone, where it was last reported; nobody knows what it did since.
+                val start = (if (reachable) dto?.positionAt(System.currentTimeMillis()) else dto?.positionMs) ?: 0L
                 val startedAt = SystemClock.elapsedRealtime()
                 emit(start)
-                while (dto?.isPlaying == true) {
+                while (reachable && dto?.isPlaying == true) {
                     delay(POSITION_INTERVAL_MS)
                     val position = start + ((SystemClock.elapsedRealtime() - startedAt) * dto.speed.toDouble()).toLong()
                     emit(if (dto.durationMs > 0) position.coerceAtMost(dto.durationMs) else position)
@@ -236,7 +261,22 @@ class RemotePlayerViewModel @Inject constructor(
      * (Review V3).
      */
     private fun send(action: WearRemoteAction, value: Long = 0) {
-        applicationScope.launch { remote.send(action, value) }
+        applicationScope.launch { if (!remote.send(action, value)) onSendFailed() }
+    }
+
+    /** The command didn't go out: the provisional values are dropped at once, and the view says why (review4 T59). */
+    private fun onSendFailed() {
+        pendingJob?.cancel()
+        pendingPlaying.value = null
+        pendingShuffle.value = null
+        pendingRepeat.value = null
+        pendingSleepCancelled.value = false
+        sendFailed.value = true
+        sendFailedJob?.cancel()
+        sendFailedJob = applicationScope.launch {
+            delay(PENDING_MS)
+            sendFailed.value = false
+        }
     }
 
     /** Sets provisional values; if the phone does not report back (unreachable), they expire after a short time. */

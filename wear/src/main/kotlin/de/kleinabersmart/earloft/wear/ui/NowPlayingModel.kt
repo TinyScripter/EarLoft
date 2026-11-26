@@ -5,6 +5,7 @@ import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.SpokenEntry
 import de.kleinabersmart.earloft.wear.R
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -28,6 +29,9 @@ interface NowPlayingModel {
 
     /** Remaining time of the sleep timer; `null` as long as none is running (or it cannot be set here). */
     val sleepTimerRemainingMs: StateFlow<Long?>
+
+    /** A hint in place of the artist (string resource), e.g. that the phone is not reachable; `null`: none. */
+    val notice: StateFlow<Int?> get() = NO_NOTICE
 
     fun togglePlayPause()
 
@@ -106,3 +110,5 @@ internal fun ringWindow(spoken: SpokenEntry?, chapter: BookChapter?): RingWindow
     if (spoken == null || spoken.isEpisode || chapter == null || chapter.durationMs <= 0) return null
     return RingWindow(chapter.startMs, chapter.durationMs)
 }
+
+private val NO_NOTICE: StateFlow<Int?> = MutableStateFlow(null)

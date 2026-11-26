@@ -179,7 +179,8 @@ class StorageViewModel @Inject constructor(
         watchState.clearAllServerFailures()
         watchState.clearPhoneUnreachable()
         viewModelScope.launch {
-            downloads.retryFailed()
+            // Replacing: otherwise the songs waited behind a delayed or charger-only job for hours, unlike books and episodes (review4 T62).
+            downloads.retryFailed(replace = true)
             if (bookDao.resetFailedDownloads() > 0) planner.plan()
         }
     }
