@@ -388,6 +388,17 @@ class BookPlaybackListenerTest {
     }
 
     @Test
+    fun `a paused jump outside the cast window is saved`() = runBlocking {
+        val bookId = book(files = 3)
+        load(bookId, positionMs = FILE_MS + 10_000, windowStart = 1)
+
+        // The new window comes without a seek; the jump is the new state all the same.
+        assertTrue(listener.seekToTrack(0, 30_000))
+        assertEquals(listOf(Triple(bookId, 0, 30_000L)), outsideWindow)
+        eventually { assertEquals(30_000L, runBlocking { progress(bookId) }?.positionMs) }
+    }
+
+    @Test
     fun `the current chapter is reported and follows a seek`() = runBlocking {
         val bookId = book()
         load(bookId, positionMs = 10_000)

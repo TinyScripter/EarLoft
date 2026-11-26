@@ -323,11 +323,23 @@ internal class BookPlaybackListener(
      * rewinding after a pause or shaking would go nowhere (review4 T11). `false` without a loaded book or if that is not possible.
      */
     fun seekToTrack(trackIndex: Int, offsetMs: Long): Boolean {
-        val bookId = player.currentMediaItem?.bookId ?: return false
+        val item = player.currentMediaItem ?: return false
+        val bookId = item.bookId ?: return false
         val index = (0 until player.mediaItemCount).firstOrNull { index ->
             player.getMediaItemAt(index).let { it.bookId == bookId && it.bookTrackIndex == trackIndex }
         }
-        if (index == null) return seekOutsideWindow(bookId, trackIndex, offsetMs)
+        if (index == null) {
+            if (!seekOutsideWindow(bookId, trackIndex, offsetMs)) return false
+            // The new window comes with new items, not as a seek: a paused jump is saved here as in onPositionDiscontinuity
+            // (review4 8.6 Y8). Adopting a foreign state is no state of this device.
+            if (!adopting) {
+                touched += bookId
+                if (!player.playWhenReady) {
+                    record(bookId, item.isEpisode, trackIndex, offsetMs, force = false, keepHidden = true, seek = true)
+                }
+            }
+            return true
+        }
         player.seekTo(index, offsetMs)
         return true
     }
