@@ -46,11 +46,19 @@ class RingSeekTest {
     }
 
     @Test
-    fun `a mostly rightward movement is the back swipe, never seeking`() {
-        assertTrue(isBackSwipe(Offset(30f, 0f)))
-        assertTrue(isBackSwipe(Offset(30f, -20f)))
-        assertFalse(isBackSwipe(Offset(20f, 30f)))
-        assertFalse(isBackSwipe(Offset(-30f, 0f)))
+    fun `a mostly rightward movement in the upper half is the back swipe, never seeking`() {
+        val top = Offset(0f, -90f)
+        assertTrue(isBackSwipe(Offset(30f, 0f), top))
+        assertTrue(isBackSwipe(Offset(30f, -20f), top))
+        assertTrue(isBackSwipe(Offset(30f, 0f), from = Offset(-90f, 0f)))
+        assertFalse(isBackSwipe(Offset(20f, 30f), top))
+        assertFalse(isBackSwipe(Offset(-30f, 0f), top))
+    }
+
+    @Test
+    fun `at the bottom of the ring a rightward movement rewinds instead of going back`() {
+        // review4 8.6 Y31: along the bottom of the ring, backwards is to the right.
+        assertFalse(isBackSwipe(Offset(30f, 0f), from = Offset(-20f, 90f)))
     }
 
     @Test

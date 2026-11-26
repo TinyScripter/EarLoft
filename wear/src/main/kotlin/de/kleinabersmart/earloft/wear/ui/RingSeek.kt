@@ -51,9 +51,10 @@ internal fun formatPosition(ms: Long): String {
  * (`null` at the end) and seeks on release ([onSeek]). A tap does not seek: the band covers much of a small watch, and a tap
  * on the end of a long title line would otherwise jump, in an episode without chapters by hours (review4 T61).
  *
- * The gesture ignores touches in the inner area (buttons). Likewise movements across the ring, and any mostly horizontal
- * movement to the right, also at the top or bottom of the ring: that is the "back" swipe gesture, which should not be
- * blocked by it. Only a movement along the ring belongs to the gesture.
+ * The gesture ignores touches in the inner area (buttons). Likewise movements across the ring, and a mostly horizontal
+ * movement to the right that starts in the upper half: that is the "back" swipe gesture, which should not be blocked by it.
+ * In the lower half a movement to the right runs along the ring backwards, so there it rewinds (review4 8.6 Y31). Only a
+ * movement along the ring belongs to the gesture.
  */
 @Composable
 internal fun Modifier.ringSeek(
@@ -89,7 +90,7 @@ internal fun Modifier.ringSeek(
                     if (!dragging) {
                         val moved = change.position - down.position
                         if (moved.getDistance() <= slop) continue
-                        if (isBackSwipe(moved)) return@awaitEachGesture
+                        if (isBackSwipe(moved, offset)) return@awaitEachGesture
                         val along = abs(moved.x * tangent.x + moved.y * tangent.y)
                         val across = abs(moved.x * radial.x + moved.y * radial.y)
                         if (along <= across) return@awaitEachGesture
@@ -106,8 +107,11 @@ internal fun Modifier.ringSeek(
     }
 }
 
-/** A movement mostly to the right (within 45°): the system's "back" swipe, never seeking. */
-internal fun isBackSwipe(moved: Offset): Boolean = moved.x > 0f && moved.x > abs(moved.y)
+/**
+ * A movement mostly to the right (within 45°) starting at [from] (relative to the center): the system's "back" swipe, never
+ * seeking. Not in the lower half of the ring: there it is rewinding along the ring (review4 8.6 Y31).
+ */
+internal fun isBackSwipe(moved: Offset, from: Offset): Boolean = from.y <= 0f && moved.x > 0f && moved.x > abs(moved.y)
 
 private fun angleOf(fromCenter: Offset): Float {
     val degrees = Math.toDegrees(atan2(fromCenter.y, fromCenter.x).toDouble()).toFloat()
