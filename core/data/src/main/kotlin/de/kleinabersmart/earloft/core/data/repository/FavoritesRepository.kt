@@ -47,6 +47,10 @@ class FavoritesRepository @Inject constructor(
 ) {
     fun favorites(): Flow<List<Song>> = libraryDao.observeFavoriteSongRows().map { rows -> rows.map { it.toSong() } }
 
+    /** Which of [songIds] are favorites, following every change (for one-off lists like search hits). */
+    fun favoriteSongIdsAmong(songIds: List<Long>): Flow<Set<Long>> =
+        libraryDao.observeFavoriteSongIdsAmong(songIds).map { it.toSet() }.distinctUntilChanged()
+
     fun isFavorite(songId: Long): Flow<Boolean> = libraryDao.observeIsFavorite(songId).map { it == true }.distinctUntilChanged()
 
     suspend fun setFavorite(songId: Long, favorite: Boolean) {

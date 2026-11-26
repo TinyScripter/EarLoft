@@ -432,6 +432,9 @@ abstract class LibraryDao {
     @Query("$SELECT_ARTIST_ROWS WHERE ar.isFavorite GROUP BY ar.artistId ORDER BY ar.favoriteChangedAt DESC")
     abstract fun observeFavoriteArtistRows(): Flow<List<ArtistRow>>
 
+    @Query("SELECT songId FROM songs WHERE isFavorite AND songId IN (:songIds)")
+    abstract fun observeFavoriteSongIdsAmong(songIds: List<Long>): Flow<List<Long>>
+
     @Query("SELECT albumId FROM albums WHERE isFavorite")
     abstract fun observeFavoriteAlbumIds(): Flow<List<Long>>
 

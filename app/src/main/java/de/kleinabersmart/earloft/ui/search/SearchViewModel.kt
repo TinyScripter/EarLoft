@@ -21,16 +21,16 @@ import de.kleinabersmart.earloft.ui.components.SongActions
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -87,12 +87,6 @@ class SearchViewModel @Inject constructor(
 
     val query: StateFlow<String> = savedStateHandle.getStateFlow(KEY_QUERY, "")
 
-    /**
-     * Favorites changed from the hits' menus since the search ran: the hits are a one-off query, so without this the menu kept
-     * offering "Add to favorites" (review4 T50).
-     */
-    private val favoriteChanges = MutableStateFlow<Map<Long, Boolean>>(emptyMap())
-
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     private val searched: Flow<SearchUiState> = combine(
         query.map { it.trim() }.distinctUntilChanged().debounce { if (it.isEmpty()) 0 else DEBOUNCE_MS },
@@ -121,11 +115,19 @@ class SearchViewModel @Inject constructor(
         }
     }
 
-    val results: StateFlow<SearchUiState> = combine(searched, favoriteChanges) { state, changes ->
-        if (changes.isEmpty()) {
-            state
+    /**
+     * The hits are a one-off query; their favorite marks follow the database, so the menu offers the right action after a toggle
+     * (review4 T50), and a new search starts from the stored state instead of the ones toggled before (Y24).
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val results: StateFlow<SearchUiState> = searched.flatMapLatest { state ->
+        val songs = state.results.songs
+        if (songs.isEmpty()) {
+            flowOf(state)
         } else {
-            state.copy(results = state.results.copy(songs = state.results.songs.map { song -> changes[song.id]?.let { song.copy(isFavorite = it) } ?: song }))
+            favoritesRepository.favoriteSongIdsAmong(songs.map { it.id }).map { favorites ->
+                state.copy(results = state.results.copy(songs = songs.map { it.copy(isFavorite = it.id in favorites) }))
+            }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState())
 
@@ -142,9 +144,7 @@ class SearchViewModel @Inject constructor(
     override fun addToQueue(song: Song) = playbackConnection.addToQueue(listOf(song))
 
     override fun toggleFavorite(song: Song) {
-        val favorite = !song.isFavorite
-        favoriteChanges.update { it + (song.id to favorite) }
-        viewModelScope.launch { favoritesRepository.setFavorite(song.id, favorite) }
+        viewModelScope.launch { favoritesRepository.setFavorite(song.id, !song.isFavorite) }
     }
 
     private companion object {
