@@ -38,6 +38,7 @@ class AbsSessionReporterTest {
     private lateinit var reporter: AbsSessionReporter
     private val requests = mutableListOf<Pair<String, String>>()
     private var failSessions = false
+    private var unreachable = false
     private var bookId = 0L
 
     @Before
@@ -55,6 +56,7 @@ class AbsSessionReporterTest {
                 val request = chain.request()
                 val body = Buffer().also { request.body?.writeTo(it) }.readUtf8()
                 requests += request.method + " " + request.url.encodedPath to body
+                if (unreachable && request.url.encodedPath.endsWith("/session/local")) throw java.io.IOException("timeout")
                 val (code, json) = when {
                     request.url.encodedPath.endsWith("/api/me") -> 200 to """{"id":"user-1","mediaProgress":[]}"""
                     failSessions -> 500 to "{}"
@@ -139,6 +141,28 @@ class AbsSessionReporterTest {
         assertTrue(db.absSessionDao().dirty().isEmpty())
         assertEquals(2, sessions().size)
         assertEquals(sessions()[0].getString("id"), sessions()[1].getString("id"))
+    }
+
+    @Test
+    fun `an unreachable server is tried once per run, not for every pending session`() = runTest {
+        unreachable = true
+        reporter.record(bookId, 60_000, 100_000, 36_000_000, force = false, now = 1_000_000)
+        reporter.record(bookId, 60_000, 200_000, 36_000_000, force = false, now = 1_000_000 + 31 * 60_000)
+        reporter.record(bookId, 60_000, 300_000, 36_000_000, force = false, now = 1_000_000 + 62 * 60_000)
+        requests.clear()
+
+        assertFalse(reporter.pushPending())
+        assertEquals("Each attempt would wait for the timeout", 1, sessions().size)
+        assertEquals(3, db.absSessionDao().dirty().size)
+
+        // Only the sessions of the server being synced.
+        requests.clear()
+        assertTrue(reporter.pushPending("other"))
+        assertTrue(sessions().isEmpty())
+
+        unreachable = false
+        assertTrue(reporter.pushPending("srv"))
+        assertEquals(3, sessions().size)
     }
 
     @Test

@@ -123,7 +123,7 @@ class BookSyncer @Inject constructor(
         progressSync.pushPending()
         bookmarks.pushPending()
         // Listening sessions too: their catch-up worker gives up after about 8 h, after that only this sends them (review4 T16).
-        sessions.pushPending()
+        sessions.pushPending(server.serverId)
         // An aborted sync never gets this far and therefore deletes nothing.
         if (hidden.isEmpty()) dao.deleteUnseen(server.serverId, generation)
         else dao.deleteUnseenOutside(server.serverId, generation, hidden.map { it.id })

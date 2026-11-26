@@ -23,6 +23,7 @@ import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.hasNoBookServer
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsDeviceInfo
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsException
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsLocalSession
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -105,27 +106,53 @@ class AbsSessionReporter @Inject constructor(
     }
 
     /** `true` if the session is reported (or there is nothing to report). */
-    suspend fun push(sessionId: String): Boolean {
-        val session = dao.session(sessionId) ?: return true
-        if (!session.dirty) return true
-        val book = bookDao.book(session.bookId) ?: return true
-        val server = servers.server(book.serverId) ?: return false
+    suspend fun push(sessionId: String): Boolean = send(sessionId) == Sent.DONE
+
+    private enum class Sent { DONE, FAILED, UNREACHABLE }
+
+    private suspend fun send(sessionId: String): Sent {
+        val session = dao.session(sessionId) ?: return Sent.DONE
+        if (!session.dirty) return Sent.DONE
+        val book = bookDao.book(session.bookId) ?: return Sent.DONE
+        val server = servers.server(book.serverId) ?: return Sent.UNREACHABLE
         lastPush[sessionId] = System.currentTimeMillis()
         return try {
             val userId = userIds[server.serverId] ?: api.me(server).id.also { userIds[server.serverId] = it }
             api.syncLocalSession(server, session.toPayload(userId, book.remoteId, book.title, book.author))
             dao.markClean(session.sessionId, session.updatedAt)
-            true
+            Sent.DONE
         } catch (e: IOException) {
             Log.w(TAG, "Listening session of ${book.title} not reported", e)
             AbsSessionWorker.schedule(context)
-            false
+            // The server answered (rejection, server error): the next session may still go through. Otherwise it is not reachable.
+            if (e is AbsException) Sent.FAILED else Sent.UNREACHABLE
         }
     }
 
-    /** Sends all pending sessions and cleans up old, reported ones. `true` if nothing is pending anymore. */
-    suspend fun pushPending(): Boolean {
-        val done = dao.dirty().map { push(it.sessionId) }.all { it }
+    /**
+     * Sends all pending sessions (only those of the server [serverId], if given) and cleans up old, reported ones. `true` if nothing is
+     * pending anymore. Once a server is not reachable, its remaining sessions wait for the next time: each one would otherwise wait
+     * for the timeout, and the book sync calls this holding its lock (review4 8.6 Y15).
+     */
+    suspend fun pushPending(serverId: String? = null): Boolean {
+        val unreachable = HashSet<String>()
+        var done = true
+        for (session in dao.dirty()) {
+            val server = bookDao.book(session.bookId)?.serverId
+            if (serverId != null && server != serverId) continue
+            if (server != null && server in unreachable) {
+                done = false
+                continue
+            }
+            when (send(session.sessionId)) {
+                Sent.DONE -> Unit
+                Sent.FAILED -> done = false
+                Sent.UNREACHABLE -> {
+                    done = false
+                    server?.let(unreachable::add)
+                }
+            }
+        }
         dao.deleteCleanBefore(System.currentTimeMillis() - KEEP_MS)
         return done
     }
