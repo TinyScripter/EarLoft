@@ -554,19 +554,25 @@ class PlaybackService : MediaLibraryService() {
 
     /** Removes titles from the queue whose song no longer exists (e.g. server removed). */
     private suspend fun removeMissingSongs(player: Player) {
-        val songIds = (0 until player.mediaItemCount).mapNotNull { player.getMediaItemAt(it).songId }.distinct()
+        val factory = sessionPlayerFactory.orElse(null)
+        // While casting, titles held back by the factory count too.
+        val queue = factory?.fullQueue() ?: (0 until player.mediaItemCount).map(player::getMediaItemAt)
+        val songIds = queue.mapNotNull { it.songId }.distinct()
         if (songIds.isEmpty()) return
         val existing = libraryRepository.songs(songIds).mapTo(HashSet()) { it.id }
         val lookedUp = songIds.toHashSet()
-        // Only the songs looked up: titles queued while waiting stay (review2 J37). Removed in runs of neighbors, because
-        // every removal saves the queue.
-        var end = player.mediaItemCount
-        for (index in player.mediaItemCount - 1 downTo -1) {
-            val missing = index >= 0 && player.getMediaItemAt(index).songId.let { it != null && it in lookedUp && it !in existing }
-            if (missing) continue
-            if (index + 1 < end) player.removeMediaItems(index + 1, end)
-            end = index
+        // Only the songs looked up: titles queued while waiting stay (review2 J37).
+        val isMissing = { item: MediaItem -> item.songId.let { it != null && it in lookedUp && it !in existing } }
+        val removeFromPlayer = {
+            // Removed in runs of neighbors, because every removal saves the queue.
+            var end = player.mediaItemCount
+            for (index in player.mediaItemCount - 1 downTo -1) {
+                if (index >= 0 && isMissing(player.getMediaItemAt(index))) continue
+                if (index + 1 < end) player.removeMediaItems(index + 1, end)
+                end = index
+            }
         }
+        if (factory != null) factory.removeMissing(isMissing, removeFromPlayer) else removeFromPlayer()
     }
 
     /**

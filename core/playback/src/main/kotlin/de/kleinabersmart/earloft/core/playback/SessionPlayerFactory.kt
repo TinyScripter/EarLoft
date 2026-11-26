@@ -45,6 +45,12 @@ interface SessionPlayerFactory {
     fun fullQueue(): List<MediaItem>? = null
 
     /**
+     * Main thread. [removeFromPlayer] removes titles whose song no longer exists ([isMissing]) from the player. That is no clearing of
+     * the queue by the user: the held-back titles stay, only the missing ones among them go too (review4 8.6 Y9).
+     */
+    fun removeMissing(isMissing: (MediaItem) -> Boolean, removeFromPlayer: () -> Unit) = removeFromPlayer()
+
+    /**
      * Main thread. The service ends and has released the player from [create]: the factory lets go of it and of everything that
      * still listens for it (review4 T13); the next [create] starts afresh.
      */

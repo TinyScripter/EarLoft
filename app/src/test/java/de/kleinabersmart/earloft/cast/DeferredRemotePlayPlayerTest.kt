@@ -179,6 +179,28 @@ class DeferredRemotePlayPlayerTest {
     }
 
     @Test
+    fun `removing missing songs while casting is no clearing`() {
+        val fake = PlaylistPlayer()
+        var clearedBefore = 0
+        var clearedToEnd = 0
+        val player = DeferredRemotePlayPlayer(fake, onClearedToEnd = { clearedToEnd++ }, onClearedBefore = { clearedBefore++ })
+        player.currentMediaItemIndex
+
+        // Exactly the songs after the current one ("d") and those before it are gone.
+        player.withoutClearing {
+            player.removeMediaItems(4, 5)
+            player.removeMediaItems(0, 3)
+        }
+        assertEquals(0, clearedBefore)
+        assertEquals(0, clearedToEnd)
+
+        // Afterwards it is the user's clearing again.
+        shadowOf(Looper.getMainLooper()).idle()
+        player.removeMediaItems(0, 3)
+        assertEquals(1, clearedBefore)
+    }
+
+    @Test
     fun `without holding seeks go out at once`() {
         val fake = PlaylistPlayer()
         val player = DeferredRemotePlayPlayer(fake)

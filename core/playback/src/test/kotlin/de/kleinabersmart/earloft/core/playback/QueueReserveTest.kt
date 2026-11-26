@@ -8,6 +8,15 @@ import org.junit.Test
 class QueueReserveTest {
 
     @Test
+    fun `removeIf drops only the matching items on both sides`() {
+        val reserve = QueueReserve<Int>().apply { reset(before = listOf(1, 2, 3), after = listOf(7, 8, 9)) }
+
+        reserve.removeIf { it % 2 == 0 }
+
+        assertEquals(listOf(1, 3, 50, 7, 9) to 2, reserve.complete(listOf(50), 0))
+    }
+
+    @Test
     fun `take hands out the next items in order until the reserve is empty`() {
         val reserve = QueueReserve<Int>().apply { reset(after = listOf(1, 2, 3, 4, 5)) }
 

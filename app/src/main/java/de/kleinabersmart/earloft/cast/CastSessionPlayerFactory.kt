@@ -156,6 +156,11 @@ internal class CastSessionPlayerFactory @Inject constructor(
     override fun maxQueueSize(player: Player): Int =
         if (player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) MAX_REMOTE_QUEUE else Int.MAX_VALUE
 
+    override fun removeMissing(isMissing: (MediaItem) -> Boolean, removeFromPlayer: () -> Unit) {
+        sessionPlayer?.withoutClearing(removeFromPlayer) ?: removeFromPlayer()
+        reserve.removeIf(isMissing)
+    }
+
     override fun onQueueReplaced(before: List<MediaItem>, after: List<MediaItem>) {
         generation++
         finishRemoval()

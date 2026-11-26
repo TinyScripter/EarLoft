@@ -100,8 +100,21 @@ internal class DeferredRemotePlayPlayer(
         onRemoteQueue(state)
     }
 
+    /** Inside [withoutClearing]: removals tidy up and are no clearing by the user. */
+    private var tidying = false
+
+    /** Main thread. Removals in [block] report neither [onClearedToEnd] nor [onClearedBefore] (missing songs, review4 8.6 Y9). */
+    fun withoutClearing(block: () -> Unit) {
+        tidying = true
+        try {
+            block()
+        } finally {
+            tidying = false
+        }
+    }
+
     override fun removeMediaItems(fromIndex: Int, toIndex: Int) {
-        if (deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) {
+        if (deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE && !tidying) {
             if (toIndex >= mediaItemCount) onClearedToEnd()
             if (fromIndex == 0 && toIndex > 0 && toIndex == currentMediaItemIndex) onClearedBefore()
         }

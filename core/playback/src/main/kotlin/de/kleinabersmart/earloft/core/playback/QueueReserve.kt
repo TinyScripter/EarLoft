@@ -70,6 +70,12 @@ class QueueReserve<T>(private val keyOf: (T) -> Any? = { it }) {
         rotatedBy = 0
     }
 
+    /** Drops the titles [matches] selects (e.g. songs that no longer exist) from both sides; the rest keeps its order. */
+    fun removeIf(matches: (T) -> Boolean) {
+        before = before.filterNot(matches)
+        after.removeAll(matches)
+    }
+
     /** Played titles removed from the player to make room: they belong after the existing [before]. */
     fun keepBefore(items: List<T>) {
         before = before + items
