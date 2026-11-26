@@ -475,8 +475,10 @@ internal class BookPlaybackListener(
             seekedBookId?.let { touched += it }
             // Scrubbing a paused book is its new state: it is only saved when the playback stops, and nothing would stop here. Without
             // it, the next foreign write to the row would see a position other than the player's and move it back (review4 T3).
+            // A book taken out of "Continue listening" stays out: the jump to the start after "unplayed" or a reset comes this way
+            // too (review4 8.6 Y2).
             if (!adopting && !player.playWhenReady && seeked != null && seekedBookId != null) {
-                record(seekedBookId, seeked.isEpisode, seeked.bookTrackIndex ?: 0, newPosition.positionMs, force = false)
+                record(seekedBookId, seeked.isEpisode, seeked.bookTrackIndex ?: 0, newPosition.positionMs, force = false, keepHidden = true)
             }
         }
         if (reason == Player.DISCONTINUITY_REASON_SILENCE_SKIP) collectSkippedSilence()
@@ -645,7 +647,7 @@ internal class BookPlaybackListener(
         record(bookId, item.isEpisode, item.bookTrackIndex ?: 0, player.currentPosition, force)
     }
 
-    private fun record(bookId: Long, isEpisode: Boolean, trackIndex: Int, positionInTrackMs: Long, force: Boolean) {
+    private fun record(bookId: Long, isEpisode: Boolean, trackIndex: Int, positionInTrackMs: Long, force: Boolean, keepHidden: Boolean = false) {
         if (bookId !in touched) return
         val timeline = timeline.takeIf { timelineBookId == bookId } ?: return
         val position = timeline.toBookPosition(trackIndex, positionInTrackMs)
@@ -655,7 +657,7 @@ internal class BookPlaybackListener(
         val lastChapterStart = timeline.chapters.lastOrNull()?.startMs ?: 0L
         val finished = isFinishedAt(position, timeline.durationMs, isEpisode, stopped, lastChapterStart) ||
             (player.playbackState == Player.STATE_ENDED && current)
-        persistScope.launch { progressSync.record(bookId, position, timeline.durationMs, finished, force) }
+        persistScope.launch { progressSync.record(bookId, position, timeline.durationMs, finished, force, keepHidden = keepHidden) }
     }
 
     private companion object {

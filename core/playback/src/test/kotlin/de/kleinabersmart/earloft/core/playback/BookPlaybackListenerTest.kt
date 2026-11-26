@@ -55,6 +55,7 @@ import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -76,6 +77,7 @@ class BookPlaybackListenerTest {
     private lateinit var books: BookRepository
     private lateinit var effects: SpokenEffectsRepository
     private lateinit var listener: BookPlaybackListener
+    private lateinit var progressSync: BookProgressSync
     private val settings = SpokenSettings(context)
     private val player = BookPlayer()
 
@@ -103,7 +105,7 @@ class BookPlaybackListenerTest {
         val authApi = AbsAuthApi(client)
         val servers = AudiobookshelfServers(dao, secrets, api, authApi, AbsTokenRenewal(secrets, registry, authApi), registry, CredentialsStamps(secrets))
         val policy = PlaybackPolicy()
-        val progressSync = BookProgressSync(context, dao, servers, api, policy)
+        progressSync = BookProgressSync(context, dao, servers, api, policy)
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
         val bookmarks = Bookmarks(context, dao, servers, api, policy)
@@ -282,6 +284,30 @@ class BookPlaybackListenerTest {
         assertEquals(0, player.currentMediaItemIndex)
         assertEquals(180_000L, player.currentPosition)
         assertEquals(180_000L, progress(bookId)!!.positionMs)
+    }
+
+    @Test
+    fun `unplayed on the loaded paused book keeps it out of continue listening`() = runBlocking {
+        val bookId = book()
+        load(bookId, positionMs = 300_000)
+        player.play()
+        idle()
+        player.pause()
+        eventually { assertEquals(300_000L, runBlocking { progress(bookId) }?.positionMs) }
+
+        // What the menu does: first the state at the start and hidden, then the loaded player to the start.
+        progressSync.record(bookId, 0, 2 * FILE_MS, finished = false, force = true, hidden = true)
+        player.seekTo(0, 0)
+        quiet()
+
+        assertEquals(0L, progress(bookId)!!.positionMs)
+        assertTrue(progress(bookId)!!.hidden)
+
+        // Playing brings it back.
+        player.play()
+        idle()
+        player.pause()
+        eventually { assertFalse(runBlocking { progress(bookId) }!!.hidden) }
     }
 
     @Test

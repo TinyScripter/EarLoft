@@ -75,16 +75,26 @@ class BookProgressSync @Inject constructor(
     /**
      * Records the position. It is sent at most every [PUSH_INTERVAL_MS], immediately with [force] (pause, track change,
      * stop). If sending fails, the entry stays `dirty` and [BookProgressWorker] catches up.
-     * [hidden]: remove from "Continue listening" (reset, "unplayed"); any other state brings the book back in.
+     * [hidden]: remove from "Continue listening" (reset, "unplayed"); any other state brings the book back in, except with
+     * [keepHidden] (scrubbing a paused book, also the jump to the start after "unplayed" or a reset: only playing brings it back).
      */
-    suspend fun record(bookId: Long, positionMs: Long, durationMs: Long, finished: Boolean, force: Boolean = false, hidden: Boolean = false) {
+    suspend fun record(
+        bookId: Long,
+        positionMs: Long,
+        durationMs: Long,
+        finished: Boolean,
+        force: Boolean = false,
+        hidden: Boolean = false,
+        keepHidden: Boolean = false,
+    ) {
         // Subscription ended or book deleted while still loaded in the player: no more progress (foreign key).
         if (dao.book(bookId) == null) return
         val previous = dao.progress(bookId)
         if (previous?.finished == true && !finished && positionMs > 0) reopened.add(bookId)
+        val hide = hidden || (keepHidden && previous?.hidden == true)
         // Only write the position columns: otherwise a speed change between reading and writing would be lost.
         val updated = dao.updatePosition(
-            bookId, positionMs.coerceAtLeast(0), durationMs, finished, System.currentTimeMillis(), dirty = true, hidden = hidden,
+            bookId, positionMs.coerceAtLeast(0), durationMs, finished, System.currentTimeMillis(), dirty = true, hidden = hide,
         )
         if (updated == 0) {
             dao.upsertProgress(
@@ -95,7 +105,7 @@ class BookProgressSync @Inject constructor(
                     finished = finished,
                     updatedAt = System.currentTimeMillis(),
                     dirty = true,
-                    hidden = hidden,
+                    hidden = hide,
                     finishedAt = System.currentTimeMillis().takeIf { finished },
                 ),
             )
