@@ -287,6 +287,26 @@ class BookPlaybackListenerTest {
     }
 
     @Test
+    fun `an earlier own save that lands last does not pull the paused player back`() = runBlocking {
+        val bookId = book()
+        load(bookId, positionMs = 300_000)
+        player.play()
+        idle()
+        player.pause()
+        eventually { assertEquals(300_000L, runBlocking { progress(bookId) }?.positionMs) }
+        player.seekTo(0, 240_000)
+        eventually { assertEquals(240_000L, runBlocking { progress(bookId) }?.positionMs) }
+        player.seekTo(0, 180_000)
+        eventually { assertEquals(180_000L, runBlocking { progress(bookId) }?.positionMs) }
+
+        // The save of the first seek is written last: the row holds its position with the newest timestamp.
+        db.bookDao().upsertProgress(progress(bookId)!!.copy(positionMs = 240_000, updatedAt = System.currentTimeMillis() + 1_000))
+        quiet()
+
+        assertEquals(180_000L, player.currentPosition)
+    }
+
+    @Test
     fun `unplayed on the loaded paused book keeps it out of continue listening`() = runBlocking {
         val bookId = book()
         load(bookId, positionMs = 300_000)

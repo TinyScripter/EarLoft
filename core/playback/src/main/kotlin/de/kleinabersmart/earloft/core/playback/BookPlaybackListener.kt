@@ -111,6 +111,13 @@ internal class BookPlaybackListener(
     /** The player jumps to a state that another device saved ([followStoredProgress]): that is not a seek of this device. */
     private var adopting = false
 
+    /**
+     * The last states this device saved (book, position in the book), at most [OWN_SAVES]. Each save is written on its own, so
+     * after quick seeks while paused an earlier one can land last; [followStoredProgress] must not take it for a foreign state
+     * and pull the player back (review4 8.6 Y7).
+     */
+    private val ownSaves = ArrayDeque<Pair<Long, Long>>()
+
     /** Cast reports no `STATE_ENDED`; the watchdog detects the end when the receiver stands still. */
     private val remoteEnd = RemoteEndWatch()
 
@@ -238,6 +245,7 @@ internal class BookPlaybackListener(
                 stored ?: return@collect
                 val (item, timeline, position) = current() ?: return@collect
                 if (item.bookId != bookId) return@collect
+                if (ownSaves.any { (id, saved) -> id == bookId && abs(saved - stored.positionMs) <= ADOPT_TOLERANCE_MS }) return@collect
                 val target = storedPositionToAdopt(stored, position, player.playWhenReady) ?: return@collect
                 adopting = true
                 val jumped = try {
@@ -657,11 +665,16 @@ internal class BookPlaybackListener(
         val lastChapterStart = timeline.chapters.lastOrNull()?.startMs ?: 0L
         val finished = isFinishedAt(position, timeline.durationMs, isEpisode, stopped, lastChapterStart) ||
             (player.playbackState == Player.STATE_ENDED && current)
+        ownSaves.addLast(bookId to position)
+        if (ownSaves.size > OWN_SAVES) ownSaves.removeFirst()
         persistScope.launch { progressSync.record(bookId, position, timeline.durationMs, finished, force, keepHidden = keepHidden) }
     }
 
     private companion object {
         const val SAVE_INTERVAL_MS = 15_000L
+
+        /** Own saves that can still be on their way to the database: a few quick seeks while paused. */
+        const val OWN_SAVES = 8
 
         /** Only check shortly after the chapter start, so the position is surely in the new chapter already. */
         const val CHAPTER_SLACK_MS = 200L
