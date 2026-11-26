@@ -66,7 +66,7 @@ internal class ResumableTransfer(
         stillWanted: suspend () -> Boolean = { true },
     ): TransferResult {
         // Before the fingerprint: for the very first book on the device (e.g. on the watch) the folder doesn't exist yet.
-        storage.ensureDirectory()
+        onDevice { storage.ensureDirectory() }
         val part = storage.partFileFor(bookId, trackIndex)
         val meta = storage.metaFileFor(bookId, trackIndex)
         val resume = readResume(part, meta)
@@ -187,7 +187,7 @@ internal class ResumableTransfer(
             meta.delete()
             return
         }
-        meta.writeText("$validator\n$total\n${if (strongEtag != null) KIND_ETAG else KIND_MODIFIED}\n")
+        onDevice { meta.writeText("$validator\n$total\n${if (strongEtag != null) KIND_ETAG else KIND_MODIFIED}\n") }
     }
 
     private suspend fun write(
@@ -199,17 +199,17 @@ internal class ResumableTransfer(
         onProgress: suspend (Long, Long?) -> Unit,
         stillWanted: suspend () -> Boolean,
     ): Boolean {
-        storage.ensureDirectory()
+        onDevice { storage.ensureDirectory() }
         var written = offset
         var lastReport = 0L
-        FileOutputStream(part, append).use { output ->
+        onDevice { FileOutputStream(part, append) }.use { output ->
             val buffer = ByteArray(BUFFER_BYTES)
             while (true) {
                 val read = input.read(buffer)
                 if (read < 0) break
                 // After the read, which may have waited long: a cancelled download writes nothing more (review H31).
                 currentCoroutineContext().ensureActive()
-                output.write(buffer, 0, read)
+                onDevice { output.write(buffer, 0, read) }
                 written += read
                 val now = System.nanoTime()
                 if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {

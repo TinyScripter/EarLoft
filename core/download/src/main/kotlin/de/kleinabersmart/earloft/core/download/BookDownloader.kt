@@ -96,7 +96,7 @@ class BookDownloader @Inject constructor(
         if (!part.renameTo(target)) {
             // Removed shortly before the end: the partial file is already gone, no reason for a new attempt.
             if (!stillRunning(track)) return DownloadOutcome.Cancelled
-            throw IOException("Renaming to ${target.name} failed")
+            throw DeviceStorageException("Renaming to ${target.name} failed")
         }
         val size = target.length()
         if (dao.markBookTrackDone(track.bookId, track.trackIndex, target.absolutePath, size) == 0) {

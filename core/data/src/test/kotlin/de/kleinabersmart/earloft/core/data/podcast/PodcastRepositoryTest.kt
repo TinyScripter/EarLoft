@@ -23,6 +23,9 @@ import de.kleinabersmart.earloft.core.network.podcast.Opml
 import de.kleinabersmart.earloft.core.network.podcast.OpmlFeed
 import de.kleinabersmart.earloft.core.network.podcast.PodcastFeedApi
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdSoundsApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -1603,6 +1606,33 @@ class PodcastRepositoryTest {
         // Every subscription adopted its own result.
         assertEquals(feedIds.toSet(), summary.newEpisodes.map { it.feedId }.toSet())
         feedIds.forEach { id -> assertTrue(db.bookDao().booksOf(id).any { it.title == "New" }) }
+    }
+
+    @Test
+    fun `two syncs of the same feed fetch it one after the other, the later one with what the earlier stored`() = runTest {
+        val feedId = subscribe()
+        served = feed("New" to "Fri, 31 Oct 2025 06:00:00 GMT", "A" to "Thu, 30 Oct 2025 06:00:00 GMT")
+        val inFlight = java.util.concurrent.atomic.AtomicInteger()
+        val most = java.util.concurrent.atomic.AtomicInteger()
+        duringFetch = {
+            most.accumulateAndGet(inFlight.incrementAndGet(), ::maxOf)
+            Thread.sleep(200)
+            inFlight.decrementAndGet()
+        }
+
+        // The periodic job and pull to refresh, say.
+        val results = listOf(
+            async(Dispatchers.Default) { repository.refreshAll() },
+            async(Dispatchers.Default) { repository.refresh(feedId) },
+        ).awaitAll()
+
+        assertEquals(1, most.get())
+        assertEquals(2, requested.count { it == "https://example.com/feed.xml" } - 1)
+        // The new episode is new once, for whichever came first.
+        val summary = results[0] as PodcastRefreshSummary
+        val single = results[1] as RefreshResult
+        assertEquals(1, summary.newEpisodes.sumOf { it.episodeIds.size } + single.newEpisodeIds.size)
+        assertEquals(1, db.bookDao().booksOf(feedId).count { it.title == "New" })
     }
 
     @Test

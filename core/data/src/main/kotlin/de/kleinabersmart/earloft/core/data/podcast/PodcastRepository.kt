@@ -159,6 +159,9 @@ class PodcastRepository @Inject constructor(
 ) {
     private val mutex = Mutex()
 
+    /** One lock per feed for fetching and adopting it ([refreshOne]); taken before [mutex], never inside it. */
+    private val fetchLocks = ConcurrentHashMap<String, Mutex>()
+
     private val _refreshed = MutableSharedFlow<String>(extraBufferCapacity = 16)
 
     /** Emits the ID of every podcast whose feed was just synced (even without changes), for the download automation. */
@@ -965,8 +968,16 @@ class PodcastRepository @Inject constructor(
      * Fetches the feed without the lock (so that several feeds can load at once), then adopts it under the lock. If the
      * subscription has moved to another address meanwhile (source switch, feed move), the result belongs to the old source and is
      * dropped: adopting it would bring back the old IDs as new episodes.
+     *
+     * Syncs of the same feed run one after the other (the periodic job, opening the app, pull to refresh and the feed's own page can
+     * meet): the later one fetches with the ETag the earlier one stored, mostly a cheap "not modified". At the same time, an earlier
+     * fetch adopted after a later one would win, drop the episode the later one found and bring it back as new on the next sync
+     * (notification and auto-download again).
      */
-    private suspend fun refreshOne(feedId: String): RefreshOutcome {
+    private suspend fun refreshOne(feedId: String): RefreshOutcome =
+        fetchLocks.computeIfAbsent(feedId) { Mutex() }.withLock { fetchAndAdopt(feedId) }
+
+    private suspend fun fetchAndAdopt(feedId: String): RefreshOutcome {
         val feed = dao.feed(feedId) ?: return RefreshOutcome.Done(RefreshResult(emptyList()))
         // Podcasts from the device have no feed; [LocalPodcasts] syncs their episodes.
         if (feed.isLocal) return RefreshOutcome.Done(RefreshResult(emptyList()))

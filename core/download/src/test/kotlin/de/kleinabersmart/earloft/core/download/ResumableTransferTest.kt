@@ -331,6 +331,44 @@ class ResumableTransferTest {
     }
 
     @Test
+    fun `a partial file that cannot be written is a problem of the device, not of the network`() = runTest {
+        // A folder where the partial file belongs (not empty, so clearing the old partial file cannot remove it): opening it for
+        // writing fails, as on removed or read-only storage.
+        storage.partFileFor(7, 0).apply { mkdirs() }.resolve("inside").writeText("x")
+        server.enqueue(full())
+        try {
+            run()
+            fail("An unwritable partial file must end the attempt")
+        } catch (e: IOException) {
+            assertTrue(e is DeviceStorageException)
+            assertEquals(DownloadFailure.OTHER, DownloadOutcome.Retry(e).failure)
+        }
+    }
+
+    @Test
+    fun `a connection cut off during the body stays a network problem`() = runTest {
+        server.enqueue(cutOff())
+        try {
+            run()
+            fail("A cut-off body must be retried")
+        } catch (e: IOException) {
+            assertFalse(e is DeviceStorageException)
+            assertEquals(DownloadFailure.NETWORK, DownloadOutcome.Retry(e).failure)
+        }
+    }
+
+    @Test
+    fun `a full storage behind a device error is still recognized`() {
+        val wrapped = try {
+            onDevice { throw IOException("write failed: ENOSPC (No space left on device)") }
+        } catch (e: IOException) {
+            e
+        }
+        assertTrue(wrapped is DeviceStorageException)
+        assertTrue(wrapped.isNoSpace())
+    }
+
+    @Test
     fun `a rejected login is reported as an auth error and a forbidden one fails permanently`() = runTest {
         server.enqueue(MockResponse.Builder().code(401).build())
         try {

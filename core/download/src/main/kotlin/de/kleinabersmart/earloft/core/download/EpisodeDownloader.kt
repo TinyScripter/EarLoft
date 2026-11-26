@@ -90,7 +90,7 @@ class EpisodeDownloader @Inject constructor(
         if (!part.renameTo(target)) {
             // Removed shortly before the end: the partial file is already gone, no reason for a new attempt.
             if (!stillRunning(bookId)) return DownloadOutcome.Cancelled
-            throw IOException("Renaming to ${target.name} failed")
+            throw DeviceStorageException("Renaming to ${target.name} failed")
         }
         val size = target.length()
         if (dao.markDownloadDone(bookId, target.absolutePath, size) == 0) {

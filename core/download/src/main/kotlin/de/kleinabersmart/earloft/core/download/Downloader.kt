@@ -55,6 +55,7 @@ sealed interface DownloadOutcome {
             get() = when {
                 isAuthRejection -> DownloadFailure.DENIED
                 cause is HttpStatusException -> DownloadFailure.SERVER
+                cause is DeviceStorageException -> DownloadFailure.OTHER
                 else -> DownloadFailure.NETWORK
             }
     }
@@ -205,17 +206,17 @@ class Downloader @Inject constructor(
         onProgress: suspend (Long, Long?) -> Unit,
     ): Long? {
         val part = storage.partFileFor(uid)
-        storage.ensureDirectory()
+        onDevice { storage.ensureDirectory() }
         var written = 0L
         var lastReport = 0L
-        part.outputStream().use { output ->
+        onDevice { part.outputStream() }.use { output ->
             val buffer = ByteArray(BUFFER_BYTES)
             while (true) {
                 val read = input.read(buffer)
                 if (read < 0) break
                 // After the read, which may have waited long: a cancelled download writes nothing more (review H31).
                 currentCoroutineContext().ensureActive()
-                output.write(buffer, 0, read)
+                onDevice { output.write(buffer, 0, read) }
                 written += read
                 val now = System.nanoTime()
                 if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
@@ -232,7 +233,7 @@ class Downloader @Inject constructor(
     private suspend fun finish(uid: String, mimeType: String?, total: Long?): DownloadOutcome {
         val part = storage.partFileFor(uid)
         val target = storage.fileFor(uid, mimeType)
-        if (!part.renameTo(target)) throw IOException("Renaming to ${target.name} failed")
+        if (!part.renameTo(target)) throw DeviceStorageException("Renaming to ${target.name} failed")
         val size = target.length()
         if (downloadDao.markDone(uid, target.absolutePath, size) == 0) {
             target.delete()
