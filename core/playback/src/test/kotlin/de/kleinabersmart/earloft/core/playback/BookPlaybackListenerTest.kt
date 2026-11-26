@@ -396,6 +396,12 @@ class BookPlaybackListenerTest {
         assertTrue(listener.seekToTrack(0, 30_000))
         assertEquals(listOf(Triple(bookId, 0, 30_000L)), outsideWindow)
         eventually { assertEquals(30_000L, runBlocking { progress(bookId) }?.positionMs) }
+
+        // As the receiver does: first an empty queue, then the new window. The old position must not come back.
+        player.load(emptyList(), 0, 0)
+        load(bookId, positionMs = 30_000)
+        quiet()
+        assertEquals(30_000L, progress(bookId)!!.positionMs)
     }
 
     @Test

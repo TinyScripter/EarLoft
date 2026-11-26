@@ -336,6 +336,9 @@ internal class BookPlaybackListener(
                 touched += bookId
                 if (!player.playWhenReady) {
                     record(bookId, item.isEpisode, trackIndex, offsetMs, force = false, keepHidden = true, seek = true)
+                    // The receiver empties its queue before the new window arrives: that looks like the end of the book, and the
+                    // old position would be saved over the jump (seen on the device). The state is saved; playing touches it again.
+                    touched -= bookId
                 }
             }
             return true
