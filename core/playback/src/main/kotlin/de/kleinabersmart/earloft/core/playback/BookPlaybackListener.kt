@@ -484,9 +484,12 @@ internal class BookPlaybackListener(
             // Scrubbing a paused book is its new state: it is only saved when the playback stops, and nothing would stop here. Without
             // it, the next foreign write to the row would see a position other than the player's and move it back (review4 T3).
             // A book taken out of "Continue listening" stays out: the jump to the start after "unplayed" or a reset comes this way
-            // too (review4 8.6 Y2).
+            // too (review4 8.6 Y2). A seek is no stop: scrubbing close to the end does not finish the book yet (review4 8.6 Y6).
             if (!adopting && !player.playWhenReady && seeked != null && seekedBookId != null) {
-                record(seekedBookId, seeked.isEpisode, seeked.bookTrackIndex ?: 0, newPosition.positionMs, force = false, keepHidden = true)
+                record(
+                    seekedBookId, seeked.isEpisode, seeked.bookTrackIndex ?: 0, newPosition.positionMs, force = false,
+                    keepHidden = true, seek = true,
+                )
             }
         }
         if (reason == Player.DISCONTINUITY_REASON_SILENCE_SKIP) collectSkippedSilence()
@@ -655,13 +658,21 @@ internal class BookPlaybackListener(
         record(bookId, item.isEpisode, item.bookTrackIndex ?: 0, player.currentPosition, force)
     }
 
-    private fun record(bookId: Long, isEpisode: Boolean, trackIndex: Int, positionInTrackMs: Long, force: Boolean, keepHidden: Boolean = false) {
+    private fun record(
+        bookId: Long,
+        isEpisode: Boolean,
+        trackIndex: Int,
+        positionInTrackMs: Long,
+        force: Boolean,
+        keepHidden: Boolean = false,
+        seek: Boolean = false,
+    ) {
         if (bookId !in touched) return
         val timeline = timeline.takeIf { timelineBookId == bookId } ?: return
         val position = timeline.toBookPosition(trackIndex, positionInTrackMs)
         val current = player.currentMediaItem?.bookId == bookId
-        // Stopped: no longer in the player or no longer wanted; buffering doesn't count.
-        val stopped = !current || !player.playWhenReady
+        // Stopped: no longer in the player or no longer wanted; buffering doesn't count. A seek while paused is not a stop.
+        val stopped = !seek && (!current || !player.playWhenReady)
         val lastChapterStart = timeline.chapters.lastOrNull()?.startMs ?: 0L
         val finished = isFinishedAt(position, timeline.durationMs, isEpisode, stopped, lastChapterStart) ||
             (player.playbackState == Player.STATE_ENDED && current)

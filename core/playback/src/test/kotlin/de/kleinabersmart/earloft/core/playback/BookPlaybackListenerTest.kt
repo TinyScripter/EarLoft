@@ -307,6 +307,21 @@ class BookPlaybackListenerTest {
     }
 
     @Test
+    fun `scrubbing a paused book close to the end does not finish it`() = runBlocking {
+        val bookId = book()
+        load(bookId, positionMs = 300_000)
+        player.play()
+        idle()
+        player.pause()
+        eventually { assertEquals(300_000L, runBlocking { progress(bookId) }?.positionMs) }
+
+        // Ten seconds before the end: within the tolerance for a stopped book, but a seek is no stop.
+        player.seekTo(1, FILE_MS - 10_000)
+        eventually { assertEquals(2 * FILE_MS - 10_000, runBlocking { progress(bookId) }?.positionMs) }
+        assertFalse(progress(bookId)!!.finished)
+    }
+
+    @Test
     fun `unplayed on the loaded paused book keeps it out of continue listening`() = runBlocking {
         val bookId = book()
         load(bookId, positionMs = 300_000)
