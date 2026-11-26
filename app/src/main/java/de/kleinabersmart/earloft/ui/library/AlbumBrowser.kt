@@ -40,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
@@ -64,6 +65,7 @@ import de.kleinabersmart.earloft.ui.components.foldedLetterOf
 import de.kleinabersmart.earloft.ui.components.gridContentPadding
 import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.spoken.ShowStartOnNewFront
+import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbarHeight
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /** Below this height the record crate and the carousel show the list instead: chips, cover and details wouldn't fit. */
@@ -71,6 +73,14 @@ private val SINGLE_ALBUM_MIN_HEIGHT = 400.dp
 
 /** Back from the list only with this much more: about the collapsed app header and the hidden mini player. */
 private val LIST_HYSTERESIS = 160.dp
+
+/**
+ * Whether the crate or carousel shows the list instead, with [height] available and the list shown so far ([asList], see
+ * [LIST_HYSTERESIS]). The height a [snackbar] takes away doesn't count: a passing message switched to the list for good on a small
+ * phone, since it gives back less than the hysteresis (review4 Y27).
+ */
+internal fun singleAlbumAsList(height: Dp, snackbar: Dp, asList: Boolean): Boolean =
+    height + snackbar < SINGLE_ALBUM_MIN_HEIGHT + if (asList) LIST_HYSTERESIS else 0.dp
 
 /** Whether the crate or carousel currently shows the list instead (see [LIST_HYSTERESIS]); read and written while composing. */
 private class SingleAlbumLayout(var asList: Boolean = false)
@@ -133,7 +143,8 @@ fun AlbumBrowser(
             // With hysteresis: the list lets the app header collapse and the mini player hide, which makes room. Without it the
             // crate came back mid-scroll, where the header doesn't expand again, and the two kept swapping (review4 T56).
             val layout = remember { SingleAlbumLayout() }
-            layout.asList = maxHeight < SINGLE_ALBUM_MIN_HEIGHT + if (layout.asList) LIST_HYSTERESIS else 0.dp
+            val snackbar by LocalSnackbarHeight.current
+            layout.asList = singleAlbumAsList(maxHeight, snackbar, layout.asList)
             when {
                 layout.asList -> AlbumRowList(
                     albums, onAlbumClick, scrollLabel, header, pinHeader, resetKey, playingAlbumId, playControl::playOrPauseAlbum,

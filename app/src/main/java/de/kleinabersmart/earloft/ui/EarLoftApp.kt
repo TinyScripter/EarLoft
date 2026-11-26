@@ -31,6 +31,9 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -165,6 +168,7 @@ import de.kleinabersmart.earloft.ui.settings.WatchSettingsScreen
 import de.kleinabersmart.earloft.ui.setup.SetupExitDialog
 import de.kleinabersmart.earloft.ui.setup.SetupScreen
 import de.kleinabersmart.earloft.ui.permission.HomeNetworkPermissionPrompt
+import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbarHeight
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.ui.snackbar.SnackbarViewModel
 import de.kleinabersmart.earloft.ui.spoken.AudiobookshelfFormScreen
@@ -712,6 +716,8 @@ fun EarLoftApp(
             // Read only while measuring (review H19): the mini player's animation changes it every frame, which would otherwise
             // recompose the pages and `NavDisplay` each time.
             val belowPages = remember { BelowPagesInsets() }
+            val snackbarHeight = remember { mutableStateOf(0.dp) }
+            val density = LocalDensity.current
             Column(Modifier.windowInsetsPadding(bottomInsets)) {
                 // Shared elements (the header of Home and Library) stay in place during page transitions.
                 SharedTransitionLayout(
@@ -728,7 +734,7 @@ fun EarLoftApp(
                         // navigation bar a second time (it's in `belowPages` and already consumed above, review V12).
                         .consumeWindowInsets(belowPages),
                 ) {
-                    CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+                    CompositionLocalProvider(LocalSharedTransitionScope provides this, LocalSnackbarHeight provides snackbarHeight) {
                         NavDisplay(
                             entries = navigationState.toDecoratedEntries(entryProvider),
                             sceneStrategies = listOf(sceneStrategy),
@@ -739,7 +745,7 @@ fun EarLoftApp(
                         )
                     }
                 }
-                SnackbarHost(snackbarHost)
+                SnackbarHost(snackbarHost, Modifier.onSizeChanged { snackbarHeight.value = with(density) { it.height.toDp() } })
                 // Slides down out of the way and back up; the pages above grow and shrink with it.
                 AnimatedVisibility(
                     visible = showMiniPlayer && !(hideMiniPlayerOnScroll && miniPlayerScrollHide.hidden),

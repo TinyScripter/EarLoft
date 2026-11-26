@@ -2,7 +2,11 @@ package de.kleinabersmart.earloft.ui.snackbar
 
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -78,3 +82,9 @@ class SnackbarViewModel @Inject constructor(val snackbars: Snackbars) : ViewMode
 
 /** From within the UI: `LocalSnackbars.current.show("…")`. Without a root (preview) the message goes nowhere. */
 val LocalSnackbars = staticCompositionLocalOf { Snackbars() }
+
+/**
+ * Height of the snackbar shown below the pages, which they lose while it is there. Read it where a page decides on its layout by
+ * its height: a passing message should not switch it (review4 Y27).
+ */
+val LocalSnackbarHeight = staticCompositionLocalOf<State<Dp>> { mutableStateOf(0.dp) }
