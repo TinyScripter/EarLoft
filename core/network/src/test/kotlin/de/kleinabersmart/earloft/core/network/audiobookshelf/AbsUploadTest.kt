@@ -71,6 +71,26 @@ class AbsUploadTest {
     }
 
     @Test
+    fun `a rejection whose token renewal fails is not an unconfirmed upload`() = runTest {
+        // The server takes the whole book and answers 401; renewing the token fails for the moment.
+        val registry = AbsServerRegistry().apply { register(absServer) }
+        val offline = object : AbsTokenRefresher {
+            override fun renewBlocking(serverId: String, rejected: String): String? = throw java.io.IOException("offline")
+        }
+        val renewing = OkHttpClient.Builder().authenticator(AbsTokenAuthenticator(registry) { offline }).build()
+        server.enqueue(MockResponse.Builder().code(401).build())
+        var sent = 0L
+        try {
+            AbsApi(renewing).uploadBook(absServer, upload()) { done, _ -> sent = done }
+            fail("The failure should be reported")
+        } catch (e: AbsUploadUnconfirmed) {
+            fail("Rejected, not unconfirmed")
+        } catch (e: AbsTokenRenewalFailed) {
+            assertEquals(200_000L, sent)
+        }
+    }
+
+    @Test
     fun `a rejection stays a rejection`() = runTest {
         server.enqueue(MockResponse.Builder().code(403).body("Forbidden").build())
         try {

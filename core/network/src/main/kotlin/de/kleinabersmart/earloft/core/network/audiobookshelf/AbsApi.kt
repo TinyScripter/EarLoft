@@ -213,8 +213,9 @@ class AbsApi @Inject constructor(
                     throw AbsException(response.code, "HTTP ${response.code}: ${text.take(200)}")
                 }
             } catch (e: IOException) {
-                // Everything was sent, only the answer is missing: the book is most likely on the server.
-                if (e is AbsException || e is AbsUploadExists || total == 0L || sent < total) throw e
+                // Everything was sent, only the answer is missing: the book is most likely on the server. Not if the server rejected
+                // it and the token could not be renewed (8.6 Y14).
+                if (e is AbsException || e is AbsUploadExists || e is AbsTokenRenewalFailed || total == 0L || sent < total) throw e
                 throw AbsUploadUnconfirmed(e)
             }
         }

@@ -5,6 +5,7 @@ import okhttp3.Authenticator
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.Route
+import java.io.IOException
 import javax.inject.Inject
 
 /** Refreshes expired access tokens of servers signed in via OpenID (concept 12.11). */
@@ -36,7 +37,19 @@ class AbsTokenAuthenticator @Inject constructor(
             // Streams, downloads and covers: the token [AbsAuthInterceptor] sent (review H3).
             ?: request.tag(AbsSentToken::class.java)?.token
             ?: return null
-        val token = refresher.get().renewBlocking(server.serverId, rejected) ?: return null
+        val token = try {
+            refresher.get().renewBlocking(server.serverId, rejected)
+        } catch (e: AbsTokenRenewalFailed) {
+            throw e
+        } catch (e: IOException) {
+            throw AbsTokenRenewalFailed(e)
+        } ?: return null
         return request.newBuilder().header("Authorization", "Bearer $token").build()
     }
 }
+
+/**
+ * The server rejected a request (401) and the token could not be renewed right now (network, server error). Still a network error
+ * (review4 T29), but the server did answer: an upload whose bytes were all sent was rejected, not left unconfirmed (8.6 Y14).
+ */
+class AbsTokenRenewalFailed(cause: IOException) : IOException("Rejected, and the token could not be renewed", cause)
