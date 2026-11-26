@@ -4,6 +4,7 @@ import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.core.model.ReplayGainMode
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -119,6 +120,21 @@ class WearCodecTest {
 
         assertEquals(settings.withoutSeek(), settings.copy(bookSeekBackSeconds = 5, podcastSeekForwardSeconds = 45).withoutSeek())
         assertTrue(settings.withoutSeek() != settings.copy(requireCharging = true).withoutSeek())
+    }
+
+    @Test
+    fun `only quality and the charger rule restart a running download`() {
+        val settings = WearSettingsDto(requireCharging = false)
+
+        assertTrue(settings.copy(quality = WearQuality.ORIGINAL).restartsDownloadsAfter(settings))
+        assertTrue(settings.copy(requireCharging = true).restartsDownloadsAfter(settings))
+        listOf(
+            settings.copy(preAmpDb = 3f),
+            settings.copy(replayGainMode = ReplayGainMode.OFF),
+            settings.copy(storageLimitBytes = 2_000_000_000L),
+            settings.copy(minFreeBytes = 500_000_000L),
+            settings.copy(areas = listOf(SpokenMode.MUSIC)),
+        ).forEach { changed -> assertFalse("$changed", changed.restartsDownloadsAfter(settings)) }
     }
 
     @Test

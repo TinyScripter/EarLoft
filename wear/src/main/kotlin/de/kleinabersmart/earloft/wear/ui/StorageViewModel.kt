@@ -195,7 +195,7 @@ class StorageViewModel @Inject constructor(
         wifiWatch?.cancel()
         wifiWatch = viewModelScope.launch {
             combine(scheduler.nextJobOnCharger, context.wifiConnectedFlow(), ::Pair).first { (jobOnCharger, wifi) ->
-                replacesChargerJob(jobOnCharger, watchState.settings.value.requireCharging, context.isCharging(), wifi)
+                replacesChargerJob(jobOnCharger, watchState.waitingForPhone, watchState.settings.value.requireCharging, context.isCharging(), wifi)
             }
             scheduler.enqueue(replace = true)
         }
@@ -220,11 +220,19 @@ class StorageViewModel @Inject constructor(
 
 /**
  * Whether a job that only starts on the charger after repeated attempts without Wi-Fi ([jobOnCharger]) should be replaced by a
- * normal one: the watch is on Wi-Fi now ([wifiOn]) and nothing else holds it back. Not with the phone's setting "only on the charger" (the normal job
- * would wait just the same) and not on the charger (the job starts anyway).
+ * normal one: the watch is on Wi-Fi now ([wifiOn]) and nothing else holds it back.
+ * - Not while the job waits for the phone ([waitingForPhone], it uses the same charger job): Wi-Fi doesn't bring the phone back, and
+ *   each replacement would start the foreground service only to fail on the phone again (review V1). Its return replans by itself.
+ * - Not with the phone's setting "only on the charger" off the charger: the normal job would wait just the same.
+ * - On the charger, too: there the job is a delayed retry whose wait grows up to hours ([charging]).
  */
-internal fun replacesChargerJob(jobOnCharger: Boolean, requireCharging: Boolean, charging: Boolean, wifiOn: Boolean): Boolean =
-    jobOnCharger && wifiOn && !requireCharging && !charging
+internal fun replacesChargerJob(
+    jobOnCharger: Boolean,
+    waitingForPhone: Boolean,
+    requireCharging: Boolean,
+    charging: Boolean,
+    wifiOn: Boolean,
+): Boolean = jobOnCharger && wifiOn && !waitingForPhone && (!requireCharging || charging)
 
 /** The phone sends the manifest after 2 s of quiet; as with the "On the watch" switch, the desired state applies at most that long. */
 private const val REMOVING_TIMEOUT_MS = 20_000L

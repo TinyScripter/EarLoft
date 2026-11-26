@@ -190,6 +190,14 @@ data class WearSettingsDto(
         podcastVolumeBoostDb = 0,
     )
 
+    /**
+     * Whether a download running under [previous] has to start over: only quality (another file) and the charger rule (it may no
+     * longer run now) change what it does. The rest only changes the plan (storage limits, areas) or playback (ReplayGain, pre-amp);
+     * restarting for those cost the song loaded so far, on every move of the pre-amp slider (review4 T63).
+     */
+    fun restartsDownloadsAfter(previous: WearSettingsDto): Boolean =
+        quality != previous.quality || requireCharging != previous.requireCharging
+
     companion object {
         const val DEFAULT_MIN_FREE_BYTES = 1_000_000_000L
     }

@@ -66,12 +66,13 @@ class PhoneLibrarySync @Inject internal constructor(
     suspend fun sync() = mutex.withLock {
         // Settings first: quality and storage limit determine what the planner queues. If this watch does not understand them
         // (newer value from the phone), the previous ones apply – servers and manifest still come. Changed skip intervals
-        // alone do not replan: that would replace the download job and cancel a running download.
+        // alone do not replan; only quality and the charger rule cancel a running download ([WearSettingsDto.restartsDownloadsAfter]).
         val previous = state.settings.value
-        val settingsChanged = phoneData.payloads(WearPaths.SETTINGS).values.firstOrNull()
+        val adopted = phoneData.payloads(WearPaths.SETTINGS).values.firstOrNull()
             ?.let { bytes -> decodeOrNull<WearSettingsDto>(bytes, "Settings") }
             ?.takeIf { state.updateSettings(it) }
-            ?.let { it.withoutSeek() != previous.withoutSeek() } == true
+        val settingsChanged = adopted?.let { it.withoutSeek() != previous.withoutSeek() } == true
+        val restartDownloads = adopted?.restartsDownloadsAfter(previous) == true
         val servers = phoneData.payloads(WearPaths.SERVERS).entries.firstOrNull()
         // Every process start of the watch triggers a run (message from the phone, download attempt, tile …). If nothing new
         // has arrived since the last apply, it stops at asking for passwords and planning.
@@ -104,7 +105,7 @@ class PhoneLibrarySync @Inject internal constructor(
             readOrNull("Episodes") { WearCodec.decodeCompressed<WearPodcastManifest>(podcasts) }
                 ?.let { episodeQueue.setOrder(podcastMirror.apply(it)) }
         }
-        planner.plan(replaceSchedule = phoneBack, restart = settingsChanged)
+        planner.plan(replaceSchedule = phoneBack, restart = restartDownloads)
         // A DataItem whose asset was not readable (yet) (phone out of range, transfer running) does not count as
         // applied; otherwise it would only come with the next change on the phone.
         if ((manifestHash == null || manifest != null) && (podcastsHash == null || podcasts != null)) {

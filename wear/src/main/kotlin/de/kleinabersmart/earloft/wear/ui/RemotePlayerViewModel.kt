@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.roundToInt
@@ -46,19 +47,36 @@ import kotlin.math.roundToInt
 @HiltViewModel
 class RemotePlayerViewModel @Inject constructor(
     private val remote: PhoneRemote,
-    phoneConnection: PhoneConnection,
+    private val phoneConnection: PhoneConnection,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel(), NowPlayingModel, ChaptersModel, SleepTimerModel {
 
     /**
      * Without the phone the last report stays: it would go on "playing" and counting, and controls would only seem to work
      * (review4 T59). While the state is still being checked, the phone counts as there, so the view doesn't flicker.
+     *
+     * The status only changes with an event, and a phone coming back is none (see [PhoneConnection.status]): without the phone it is
+     * checked again every [RECHECK_MS], and at once when a report or a command gets through ([recheckIfAway]). Otherwise the notice
+     * stayed while reports arrived and commands worked.
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     private val phoneReachable: StateFlow<Boolean> = phoneConnection.status
         .map { it is PhoneStatus.Connected || it is PhoneStatus.Checking }
         .onStart { emit(true) }
         .distinctUntilChanged()
+        .transformLatest { reachable ->
+            emit(reachable)
+            while (!reachable) {
+                delay(RECHECK_MS)
+                phoneConnection.refresh()
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    /** Something got through from or to the phone: if it counts as away, its status is checked again right away. */
+    private fun recheckIfAway() {
+        if (!phoneReachable.value) phoneConnection.refresh()
+    }
 
     /** A command just didn't reach the phone. */
     private val sendFailed = MutableStateFlow(false)
@@ -79,6 +97,7 @@ class RemotePlayerViewModel @Inject constructor(
                 pendingRepeat.value = null
                 pendingSleepCancelled.value = false
                 if (dto != null && !_volumeVisible.value) _volume.value = dto.volume
+                if (dto != null) recheckIfAway()
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -266,7 +285,7 @@ class RemotePlayerViewModel @Inject constructor(
      * (Review V3).
      */
     private fun send(action: WearRemoteAction, value: Long = 0) {
-        applicationScope.launch { if (!remote.send(action, value)) onSendFailed() }
+        applicationScope.launch { if (remote.send(action, value)) recheckIfAway() else onSendFailed() }
     }
 
     /** The command didn't go out: the provisional values are dropped at once, and the view says why (review4 T59). */
@@ -303,6 +322,9 @@ class RemotePlayerViewModel @Inject constructor(
         const val VOLUME_VISIBLE_MS = 1_500L
         const val PENDING_MS = 3_000L
         const val SLEEP_TICK_MS = 1_000L
+
+        /** How often the phone's status is checked again while it counts as away. */
+        const val RECHECK_MS = 10_000L
     }
 }
 
