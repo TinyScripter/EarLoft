@@ -131,18 +131,23 @@ class RemotePlayerViewModel @Inject constructor(
     override val positionMs: StateFlow<Long> = combine(remoteState, phoneReachable, ::Pair)
         .flatMapLatest { (dto, reachable) ->
             flow {
-                // Without the phone, where it was last reported; nobody knows what it did since.
-                val start = (if (reachable) dto?.positionAt(System.currentTimeMillis()) else dto?.positionMs) ?: 0L
+                val start = startPosition(dto, reachable, System.currentTimeMillis(), shownPosition)
                 val startedAt = SystemClock.elapsedRealtime()
+                shownPosition = ShownPosition(dto, start)
                 emit(start)
                 while (reachable && dto?.isPlaying == true) {
                     delay(POSITION_INTERVAL_MS)
                     val position = start + ((SystemClock.elapsedRealtime() - startedAt) * dto.speed.toDouble()).toLong()
-                    emit(if (dto.durationMs > 0) position.coerceAtMost(dto.durationMs) else position)
+                    val shown = if (dto.durationMs > 0) position.coerceAtMost(dto.durationMs) else position
+                    shownPosition = ShownPosition(dto, shown)
+                    emit(shown)
                 }
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
+
+    /** The position last shown and the report it was counted from; see [startPosition]. */
+    @Volatile private var shownPosition: ShownPosition? = null
 
     override val cover: StateFlow<Bitmap?> = combine(remoteState, remote.cover) { dto, cover ->
         cover?.takeIf { it.first == dto?.coverKey }?.second
@@ -310,6 +315,21 @@ internal fun chaptersOf(state: WearRemoteStateDto?, chapters: WearRemoteChapters
     return chapters.chapters.mapIndexed { index, chapter ->
         BookChapter(index, chapter.title, chapter.startMs, chapter.endMs, unavailable = chapter.unavailable)
     }
+}
+
+/** A position shown on the watch, counted from the phone's report [from]. */
+internal data class ShownPosition(val from: WearRemoteStateDto?, val positionMs: Long)
+
+/**
+ * Where the shown position starts for the report [dto]: with the phone counted on from the report. Without it, it stops where it
+ * was last shown for the same report, since nobody knows what the phone did since; going back to the report itself, which can be
+ * minutes old, made it jump back and then forward again once the phone was there (review4 8.6 Y30).
+ */
+internal fun startPosition(dto: WearRemoteStateDto?, reachable: Boolean, now: Long, shown: ShownPosition?): Long = when {
+    dto == null -> 0L
+    reachable -> dto.positionAt(now)
+    shown != null && shown.from == dto -> shown.positionMs
+    else -> dto.positionMs
 }
 
 /** The chapter at [positionMs] (book time), like [de.kleinabersmart.earloft.core.model.BookTimeline.chapterAt]. */
