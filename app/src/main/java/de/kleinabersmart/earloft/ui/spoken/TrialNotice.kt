@@ -19,6 +19,8 @@ import androidx.compose.ui.unit.dp
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.model.PodcastFeed
+import de.kleinabersmart.earloft.ui.permission.blockedByHomeNetwork
+import de.kleinabersmart.earloft.ui.permission.rememberLocalNetworkGranted
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
@@ -53,20 +55,24 @@ fun TrialNotice(
     }
 }
 
+/** The feed on the home network fails only because the home network permission is missing (review4 T5). */
+@Composable
+fun feedBlockedByHomeNetwork(feed: PodcastFeed): Boolean =
+    blockedByHomeNetwork(feed.refreshError == FeedError.UNREACHABLE || feed.refreshError == null, feed.url, rememberLocalNetworkGranted())
+
 /** "Sync failing since 12.11.2026: feed no longer exists (404)" for a subscription with [PodcastFeed.hasProblem]. */
 @Composable
-fun feedProblemText(feed: PodcastFeed): String =
-    stringResource(
-        R.string.podcast_refresh_failing,
-        formatEpisodeDay(feed.failingSince, withTime = false),
-        stringResource(
-            when (feed.refreshError) {
-                FeedError.GONE -> R.string.feed_error_gone
-                FeedError.DENIED -> R.string.feed_error_denied
-                FeedError.SERVER -> R.string.feed_error_server
-                FeedError.NOT_A_FEED -> R.string.feed_error_not_a_feed
-                FeedError.TLS -> R.string.feed_error_tls
-                FeedError.UNREACHABLE, null -> R.string.feed_error_unreachable
-            },
-        ),
-    )
+fun feedProblemText(feed: PodcastFeed): String {
+    val reason = when {
+        feedBlockedByHomeNetwork(feed) -> R.string.sync_failed_home_network
+        else -> when (feed.refreshError) {
+            FeedError.GONE -> R.string.feed_error_gone
+            FeedError.DENIED -> R.string.feed_error_denied
+            FeedError.SERVER -> R.string.feed_error_server
+            FeedError.NOT_A_FEED -> R.string.feed_error_not_a_feed
+            FeedError.TLS -> R.string.feed_error_tls
+            FeedError.UNREACHABLE, null -> R.string.feed_error_unreachable
+        }
+    }
+    return stringResource(R.string.podcast_refresh_failing, formatEpisodeDay(feed.failingSince, withTime = false), stringResource(reason))
+}

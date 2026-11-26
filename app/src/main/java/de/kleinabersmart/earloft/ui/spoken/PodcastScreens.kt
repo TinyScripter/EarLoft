@@ -6,6 +6,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import de.kleinabersmart.earloft.ui.components.ScrollToTopEffect
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
@@ -115,6 +116,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import de.kleinabersmart.earloft.R
+import de.kleinabersmart.earloft.ui.permission.openAppSettings
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
 import de.kleinabersmart.earloft.ui.components.ShareButton
 import de.kleinabersmart.earloft.core.model.BookWithProgress
@@ -488,6 +490,7 @@ fun PodcastScreen(
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
+    val context = LocalContext.current
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { snackbars.show(resources.getString(it), SnackbarDuration.Long) }
     }
@@ -593,6 +596,10 @@ fun PodcastScreen(
                                 error = true,
                                 // Rejected login: more likely credentials than another source.
                                 action = when {
+                                    // Only the permission is missing: another source would not help (review4 T5).
+                                    feedBlockedByHomeNetwork(current) -> {
+                                        { FilledTonalButton(onClick = { context.openAppSettings() }) { Text(stringResource(R.string.permission_open_settings)) } }
+                                    }
                                     !current.subscribed -> null
                                     current.refreshError == FeedError.DENIED && ardSoundsShowId(current.url) == null -> {
                                         { FilledTonalButton(onClick = { editingCredentials = true }) { Text(stringResource(R.string.podcast_credentials)) } }

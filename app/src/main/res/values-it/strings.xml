@@ -367,6 +367,7 @@
     <string name="add_server_already_set_up">Questo server è già configurato. Puoi modificarlo qui.</string>
     <string name="sync_failed_library_changed">La libreria “%1$s” è cambiata sul server durante la sincronizzazione. Non è stato rimosso nulla; la prossima sincronizzazione riproverà.</string>
     <string name="sync_failed_permission">EarLoft non è autorizzata a leggere la musica su questo dispositivo. Consenti l’accesso nelle impostazioni dell’app, in “Autorizzazioni”.</string>
+    <string name="sync_failed_home_network">accesso alla rete di casa non consentito</string>
     <string name="sync_failed_local_unavailable">Al momento non è possibile leggere la musica su questo dispositivo. La prossima sincronizzazione riproverà.</string>
     <string name="sync_failed_other">La sincronizzazione non è riuscita a causa di un errore interno. La prossima sincronizzazione riproverà.</string>
     <string name="edit_server_title">Modifica server</string>

@@ -8,11 +8,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -62,6 +66,29 @@ fun rememberLocalNetworkRequester(block: () -> Unit): () -> Unit {
         }
     }
 }
+
+/**
+ * Whether the home network permission is granted, checked again each time the screen resumes: the way back from the app settings
+ * ([openAppSettings]) has to show the result. Always `true` before Android 17.
+ */
+@Composable
+fun rememberLocalNetworkGranted(): Boolean {
+    val context = LocalContext.current
+    var granted by remember { mutableStateOf(LocalNetworkPermission.isGranted(context)) }
+    LifecycleResumeEffect(Unit) {
+        granted = LocalNetworkPermission.isGranted(context)
+        onPauseOrDispose { }
+    }
+    return granted
+}
+
+/**
+ * Whether a connection error at [address] comes from the missing home network permission: without it every connection to the
+ * home network ends in a timeout, and "Server unreachable (timeout)" hides the cause (review4 T5). [unreachable]: the error is
+ * one of not reaching the server, not e.g. wrong credentials.
+ */
+internal fun blockedByHomeNetwork(unreachable: Boolean, address: String, granted: Boolean): Boolean =
+    unreachable && !granted && ShareLinks.isHomeNetworkAddress(address)
 
 /** Whether any of the [addresses] of servers and feeds is on the home network. */
 internal fun needsHomeNetworkAccess(addresses: Collection<String>): Boolean = addresses.any(ShareLinks::isHomeNetworkAddress)

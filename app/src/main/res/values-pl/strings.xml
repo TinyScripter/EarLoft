@@ -385,6 +385,7 @@
     <string name="add_server_already_set_up">Ten serwer jest już skonfigurowany. Tutaj możesz go zmienić.</string>
     <string name="sync_failed_library_changed">Biblioteka „%1$s” zmieniła się na serwerze podczas synchronizacji. Niczego nie usunięto; następna synchronizacja spróbuje ponownie.</string>
     <string name="sync_failed_permission">EarLoft nie ma uprawnień do odczytu muzyki na tym urządzeniu. Zezwól na dostęp w ustawieniach aplikacji w sekcji „Uprawnienia”.</string>
+    <string name="sync_failed_home_network">brak zgody na dostęp do sieci domowej</string>
     <string name="sync_failed_local_unavailable">Nie można teraz odczytać muzyki na tym urządzeniu. Następna synchronizacja spróbuje ponownie.</string>
     <string name="sync_failed_other">Synchronizacja nie powiodła się z powodu błędu wewnętrznego. Następna synchronizacja spróbuje ponownie.</string>
     <string name="edit_server_title">Edytuj serwer</string>

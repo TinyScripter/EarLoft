@@ -349,6 +349,7 @@
     <string name="add_server_already_set_up">Denne server er allerede sat op. Her kan du ændre den.</string>
     <string name="sync_failed_library_changed">Biblioteket »%1$s« blev ændret på serveren under synkroniseringen. Intet blev fjernet; næste synkronisering prøver igen.</string>
     <string name="sync_failed_permission">EarLoft har ikke tilladelse til at læse musikken på denne enhed. Tillad adgang i appindstillingerne under »Tilladelser«.</string>
+    <string name="sync_failed_home_network">adgang til hjemmenetværket er ikke tilladt</string>
     <string name="sync_failed_local_unavailable">Musikken på denne enhed kan ikke læses lige nu. Næste synkronisering prøver igen.</string>
     <string name="sync_failed_other">Synkroniseringen mislykkedes på grund af en intern fejl. Næste synkronisering prøver igen.</string>
     <string name="edit_server_title">Rediger server</string>

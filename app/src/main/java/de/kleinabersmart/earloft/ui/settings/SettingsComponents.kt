@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -47,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
@@ -71,6 +73,9 @@ import de.kleinabersmart.earloft.core.model.ReplayGainMode
 import de.kleinabersmart.earloft.core.playback.ReplayGainSettings
 import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.ui.library.BackButton
+import de.kleinabersmart.earloft.ui.permission.blockedByHomeNetwork
+import de.kleinabersmart.earloft.ui.permission.openAppSettings
+import de.kleinabersmart.earloft.ui.permission.rememberLocalNetworkGranted
 import de.kleinabersmart.earloft.ui.theme.ThemeMode
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
@@ -253,9 +258,12 @@ internal fun ServerRow(
                 )
                 // A switched-off server is not an error, as in the book server rows (review2 J64).
                 val isError = server.enabled && (item.passwordLost || item.error != null)
+                val homeNetworkBlocked = server.enabled && !item.passwordLost &&
+                    blockedByHomeNetwork(item.error is SyncFailure.Unreachable, server.baseUrl, rememberLocalNetworkGranted())
                 val status = when {
                     !server.enabled -> stringResource(R.string.server_disabled)
                     item.passwordLost -> stringResource(R.string.server_password_lost)
+                    homeNetworkBlocked -> stringResource(R.string.server_sync_failed, stringResource(R.string.sync_failed_home_network))
                     item.error != null -> stringResource(R.string.server_sync_failed, syncFailureText(item.error, server.type))
                     // 1: after a migration the full sync is due (`EarLoftDatabase.SeveralGenres`), not a point in time.
                     server.lastFullSyncAt <= 1L -> stringResource(R.string.server_never_synced)
@@ -274,6 +282,7 @@ internal fun ServerRow(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (homeNetworkBlocked) HomeNetworkSettingsButton()
                 if (item.autoDownload) {
                     Text(stringResource(R.string.server_auto_download), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -310,9 +319,12 @@ internal fun AbsServerRow(
             supportingContent = {
                 Column {
                     Text(server.baseUrl, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val homeNetworkBlocked = server.enabled && !keyLost &&
+                        blockedByHomeNetwork(failure is SyncFailure.Unreachable, server.baseUrl, rememberLocalNetworkGranted())
                     val status = when {
                         !server.enabled -> stringResource(R.string.server_disabled)
                         keyLost -> stringResource(if (server.openId) R.string.spoken_abs_login_lost else R.string.spoken_abs_key_lost)
+                        homeNetworkBlocked -> stringResource(R.string.server_sync_failed, stringResource(R.string.sync_failed_home_network))
                         // The sync error as with music servers (review H39); a rejected key or sign-in says what to renew.
                         failure == SyncFailure.WrongCredentials ->
                             stringResource(if (server.openId) R.string.spoken_abs_login_lost else R.string.spoken_abs_error_auth)
@@ -329,6 +341,7 @@ internal fun AbsServerRow(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (homeNetworkBlocked) HomeNetworkSettingsButton()
                     if (narrow) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { actions() }
                 }
             },
@@ -385,6 +398,19 @@ internal fun notServerText(type: SourceType): Int = when (type) {
     SourceType.JELLYFIN -> R.string.add_server_not_jellyfin
     SourceType.EMBY -> R.string.add_server_not_emby
     else -> R.string.add_server_not_subsonic
+}
+
+/**
+ * The way to the home network permission once the system no longer asks (after two denials) – only from here, where the user
+ * sees the sync error, not from the request at app start (review4 T5).
+ */
+@Composable
+internal fun HomeNetworkSettingsButton() {
+    val context = LocalContext.current
+    // Its label in line with the status text above.
+    TextButton(onClick = { context.openAppSettings() }, modifier = Modifier.offset(x = (-12).dp)) {
+        Text(stringResource(R.string.permission_open_settings))
+    }
 }
 
 /** "Server unreachable", with the reason in brackets only if there is one (review4 T34: otherwise "()"). */
