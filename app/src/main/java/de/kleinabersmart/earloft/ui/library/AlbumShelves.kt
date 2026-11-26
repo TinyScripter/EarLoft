@@ -35,12 +35,14 @@ import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
 import de.kleinabersmart.earloft.ui.spoken.ShowStartOnNewFront
 import de.kleinabersmart.earloft.ui.spoken.rememberFrontRow
 import de.kleinabersmart.earloft.ui.spoken.rowItemAnimation
+import androidx.core.text.util.LocalePreferences
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalAdjusters
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /** What a shelf of the [AlbumShelves] holds, by the order of the albums. */
@@ -57,7 +59,10 @@ sealed interface ShelfLabel {
 /** Padding inside the cards of a shelf, as on the start page. */
 private val CardInset = 4.dp
 
-/** When an album was last played, relative to today. */
+/**
+ * When an album was last played, by the calendar: today, earlier this week, earlier this month, earlier this year, before. A week
+ * that began in the previous month or year still counts as this week.
+ */
 enum class PlayedBucket { TODAY, WEEK, MONTH, YEAR, EARLIER, NEVER }
 
 data class AlbumShelf(val label: ShelfLabel, val albums: List<Album>)
@@ -66,16 +71,23 @@ data class AlbumShelf(val label: ShelfLabel, val albums: List<Album>)
  * The [albums] (in the order [sort]) on shelves: title → initial letter, artist → per artist, year → decade (and "no year"),
  * recently added → month, recently played → today / this week / … / never, cover color → color family. Albums with the same
  * label share one shelf, in the order of their first album (an "Ä" title sorted to the end joins the "A" shelf). [now] and
- * [zone] decide months and the played buckets.
+ * [zone] decide months and the played buckets; the week starts on [firstDayOfWeek] (Sunday in some regions, review4 T54).
  */
-fun albumShelves(albums: List<Album>, sort: AlbumSort, now: Long, zone: ZoneId): List<AlbumShelf> {
+fun albumShelves(
+    albums: List<Album>,
+    sort: AlbumSort,
+    now: Long,
+    zone: ZoneId,
+    firstDayOfWeek: DayOfWeek = DayOfWeek.MONDAY,
+): List<AlbumShelf> {
     val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+    val weekStart = today.with(TemporalAdjusters.previousOrSame(firstDayOfWeek))
     val shelves = LinkedHashMap<ShelfLabel, MutableList<Album>>()
-    albums.forEach { album -> shelves.getOrPut(shelfLabelOf(album, sort, today, zone)) { mutableListOf() } += album }
+    albums.forEach { album -> shelves.getOrPut(shelfLabelOf(album, sort, today, weekStart, zone)) { mutableListOf() } += album }
     return shelves.map { (label, list) -> AlbumShelf(label, list) }
 }
 
-private fun shelfLabelOf(album: Album, sort: AlbumSort, today: LocalDate, zone: ZoneId): ShelfLabel = when (sort) {
+private fun shelfLabelOf(album: Album, sort: AlbumSort, today: LocalDate, weekStart: LocalDate, zone: ZoneId): ShelfLabel = when (sort) {
     AlbumSort.TITLE -> ShelfLabel.Letter(foldedLetterOf(album.title.sortKey()))
     AlbumSort.ARTIST -> ShelfLabel.ArtistName(album.artist.trim())
     AlbumSort.YEAR -> album.year?.takeIf { it >= 1000 }?.let { ShelfLabel.Decade(it / 10 * 10) } ?: ShelfLabel.NoYear
@@ -83,20 +95,31 @@ private fun shelfLabelOf(album: Album, sort: AlbumSort, today: LocalDate, zone: 
         val month = YearMonth.from(Instant.ofEpochMilli(album.addedAt ?: 0L).atZone(zone))
         ShelfLabel.Month(month.year, month.monthValue)
     }
-    AlbumSort.RECENTLY_PLAYED -> ShelfLabel.Played(playedBucket(album.lastPlayedAt, today, zone))
+    AlbumSort.RECENTLY_PLAYED -> ShelfLabel.Played(playedBucket(album.lastPlayedAt, today, weekStart, zone))
     AlbumSort.COLOR -> ShelfLabel.Color(colorFamilyOf(album.seedColor))
 }
 
-private fun playedBucket(playedAt: Long?, today: LocalDate, zone: ZoneId): PlayedBucket {
+private fun playedBucket(playedAt: Long?, today: LocalDate, weekStart: LocalDate, zone: ZoneId): PlayedBucket {
     if (playedAt == null) return PlayedBucket.NEVER
-    val days = ChronoUnit.DAYS.between(Instant.ofEpochMilli(playedAt).atZone(zone).toLocalDate(), today)
+    val day = Instant.ofEpochMilli(playedAt).atZone(zone).toLocalDate()
     return when {
-        days <= 0 -> PlayedBucket.TODAY
-        days < 7 -> PlayedBucket.WEEK
-        days < 31 -> PlayedBucket.MONTH
-        days < 366 -> PlayedBucket.YEAR
+        !day.isBefore(today) -> PlayedBucket.TODAY
+        !day.isBefore(weekStart) -> PlayedBucket.WEEK
+        YearMonth.from(day) == YearMonth.from(today) -> PlayedBucket.MONTH
+        day.year == today.year -> PlayedBucket.YEAR
         else -> PlayedBucket.EARLIER
     }
+}
+
+/** The first day of the week as the user's region and settings have it (Android 14+ lets the user choose it). */
+internal fun userFirstDayOfWeek(): DayOfWeek = when (LocalePreferences.getFirstDayOfWeek()) {
+    LocalePreferences.FirstDayOfWeek.SUNDAY -> DayOfWeek.SUNDAY
+    LocalePreferences.FirstDayOfWeek.TUESDAY -> DayOfWeek.TUESDAY
+    LocalePreferences.FirstDayOfWeek.WEDNESDAY -> DayOfWeek.WEDNESDAY
+    LocalePreferences.FirstDayOfWeek.THURSDAY -> DayOfWeek.THURSDAY
+    LocalePreferences.FirstDayOfWeek.FRIDAY -> DayOfWeek.FRIDAY
+    LocalePreferences.FirstDayOfWeek.SATURDAY -> DayOfWeek.SATURDAY
+    else -> DayOfWeek.MONDAY
 }
 
 /**
@@ -117,7 +140,9 @@ internal fun AlbumShelves(
     onPlayShelf: (List<Long>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shelves = remember(albums, sort) { albumShelves(albums, sort, System.currentTimeMillis(), ZoneId.systemDefault()) }
+    val shelves = remember(albums, sort) {
+        albumShelves(albums, sort, System.currentTimeMillis(), ZoneId.systemDefault(), userFirstDayOfWeek())
+    }
     val titles = shelves.map { shelfTitle(it.label) }
     val state = rememberLazyListState()
     ScrollToTopEffect(state)
