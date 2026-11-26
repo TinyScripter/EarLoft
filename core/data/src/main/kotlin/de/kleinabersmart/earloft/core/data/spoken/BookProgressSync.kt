@@ -206,8 +206,9 @@ class BookProgressSync @Inject constructor(
             null
         }
         if (!reached) return PullResult(local, tookRemote = false, noticeable = false)
-        // The newer timestamp wins, also over a state listened here and not reported yet (review4 Y18; with a server clock
-        // running ahead the server can win, T19). A newer own state goes up right away.
+        // The newer timestamp wins, also over a state listened here and not reported yet (review4 Y18). States from this app
+        // carry the time they came about ([toUpdate]); only one written without it (the web player) has the server's clock,
+        // which may run ahead (T19). A newer own state goes up right away.
         val tookRemote = remote != null && applyRemote(server.serverId, remote)
         if (!tookRemote && dao.progress(bookId)?.dirty == true) withTimeoutOrNull(PULL_TIMEOUT_MS) { push(bookId) }
         if (remote == null) return PullResult(dao.progress(bookId)?.toModel(), tookRemote = false, noticeable = false)
@@ -261,6 +262,8 @@ class BookProgressSync @Inject constructor(
         progress = if (durationMs > 0) (positionMs.toDouble() / durationMs).coerceIn(0.0, 1.0) else 0.0,
         isFinished = finished,
         hideFromContinueListening = hidden,
+        // The time it came about here, not the time it arrives: otherwise a state delivered late would beat newer ones.
+        lastUpdate = updatedAt,
     )
 
     private fun AbsMediaProgressDto.toModel() = BookProgress(

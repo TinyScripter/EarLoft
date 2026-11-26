@@ -134,7 +134,7 @@ data class AbsMediaProgressDto(
     val progress: Double = 0.0,
     val currentTime: Double = 0.0,
     val isFinished: Boolean = false,
-    /** Unix ms of the last change on the server. */
+    /** Unix ms of the last change: as sent by the client ([AbsProgressUpdate.lastUpdate], local sessions), otherwise of arrival. */
     val lastUpdate: Long = 0,
     /** Removed from "Continue listening"; cleared on the server with the next new position. */
     val hideFromContinueListening: Boolean = false,
@@ -148,4 +148,10 @@ data class AbsProgressUpdate(
     val isFinished: Boolean,
     /** Always sent (without a default value, otherwise `false` would be omitted); Audiobookshelf 2.37 applies it via PATCH. */
     val hideFromContinueListening: Boolean,
+    /**
+     * Unix ms when this state came about on the device. Audiobookshelf (checked on 2.38.0) takes it over as the progress's
+     * `lastUpdate`; without it the server stamps the time of arrival, and a state delivered late (offline, retried) would then
+     * look newer than one from another device that came about after it.
+     */
+    val lastUpdate: Long,
 )

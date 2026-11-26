@@ -42,6 +42,7 @@ import org.robolectric.RobolectricTestRunner
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 /** Several book libraries per server (`books_improvements.md` M3) and genres (S9) in the sync, against a mocked server. */
 @RunWith(RobolectricTestRunner::class)
@@ -58,6 +59,7 @@ class BookLibrariesSyncTest {
 
     /** `lastUpdate` of the progress the server reports for `li_1` (at 10 s) and the positions (s) sent to it. */
     private val serverProgressAt = AtomicLong(0)
+    private val serverPosition = AtomicReference(10.0)
     private val sentPositions = CopyOnWriteArrayList<Double>()
 
     /** `updatedAt` per item on the server; 1 if not set. */
@@ -256,6 +258,26 @@ class BookLibrariesSyncTest {
 
         assertEquals(300_000L, dao.progress(book)?.positionMs)
         assertEquals(listOf(300.0), sentPositions)
+    }
+
+    @Test
+    fun `a state delivered late keeps its own time on the server, so a newer one from the watch still wins`() = runBlocking {
+        val book = offlineState()
+        val listenedAt = System.currentTimeMillis() - 10 * 60_000
+        dao.upsertProgress(dao.progress(book)!!.copy(updatedAt = listenedAt))
+        serverProgressAt.set(listenedAt - 3_600_000)
+
+        // Listened here ten minutes ago, delivered only now.
+        assertTrue(progressSync.pushPending())
+        assertEquals(listenedAt, serverProgressAt.get())
+
+        // The watch listened on after that; its packet comes later still.
+        dao.upsertProgress(dao.progress(book)!!.copy(positionMs = 400_000, updatedAt = listenedAt + 5 * 60_000, dirty = true))
+        assertTrue(progressSync.push(book, checkServer = true))
+
+        assertEquals(listOf(300.0, 400.0), sentPositions)
+        assertEquals(400_000L, dao.progress(book)?.positionMs)
+        assertEquals(listenedAt + 5 * 60_000, serverProgressAt.get())
     }
 
     /** Five minutes of "Crime" listened here offline, not reported yet. */
@@ -487,11 +509,17 @@ class BookLibrariesSyncTest {
                 path == "/api/session/local" -> json("{}")
                 path == "/api/me/progress/li_1" && request.method == "PATCH" -> {
                     val body = request.body?.utf8().orEmpty()
-                    Regex(""""currentTime":([0-9.]+)""").find(body)?.groupValues?.get(1)?.toDouble()?.let(sentPositions::add)
+                    Regex(""""currentTime":([0-9.]+)""").find(body)?.groupValues?.get(1)?.toDouble()?.let {
+                        sentPositions += it
+                        serverPosition.set(it)
+                    }
+                    // As Audiobookshelf (2.38): a sent `lastUpdate` is taken over, otherwise the time of arrival.
+                    val lastUpdate = Regex(""""lastUpdate":([0-9]+)""").find(body)?.groupValues?.get(1)?.toLong()
+                    serverProgressAt.set(lastUpdate ?: System.currentTimeMillis())
                     json("{}")
                 }
                 path == "/api/me/progress/li_1" -> json(
-                    """{"libraryItemId":"li_1","duration":600,"currentTime":10,"lastUpdate":${serverProgressAt.get()}}""",
+                    """{"libraryItemId":"li_1","duration":600,"currentTime":${serverPosition.get()},"lastUpdate":${serverProgressAt.get()}}""",
                 )
                 path == "/api/libraries" -> {
                     val names = mapOf("lib-a" to "Audiobooks", "lib-b" to "Radio plays")
