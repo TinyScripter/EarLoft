@@ -21,17 +21,19 @@ don't support Android Auto or Wear OS, or they can't keep all your media offline
 exists.
 
 <p>
-  <a href="media/mobile_1.png"><img src="media/mobile_1.png" alt="EarLoft on the phone, screenshot 1" width="170"></a>
-  <a href="media/mobile_2.png"><img src="media/mobile_2.png" alt="EarLoft on the phone, screenshot 2" width="170"></a>
-  <a href="media/mobile_3.png"><img src="media/mobile_3.png" alt="EarLoft on the phone, screenshot 3" width="170"></a>
-  <a href="media/mobile_4.png"><img src="media/mobile_4.png" alt="EarLoft on the phone, screenshot 4" width="170"></a>
+  <a href="fastlane/metadata/android/en-US/images/phoneScreenshots/1_library.png"><img src="media/readme/phone_1_library.jpg" alt="Phone: music, podcasts and audiobooks in one app" width="150"></a>
+  <a href="fastlane/metadata/android/en-US/images/phoneScreenshots/2_player.png"><img src="media/readme/phone_2_player.jpg" alt="Phone: player with synchronized lyrics" width="150"></a>
+  <a href="fastlane/metadata/android/en-US/images/phoneScreenshots/3_podcasts.png"><img src="media/readme/phone_3_podcasts.jpg" alt="Phone: podcast episodes" width="150"></a>
+  <a href="fastlane/metadata/android/en-US/images/phoneScreenshots/4_audiobooks.png"><img src="media/readme/phone_4_audiobooks.jpg" alt="Phone: audiobook player with speed, sleep timer and chapters" width="150"></a>
 </p>
 <p>
-  <a href="media/wear_1.png"><img src="media/wear_1.png" alt="EarLoft on the watch, screenshot 1" width="120"></a>
-  <a href="media/wear_2.png"><img src="media/wear_2.png" alt="EarLoft on the watch, screenshot 2" width="120"></a>
+  <a href="fastlane/metadata/android/en-US/images/tenInchScreenshots/2_player.png"><img src="media/readme/tablet10_2_player.jpg" alt="10-inch tablet: player with the lyrics next to it" width="280"></a>
+  <a href="fastlane/metadata/android/en-US/images/tenInchScreenshots/4_audiobooks.png"><img src="media/readme/tablet10_4_audiobooks.jpg" alt="10-inch tablet: audiobook player with the chapter list next to it" width="280"></a>
+  <a href="fastlane/metadata/android/en-US/images/wearScreenshots/1_watch_home.png"><img src="media/readme/watch_1_watch_home.png" alt="Watch: what is on the watch" width="110"></a>
+  <a href="fastlane/metadata/android/en-US/images/wearScreenshots/4_phone_playback.png"><img src="media/readme/watch_4_phone_playback.png" alt="Watch: controlling the phone's playback" width="110"></a>
 </p>
 
-*Click a screenshot to see it in full size.*
+*Phone, 10-inch tablet and Wear OS watch. Click a screenshot to see it in full size.*
 
 ## Features
 
@@ -67,8 +69,11 @@ library.
   source (device file, download, then stream). **Track info** in the player shows where a song plays from.
 - **Gapless playback** and **ReplayGain**, so live albums play without breaks and all albums at a similar volume. The
   system equalizer opens right from the player.
-- **Browse the way you like:** by genre (a song can have several) and by decade; filter and sort the albums, then play
-  or shuffle what is left.
+- **Browse the way you like:** by genre (a song can have several) and by decade; filter and sort the albums (also by
+  cover color), then play or shuffle what is left.
+- **Albums the way you like to see them:** a grid in three tile sizes (pinch to switch), a list, shelves grouped the way
+  the albums are sorted (letter, artist, decade, last played, cover color), or a carousel and a record crate to flip
+  through, where a dice button jumps to a random album.
 - **Mixes:** **Start mix** on a song, album, artist or in the player queues similar songs. With **Keep playing**
   (**Settings → Music**) a mix is added when the last song of the queue starts, so the music never stops.
 - **Favorite songs, albums and artists, playlists and play counts sync with your server**, also offline; scrobbling is
@@ -240,11 +245,14 @@ location, microphone, camera, contacts, phone or Bluetooth access.
 
 **Devices on your local network** (`ACCESS_LOCAL_NETWORK`, Android 17 and newer)
 
-- *Asked:* when you save a server.
-- *Used for:* reaching servers in your home network, for example `http://192.168.x.x`.
+- *Asked:* when you save a server, and by itself as soon as a server or podcast feed in your home network is set up
+  without it (for example after restoring a backup or on a new phone). A server on the phone itself needs no
+  permission.
+- *Used for:* reaching servers and podcast feeds in your home network, for example `http://192.168.x.x`.
 - *If you don't allow it:* connections to addresses in your home network time out, so syncing, streaming and
-  downloading from such servers fail and adding one ends with a connection error. Servers you reach over the internet
-  (public address) and podcast feeds are not affected.
+  downloading from them fail and adding a server ends with a connection error. Such a server or feed says *access to
+  the home network not allowed* and offers the app settings; once you allow it there, it is synced again right away.
+  Servers and feeds you reach over the internet (public address) are not affected.
 
 ### On the watch
 
@@ -284,7 +292,8 @@ phone and does not work without it.
    the appearance. Its first page offers to restore a backup, its podcast page to import a podcast database. You can
    skip it at any time and open it again under **Settings → General → Show setup again**. The steps below do the same
    by hand. Access to your audio files is only asked for when you switch on music, podcasts or
-   books on this device, access to your local network (from Android 17) when you add a server. See
+   books on this device, access to your local network (from Android 17) when you add a server or one in your home
+   network is already set up. See
    [Permissions](#permissions) for what each one is needed for.
 2. **Music:** switch on **Settings → Music → Use music on this device** for the music on your phone. For a server:
    **Settings → Music → Add server**, choose the server type (Navidrome / Subsonic, Jellyfin or Emby), then enter the
