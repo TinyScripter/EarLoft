@@ -85,6 +85,9 @@ class BookPlaybackListenerTest {
     private val endedEpisodes = mutableListOf<Long>()
     private val chapters = mutableListOf<BookChapter?>()
 
+    /** Jumps to a file outside the player's window (book, track index, offset). */
+    private val outsideWindow = mutableListOf<Triple<Long, Int, Long>>()
+
     @Before
     fun setUp() = runBlocking {
         db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
@@ -119,6 +122,10 @@ class BookPlaybackListenerTest {
             onEpisodeEnded = { endedEpisodes += it },
             onChapterChanged = { chapters += it },
             effects = effects,
+            seekOutsideWindow = { bookId, trackIndex, offsetMs ->
+                outsideWindow += Triple(bookId, trackIndex, offsetMs)
+                true
+            },
         )
         // SimpleBasePlayer reads its first state on first access without events: that has to be the empty one.
         player.mediaItemCount
@@ -151,8 +158,11 @@ class BookPlaybackListenerTest {
         return bookId
     }
 
-    /** Puts [bookId] into the player, paused at [positionMs] in the book, as the service does. */
-    private suspend fun load(bookId: Long, positionMs: Long = 0, unavailable: Set<Int> = emptySet()) {
+    /**
+     * Puts [bookId] into the player, paused at [positionMs] in the book, as the service does; from file [windowStart] on only
+     * (while casting the player holds a window of a long book).
+     */
+    private suspend fun load(bookId: Long, positionMs: Long = 0, unavailable: Set<Int> = emptySet(), windowStart: Int = 0) {
         val timeline = books.timeline(bookId)!!
         val prepared = PreparedBook(
             book = books.bookNow(bookId)!!,
@@ -163,7 +173,7 @@ class BookPlaybackListenerTest {
             speed = 1f,
         )
         val located = timeline.locate(positionMs)
-        player.load(prepared.toMediaItems(), located.trackIndex, located.offsetMs)
+        player.load(prepared.toMediaItems().drop(windowStart), located.trackIndex - windowStart, located.offsetMs)
         // The listener has its timeline once it knows where in the book the player is.
         eventually { assertTrue(listener.sleepSpot() != null) }
     }
@@ -290,6 +300,30 @@ class BookPlaybackListenerTest {
         player.play()
         quiet()
         assertEquals(200_000L - ResumeRule.DEFAULT_REWIND_S * 1000, player.currentPosition)
+    }
+
+    @Test
+    fun `a chapter jump into a file before the cast window loads a window there`() = runBlocking {
+        val bookId = book(files = 3)
+        // The player holds files 1 and 2; it stands 10 s into the third chapter (file 1).
+        load(bookId, positionMs = FILE_MS + 10_000, windowStart = 1)
+
+        // Back to the chapter start: in the window, no reload.
+        assertTrue(listener.skipChapter(forward = false))
+        idle()
+        assertEquals(0, player.currentMediaItemIndex)
+        assertEquals(0L, player.currentPosition)
+        assertTrue(outsideWindow.isEmpty())
+
+        // Once more: chapter 2 lies in file 0, outside the window.
+        assertTrue(listener.skipChapter(forward = false))
+        assertEquals(listOf(Triple(bookId, 0, CHAPTER_MS)), outsideWindow)
+
+        // Directly by track index (chapter list, slider): in the window by its place there, not by its index.
+        assertTrue(listener.seekToTrack(2, 30_000))
+        idle()
+        assertEquals(1, player.currentMediaItemIndex)
+        assertEquals(30_000L, player.currentPosition)
     }
 
     @Test

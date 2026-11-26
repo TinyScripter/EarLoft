@@ -55,6 +55,11 @@ internal class BookPlaybackListener(
     private val applyAudio: (skipSilence: Boolean, volumeBoostDb: Int) -> Unit = { _, _ -> },
     /** Content time skipped by "skip silence" in ms since the last call ([SkippedSilence.drainMs]). */
     private val skippedSilenceMs: () -> Long = { 0L },
+    /**
+     * The file (book, track index, offset) is not in the player, which only holds a window of a long book while casting: load a
+     * window around it. `true` if that has started (it completes asynchronously), `false` if it is not possible.
+     */
+    private val seekOutsideWindow: (bookId: Long, trackIndex: Int, offsetMs: Long) -> Boolean = { _, _, _ -> false },
 ) : Player.Listener {
 
     private var timelineBookId: Long? = null
@@ -298,11 +303,24 @@ internal class BookPlaybackListener(
         seekInBook(timeline, target)
     }
 
-    /** Seeks to [positionMs] in the loaded book, also across file boundaries; `false` if the file is not in the player. */
+    /** Seeks to [positionMs] in the loaded book, also across file boundaries; `false` if that is not possible. */
     private fun seekInBook(timeline: BookTimeline, positionMs: Long): Boolean {
         val located = timeline.locate(positionMs)
-        val index = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).bookTrackIndex == located.trackIndex } ?: return false
-        player.seekTo(index, located.offsetMs)
+        return seekToTrack(located.trackIndex, located.offsetMs)
+    }
+
+    /**
+     * Seeks to [offsetMs] in the file [trackIndex] of the loaded book. While casting, the player holds only a window of a book with
+     * many files; a file outside of it comes with a new window ([seekOutsideWindow]), otherwise chapter jumps, the chapter list,
+     * rewinding after a pause or shaking would go nowhere (review4 T11). `false` without a loaded book or if that is not possible.
+     */
+    fun seekToTrack(trackIndex: Int, offsetMs: Long): Boolean {
+        val bookId = player.currentMediaItem?.bookId ?: return false
+        val index = (0 until player.mediaItemCount).firstOrNull { index ->
+            player.getMediaItemAt(index).let { it.bookId == bookId && it.bookTrackIndex == trackIndex }
+        }
+        if (index == null) return seekOutsideWindow(bookId, trackIndex, offsetMs)
+        player.seekTo(index, offsetMs)
         return true
     }
 

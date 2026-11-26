@@ -52,6 +52,15 @@ internal const val ACTION_VOICE_CHECK = "de.kleinabersmart.earloft.VOICE_CHECK"
 internal const val EXTRA_VOICE_QUERY = "query"
 
 /**
+ * Seek to [EXTRA_TRACK_INDEX] (file of the loaded book) at [EXTRA_POSITION_MS]. The file's index in the player only matches the
+ * track index as long as the player holds the whole book; while casting it holds a window, and the session finds the file or loads
+ * a window around it (review4 T11).
+ */
+internal const val ACTION_SEEK_BOOK_TRACK = "de.kleinabersmart.earloft.SEEK_BOOK_TRACK"
+internal const val EXTRA_TRACK_INDEX = "trackIndex"
+internal const val EXTRA_POSITION_MS = "positionMs"
+
+/**
  * Browse tree and resolution of media items for all controllers (app, system, watch, Android Auto).
  *
  * The tree's content comes from [BrowseTree] (tabs depending on the enabled areas, at most four). Songs in lists
@@ -79,6 +88,8 @@ internal class LibrarySessionCallback(
     private val mediaButtons: SpokenMediaButtons? = null,
     /** Chapter buttons ([ACTION_CHAPTER_NEXT] = `true`); on the main thread. */
     private val onChapterButton: (forward: Boolean) -> Unit = {},
+    /** [ACTION_SEEK_BOOK_TRACK]; on the main thread, `false` if there is no such file. */
+    private val onSeekBookTrack: (trackIndex: Int, positionMs: Long) -> Boolean = { _, _ -> false },
     /** Waits until the service has restored the last queue ([PlaybackService.restoreQueue]). */
     private val awaitRestore: suspend () -> Unit = {},
 ) : MediaLibrarySession.Callback {
@@ -255,6 +266,12 @@ internal class LibrarySessionCallback(
             ACTION_TOGGLE_FAVORITE -> session.player.currentMediaItem?.songId?.let { favoritesRepository.toggleFavorite(it) }
             ACTION_CHAPTER_PREVIOUS -> onChapterButton(false)
             ACTION_CHAPTER_NEXT -> onChapterButton(true)
+            ACTION_SEEK_BOOK_TRACK -> {
+                val trackIndex = args.getInt(EXTRA_TRACK_INDEX, -1)
+                if (trackIndex < 0 || !onSeekBookTrack(trackIndex, args.getLong(EXTRA_POSITION_MS))) {
+                    return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+                }
+            }
             ACTION_VOICE_CHECK -> {
                 val target = voiceTarget(session.player, args.getString(EXTRA_VOICE_QUERY).orEmpty())
                 if (target is VoiceStart.Songs && target.songs.isEmpty()) return@future SessionResult(SessionError.ERROR_BAD_VALUE)
@@ -562,6 +579,7 @@ internal fun controllerCommands(trusted: Boolean): ControllerCommands = if (trus
             .add(SessionCommand(ACTION_CHAPTER_PREVIOUS, Bundle.EMPTY))
             .add(SessionCommand(ACTION_CHAPTER_NEXT, Bundle.EMPTY))
             .add(SessionCommand(ACTION_VOICE_CHECK, Bundle.EMPTY))
+            .add(SessionCommand(ACTION_SEEK_BOOK_TRACK, Bundle.EMPTY))
             .build(),
         MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS,
     )

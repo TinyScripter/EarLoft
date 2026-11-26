@@ -253,6 +253,7 @@ class PlaybackService : MediaLibraryService() {
             // A cast receiver plays without effects; the local player keeps them until playing locally again.
             applyAudio = audioEffects::apply,
             skippedSilenceMs = skippedSilence::drainMs,
+            seekOutsideWindow = { bookId, trackIndex, offsetMs -> loadBookWindow(player, factory, bookId, trackIndex, offsetMs) },
         )
         player.addListener(bookListener)
         servicePlayer.attach(player) { bookId, playNext -> markFinished(player, bookId, playNext) }
@@ -287,6 +288,7 @@ class PlaybackService : MediaLibraryService() {
             this, libraryRepository, favoritesRepository, queuePersistence, bookPlaybackSource, browseTree, continueListening, factory, mainScope,
             mediaButtons = mediaButtons,
             onChapterButton = { forward -> if (forward) nextChapter() else previousChapter() },
+            onSeekBookTrack = { trackIndex, positionMs -> bookListener.seekToTrack(trackIndex, positionMs) },
         ) {
             restoreJob?.join()
         }
@@ -567,10 +569,42 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    /**
+     * While casting, the player holds only a window of a book with many files ([SessionPlayerFactory.maxQueueSize]); a jump to a file
+     * outside of it loads a window starting there, as when the book was started (review4 T11). The receiver pauses briefly for that.
+     * The items come from the database (`rebuild`, without asking the server), the rest goes to the factory's reserve again.
+     */
+    private fun loadBookWindow(player: Player, factory: SessionPlayerFactory?, bookId: Long, trackIndex: Int, offsetMs: Long): Boolean {
+        factory ?: return false
+        if (player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE) return false
+        bookWindowJob?.cancel()
+        bookWindowJob = mainScope.launch {
+            val prepared = withContext(Dispatchers.IO) { bookPlaybackSource.rebuild(bookId) } ?: return@launch
+            // Meanwhile something else was started or casting ended.
+            if (player.currentMediaItem?.bookId != bookId || player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE) {
+                return@launch
+            }
+            val items = prepared.toMediaItems()
+            if (trackIndex !in items.indices) return@launch
+            val window = queueWindow(items, trackIndex, factory.maxQueueSize(player), shuffle = false)
+            factory.onQueueReplaced(window.before, window.after)
+            player.setMediaItems(window.items, window.startIndex, offsetMs)
+        }
+        return true
+    }
+
+    private var bookWindowJob: Job? = null
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
+    /**
+     * Swiping the app away ends paused playback on the phone. Not while casting: stopping would release the cast player and
+     * with it end the session on the receiver, and the app could not rejoin it later; the session and the notification stay,
+     * as one knows it from cast apps (review4 T14).
+     */
     override fun onTaskRemoved(rootIntent: Intent?) {
-        if (!isPlaybackOngoing) pauseAllPlayersAndStopSelf()
+        val casting = session?.player?.deviceInfo?.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+        if (!isPlaybackOngoing && !casting) pauseAllPlayersAndStopSelf()
     }
 
     override fun onDestroy() {

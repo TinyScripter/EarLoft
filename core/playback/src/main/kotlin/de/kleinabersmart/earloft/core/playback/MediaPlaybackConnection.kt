@@ -294,7 +294,27 @@ class MediaPlaybackConnection @Inject constructor(
 
     override fun skipForward() = withController { seekForward() }
 
-    override fun seekToTrack(trackIndex: Int, positionMs: Long) = withController { seekTo(trackIndex, positionMs) }
+    /**
+     * The file's index in the player is its track index only while the player holds the whole book; while casting it holds a window
+     * of a long book. A file in the window is sought directly, otherwise the session finds it or loads a window around it (review4 T11).
+     */
+    override fun seekToTrack(trackIndex: Int, positionMs: Long) = withController {
+        val bookId = currentMediaItem?.bookId
+        val index = (0 until mediaItemCount).firstOrNull { index ->
+            getMediaItemAt(index).let { it.bookId == bookId && it.bookTrackIndex == trackIndex }
+        }
+        when {
+            index != null -> seekTo(index, positionMs)
+            bookId != null -> sendCustomCommand(
+                SessionCommand(ACTION_SEEK_BOOK_TRACK, Bundle.EMPTY),
+                Bundle().apply {
+                    putInt(EXTRA_TRACK_INDEX, trackIndex)
+                    putLong(EXTRA_POSITION_MS, positionMs)
+                },
+            )
+            else -> seekTo(trackIndex, positionMs)
+        }
+    }
 
     private val _queuedForMusic = MutableSharedFlow<Int>(extraBufferCapacity = 4)
 
