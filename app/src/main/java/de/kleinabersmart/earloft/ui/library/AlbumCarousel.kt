@@ -2,6 +2,17 @@ package de.kleinabersmart.earloft.ui.library
 
 import androidx.compose.foundation.background
 import kotlin.math.roundToInt
+import kotlin.math.abs
+import kotlin.math.floor
+import androidx.compose.foundation.gestures.ScrollScope
+import androidx.compose.foundation.gestures.TargetedFlingBehavior
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.material3.carousel.CarouselDefaults
+import androidx.compose.material3.carousel.CarouselItemDrawInfo
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -98,6 +109,20 @@ internal fun AlbumCarousel(
     // position, so a new order of the list (a listening event with "Recently played") keeps its state (review4 Y26).
     var menuAnchor by remember { mutableStateOf(Rect.Zero) }
     val container = remember { CoordinatesHolder() }
+    val touched = remember { TouchedItem() }
+    val drawInfos = remember { HashMap<Int, CarouselItemDrawInfo>() }
+    val defaultFling = CarouselDefaults.singleAdvanceFlingBehavior(state)
+    val flingVelocity = with(LocalDensity.current) { ALBUM_FLING_VELOCITY.toPx() }
+    val snapVelocity = with(LocalDensity.current) { ALBUM_SNAP_VELOCITY.toPx() }
+    val fling = remember(defaultFling, flingVelocity, snapVelocity) {
+        AlbumFling(
+            defaultFling,
+            position = { carouselPosition(drawInfos, state.currentItem) },
+            touchedItem = { touched.index },
+            flingVelocity = flingVelocity,
+            snapVelocity = snapVelocity,
+        )
+    }
 
     // As in the crate: a new sort or filter starts at the first album, otherwise the current one stays.
     val lastReset = remember { CarouselResetKey(resetKey) }
@@ -155,8 +180,19 @@ internal fun AlbumCarousel(
                             state = state,
                             // The slider below is measured first: with little height the cover gets lower, the slider keeps its size
                             // (review4 Y25). The gap above outside the height, so the cover is as high as it is wide.
-                            modifier = Modifier.weight(1f, fill = false).width(carouselWidth).padding(top = 12.dp).height(hero),
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .width(carouselWidth)
+                                .padding(top = 12.dp)
+                                .height(hero)
+                                .pointerInput(state) {
+                                    awaitEachGesture {
+                                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                                        touched.index = state.currentItem
+                                    }
+                                },
                             maxItemWidth = hero,
+                            flingBehavior = fling,
                             itemSpacing = CAROUSEL_SPACING,
                             minSmallItemWidth = small,
                             maxSmallItemWidth = small,
@@ -165,6 +201,11 @@ internal fun AlbumCarousel(
                             val album = albums[index]
                             val current = index == frontIndex
                             val cover = remember { CoordinatesHolder() }
+                            val drawInfo = carouselItemDrawInfo
+                            DisposableEffect(index, drawInfo) {
+                                drawInfos[index] = drawInfo
+                                onDispose { if (drawInfos[index] === drawInfo) drawInfos.remove(index) }
+                            }
                             Box(
                                 Modifier
                                     .fillMaxSize()
@@ -267,3 +308,60 @@ private fun CarouselCover(album: Album) {
 
 /** The sort and filter at the last list change (see [AlbumCarousel]). */
 private class CarouselResetKey(var key: Any?)
+
+/** The album in front when the finger came down, read when it lets go (see [AlbumFling]). */
+private class TouchedItem(var index: Int = 0)
+
+/** From this speed on a gesture counts as a fling, as in the pager behind the carousel. */
+private val ALBUM_FLING_VELOCITY = 400.dp
+
+/** The least speed handed to the pager, so it surely snaps to the next album in the direction (above [ALBUM_FLING_VELOCITY]). */
+private val ALBUM_SNAP_VELOCITY = 500.dp
+
+/**
+ * Where the carousel stands in albums, e.g. 3.4 between the fourth and the fifth, from how far the covers are opened: the one
+ * leaving the middle shrinks to the size of a neighbor while the next grows to full size. `null` while the covers are unknown.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+private fun carouselPosition(drawInfos: Map<Int, CarouselItemDrawInfo>, current: Int): Float? {
+    fun opened(index: Int): Float? = drawInfos[index]?.takeIf { it.maxSize > it.minSize }?.let {
+        ((it.size - it.minSize) / (it.maxSize - it.minSize)).coerceIn(0f, 1f)
+    }
+    val middle = opened(current) ?: return null
+    val next = opened(current + 1) ?: 0f
+    val previous = opened(current - 1) ?: 0f
+    return if (next >= previous) {
+        current + next / (middle + next).coerceAtLeast(0.001f)
+    } else {
+        current - previous / (middle + previous).coerceAtLeast(0.001f)
+    }
+}
+
+/**
+ * Lets the carousel settle on the album the gesture leads to: after a fling the neighbor of the album touched, otherwise the
+ * closest one. The pager behind the carousel decides with a fixed page size, but at both ends the step to the neighbor is
+ * shorter by a neighbor's width (the first album stands at the edge, not in the middle): a swipe from the first album passed
+ * the second and landed on the third, a shorter one fell back to the first. The pager still does the snapping, it knows where
+ * each album rests; it gets a speed towards the chosen one, as it always snaps to the next resting place in the direction of a
+ * fast enough fling.
+ */
+private class AlbumFling(
+    private val delegate: TargetedFlingBehavior,
+    private val position: () -> Float?,
+    private val touchedItem: () -> Int,
+    private val flingVelocity: Float,
+    private val snapVelocity: Float,
+) : TargetedFlingBehavior {
+    override suspend fun ScrollScope.performFling(initialVelocity: Float, onRemainingDistanceUpdated: (Float) -> Unit): Float {
+        val scope = this
+        val at = position() ?: return with(delegate) { scope.performFling(initialVelocity, onRemainingDistanceUpdated) }
+        val before = floor(at)
+        val forward = if (abs(initialVelocity) >= flingVelocity) {
+            touchedItem() + (if (initialVelocity > 0f) 1 else -1) > before
+        } else {
+            at - before >= 0.5f
+        }
+        val velocity = if (forward) initialVelocity.coerceAtLeast(snapVelocity) else initialVelocity.coerceAtMost(-snapVelocity)
+        return with(delegate) { scope.performFling(velocity, onRemainingDistanceUpdated) }
+    }
+}
