@@ -251,7 +251,11 @@ class MainActivity : ComponentActivity() {
                 Box(Modifier.fillMaxSize()) {
                     AudioPermissionGate(
                         enabled = localMedia,
-                        onGranted = libraryRefresher::refreshNow,
+                        onGranted = {
+                            libraryRefresher.refreshNow()
+                            // A voice search or a start from the car that failed for want of the permission plays now.
+                            playbackConnection.retryFailedStart()
+                        },
                         onSkip = { lifecycleScope.launch { librarySettings.setUseLocalMedia(false) } },
                     ) {
                         CompositionLocalProvider(LocalPlayerCoverColors provides playerCoverColors) {

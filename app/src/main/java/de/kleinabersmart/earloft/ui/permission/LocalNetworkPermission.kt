@@ -29,6 +29,7 @@ import de.kleinabersmart.earloft.core.data.spoken.SpokenRefresher
 import de.kleinabersmart.earloft.core.data.sync.LibrarySyncer
 import de.kleinabersmart.earloft.core.data.sync.SyncFailure
 import de.kleinabersmart.earloft.core.model.FeedError
+import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.ui.orOnError
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -120,6 +121,7 @@ class HomeNetworkViewModel @Inject constructor(
     private val musicSyncer: LibrarySyncer,
     private val bookSyncer: BookSyncer,
     private val bookRefresher: SpokenRefresher,
+    private val playbackConnection: PlaybackConnection,
 ) : ViewModel() {
 
     /** A set up music or Audiobookshelf server, or a podcast feed, is on the home network. */
@@ -138,6 +140,8 @@ class HomeNetworkViewModel @Inject constructor(
      * still running ([failedAtHome]). Otherwise their rows kept showing the old timeout until the next sync, although the cause is gone.
      */
     fun resyncFailedAtHome() {
+        // A title from a server at home that failed for want of the permission plays now.
+        playbackConnection.retryFailedStart()
         viewModelScope.launch {
             val music = servers.servers().first().filter { it.enabled }.map { it.sourceId to it.baseUrl }
             failedAtHome(music, musicSyncer.failures.value).forEach(servers::syncNow)

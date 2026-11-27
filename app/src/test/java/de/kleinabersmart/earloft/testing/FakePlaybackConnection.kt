@@ -66,6 +66,7 @@ class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
     override val queuedForMusic: Flow<Int> = MutableSharedFlow()
     override fun replaceUpcoming(songs: List<Song>) = record(Command.ReplaceUpcoming(songs.map { it.id }))
     override fun togglePlayPause() = record(Command.Simple("togglePlayPause"))
+    override fun retryFailedStart() = record(Command.Simple("retryFailedStart"))
     override fun pause() = record(Command.Simple("pause"))
     override fun next() = record(Command.Simple("next"))
     override fun previous() = record(Command.Simple("previous"))

@@ -382,6 +382,10 @@ class MediaPlaybackConnection @Inject constructor(
         }
     }
 
+    override fun retryFailedStart() = withController {
+        if (shouldRetryFailedStart(hasError = playerError != null, playWhenReady = playWhenReady, itemCount = mediaItemCount)) prepare()
+    }
+
     override fun pause() = withController { pause() }
 
     override fun next() = withController { seekToNext() }

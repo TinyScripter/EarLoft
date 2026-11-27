@@ -153,6 +153,13 @@ interface PlaybackConnection {
 
     fun togglePlayPause()
 
+    /**
+     * A missing permission was just granted (music and audio, home network): a start that failed for want of it (voice search, Android
+     * Auto, a tap in the app) is loaded again and plays, without a second tap. Only if the player has an error and still wants to play
+     * and holds titles; a paused queue stays paused.
+     */
+    fun retryFailedStart()
+
     fun pause()
 
     fun next()
