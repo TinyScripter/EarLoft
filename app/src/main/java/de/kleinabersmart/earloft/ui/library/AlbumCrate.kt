@@ -428,7 +428,8 @@ private fun Record(labelColor: Color, modifier: Modifier = Modifier) {
 
 /**
  * Title, artist, year and songs, position, play/pause, the random album ([onRandom], only with more than one album) and ⋮ of
- * the front album of the record crate or the carousel.
+ * the front album of the record crate or the carousel. With [reserveTwoTitleLines] the title always takes the height of two
+ * lines, aligned at the bottom, so the buttons keep their place from album to album.
  */
 @Composable
 internal fun FrontAlbumDetails(
@@ -439,16 +440,23 @@ internal fun FrontAlbumDetails(
     onPlay: () -> Unit,
     onRandom: () -> Unit,
     modifier: Modifier = Modifier,
+    reserveTwoTitleLines: Boolean = false,
 ) {
     var menu by remember { mutableStateOf(false) }
     Column(modifier.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            album.title,
-            style = MaterialTheme.typography.titleLarge,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-        )
+        Box(contentAlignment = Alignment.BottomCenter) {
+            // An empty text of two lines holds the height in the current font scale.
+            if (reserveTwoTitleLines) {
+                Text("", style = MaterialTheme.typography.titleLarge, minLines = 2, modifier = Modifier.clearAndSetSemantics {})
+            }
+            Text(
+                album.title,
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+        }
         Text(
             album.artist,
             style = MaterialTheme.typography.bodyLarge,

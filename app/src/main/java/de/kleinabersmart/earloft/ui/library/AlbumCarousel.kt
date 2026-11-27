@@ -9,6 +9,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.runtime.key
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -140,20 +141,24 @@ internal fun AlbumCarousel(
                 } else {
                     min(maxWidth * 0.62f, maxHeight - DETAILS_HEIGHT - SCRUBBER_THICKNESS - 24.dp)
                 }.coerceIn(MIN_HERO, MAX_HERO)
-                // The neighbors take the rest of the width: with the default (at most 56 dp) the carousel would rather show two
-                // narrower large covers than one square one.
+                // The neighbors have exactly the rest of the carousel's width, as minimum and maximum: the carousel spreads its
+                // keylines over its full width (the content padding only shifts the first and last item) and picks as many large
+                // items as fit next to the smallest allowed neighbors. With a cover limited by the height (filter row, mini player)
+                // two of them fit, and two covers stood large side by side while only one counted. At most half the cover, so the
+                // current album stands out; the carousel then gets narrower than the row instead of a second large cover.
                 val rowWidth = if (wide) maxWidth * (1.4f / 2.4f) else maxWidth
-                val small = ((rowWidth - CAROUSEL_PADDING * 2 - hero - CAROUSEL_SPACING * 2) / 2).coerceIn(MIN_SMALL, MAX_SMALL)
+                val small = ((rowWidth - hero - CAROUSEL_SPACING * 2) / 2).coerceIn(MIN_SMALL, min(MAX_SMALL, hero * 0.5f))
+                val carouselWidth = min(rowWidth, hero + CAROUSEL_SPACING * 2 + small * 2)
                 val carousel: @Composable (Modifier) -> Unit = { columnModifier ->
                     Column(columnModifier, horizontalAlignment = Alignment.CenterHorizontally) {
                         HorizontalCenteredHeroCarousel(
                             state = state,
                             // The slider below is measured first: with little height the cover gets lower, the slider keeps its size
-                            // (review4 Y25).
-                            modifier = Modifier.weight(1f, fill = false).fillMaxWidth().height(hero).padding(top = 12.dp),
+                            // (review4 Y25). The gap above outside the height, so the cover is as high as it is wide.
+                            modifier = Modifier.weight(1f, fill = false).width(carouselWidth).padding(top = 12.dp).height(hero),
                             maxItemWidth = hero,
                             itemSpacing = CAROUSEL_SPACING,
-                            minSmallItemWidth = MIN_SMALL,
+                            minSmallItemWidth = small,
                             maxSmallItemWidth = small,
                             contentPadding = PaddingValues(horizontal = CAROUSEL_PADDING),
                         ) { index ->
@@ -203,6 +208,7 @@ internal fun AlbumCarousel(
                         FrontAlbumDetails(
                             front, frontIndex, albums.size, front.id == playingAlbumId, { onPlay(front.id) }, random,
                             Modifier.weight(1f).padding(end = 8.dp),
+                            reserveTwoTitleLines = true,
                         )
                     }
                 } else {
@@ -213,6 +219,7 @@ internal fun AlbumCarousel(
                         FrontAlbumDetails(
                             front, frontIndex, albums.size, front.id == playingAlbumId, { onPlay(front.id) }, random,
                             Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 12.dp),
+                            reserveTwoTitleLines = true,
                         )
                     }
                 }
