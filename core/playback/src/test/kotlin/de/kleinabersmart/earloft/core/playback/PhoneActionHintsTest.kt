@@ -66,4 +66,13 @@ class PhoneActionHintsTest {
         // Books exist, but the area is off: the car shows nothing of them.
         assertTrue(setupNeeded(listOf(MUSIC), hasMusic = false, hasPodcasts = false, hasBooks = true))
     }
+
+    @Test
+    fun `the error state is only set while there is nothing the car could control`() {
+        // Nothing loaded (setup hint) or the player failed (playback error): the error state replaces nothing.
+        assertTrue(hintAsErrorState(mediaItemCount = 0, playerError = null))
+        assertTrue(hintAsErrorState(mediaItemCount = 3, playerError = error(PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS)))
+        // A book failed while music is loaded (playing or paused): only a message, play/pause and skip stay.
+        assertFalse(hintAsErrorState(mediaItemCount = 3, playerError = null))
+    }
 }
