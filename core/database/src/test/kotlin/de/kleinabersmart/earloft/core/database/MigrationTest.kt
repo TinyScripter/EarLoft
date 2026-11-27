@@ -387,6 +387,82 @@ class MigrationTest {
     }
 
     @Test
+    fun `v46 to v47 keeps podcast feeds up to date`() {
+        helper.createDatabase(DB_NAME, 46).use { db ->
+            db.execSQL(
+                "INSERT INTO podcast_feeds (feedId, url, title, author, description, lastRefreshAt, syncGeneration, autoDownload, subscribed) " +
+                    "VALUES ('f', 'https://example.com/feed.xml', 'P', '', '', 5, 2, 1, 1)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 47, true).use { db ->
+            db.query("SELECT title, autoDownload, keepUpdated FROM podcast_feeds WHERE feedId = 'f'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("P", cursor.getString(0))
+                assertEquals(1, cursor.getInt(1))
+                assertEquals(1, cursor.getInt(2))
+            }
+        }
+    }
+
+    @Test
+    fun `v47 to v48 keeps book file downloads without a failure reason`() {
+        helper.createDatabase(DB_NAME, 47).use { db ->
+            db.execSQL(
+                "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
+                    "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
+                    "VALUES (7, 'f', 'EPISODE', 'guid-7', 'Episode', 'episode', '', '', '', '', 60000, 0, 1, 1, 2)",
+            )
+            db.execSQL(
+                "INSERT INTO book_tracks (bookId, trackIndex, remoteFileId, startMs, durationMs, downloadState, filePath, fileSize, autoDownload) " +
+                    "VALUES (7, 0, 'https://a.example/7.mp3', 0, 60000, 'FAILED', NULL, 0, 1)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 48, true).use { db ->
+            db.query("SELECT downloadState, autoDownload, downloadFailure FROM book_tracks WHERE bookId = 7").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("FAILED", cursor.getString(0))
+                assertEquals(1, cursor.getInt(1))
+                assertTrue(cursor.isNull(2))
+            }
+        }
+    }
+
+    @Test
+    fun `v48 to v49 keeps songs and adds empty download exclusions that go with their song`() {
+        helper.createDatabase(DB_NAME, 48).use { db ->
+            db.execSQL(
+                "INSERT INTO albums (albumId, title, sortTitle, normTitle, albumArtistDisplay, normAlbumArtist, isCompilation) " +
+                    "VALUES (1, 'Album', 'album', 'album', 'Band', 'band', 0)",
+            )
+            db.execSQL(
+                "INSERT INTO songs (songId, albumId, title, normTitle, artistDisplay, discNumber, trackNumber, durationMs, isFavorite, favoriteChangedAt, dateAdded) " +
+                    "VALUES (1, 1, 'Song', 'song', 'Band', 1, 1, 1000, 1, 5, 0)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 49, true).use { db ->
+            db.query("SELECT title, isFavorite FROM songs WHERE songId = 1").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Song", cursor.getString(0))
+                assertEquals(1, cursor.getInt(1))
+            }
+            db.query("SELECT COUNT(*) FROM download_exclusions").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+            db.execSQL("PRAGMA foreign_keys = ON")
+            db.execSQL("INSERT INTO download_exclusions (songId, excludedAt) VALUES (1, 7)")
+            db.execSQL("DELETE FROM songs WHERE songId = 1")
+            db.query("SELECT COUNT(*) FROM download_exclusions").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
+    @Test
     fun `v44 to v45 keeps the one genre of each song and has the servers synced again`() {
         helper.createDatabase(DB_NAME, 44).use { db ->
             db.execSQL(
@@ -759,6 +835,25 @@ class UserMigrationTest {
                     assertTrue(cursor.moveToFirst())
                     assertEquals(0, cursor.getInt(0))
                 }
+            }
+        }
+    }
+
+    @Test
+    fun `v20 to v21 keeps podcasts up to date`() {
+        helper.createDatabase(DB_NAME, 20).use { db ->
+            db.execSQL(
+                "INSERT INTO podcasts (feedId, url, title, author, imageUrl, autoDownload, newestFirst, continuous, notifyNew, autoDownloadCount) " +
+                    "VALUES ('f', 'https://example.com/feed.xml', 'Lage', '', NULL, 1, 0, 1, 1, 3)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 21, true).use { db ->
+            db.query("SELECT title, autoDownloadCount, keepUpdated FROM podcasts WHERE feedId = 'f'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Lage", cursor.getString(0))
+                assertEquals(3, cursor.getInt(1))
+                assertEquals(1, cursor.getInt(2))
             }
         }
     }
