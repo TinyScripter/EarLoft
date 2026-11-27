@@ -362,8 +362,8 @@ class MediaPlaybackConnection @Inject constructor(
             playSetItems()
             return@withController
         }
-        val next = currentMediaItemIndex + 1
-        if (next < mediaItemCount) removeMediaItems(next, mediaItemCount)
+        // Also with nothing after the current title: while casting this drops the reserve behind the receiver's window.
+        clearAfterCurrent()
         addMediaItems(songs.map { it.toMediaItem() })
         if (playbackState == Player.STATE_IDLE) prepare()
     }

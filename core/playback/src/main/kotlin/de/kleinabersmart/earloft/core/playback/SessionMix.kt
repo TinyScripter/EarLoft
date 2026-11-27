@@ -62,12 +62,7 @@ internal class SessionMix(
 
     private fun replaceUpcoming(items: List<MediaItem>) {
         player.shuffleModeEnabled = false
-        val next = player.currentMediaItemIndex + 1
-        // Also with nothing after the current title in the player: while casting the reserve can still hold titles, and clearing to
-        // the end drops them (DeferredRemotePlayPlayer), otherwise they would play before the mix.
-        if (next < player.mediaItemCount || factory?.hasPendingItems() == true) {
-            player.removeMediaItems(next, player.mediaItemCount)
-        }
+        player.clearAfterCurrent()
         val room = factory.roomIn(player)
         player.addMediaItems(items.take(room))
         if (items.size > room) factory?.appendPending(items.drop(room))

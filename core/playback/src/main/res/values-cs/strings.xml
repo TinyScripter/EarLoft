@@ -48,4 +48,9 @@
     <string name="action_start_mix">Spustit mix</string>
     <string name="mix_empty">Pro mix nejsou žádné vhodné skladby</string>
     <string name="mix_failed">Mix se nepodařilo vytvořit</string>
+    <string name="phone_action_set_up">Nastavte EarLoft v telefonu, až bezpečně zastavíte.</string>
+    <string name="phone_action_sign_in">Znovu se přihlaste k Audiobookshelf v telefonu, až bezpečně zastavíte.</string>
+    <string name="phone_action_home_network">Povolte EarLoft v telefonu přístup k domácí síti, až bezpečně zastavíte.</string>
+    <string name="phone_action_audio_access">Povolte EarLoft v telefonu přístup k hudbě a zvuku, až bezpečně zastavíte.</string>
+    <string name="phone_action_open">Otevřít v telefonu</string>
 </resources>

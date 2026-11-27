@@ -43,4 +43,9 @@
     <string name="action_start_mix">Start mix</string>
     <string name="mix_empty">No matching songs for a mix</string>
     <string name="mix_failed">The mix could not be created</string>
+    <string name="phone_action_set_up">Set up EarLoft on your phone once you have safely stopped.</string>
+    <string name="phone_action_sign_in">Sign in to Audiobookshelf again on your phone once you have safely stopped.</string>
+    <string name="phone_action_home_network">Allow EarLoft to access your home network on your phone once you have safely stopped.</string>
+    <string name="phone_action_audio_access">Allow EarLoft to access music and audio on your phone once you have safely stopped.</string>
+    <string name="phone_action_open">Open on phone</string>
 </resources>

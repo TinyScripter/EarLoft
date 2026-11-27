@@ -93,6 +93,10 @@ internal class LibrarySessionCallback(
     private val onChapterButton: (forward: Boolean) -> Unit = {},
     /** [ACTION_START_MIX]; on the main thread, `false` if no song is playing. */
     private val onStartMix: () -> Boolean = { false },
+    /** Android Auto asked for the tabs ([PhoneActionPresenter.onRootBrowsed]); on the main thread. */
+    private val onRootBrowsed: () -> Unit = {},
+    /** A book or episode could not be prepared ([PhoneActionPresenter.onSpokenNotPlayable]); on the main thread. */
+    private val onSpokenNotPlayable: (bookId: Long) -> Unit = {},
     /** [ACTION_SEEK_BOOK_TRACK]; on the main thread, `false` if there is no such file. */
     private val onSeekBookTrack: (trackIndex: Int, positionMs: Long) -> Boolean = { _, _ -> false },
     /** Waits until the service has restored the last queue ([PlaybackService.restoreQueue]). */
@@ -126,6 +130,7 @@ internal class LibrarySessionCallback(
         // Android Auto remembers lists: folders of an area disabled in the meantime no longer exist.
         if (browseTree.isHidden(parentId)) return@future LibraryResult.ofError(areaDisabled())
         val children = browseTree.children(parentId) ?: return@future LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
+        if (parentId == MediaIds.ROOT) onRootBrowsed()
         val paged = children.drop(page * pageSize).take(pageSize)
         LibraryResult.ofItemList(paged, params)
     }
@@ -448,7 +453,10 @@ internal class LibrarySessionCallback(
         if (!browseTree.isSpokenEnabled(bookId)) throw UnsupportedOperationException("Area of book $bookId is turned off")
         continueListening.started(bookId)
         val prepared = withContext(Dispatchers.IO) { bookPlaybackSource.prepare(bookId) }
-            ?: throw UnsupportedOperationException("Book $bookId not playable")
+        if (prepared == null) {
+            onSpokenNotPlayable(bookId)
+            throw UnsupportedOperationException("Book $bookId not playable")
+        }
         val start = prepared.timeline.locate(prepared.startPositionMs)
         // Shuffle and repeat go off only once the book is in the player (PlaybackService): here the music is still loaded, and
         // switching them off now would be saved as the music's modes. The window is in book order regardless.

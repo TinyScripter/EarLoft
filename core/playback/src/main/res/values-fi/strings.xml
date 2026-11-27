@@ -42,4 +42,9 @@
     <string name="action_start_mix">Aloita miksi</string>
     <string name="mix_empty">Ei sopivia kappaleita miksiin</string>
     <string name="mix_failed">Miksiä ei voitu luoda</string>
+    <string name="phone_action_set_up">Määritä EarLoft puhelimessa, kun olet pysähtynyt turvalliseen paikkaan.</string>
+    <string name="phone_action_sign_in">Kirjaudu puhelimessa uudelleen Audiobookshelfiin, kun olet pysähtynyt turvalliseen paikkaan.</string>
+    <string name="phone_action_home_network">Anna puhelimessa EarLoftille pääsy kotiverkkoon, kun olet pysähtynyt turvalliseen paikkaan.</string>
+    <string name="phone_action_audio_access">Anna puhelimessa EarLoftille pääsy musiikkiin ja ääneen, kun olet pysähtynyt turvalliseen paikkaan.</string>
+    <string name="phone_action_open">Avaa puhelimessa</string>
 </resources>

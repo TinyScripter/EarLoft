@@ -45,4 +45,9 @@
     <string name="action_start_mix">Iniciar mix</string>
     <string name="mix_empty">Nenhuma música adequada para um mix</string>
     <string name="mix_failed">Não foi possível criar o mix</string>
+    <string name="phone_action_set_up">Configure o EarLoft no seu smartphone quando tiver parado com segurança.</string>
+    <string name="phone_action_sign_in">Entre novamente no Audiobookshelf no seu smartphone quando tiver parado com segurança.</string>
+    <string name="phone_action_home_network">Permita que o EarLoft acesse a rede doméstica no seu smartphone quando tiver parado com segurança.</string>
+    <string name="phone_action_audio_access">Permita que o EarLoft acesse músicas e áudio no seu smartphone quando tiver parado com segurança.</string>
+    <string name="phone_action_open">Abrir no smartphone</string>
 </resources>

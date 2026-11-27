@@ -126,6 +126,17 @@ class SessionMixTest {
     }
 
     @Test
+    fun `clearing after the last title still reports a clearing to the end, as the app's mix from now playing needs it`() {
+        player.update(listOf(1, 2), current = 1)
+
+        sessionPlayer.clearAfterCurrent()
+        idle()
+
+        assertTrue(clearedToEnd)
+        assertEquals(listOf(1L, 2), player.songIds())
+    }
+
+    @Test
     fun `songs the receiver cannot play are left out`() {
         val factory = FakeFactory(playable = setOf(8))
         player.update(listOf(1, 2), current = 0)

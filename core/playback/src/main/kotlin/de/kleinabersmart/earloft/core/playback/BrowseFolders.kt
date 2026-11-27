@@ -1,6 +1,9 @@
 package de.kleinabersmart.earloft.core.playback
 
+import android.content.ContentResolver
 import android.content.Context
+import android.net.Uri
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -13,8 +16,28 @@ internal data class BrowseFolder(
     val mediaType: Int,
     /** Content as a grid (cover folders). */
     val gridChildren: Boolean = false,
+    /**
+     * White symbol: Android Auto shows it on the tab (and next to the folder in lists); monochrome white icons are what the car
+     * documentation asks for, the system tints them itself.
+     */
+    @param:DrawableRes val icon: Int? = null,
 ) {
-    fun toMediaItem(context: Context): MediaItem = folderMediaItem(mediaId, context.getString(title), mediaType, gridChildren)
+    fun toMediaItem(context: Context): MediaItem =
+        folderMediaItem(mediaId, context.getString(title), mediaType, gridChildren, artworkUri = icon?.let { drawableUri(context, it) })
+}
+
+/**
+ * `android.resource://<package>/drawable/<name>`: the form Android Auto loads from another process (car media artwork). The package
+ * is the app's, into which the library's resources are merged.
+ */
+internal fun drawableUri(context: Context, @DrawableRes id: Int): Uri {
+    val resources = context.resources
+    return Uri.Builder()
+        .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
+        .authority(resources.getResourcePackageName(id))
+        .appendPath(resources.getResourceTypeName(id))
+        .appendPath(resources.getResourceEntryName(id))
+        .build()
 }
 
 /**
@@ -23,19 +46,24 @@ internal data class BrowseFolder(
  */
 internal fun rootFolders(areas: List<SpokenMode>): List<BrowseFolder> {
     if (areas.size > 1) {
-        return listOf(BrowseFolder(MediaIds.HOME, R.string.browse_recent, MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)) + areas.map(::areaFolder)
+        return listOf(
+            BrowseFolder(MediaIds.HOME, R.string.browse_recent, MediaMetadata.MEDIA_TYPE_FOLDER_MIXED, icon = R.drawable.ic_browse_recent),
+        ) + areas.map(::areaFolder)
     }
     return when (areas.singleOrNull() ?: SpokenMode.MUSIC) {
         SpokenMode.MUSIC -> listOf(
-            BrowseFolder(MediaIds.RECENT, R.string.recently_played, MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS, gridChildren = true),
-            BrowseFolder(MediaIds.LIBRARY, R.string.library, MediaMetadata.MEDIA_TYPE_FOLDER_MIXED),
-            BrowseFolder(MediaIds.PLAYLISTS, R.string.playlists, MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS),
-            BrowseFolder(MediaIds.FAVORITES, R.string.favorites, MediaMetadata.MEDIA_TYPE_PLAYLIST),
+            MUSIC_RECENT,
+            BrowseFolder(MediaIds.LIBRARY, R.string.library, MediaMetadata.MEDIA_TYPE_FOLDER_MIXED, icon = R.drawable.ic_browse_library),
+            MUSIC_PLAYLISTS,
+            MUSIC_FAVORITES,
         )
         SpokenMode.PODCASTS -> podcastFolders()
         SpokenMode.BOOKS -> listOf(
             BOOKS_CONTINUE,
-            BrowseFolder(MediaIds.BOOKS_ALL, R.string.library, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS, gridChildren = true),
+            BrowseFolder(
+                MediaIds.BOOKS_ALL, R.string.library, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS, gridChildren = true,
+                icon = R.drawable.ic_browse_library,
+            ),
             BOOK_AUTHORS,
             BOOK_SERIES,
         )
@@ -44,25 +72,32 @@ internal fun rootFolders(areas: List<SpokenMode>): List<BrowseFolder> {
 
 /** An area's tab when several are enabled. */
 internal fun areaFolder(area: SpokenMode): BrowseFolder = when (area) {
-    SpokenMode.MUSIC -> BrowseFolder(MediaIds.MUSIC, R.string.area_music, MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
-    SpokenMode.PODCASTS -> BrowseFolder(MediaIds.PODCASTS, R.string.area_podcasts, MediaMetadata.MEDIA_TYPE_FOLDER_PODCASTS)
-    SpokenMode.BOOKS -> BrowseFolder(MediaIds.BOOKS, R.string.area_books, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS)
+    SpokenMode.MUSIC -> BrowseFolder(MediaIds.MUSIC, R.string.area_music, MediaMetadata.MEDIA_TYPE_FOLDER_MIXED, icon = R.drawable.ic_browse_music)
+    SpokenMode.PODCASTS ->
+        BrowseFolder(MediaIds.PODCASTS, R.string.area_podcasts, MediaMetadata.MEDIA_TYPE_FOLDER_PODCASTS, icon = R.drawable.ic_browse_podcasts)
+    SpokenMode.BOOKS -> BrowseFolder(MediaIds.BOOKS, R.string.area_books, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS, icon = R.drawable.ic_browse_books)
 }
 
 /** The folders in an area's tab ([areaFolder]). */
 internal fun areaChildren(area: SpokenMode): List<BrowseFolder> = when (area) {
     SpokenMode.MUSIC -> listOf(
-        BrowseFolder(MediaIds.RECENT, R.string.recently_played, MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS, gridChildren = true),
-        BrowseFolder(MediaIds.FAVORITES, R.string.favorites, MediaMetadata.MEDIA_TYPE_PLAYLIST),
-        BrowseFolder(MediaIds.PLAYLISTS, R.string.playlists, MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS),
-        BrowseFolder(MediaIds.ALBUMS, R.string.albums, MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS, gridChildren = true),
-        BrowseFolder(MediaIds.ARTISTS, R.string.artists, MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS),
+        MUSIC_RECENT,
+        MUSIC_FAVORITES,
+        MUSIC_PLAYLISTS,
+        BrowseFolder(MediaIds.ALBUMS, R.string.albums, MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS, gridChildren = true, icon = R.drawable.ic_browse_library),
+        BrowseFolder(MediaIds.ARTISTS, R.string.artists, MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS, icon = R.drawable.ic_browse_authors),
     )
     SpokenMode.PODCASTS -> podcastFolders()
     SpokenMode.BOOKS -> listOf(
         BOOKS_CONTINUE,
-        BrowseFolder(MediaIds.BOOKS_RECENT, R.string.recently_added, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS, gridChildren = true),
-        BrowseFolder(MediaIds.BOOKS_ALL, R.string.all_books, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS, gridChildren = true),
+        BrowseFolder(
+            MediaIds.BOOKS_RECENT, R.string.recently_added, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS, gridChildren = true,
+            icon = R.drawable.ic_browse_new,
+        ),
+        BrowseFolder(
+            MediaIds.BOOKS_ALL, R.string.all_books, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS, gridChildren = true,
+            icon = R.drawable.ic_browse_library,
+        ),
         BOOK_AUTHORS,
         BOOK_SERIES,
     )
@@ -72,13 +107,32 @@ internal fun areaChildren(area: SpokenMode): List<BrowseFolder> = when (area) {
 internal fun areaOfTab(mediaId: String): SpokenMode? = SpokenMode.entries.firstOrNull { areaFolder(it).mediaId == mediaId }
 
 private fun podcastFolders() = listOf(
-    BrowseFolder(MediaIds.EPISODES_CONTINUE, R.string.continue_listening, MediaMetadata.MEDIA_TYPE_FOLDER_PODCASTS),
-    BrowseFolder(MediaIds.EPISODES_NEW, R.string.new_episodes, MediaMetadata.MEDIA_TYPE_FOLDER_PODCASTS),
-    BrowseFolder(MediaIds.FEEDS, R.string.subscriptions, MediaMetadata.MEDIA_TYPE_FOLDER_PODCASTS, gridChildren = true),
-    BrowseFolder(MediaIds.EPISODES_DOWNLOADED, R.string.downloaded, MediaMetadata.MEDIA_TYPE_FOLDER_PODCASTS),
+    BrowseFolder(
+        MediaIds.EPISODES_CONTINUE, R.string.continue_listening, MediaMetadata.MEDIA_TYPE_FOLDER_PODCASTS, icon = R.drawable.ic_browse_continue,
+    ),
+    BrowseFolder(MediaIds.EPISODES_NEW, R.string.new_episodes, MediaMetadata.MEDIA_TYPE_FOLDER_PODCASTS, icon = R.drawable.ic_browse_new),
+    BrowseFolder(
+        MediaIds.FEEDS, R.string.subscriptions, MediaMetadata.MEDIA_TYPE_FOLDER_PODCASTS, gridChildren = true,
+        icon = R.drawable.ic_browse_podcasts,
+    ),
+    BrowseFolder(
+        MediaIds.EPISODES_DOWNLOADED, R.string.downloaded, MediaMetadata.MEDIA_TYPE_FOLDER_PODCASTS, icon = R.drawable.ic_browse_downloaded,
+    ),
 )
 
-private val BOOKS_CONTINUE =
-    BrowseFolder(MediaIds.BOOKS_CONTINUE, R.string.continue_listening, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS, gridChildren = true)
-private val BOOK_AUTHORS = BrowseFolder(MediaIds.AUTHORS, R.string.authors, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS)
-private val BOOK_SERIES = BrowseFolder(MediaIds.SERIES, R.string.series, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS)
+private val MUSIC_RECENT = BrowseFolder(
+    MediaIds.RECENT, R.string.recently_played, MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS, gridChildren = true, icon = R.drawable.ic_browse_recent,
+)
+private val MUSIC_PLAYLISTS =
+    BrowseFolder(MediaIds.PLAYLISTS, R.string.playlists, MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS, icon = R.drawable.ic_browse_playlists)
+private val MUSIC_FAVORITES =
+    BrowseFolder(MediaIds.FAVORITES, R.string.favorites, MediaMetadata.MEDIA_TYPE_PLAYLIST, icon = R.drawable.ic_browse_favorites)
+
+private val BOOKS_CONTINUE = BrowseFolder(
+    MediaIds.BOOKS_CONTINUE, R.string.continue_listening, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS, gridChildren = true,
+    icon = R.drawable.ic_browse_continue,
+)
+private val BOOK_AUTHORS =
+    BrowseFolder(MediaIds.AUTHORS, R.string.authors, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS, icon = R.drawable.ic_browse_authors)
+private val BOOK_SERIES =
+    BrowseFolder(MediaIds.SERIES, R.string.series, MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS, icon = R.drawable.ic_browse_series)

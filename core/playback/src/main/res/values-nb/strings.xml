@@ -42,4 +42,9 @@
     <string name="action_start_mix">Start miks</string>
     <string name="mix_empty">Ingen passende sanger for en miks</string>
     <string name="mix_failed">Miksen kunne ikke opprettes</string>
+    <string name="phone_action_set_up">Konfigurer EarLoft på telefonen når du har stoppet på et trygt sted.</string>
+    <string name="phone_action_sign_in">Logg på Audiobookshelf igjen på telefonen når du har stoppet på et trygt sted.</string>
+    <string name="phone_action_home_network">Gi EarLoft tilgang til hjemmenettet på telefonen når du har stoppet på et trygt sted.</string>
+    <string name="phone_action_audio_access">Gi EarLoft tilgang til musikk og lyd på telefonen når du har stoppet på et trygt sted.</string>
+    <string name="phone_action_open">Åpne på telefonen</string>
 </resources>

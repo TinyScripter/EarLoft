@@ -44,6 +44,15 @@ class BrowseFoldersTest {
     }
 
     @Test
+    fun `every tab and area folder has a white symbol`() {
+        val combinations = listOf(listOf(MUSIC), listOf(PODCASTS), listOf(BOOKS), listOf(MUSIC, PODCASTS), SpokenMode.entries)
+        for (areas in combinations) {
+            val folders = rootFolders(areas) + areas.flatMap(::areaChildren)
+            assertTrue(areas.toString(), folders.all { it.icon != null })
+        }
+    }
+
+    @Test
     fun `no tab belongs to a hidden area`() {
         for (hidden in SpokenMode.entries) {
             val areas = SpokenMode.entries - hidden

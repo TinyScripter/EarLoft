@@ -124,6 +124,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var playingSources: PlayingSources
     @Inject lateinit var audioEffectSession: AudioEffectSession
     @Inject internal lateinit var browseTree: BrowseTree
+    @Inject internal lateinit var phoneActionHints: PhoneActionHints
 
     /** For database work that may outlive the service (only suspending DataStore/Room calls). */
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
@@ -134,6 +135,7 @@ class PlaybackService : MediaLibraryService() {
 
     private var session: MediaLibrarySession? = null
     private var sessionMix: SessionMix? = null
+    private var phoneActions: PhoneActionPresenter? = null
     private lateinit var playTracker: PlayTracker
     private lateinit var bookListener: BookPlaybackListener
     private var sessionPlayer: SpokenAwarePlayer? = null
@@ -291,6 +293,8 @@ class PlaybackService : MediaLibraryService() {
             mediaButtons = mediaButtons,
             onChapterButton = { forward -> if (forward) nextChapter() else previousChapter() },
             onStartMix = { sessionMix?.start() ?: false },
+            onRootBrowsed = { phoneActions?.onRootBrowsed() },
+            onSpokenNotPlayable = { bookId -> phoneActions?.onSpokenNotPlayable(bookId) },
             onSeekBookTrack = { trackIndex, positionMs -> bookListener.seekToTrack(trackIndex, positionMs) },
         ) {
             restoreJob?.join()
@@ -303,6 +307,9 @@ class PlaybackService : MediaLibraryService() {
             .build()
 
         if (playbackPolicy.startMixButton) session?.let { sessionMix = sessionMixOf(player, factory, it) }
+        session?.let {
+            phoneActions = PhoneActionPresenter(this, it, player, phoneActionHints, mainScope, appLaunch()).also(player::addListener)
+        }
         session?.let { bindFavoriteButton(sessionPlayer, it) }
         session?.let { notifyAreaChanges(it) }
         restoreQueue(player)
@@ -672,6 +679,13 @@ class PlaybackService : MediaLibraryService() {
         )
     }
 
+    /** Opens the app as it is (resolution of a hint in the car, [PhoneActionPresenter]): the start page or what was open. */
+    private fun appLaunch(): PendingIntent? {
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: return null
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        return PendingIntent.getActivity(this, APP_LAUNCH_REQUEST, launchIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
     private fun notifyObservers(nowPlaying: NowPlaying?) {
         nowPlayingObservers.forEach { it.onNowPlayingChanged(nowPlaying) }
     }
@@ -905,6 +919,9 @@ class PlaybackService : MediaLibraryService() {
 }
 
 private const val SHAKE_VIBRATION_MS = 40L
+
+/** Request code of [PlaybackService.appLaunch]; the session activity uses 0. */
+private const val APP_LAUNCH_REQUEST = 1
 
 /** How long a mix from the session's button waits for server suggestions; together with the database part well under 2 s. */
 private const val SESSION_MIX_SERVER_TIMEOUT_MS = 1_200L

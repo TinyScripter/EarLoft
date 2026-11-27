@@ -144,6 +144,9 @@ class LibraryRepository @Inject constructor(
         libraryDao.observeAlbumCount().distinctUntilChanged()
             .map { libraryDao.getRandomAlbumRows(limit).map { row -> row.toAlbum() } }
 
+    /** Whether the library has any visible song (counted by album, without loading the songs). */
+    fun hasSongs(): Flow<Boolean> = libraryDao.observeAlbumCount().map { it > 0 }.distinctUntilChanged()
+
     /** Random artists, behaving like [randomAlbums]. */
     fun randomArtists(limit: Int = 20): Flow<List<Artist>> =
         libraryDao.observeAlbumCount().distinctUntilChanged()

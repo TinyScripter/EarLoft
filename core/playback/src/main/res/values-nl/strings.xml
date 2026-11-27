@@ -42,4 +42,9 @@
     <string name="action_start_mix">Mix starten</string>
     <string name="mix_empty">Geen passende nummers voor een mix</string>
     <string name="mix_failed">De mix kan niet worden gemaakt</string>
+    <string name="phone_action_set_up">Stel EarLoft in op je telefoon zodra je veilig stilstaat.</string>
+    <string name="phone_action_sign_in">Log op je telefoon opnieuw in bij Audiobookshelf zodra je veilig stilstaat.</string>
+    <string name="phone_action_home_network">Geef EarLoft op je telefoon toegang tot het thuisnetwerk zodra je veilig stilstaat.</string>
+    <string name="phone_action_audio_access">Geef EarLoft op je telefoon toegang tot muziek en audio zodra je veilig stilstaat.</string>
+    <string name="phone_action_open">Openen op telefoon</string>
 </resources>
