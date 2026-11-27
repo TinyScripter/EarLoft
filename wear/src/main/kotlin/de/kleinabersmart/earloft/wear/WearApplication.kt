@@ -44,6 +44,8 @@ class WearApplication : Application() {
         // Books: progress and listening time go to Audiobookshelf via the phone (Wear concept 16.2).
         playbackPolicy.syncsWithBookServers = false
         playbackPolicy.shakeToExtendSleepTimer = false
+        // No mix on the watch (concept 8 "Mix"): its library is only what was loaded onto it.
+        playbackPolicy.startMixButton = false
         // ReplayGain as on the phone (W2): the settings come with /earloft/settings.
         applicationScope.launch {
             watchState.settings.map { it.replayGainMode to it.preAmpDb }.distinctUntilChanged().collect { (mode, preAmp) ->

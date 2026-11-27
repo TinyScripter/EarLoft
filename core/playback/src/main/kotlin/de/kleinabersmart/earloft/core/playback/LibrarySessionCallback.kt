@@ -44,6 +44,9 @@ internal const val ACTION_TOGGLE_FAVORITE = "de.kleinabersmart.earloft.TOGGLE_FA
 internal const val ACTION_CHAPTER_PREVIOUS = "de.kleinabersmart.earloft.CHAPTER_PREVIOUS"
 internal const val ACTION_CHAPTER_NEXT = "de.kleinabersmart.earloft.CHAPTER_NEXT"
 
+/** "Start mix" from the current song as a button next to the heart (Android Auto, system media controls; [SessionMix]). */
+internal const val ACTION_START_MIX = "de.kleinabersmart.earloft.START_MIX"
+
 /**
  * Does the voice request [EXTRA_VOICE_QUERY] find anything? The app asks before it sets and plays the request: a request
  * without results keeps the queue (review G10), and a "play" right after it would only continue that queue.
@@ -88,6 +91,8 @@ internal class LibrarySessionCallback(
     private val mediaButtons: SpokenMediaButtons? = null,
     /** Chapter buttons ([ACTION_CHAPTER_NEXT] = `true`); on the main thread. */
     private val onChapterButton: (forward: Boolean) -> Unit = {},
+    /** [ACTION_START_MIX]; on the main thread, `false` if no song is playing. */
+    private val onStartMix: () -> Boolean = { false },
     /** [ACTION_SEEK_BOOK_TRACK]; on the main thread, `false` if there is no such file. */
     private val onSeekBookTrack: (trackIndex: Int, positionMs: Long) -> Boolean = { _, _ -> false },
     /** Waits until the service has restored the last queue ([PlaybackService.restoreQueue]). */
@@ -266,6 +271,7 @@ internal class LibrarySessionCallback(
             ACTION_TOGGLE_FAVORITE -> session.player.currentMediaItem?.songId?.let { favoritesRepository.toggleFavorite(it) }
             ACTION_CHAPTER_PREVIOUS -> onChapterButton(false)
             ACTION_CHAPTER_NEXT -> onChapterButton(true)
+            ACTION_START_MIX -> if (!onStartMix()) return@future SessionResult(SessionError.ERROR_INVALID_STATE)
             ACTION_SEEK_BOOK_TRACK -> {
                 val trackIndex = args.getInt(EXTRA_TRACK_INDEX, -1)
                 if (trackIndex < 0 || !onSeekBookTrack(trackIndex, args.getLong(EXTRA_POSITION_MS))) {
@@ -578,6 +584,7 @@ internal fun controllerCommands(trusted: Boolean): ControllerCommands = if (trus
             .add(SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY))
             .add(SessionCommand(ACTION_CHAPTER_PREVIOUS, Bundle.EMPTY))
             .add(SessionCommand(ACTION_CHAPTER_NEXT, Bundle.EMPTY))
+            .add(SessionCommand(ACTION_START_MIX, Bundle.EMPTY))
             .add(SessionCommand(ACTION_VOICE_CHECK, Bundle.EMPTY))
             .add(SessionCommand(ACTION_SEEK_BOOK_TRACK, Bundle.EMPTY))
             .build(),

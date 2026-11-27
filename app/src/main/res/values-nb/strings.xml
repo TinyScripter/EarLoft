@@ -28,11 +28,8 @@
     <string name="action_previous">Forrige spor</string>
     <string name="action_play_next">Spill neste</string>
     <string name="action_add_to_queue">Legg til i køen</string>
-    <string name="action_start_mix">Start miks</string>
     <string name="action_equalizer">Equalizer</string>
-    <string name="mix_empty">Ingen passende sanger for en miks</string>
     <string name="mix_building">Setter sammen en miks …</string>
-    <string name="mix_failed">Miksen kunne ikke opprettes</string>
     <plurals name="mix_queued">
         <item quantity="one">Neste: en miks med %1$d sang</item>
         <item quantity="other">Neste: en miks med %1$d sanger</item>

@@ -35,9 +35,15 @@ class MixRepository @Inject constructor(
     /**
      * Empty if the starting point doesn't exist (anymore). For song, album and artist the mix starts with one of their songs.
      * [offlineOnly]: without network only songs with a local file or finished download, without server suggestions ("Keep playing",
-     * review V9); the starting song itself can still be first.
+     * review V9); the starting song itself can still be first. [serverTimeoutMs]: how long the server suggestions may take (Android
+     * Auto asks for an answer within two seconds, car app quality DR-1).
      */
-    suspend fun mix(seed: MixSeed, random: Random = Random.Default, offlineOnly: Boolean = false): List<Song> {
+    suspend fun mix(
+        seed: MixSeed,
+        random: Random = Random.Default,
+        offlineOnly: Boolean = false,
+        serverTimeoutMs: Long = SERVER_TIMEOUT_MS,
+    ): List<Song> {
         val seedIds = when (seed) {
             is MixSeed.Song -> listOf(seed.songId)
             is MixSeed.Album -> libraryDao.getSongIdsOfAlbum(seed.albumId)
@@ -48,7 +54,7 @@ class MixRepository @Inject constructor(
         val first = if (seed is MixSeed.Song) seedRows.first() else seedRows.random(random)
         val profile = MixProfile.of(seedRows, artistIds = (seed as? MixSeed.Artist)?.let { setOf(it.artistId) })
 
-        val similar = if (offlineOnly) emptyList() else similarSongIds(first.songId)
+        val similar = if (offlineOnly) emptyList() else similarSongIds(first.songId, serverTimeoutMs)
         val candidates = LinkedHashMap<Long, MixCandidateRow>()
         if (offlineOnly) {
             // What plays without network is usually limited: all of it; the picker makes the selection by profile.
@@ -86,7 +92,7 @@ class MixRepository @Inject constructor(
     }
 
     /** Suggestions of the song's first server that has any, as local song IDs; empty without a server or after the timeout. */
-    private suspend fun similarSongIds(songId: Long): List<Long> = withTimeoutOrNull(SERVER_TIMEOUT_MS) {
+    private suspend fun similarSongIds(songId: Long, timeoutMs: Long): List<Long> = withTimeoutOrNull(timeoutMs) {
         val serverSources = libraryDao.getPlayableSources(songId)
             .filter { it.sourceType.isServer }
             .sortedByDescending { it.sourcePriority }

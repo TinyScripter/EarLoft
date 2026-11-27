@@ -28,11 +28,8 @@
     <string name="action_previous">Föregående spår</string>
     <string name="action_play_next">Spela härnäst</string>
     <string name="action_add_to_queue">Lägg till i kön</string>
-    <string name="action_start_mix">Starta mix</string>
     <string name="action_equalizer">Equalizer</string>
-    <string name="mix_empty">Inga passande låtar för en mix</string>
     <string name="mix_building">Skapar en mix…</string>
-    <string name="mix_failed">Mixen kunde inte skapas</string>
     <plurals name="mix_queued">
         <item quantity="one">Härnäst: en mix med %1$d låt</item>
         <item quantity="other">Härnäst: en mix med %1$d låtar</item>

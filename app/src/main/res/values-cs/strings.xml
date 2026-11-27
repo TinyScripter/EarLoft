@@ -28,11 +28,8 @@
     <string name="action_previous">Předchozí skladba</string>
     <string name="action_play_next">Přehrát jako další</string>
     <string name="action_add_to_queue">Přidat do fronty</string>
-    <string name="action_start_mix">Spustit mix</string>
     <string name="action_equalizer">Ekvalizér</string>
-    <string name="mix_empty">Pro mix nejsou žádné vhodné skladby</string>
     <string name="mix_building">Vytváření mixu…</string>
-    <string name="mix_failed">Mix se nepodařilo vytvořit</string>
     <plurals name="mix_queued">
         <item quantity="one">Další na řadě: mix (%1$d skladba)</item>
         <item quantity="few">Další na řadě: mix (%1$d skladby)</item>

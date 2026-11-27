@@ -28,6 +28,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
+import de.kleinabersmart.earloft.core.playback.R as PlaybackR
 
 /**
  * Start a mix (concept 8 "Mix"): [start] replaces the queue with a mix from [MixSeed]; with `afterCurrent` the
@@ -66,7 +67,7 @@ class MixViewModel @Inject constructor(
                 // After the current title: it is itself the starting point and comes first in the mix.
                 val upcoming = if (afterCurrent) songs.drop(1) else songs
                 when {
-                    upcoming.isEmpty() -> snackbars.show(context.getString(R.string.mix_empty))
+                    upcoming.isEmpty() -> snackbars.show(context.getString(PlaybackR.string.mix_empty))
                     afterCurrent -> {
                         playbackConnection.replaceUpcoming(upcoming)
                         snackbars.show(context.resources.getQuantityString(R.plurals.mix_queued, upcoming.size, upcoming.size))
@@ -77,7 +78,7 @@ class MixViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Mix from $seed failed", e)
-                snackbars.show(context.getString(R.string.mix_failed))
+                snackbars.show(context.getString(PlaybackR.string.mix_failed))
             } finally {
                 hint.cancel()
             }
@@ -99,7 +100,7 @@ fun rememberMixController(viewModel: MixViewModel = hiltViewModel()): MixControl
 fun MixButton(seed: MixSeed) {
     val controller = LocalMixController.current ?: return
     IconButton(onClick = { controller.start(seed, false) }) {
-        Icon(painterResource(DesignR.drawable.ic_auto_awesome), contentDescription = stringResource(R.string.action_start_mix))
+        Icon(painterResource(DesignR.drawable.ic_auto_awesome), contentDescription = stringResource(PlaybackR.string.action_start_mix))
     }
 }
 
@@ -108,7 +109,7 @@ fun MixButton(seed: MixSeed) {
 fun MixMenuItem(seed: MixSeed, onDismiss: () -> Unit, afterCurrent: Boolean = false) {
     val controller = LocalMixController.current ?: return
     DropdownMenuItem(
-        text = { Text(stringResource(R.string.action_start_mix)) },
+        text = { Text(stringResource(PlaybackR.string.action_start_mix)) },
         leadingIcon = { Icon(painterResource(DesignR.drawable.ic_auto_awesome), contentDescription = null) },
         onClick = {
             controller.start(seed, afterCurrent)

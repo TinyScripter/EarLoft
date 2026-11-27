@@ -5,9 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
-import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.mix.MixRepository
 import de.kleinabersmart.earloft.core.data.mix.MixSeed
+import de.kleinabersmart.earloft.core.playback.R
 import de.kleinabersmart.earloft.testing.FakePlaybackConnection
 import de.kleinabersmart.earloft.testing.MainDispatcherRule
 import de.kleinabersmart.earloft.testing.awaitReal

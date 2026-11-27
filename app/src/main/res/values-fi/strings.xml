@@ -28,11 +28,8 @@
     <string name="action_previous">Edellinen raita</string>
     <string name="action_play_next">Toista seuraavaksi</string>
     <string name="action_add_to_queue">Lisää jonoon</string>
-    <string name="action_start_mix">Aloita miksi</string>
     <string name="action_equalizer">Taajuuskorjain</string>
-    <string name="mix_empty">Ei sopivia kappaleita miksiin</string>
     <string name="mix_building">Kootaan miksiä…</string>
-    <string name="mix_failed">Miksiä ei voitu luoda</string>
     <plurals name="mix_queued">
         <item quantity="one">Seuraavaksi: %1$d kappaleen miksi</item>
         <item quantity="other">Seuraavaksi: %1$d kappaleen miksi</item>

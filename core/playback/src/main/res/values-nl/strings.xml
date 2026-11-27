@@ -39,4 +39,7 @@
     <string name="spoken_chapter_number">Hoofdstuk %1$d</string>
     <string name="spoken_chapter_previous">Vorig hoofdstuk</string>
     <string name="spoken_chapter_next">Volgend hoofdstuk</string>
+    <string name="action_start_mix">Mix starten</string>
+    <string name="mix_empty">Geen passende nummers voor een mix</string>
+    <string name="mix_failed">De mix kan niet worden gemaakt</string>
 </resources>

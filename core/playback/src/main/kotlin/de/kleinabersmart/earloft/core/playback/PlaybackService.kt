@@ -35,6 +35,7 @@ import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.CommandButton
 import de.kleinabersmart.earloft.core.data.spoken.BookButtons
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionError
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import dagger.hilt.android.AndroidEntryPoint
@@ -132,6 +133,7 @@ class PlaybackService : MediaLibraryService() {
     private var restoreJob: Job? = null
 
     private var session: MediaLibrarySession? = null
+    private var sessionMix: SessionMix? = null
     private lateinit var playTracker: PlayTracker
     private lateinit var bookListener: BookPlaybackListener
     private var sessionPlayer: SpokenAwarePlayer? = null
@@ -288,6 +290,7 @@ class PlaybackService : MediaLibraryService() {
             this, libraryRepository, favoritesRepository, queuePersistence, bookPlaybackSource, browseTree, continueListening, factory, mainScope,
             mediaButtons = mediaButtons,
             onChapterButton = { forward -> if (forward) nextChapter() else previousChapter() },
+            onStartMix = { sessionMix?.start() ?: false },
             onSeekBookTrack = { trackIndex, positionMs -> bookListener.seekToTrack(trackIndex, positionMs) },
         ) {
             restoreJob?.join()
@@ -299,6 +302,7 @@ class PlaybackService : MediaLibraryService() {
             .apply { sessionActivity()?.let { setSessionActivity(it) } }
             .build()
 
+        if (playbackPolicy.startMixButton) session?.let { sessionMix = sessionMixOf(player, factory, it) }
         session?.let { bindFavoriteButton(sessionPlayer, it) }
         session?.let { notifyAreaChanges(it) }
         restoreQueue(player)
@@ -325,6 +329,23 @@ class PlaybackService : MediaLibraryService() {
                 endlessMix.check()
             }
         }
+    }
+
+    /**
+     * "Start mix" next to the heart ([ACTION_START_MIX]). Without a network only from downloaded and local content, as with the endless
+     * mix; server suggestions get [SESSION_MIX_SERVER_TIMEOUT_MS] so the button answers within two seconds (car app quality DR-1).
+     * An empty or failed mix is reported as a non-fatal error, which Android Auto shows as a message.
+     */
+    private fun sessionMixOf(player: Player, factory: SessionPlayerFactory?, session: MediaLibrarySession) = SessionMix(
+        player,
+        { songId ->
+            mixRepository.mix(MixSeed.Song(songId), offlineOnly = !hasInternet(), serverTimeoutMs = SESSION_MIX_SERVER_TIMEOUT_MS)
+        },
+        factory,
+        mainScope,
+    ) { failure ->
+        val message = getString(if (failure == SessionMix.Failure.EMPTY) R.string.mix_empty else R.string.mix_failed)
+        session.sendError(SessionError(SessionError.ERROR_UNKNOWN, message))
     }
 
     /** A network with validated internet access (not merely connected, e.g. Wi-Fi without captive portal sign-in). */
@@ -503,7 +524,11 @@ class PlaybackService : MediaLibraryService() {
                         .setDisplayName(getString(if (favorite) R.string.favorite_remove else R.string.favorite_add))
                         .setSessionCommand(SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY))
                         .build()
-                    session.setMediaButtonPreferences(listOf(button))
+                    val mix = CommandButton.Builder(CommandButton.ICON_RADIO)
+                        .setDisplayName(getString(R.string.action_start_mix))
+                        .setSessionCommand(SessionCommand(ACTION_START_MIX, Bundle.EMPTY))
+                        .build()
+                    session.setMediaButtonPreferences(if (playbackPolicy.startMixButton) listOf(button, mix) else listOf(button))
                 }
             }
         }
@@ -880,6 +905,9 @@ class PlaybackService : MediaLibraryService() {
 }
 
 private const val SHAKE_VIBRATION_MS = 40L
+
+/** How long a mix from the session's button waits for server suggestions; together with the database part well under 2 s. */
+private const val SESSION_MIX_SERVER_TIMEOUT_MS = 1_200L
 
 /** Reattaching to a cast session after start can take this long (discovery and connecting). */
 private const val REJOIN_WAIT_MS = 45_000L

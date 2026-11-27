@@ -29,4 +29,8 @@ class PlaybackPolicy @Inject constructor() {
     /** `false`: shaking doesn't extend the sleep timer (watch: the wrist moves too easily during sleep). */
     @Volatile
     var shakeToExtendSleepTimer: Boolean = true
+
+    /** `false`: no "Start mix" button next to the heart (watch: no mix there, concept 8 "Mix"). */
+    @Volatile
+    var startMixButton: Boolean = true
 }

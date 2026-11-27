@@ -39,4 +39,7 @@
     <string name="spoken_chapter_number">Luku %1$d</string>
     <string name="spoken_chapter_previous">Edellinen luku</string>
     <string name="spoken_chapter_next">Seuraava luku</string>
+    <string name="action_start_mix">Aloita miksi</string>
+    <string name="mix_empty">Ei sopivia kappaleita miksiin</string>
+    <string name="mix_failed">Miksiä ei voitu luoda</string>
 </resources>

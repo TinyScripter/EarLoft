@@ -45,4 +45,7 @@
     <string name="spoken_chapter_number">Kapitola %1$d</string>
     <string name="spoken_chapter_previous">Předchozí kapitola</string>
     <string name="spoken_chapter_next">Další kapitola</string>
+    <string name="action_start_mix">Spustit mix</string>
+    <string name="mix_empty">Pro mix nejsou žádné vhodné skladby</string>
+    <string name="mix_failed">Mix se nepodařilo vytvořit</string>
 </resources>

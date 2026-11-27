@@ -39,4 +39,7 @@
     <string name="spoken_chapter_number">Kapitel %1$d</string>
     <string name="spoken_chapter_previous">Forrige kapitel</string>
     <string name="spoken_chapter_next">Næste kapitel</string>
+    <string name="action_start_mix">Start mix</string>
+    <string name="mix_empty">Ingen passende sange til et mix</string>
+    <string name="mix_failed">Mixet kunne ikke oprettes</string>
 </resources>

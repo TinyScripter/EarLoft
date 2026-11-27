@@ -28,11 +28,8 @@
     <string name="action_previous">Vorige track</string>
     <string name="action_play_next">Hierna afspelen</string>
     <string name="action_add_to_queue">Toevoegen aan wachtrij</string>
-    <string name="action_start_mix">Mix starten</string>
     <string name="action_equalizer">Equalizer</string>
-    <string name="mix_empty">Geen passende nummers voor een mix</string>
     <string name="mix_building">Mix samenstellen…</string>
-    <string name="mix_failed">De mix kan niet worden gemaakt</string>
     <plurals name="mix_queued">
         <item quantity="one">Hierna: een mix van %1$d nummer</item>
         <item quantity="other">Hierna: een mix van %1$d nummers</item>

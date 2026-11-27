@@ -28,11 +28,8 @@
     <string name="action_previous">Vorheriger Titel</string>
     <string name="action_play_next">Als Nächstes spielen</string>
     <string name="action_add_to_queue">Zur Warteschlange hinzufügen</string>
-    <string name="action_start_mix">Mix starten</string>
     <string name="action_equalizer">Equalizer</string>
-    <string name="mix_empty">Keine passenden Songs für einen Mix</string>
     <string name="mix_building">Mix wird zusammengestellt …</string>
-    <string name="mix_failed">Der Mix konnte nicht erstellt werden</string>
     <plurals name="mix_queued">
         <item quantity="one">Als Nächstes: Mix mit %1$d Song</item>
         <item quantity="other">Als Nächstes: Mix mit %1$d Songs</item>

@@ -42,4 +42,7 @@
     <string name="spoken_chapter_number">Capítulo %1$d</string>
     <string name="spoken_chapter_previous">Capítulo anterior</string>
     <string name="spoken_chapter_next">Próximo capítulo</string>
+    <string name="action_start_mix">Iniciar mix</string>
+    <string name="mix_empty">Nenhuma música adequada para um mix</string>
+    <string name="mix_failed">Não foi possível criar o mix</string>
 </resources>
