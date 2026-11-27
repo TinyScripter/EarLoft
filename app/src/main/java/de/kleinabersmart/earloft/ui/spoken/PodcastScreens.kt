@@ -635,7 +635,7 @@ fun PodcastScreen(
                     if (episodes == LoadState.Loading) LoadingIndicator()
                     val listState = rememberLazyListState()
                     // New episodes from a refresh appear at the top in view instead of above the edge.
-                    ShowStartOnNewFront(list, listState, { it.book.id }, resetKey = current?.let { it.episodeFilter to it.listOldestFirst })
+                    ShowStartOnNewFront(list, listState, { it.book.id }, resetKey = current.episodeFilter to current.listOldestFirst)
                     // Several episodes on the same day: time of day next to the date.
                     val sameDay = remember(list) { episodesSharingDay(list.map { it.book }) }
                     // If the feed names several seasons (`itunes:season`), each gets its header and group.
