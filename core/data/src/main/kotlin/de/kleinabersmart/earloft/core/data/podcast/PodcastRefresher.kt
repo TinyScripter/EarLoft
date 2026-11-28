@@ -14,6 +14,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import de.kleinabersmart.earloft.core.data.backup.UserDataBackup
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.refresh.NewContent
 import de.kleinabersmart.earloft.core.data.refresh.NewContentNotifier
@@ -46,15 +47,28 @@ import javax.inject.Singleton
  * subscriptions ("Keep up to date" off) are part of none of these, only of [refreshFeed].
  */
 @Singleton
-class PodcastRefresher @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+class PodcastRefresher internal constructor(
+    private val context: Context,
     private val repository: PodcastRepository,
     private val dao: PodcastDao,
     private val settings: PodcastSettings,
     private val localPodcasts: LocalPodcasts,
     private val events: RefreshEvents,
-    @param:ApplicationScope private val scope: CoroutineScope,
+    private val scope: CoroutineScope,
+    /** Until the backed-up subscriptions are back in the database (only noticeably slow on the first start after a restore). */
+    private val awaitRestore: suspend () -> Unit,
 ) {
+    @Inject constructor(
+        @ApplicationContext context: Context,
+        repository: PodcastRepository,
+        dao: PodcastDao,
+        settings: PodcastSettings,
+        localPodcasts: LocalPodcasts,
+        events: RefreshEvents,
+        @ApplicationScope scope: CoroutineScope,
+        backup: UserDataBackup,
+    ) : this(context, repository, dao, settings, localPodcasts, events, scope, backup::awaitRestore)
+
     private val started = AtomicBoolean(false)
     private val lastStaleCheck = AtomicLong(0)
     private val _refreshing = MutableStateFlow(false)
@@ -81,6 +95,9 @@ class PodcastRefresher @Inject constructor(
         val last = lastStaleCheck.get()
         if (now - last < STALE_CHECK_INTERVAL_MS || !lastStaleCheck.compareAndSet(last, now)) return
         scope.launch {
+            // On the first opening after a restore the restored subscriptions are not there yet; checking before that would find
+            // none and, with the check above, leave them without episodes until the next process start (review5 8.2).
+            awaitRestore()
             val hours = settings.refreshHours.first()
             if (hours == 0 || !networkAllows(mobile = settings.useMobileData.first())) return@launch
             val stale = now - hours * HOUR_MS

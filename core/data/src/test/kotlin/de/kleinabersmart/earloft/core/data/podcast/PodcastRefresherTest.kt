@@ -29,6 +29,7 @@ import de.kleinabersmart.earloft.core.datasource.local.LocalScan
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.core.network.podcast.PodcastFeedApi
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdSoundsApi
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -114,7 +115,8 @@ class PodcastRefresherTest {
         db.close()
     }
 
-    private fun refresher() = PodcastRefresher(context, repository, db.podcastDao(), settings, localPodcasts(), events, scope)
+    private fun refresher(awaitRestore: suspend () -> Unit = {}) =
+        PodcastRefresher(context, repository, db.podcastDao(), settings, localPodcasts(), events, scope, awaitRestore)
 
     /** Podcasts on the device only count how often they were looked for. */
     private fun localPodcasts() = LocalPodcasts(
@@ -172,6 +174,21 @@ class PodcastRefresherTest {
         refresher.refreshStale()
         settle()
         assertEquals(1, requested.size)
+    }
+
+    @Test
+    fun `opening the app during the first restore also syncs the subscriptions it brings back`() = runBlocking {
+        val restore = CompletableDeferred<Unit>()
+        val refresher = refresher { restore.await() }
+
+        refresher.refreshStale()
+        // The restore creates the backed-up subscription only now, never synced.
+        subscribed("restored", hoursAgo = 0)
+        db.podcastDao().upsertFeed(db.podcastDao().feeds().single().copy(lastRefreshAt = 0))
+        restore.complete(Unit)
+        settle()
+
+        assertEquals(listOf(url("restored")), requested)
     }
 
     @Test
