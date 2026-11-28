@@ -89,7 +89,7 @@ class SessionAccessTest {
         assertTrue(trusted(controller(context.packageName, verified = false, legacy = true)))
     }
 
-    private val ownCommands = listOf(ACTION_TOGGLE_FAVORITE, ACTION_CHAPTER_PREVIOUS, ACTION_CHAPTER_NEXT, ACTION_VOICE_CHECK)
+    private val ownCommands = listOf(ACTION_TOGGLE_FAVORITE, ACTION_CHAPTER_PREVIOUS, ACTION_CHAPTER_NEXT, ACTION_PLAY_FROM_SEARCH)
 
     @Test
     fun `a foreign app may control playback but neither browse nor replace the queue nor set favorites`() {

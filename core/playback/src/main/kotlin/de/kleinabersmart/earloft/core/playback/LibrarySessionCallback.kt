@@ -48,10 +48,12 @@ internal const val ACTION_CHAPTER_NEXT = "de.kleinabersmart.earloft.CHAPTER_NEXT
 internal const val ACTION_START_MIX = "de.kleinabersmart.earloft.START_MIX"
 
 /**
- * Does the voice request [EXTRA_VOICE_QUERY] find anything? The app asks before it sets and plays the request: a request
- * without results keeps the queue (review G10), and a "play" right after it would only continue that queue.
+ * Voice request [EXTRA_VOICE_QUERY] from the app: the session sets what it finds, prepares it and plays it, all in one command.
+ * It answers with an error and leaves the queue alone if nothing is found or the target can't be started (a book that is not
+ * downloaded while offline, an expired login). The app used to send `setMediaItem`, `prepare` and `play` one by one: a rejected
+ * `setMediaItem` left the old queue, and the `play` after it continued that (review G10, review5 P5).
  */
-internal const val ACTION_VOICE_CHECK = "de.kleinabersmart.earloft.VOICE_CHECK"
+internal const val ACTION_PLAY_FROM_SEARCH = "de.kleinabersmart.earloft.PLAY_FROM_SEARCH"
 internal const val EXTRA_VOICE_QUERY = "query"
 
 /**
@@ -283,9 +285,22 @@ internal class LibrarySessionCallback(
                     return@future SessionResult(SessionError.ERROR_BAD_VALUE)
                 }
             }
-            ACTION_VOICE_CHECK -> {
-                val target = voiceTarget(session.player, args.getString(EXTRA_VOICE_QUERY).orEmpty())
-                if (target is VoiceStart.Songs && target.songs.isEmpty()) return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+            ACTION_PLAY_FROM_SEARCH -> {
+                val player = session.player
+                val start = try {
+                    voiceItems(player, args.getString(EXTRA_VOICE_QUERY).orEmpty(), C.TIME_UNSET)
+                } catch (e: UnsupportedOperationException) {
+                    Log.i(TAG, "Voice request from the app not started: ${e.message}")
+                    return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+                }
+                // Like Media3 does after `onSetMediaItems`.
+                if (start.startIndex == C.INDEX_UNSET) {
+                    player.setMediaItems(start.mediaItems, true)
+                } else {
+                    player.setMediaItems(start.mediaItems, start.startIndex, start.startPositionMs)
+                }
+                player.prepare()
+                player.playWhenReady = true
             }
             else -> return@future SessionResult(SessionError.ERROR_NOT_SUPPORTED)
         }
@@ -346,17 +361,7 @@ internal class LibrarySessionCallback(
         val spokenId = single?.let { MediaIds.spokenId(it.mediaId) }
         val (requested, requestedStart) = when {
             spokenId != null -> return@future startSpoken(player, spokenId)
-            voiceQuery != null -> when (val target = voiceTarget(player, voiceQuery)) {
-                is VoiceStart.Ready -> return@future target.items
-                is VoiceStart.Restored -> return@future target.restored.let {
-                    windowed(player, it.items, it.startIndex, it.startPositionMs, it.shuffle)
-                }
-                is VoiceStart.Spoken -> return@future startSpoken(player, target.bookId)
-                // Nothing found (unknown name, podcast without episodes, empty library): keep what is playing instead of
-                // replacing it with an empty queue (review G10).
-                is VoiceStart.Songs -> target.songs.ifEmpty { throw UnsupportedOperationException("Nothing found for the voice request") }
-                    .map { it.toMediaItem() } to 0
-            }
+            voiceQuery != null -> return@future voiceItems(player, voiceQuery, startPositionMs)
             else -> expandContext(mediaItems, startIndex)
         }
         val resolved = resolve(player, requested)
@@ -367,6 +372,28 @@ internal class LibrarySessionCallback(
         val items = resolved.map { it.second }
         val start = queueStart(resolved.map { it.first }, requestedStart, startPositionMs)
         windowed(player, items, start.index, start.positionMs, player.shuffleModeEnabled)
+    }
+
+    /**
+     * What a voice request [query] sets: the queue and where it starts. Throws [UnsupportedOperationException] if nothing can be
+     * started; callers then keep what is playing instead of replacing it with an empty queue (review G10).
+     */
+    private suspend fun voiceItems(player: Player, query: String, startPositionMs: Long): MediaItemsWithStartPosition {
+        val (requested, requestedStart) = when (val target = voiceTarget(player, query)) {
+            is VoiceStart.Ready -> return target.items
+            is VoiceStart.Restored -> return target.restored.let {
+                windowed(player, it.items, it.startIndex, it.startPositionMs, it.shuffle)
+            }
+            is VoiceStart.Spoken -> return startSpoken(player, target.bookId)
+            // Nothing found (unknown name, podcast without episodes, empty library).
+            is VoiceStart.Songs -> target.songs.ifEmpty { throw UnsupportedOperationException("Nothing found for the voice request") }
+                .map { it.toMediaItem() } to 0
+        }
+        val resolved = resolve(player, requested)
+        // Nothing playable: keep the queue instead of clearing it.
+        if (resolved.isEmpty()) throw UnsupportedOperationException("None of the tracks is playable")
+        val start = queueStart(resolved.map { it.first }, requestedStart, startPositionMs)
+        return windowed(player, resolved.map { it.second }, start.index, start.positionMs, player.shuffleModeEnabled)
     }
 
     /**
@@ -593,7 +620,7 @@ internal fun controllerCommands(trusted: Boolean): ControllerCommands = if (trus
             .add(SessionCommand(ACTION_CHAPTER_PREVIOUS, Bundle.EMPTY))
             .add(SessionCommand(ACTION_CHAPTER_NEXT, Bundle.EMPTY))
             .add(SessionCommand(ACTION_START_MIX, Bundle.EMPTY))
-            .add(SessionCommand(ACTION_VOICE_CHECK, Bundle.EMPTY))
+            .add(SessionCommand(ACTION_PLAY_FROM_SEARCH, Bundle.EMPTY))
             .add(SessionCommand(ACTION_SEEK_BOOK_TRACK, Bundle.EMPTY))
             .build(),
         MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS,

@@ -251,15 +251,11 @@ class MediaPlaybackConnection @Inject constructor(
 
     override suspend fun playFromSearch(query: String): Boolean = withContext(Dispatchers.Main.immediate) {
         useController {
-            // Only a request with results is set and played: otherwise the session keeps the queue and "play" would continue it.
-            val check = sendCustomCommand(SessionCommand(ACTION_VOICE_CHECK, Bundle.EMPTY), Bundle().apply { putString(EXTRA_VOICE_QUERY, query) })
+            // One command: the session sets, prepares and plays only if the target can be started. Sent one by one, a rejected
+            // `setMediaItem` left the old queue, and the `play` after it continued that (review5 P5).
+            val result = sendCustomCommand(SessionCommand(ACTION_PLAY_FROM_SEARCH, Bundle.EMPTY), Bundle().apply { putString(EXTRA_VOICE_QUERY, query) })
                 .await()
-            if (check.resultCode != SessionResult.RESULT_SUCCESS) return@useController false
-            val request = MediaItem.RequestMetadata.Builder().setSearchQuery(query).build()
-            setMediaItem(MediaItem.Builder().setRequestMetadata(request).build())
-            prepare()
-            playSetItems()
-            true
+            result.resultCode == SessionResult.RESULT_SUCCESS
         } ?: false
     }
 
