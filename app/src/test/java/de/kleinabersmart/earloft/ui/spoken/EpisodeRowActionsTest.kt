@@ -15,9 +15,15 @@ import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.download.DownloadStart
+import de.kleinabersmart.earloft.core.model.Book
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.BookProgress
+import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServer
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServerRegistry
+import de.kleinabersmart.earloft.core.playback.PlayerState
+import de.kleinabersmart.earloft.core.playback.SpokenEntry
+import de.kleinabersmart.earloft.testing.FakePlaybackConnection
 import de.kleinabersmart.earloft.testing.MainDispatcherRule
 import de.kleinabersmart.earloft.testing.awaitReal
 import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
@@ -32,6 +38,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -65,6 +72,7 @@ class EpisodeRowActionsTest {
     @Inject lateinit var snackbars: Snackbars
     @Inject lateinit var servers: AudiobookshelfServers
     @Inject lateinit var registry: AbsServerRegistry
+    @Inject lateinit var playback: FakePlaybackConnection
 
     @Before
     fun setUp() {
@@ -202,5 +210,40 @@ class EpisodeRowActionsTest {
             assertEquals(true, bookDao.progress(book)?.hidden)
             assertNotNull(messages.single().actionLabel)
         }
+    }
+
+    @Test
+    fun `the currently loaded book is not hidden from continue listening`() = runTest {
+        val book = bookDao.upsertBook(
+            BookEntity(serverId = "abs", kind = BookKind.BOOK, remoteId = "b", title = "Book", normTitle = "book", author = "", durationMs = 600_000),
+        )
+        bookDao.upsertProgress(BookProgressEntity(bookId = book, positionMs = 123_000, durationMs = 600_000, updatedAt = 1))
+        playback.state.value = PlayerState(spoken = SpokenEntry(bookId = book, trackIndex = 0, title = "Book", author = ""))
+        val messages = collectMessages()
+
+        rows.hideBook(book)
+
+        // review5 P7: the loaded book stays in "Continue listening" instead of popping back on the next 15-s save.
+        assertEquals(false, bookDao.progress(book)?.hidden)
+        assertEquals(emptyList<SnackbarMessage>(), messages)
+    }
+
+    @Test
+    fun `queue row and menu omit continue listening removal only for the loaded book`() {
+        val book = BookWithProgress(
+            Book(id = 10, serverId = "abs", kind = BookKind.BOOK, title = "Book", author = "", durationMs = 600_000, remoteId = "b1"),
+            BookProgress(positionMs = 10_000, durationMs = 600_000, finished = false, updatedAt = 1, hidden = false),
+        )
+        val episode = BookWithProgress(
+            Book(id = 20, serverId = "sub", kind = BookKind.EPISODE, title = "Ep", author = "", durationMs = 60_000, remoteId = "e1"),
+            BookProgress(positionMs = 10_000, durationMs = 60_000, finished = false, updatedAt = 1, hidden = false),
+        )
+
+        assertFalse(canHideBookFromContinueListening(book, loadedBookId = 10))
+        assertTrue(canHideBookFromContinueListening(book, loadedBookId = 99))
+        assertTrue(canHideBookFromContinueListening(book, loadedBookId = null))
+        assertFalse(canRemoveFromQueueRow(book, current = true))
+        assertTrue(canRemoveFromQueueRow(book, current = false))
+        assertTrue(canRemoveFromQueueRow(episode, current = true))
     }
 }

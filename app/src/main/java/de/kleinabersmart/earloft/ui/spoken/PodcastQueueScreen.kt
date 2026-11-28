@@ -9,6 +9,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -366,15 +367,23 @@ private fun QueueRow(
             CompositionLocalProvider(LocalContentColor provides colors.onSurfaceVariant) { EpisodeProgress(item, inheritedSpeed) }
         }
         if (!selecting) {
-            IconButton(onClick = onRemove) {
-                Icon(
-                    painterResource(DesignR.drawable.ic_close),
-                    contentDescription = stringResource(R.string.action_remove_from_queue),
-                )
+            if (canRemoveFromQueueRow(item, current)) {
+                IconButton(onClick = onRemove) {
+                    Icon(
+                        painterResource(DesignR.drawable.ic_close),
+                        contentDescription = stringResource(R.string.action_remove_from_queue),
+                    )
+                }
+            } else {
+                // Keep the progress bars aligned with the rows below (review5 P7).
+                Spacer(Modifier.size(48.dp))
             }
         }
     }
 }
+
+/** In the books queue, the currently loaded book offers no ✕ (like "Clear", review5 P7). */
+internal fun canRemoveFromQueueRow(item: BookWithProgress, current: Boolean): Boolean = item.isEpisode || !current
 
 /** The small lines above and below the title, slightly tighter than `labelSmall`. */
 @Composable

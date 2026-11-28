@@ -81,6 +81,8 @@ class EpisodeRowActions @Inject constructor(
      * the screen doesn't lose it (Y19).
      */
     suspend fun hideBook(bookId: Long) {
+        // The currently loaded book stays in "Continue listening" (review5 P7).
+        if (playback.state.value.spoken?.bookId == bookId) return
         val item = books.book(bookId).first() ?: return
         val before = item.progress ?: return
         if (before.hidden) return

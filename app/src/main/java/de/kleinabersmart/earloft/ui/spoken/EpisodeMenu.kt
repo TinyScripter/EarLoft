@@ -182,8 +182,9 @@ fun EpisodeMenu(
             },
         )
         // Books in "Continue listening": remove without losing the progress (episodes: "Remove from queue").
+        // Not for the currently loaded book: playback writes it back on the next save tick (review5 P7).
         val progress = item.progress
-        if (!item.isEpisode && progress != null && !progress.finished && !progress.hidden) DropdownMenuItem(
+        if (canHideBookFromContinueListening(item, loadedBookId)) DropdownMenuItem(
             text = { Text(stringResource(R.string.book_hide_from_continue)) },
             onClick = {
                 viewModel.hideFromContinueListening(item)
@@ -280,6 +281,12 @@ fun EpisodeMenu(
             dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
+}
+
+/** A book in "Continue listening" can be hidden only while it isn't the currently loaded book (review5 P7). */
+internal fun canHideBookFromContinueListening(item: BookWithProgress, loadedBookId: Long?): Boolean {
+    val progress = item.progress
+    return !item.isEpisode && progress != null && !progress.finished && !progress.hidden && loadedBookId != item.book.id
 }
 
 private val NO_FACTS = EpisodeMenuFacts(emptySet(), emptySet(), emptySet(), null, null, emptySet(), null)
