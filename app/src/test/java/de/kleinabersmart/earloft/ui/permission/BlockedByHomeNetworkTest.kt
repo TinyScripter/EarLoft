@@ -50,6 +50,49 @@ class BlockedByHomeNetworkTest {
     }
 
     @Test
+    fun `an address typed without a scheme counts as on the home network`() {
+        // The server form takes "192.168.0.140:8096" and tries https and http (review5 P4).
+        assertTrue(isHomeNetworkInput("192.168.0.140:8096"))
+        assertTrue(isHomeNetworkInput(" nas.local/feed.xml "))
+        assertFalse(isHomeNetworkInput("music.example.com"))
+        assertTrue(blockedByHomeNetwork(unreachable = true, address = "10.0.2.2:8096", granted = false))
+    }
+
+    @Test
+    fun `a form on the home network without the permission shows the hint instead of the timeout`() {
+        assertEquals(
+            HomeNetworkError.BLOCKED,
+            homeNetworkError(unreachable = true, address = "http://10.0.2.2:8096", granted = false, grantedAtError = false),
+        )
+    }
+
+    @Test
+    fun `granted after the error the old timeout is no longer shown`() {
+        assertEquals(
+            HomeNetworkError.GRANTED_SINCE,
+            homeNetworkError(unreachable = true, address = "http://10.0.2.2:8096", granted = true, grantedAtError = false),
+        )
+    }
+
+    @Test
+    fun `a form keeps its own error when the permission is not the cause`() {
+        // Already granted when the timeout came: the server is really unreachable.
+        assertEquals(
+            HomeNetworkError.NONE,
+            homeNetworkError(unreachable = true, address = "http://10.0.2.2:8096", granted = true, grantedAtError = true),
+        )
+        // Wrong credentials, or a server on the internet.
+        assertEquals(
+            HomeNetworkError.NONE,
+            homeNetworkError(unreachable = false, address = "http://10.0.2.2:8096", granted = false, grantedAtError = false),
+        )
+        assertEquals(
+            HomeNetworkError.NONE,
+            homeNetworkError(unreachable = true, address = "https://music.example.com", granted = false, grantedAtError = false),
+        )
+    }
+
+    @Test
     fun `a home network sync still running at the grant is synced again`() {
         // Started next to the prompt, before the grant: it fails only once its timeout has run out, so nothing is recorded yet.
         val targets = listOf("home-syncing" to "http://192.168.0.141:4533", "internet-syncing" to "https://music.example.com")

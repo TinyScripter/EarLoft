@@ -347,6 +347,7 @@
     <string name="sync_failed_library_changed">Kirjasto ”%1$s” muuttui palvelimella synkronoinnin aikana. Mitään ei poistettu; seuraava synkronointi yrittää uudelleen.</string>
     <string name="sync_failed_permission">EarLoft ei saa lukea tämän laitteen musiikkia. Salli pääsy sovelluksen asetuksissa kohdassa ”Luvat”.</string>
     <string name="sync_failed_home_network">pääsyä kotiverkkoon ei ole sallittu</string>
+    <string name="home_network_blocked">Pääsyä kotiverkkoon ei ole sallittu. Salli sovelluksen asetuksissa ”Lähellä olevat laitteet”.</string>
     <string name="sync_failed_local_unavailable">Tämän laitteen musiikkia ei voi lukea juuri nyt. Seuraava synkronointi yrittää uudelleen.</string>
     <string name="sync_failed_other">Synkronointi epäonnistui sisäisen virheen vuoksi. Seuraava synkronointi yrittää uudelleen.</string>
     <string name="edit_server_title">Muokkaa palvelinta</string>

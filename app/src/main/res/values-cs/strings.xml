@@ -383,6 +383,7 @@
     <string name="sync_failed_library_changed">Knihovna „%1$s“ se během synchronizace na serveru změnila. Nic nebylo odstraněno; příští synchronizace to zkusí znovu.</string>
     <string name="sync_failed_permission">EarLoft nemá oprávnění číst hudbu v tomto zařízení. Povolte přístup v nastavení aplikace v části „Oprávnění“.</string>
     <string name="sync_failed_home_network">přístup k domácí síti není povolen</string>
+    <string name="home_network_blocked">Přístup k domácí síti není povolen. V nastavení aplikace povolte „Zařízení v okolí“.</string>
     <string name="sync_failed_local_unavailable">Hudbu v tomto zařízení teď nelze přečíst. Příští synchronizace to zkusí znovu.</string>
     <string name="sync_failed_other">Synchronizace se nezdařila kvůli interní chybě. Příští synchronizace to zkusí znovu.</string>
     <string name="edit_server_title">Upravit server</string>

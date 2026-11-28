@@ -119,7 +119,8 @@ fun SetupScreen(
         val absViewModel = hiltViewModel<AudiobookshelfViewModel>()
         val list by absViewModel.list.collectAsStateWithLifecycle()
         val withoutKey by absViewModel.withoutKey.collectAsStateWithLifecycle()
-        list.valueOrNull.orEmpty().map { SetupBookServer(it, keyLost = it.serverId in withoutKey) }
+        val failures by absViewModel.failures.collectAsStateWithLifecycle()
+        list.valueOrNull.orEmpty().map { SetupBookServer(it, keyLost = it.serverId in withoutKey, failure = failures[it.serverId]) }
     } else {
         emptyList()
     }

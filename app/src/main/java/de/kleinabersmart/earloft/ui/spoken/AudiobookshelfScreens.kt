@@ -67,6 +67,9 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.LoadFailedHint
+import de.kleinabersmart.earloft.ui.permission.HomeNetworkBlockedHint
+import de.kleinabersmart.earloft.ui.permission.HomeNetworkError
+import de.kleinabersmart.earloft.ui.permission.rememberHomeNetworkError
 import de.kleinabersmart.earloft.ui.permission.rememberLocalNetworkRequester
 import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthApi
@@ -244,12 +247,17 @@ fun AudiobookshelfFormScreen(
                 }
             }
             (connectState as? ConnectState.Failed)?.let {
-                Text(
-                    if (it.arg != null) stringResource(it.message, it.arg) else stringResource(it.message),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
+                // A timeout on the home network without the permission says so, as in the music server form (review5 P4).
+                when (rememberHomeNetworkError(it, it.message == R.string.spoken_abs_error_unreachable, url)) {
+                    HomeNetworkError.BLOCKED -> HomeNetworkBlockedHint(Modifier.padding(top = 8.dp))
+                    HomeNetworkError.GRANTED_SINCE -> Unit
+                    HomeNetworkError.NONE -> Text(
+                        if (it.arg != null) stringResource(it.message, it.arg) else stringResource(it.message),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
             }
             Button(
                 onClick = connect,

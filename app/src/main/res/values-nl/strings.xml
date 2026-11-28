@@ -347,6 +347,7 @@
     <string name="sync_failed_library_changed">De bibliotheek ‘%1$s’ is tijdens de synchronisatie op de server gewijzigd. Er is niets verwijderd; de volgende synchronisatie probeert het opnieuw.</string>
     <string name="sync_failed_permission">EarLoft mag de muziek op dit apparaat niet lezen. Sta toegang toe in de app-instellingen onder ‘Rechten’.</string>
     <string name="sync_failed_home_network">toegang tot het thuisnetwerk niet toegestaan</string>
+    <string name="home_network_blocked">Toegang tot het thuisnetwerk niet toegestaan. Sta in de app-instellingen ‘Apparaten in de buurt’ toe.</string>
     <string name="sync_failed_local_unavailable">De muziek op dit apparaat kan op dit moment niet worden gelezen. De volgende synchronisatie probeert het opnieuw.</string>
     <string name="sync_failed_other">De synchronisatie is mislukt door een interne fout. De volgende synchronisatie probeert het opnieuw.</string>
     <string name="edit_server_title">Server bewerken</string>

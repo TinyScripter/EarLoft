@@ -16,8 +16,12 @@ import androidx.compose.ui.res.stringResource
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.core.model.SpokenServer
+import de.kleinabersmart.earloft.core.data.sync.SyncFailure
 import de.kleinabersmart.earloft.core.network.podcast.directory.PodcastDirectory
 import de.kleinabersmart.earloft.ui.components.group
+import de.kleinabersmart.earloft.ui.permission.blockedByHomeNetwork
+import de.kleinabersmart.earloft.ui.permission.rememberLocalNetworkGranted
+import de.kleinabersmart.earloft.ui.settings.HomeNetworkSettingsButton
 import de.kleinabersmart.earloft.ui.settings.SettingsUiState
 import de.kleinabersmart.earloft.ui.settings.SwitchRow
 import de.kleinabersmart.earloft.ui.settings.areaIcon
@@ -79,12 +83,20 @@ internal fun LazyListScope.musicPage(state: SettingsUiState, actions: SetupActio
     group("servers", R.string.setup_section_servers) {
         state.servers.forEach { item ->
             row(item.server.sourceId) {
-                // A restored server without its password isn't ready: the row says so instead of a check mark (review H23).
+                // A restored server without its password isn't ready: the row says so instead of a check mark (review H23). Nor is
+                // one on the home network whose sync times out without the permission (review5 P4).
+                val homeNetworkBlocked = item.server.enabled && !item.passwordLost &&
+                    blockedByHomeNetwork(item.error is SyncFailure.Unreachable, item.server.baseUrl, rememberLocalNetworkGranted())
                 SourceRow(
                     item.server.name,
                     item.server.baseUrl,
                     DesignR.drawable.ic_cloud,
-                    problem = if (item.passwordLost) stringResource(R.string.server_password_lost) else null,
+                    problem = when {
+                        item.passwordLost -> stringResource(R.string.server_password_lost)
+                        homeNetworkBlocked -> stringResource(R.string.home_network_blocked)
+                        else -> null
+                    },
+                    homeNetworkBlocked = homeNetworkBlocked,
                 ) { actions.onEditMusicServer(item.server.sourceId) }
             }
         }
@@ -181,23 +193,30 @@ internal fun LazyListScope.podcastsPage(state: SettingsUiState, actions: SetupAc
     }
 }
 
-/** An Audiobookshelf server on the wizard's books page; [keyLost]: its API key or OpenID sign-in can't be read any more. */
-internal data class SetupBookServer(val server: SpokenServer, val keyLost: Boolean)
+/**
+ * An Audiobookshelf server on the wizard's books page; [keyLost]: its API key or OpenID sign-in can't be read any more; [failure]: of
+ * its last sync.
+ */
+internal data class SetupBookServer(val server: SpokenServer, val keyLost: Boolean, val failure: SyncFailure? = null)
 
 internal fun LazyListScope.booksPage(state: SettingsUiState, servers: List<SetupBookServer>, actions: SetupActions) {
     pageHeader(R.string.settings_audiobooks, R.string.setup_books_text, icon = areaIcon(SpokenMode.BOOKS))
     group("servers", R.string.setup_section_servers) {
-        servers.forEach { (server, keyLost) ->
+        servers.forEach { (server, keyLost, failure) ->
             row(server.serverId) {
+                // As for music servers above (review5 P4).
+                val homeNetworkBlocked = server.enabled && !keyLost &&
+                    blockedByHomeNetwork(failure is SyncFailure.Unreachable, server.baseUrl, rememberLocalNetworkGranted())
                 SourceRow(
                     server.name,
                     server.baseUrl,
                     DesignR.drawable.ic_book,
-                    problem = if (keyLost) {
-                        stringResource(if (server.openId) R.string.spoken_abs_login_lost else R.string.spoken_abs_key_lost)
-                    } else {
-                        null
+                    problem = when {
+                        keyLost -> stringResource(if (server.openId) R.string.spoken_abs_login_lost else R.string.spoken_abs_key_lost)
+                        homeNetworkBlocked -> stringResource(R.string.home_network_blocked)
+                        else -> null
                     },
+                    homeNetworkBlocked = homeNetworkBlocked,
                 ) { actions.onEditAudiobookshelf(server.serverId) }
             }
         }
@@ -243,7 +262,14 @@ internal fun LazyListScope.booksPage(state: SettingsUiState, servers: List<Setup
  * that text stands below in the error color instead of the check mark.
  */
 @Composable
-private fun SourceRow(title: String, subtitle: String?, icon: Int, problem: String? = null, onClick: (() -> Unit)? = null) {
+private fun SourceRow(
+    title: String,
+    subtitle: String?,
+    icon: Int,
+    problem: String? = null,
+    homeNetworkBlocked: Boolean = false,
+    onClick: (() -> Unit)? = null,
+) {
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = if (subtitle == null && problem == null) {
@@ -253,6 +279,8 @@ private fun SourceRow(title: String, subtitle: String?, icon: Int, problem: Stri
                 Column {
                     subtitle?.let { Text(it) }
                     problem?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    // Once the system no longer asks, the app settings are the only way to the permission.
+                    if (homeNetworkBlocked) HomeNetworkSettingsButton()
                 }
             }
         },

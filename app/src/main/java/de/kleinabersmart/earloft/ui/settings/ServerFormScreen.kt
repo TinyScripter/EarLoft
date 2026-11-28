@@ -61,6 +61,9 @@ import de.kleinabersmart.earloft.core.data.repository.ConnectionResult
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.ui.library.BackButton
+import de.kleinabersmart.earloft.ui.permission.HomeNetworkBlockedHint
+import de.kleinabersmart.earloft.ui.permission.HomeNetworkError
+import de.kleinabersmart.earloft.ui.permission.rememberHomeNetworkError
 import de.kleinabersmart.earloft.ui.permission.rememberLocalNetworkRequester
 
 /**
@@ -135,7 +138,7 @@ private fun ServerFormContent(
         // On low windows, result and buttons stay pinned at the bottom, otherwise they'd be out of sight below the fields.
         val pinned = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() } < 700.dp
         val actions: @Composable ColumnScope.() -> Unit = {
-            state.result?.let { ResultText(it, state.type) }
+            state.result?.let { ResultText(it, state.type, state.url) }
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 // "Connect" for a new server, "Save" for an existing one – the same words as in the Audiobookshelf form.
@@ -300,8 +303,14 @@ private val SERVER_TYPES = listOf(
 /** Jellyfin and Emby: the password is only used to sign in, the token is stored. */
 private val SourceType.signsIn: Boolean get() = this == SourceType.JELLYFIN || this == SourceType.EMBY
 
+/** [address]: as typed; a timeout on the home network without the permission says so instead (review5 P4). */
 @Composable
-private fun ResultText(result: ConnectionResult, type: SourceType) {
+private fun ResultText(result: ConnectionResult, type: SourceType, address: String) {
+    when (rememberHomeNetworkError(result, result is ConnectionResult.Unreachable, address)) {
+        HomeNetworkError.BLOCKED -> return HomeNetworkBlockedHint()
+        HomeNetworkError.GRANTED_SINCE -> return
+        HomeNetworkError.NONE -> Unit
+    }
     val (text, isError) = when (result) {
         is ConnectionResult.Success ->
             stringResource(R.string.add_server_success, result.serverName, result.serverVersion.orEmpty()) to false

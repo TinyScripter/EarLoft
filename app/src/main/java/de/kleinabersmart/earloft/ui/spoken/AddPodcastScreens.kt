@@ -82,6 +82,10 @@ import de.kleinabersmart.earloft.ui.components.SectionHeader
 import de.kleinabersmart.earloft.ui.components.CardGap
 import de.kleinabersmart.earloft.ui.components.cardItems
 import de.kleinabersmart.earloft.ui.library.BackButton
+import de.kleinabersmart.earloft.ui.permission.HomeNetworkBlockedHint
+import de.kleinabersmart.earloft.ui.permission.HomeNetworkError
+import de.kleinabersmart.earloft.ui.permission.rememberHomeNetworkError
+import de.kleinabersmart.earloft.ui.permission.rememberHomeNetworkRequester
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
@@ -175,6 +179,8 @@ fun AddPodcastScreen(
         val enabled = directories
         // One field for both (user, 2026-11-21): a feed address subscribes, anything else searches the directories.
         val address = term.takeIf(::looksLikeFeedAddress)?.trim()
+        // A feed on the home network needs the permission from Android 17 on; only then it is asked for (review5 P4).
+        val subscribe = rememberHomeNetworkRequester { viewModel.subscribe(it) }
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
             // With search results, the field stays pinned at the top while scrolling (user, 2026-11-21); while discovering,
             // only the categories are pinned ([DiscoverHeader]). Same key in both cases, so the field keeps its state.
@@ -189,7 +195,7 @@ fun AddPodcastScreen(
                     canSearch = !enabled.isNullOrEmpty(),
                     directories = enabled.orEmpty(),
                     onSearch = startSearch,
-                    onSubscribe = { address?.let { viewModel.subscribe(IncomingFeed.fromLink(it) ?: it) } },
+                    onSubscribe = { address?.let { subscribe(IncomingFeed.fromLink(it) ?: it) } },
                     onChooseDirectories = { choosingDirectories = true },
                 )
             }
@@ -200,7 +206,7 @@ fun AddPodcastScreen(
             }
             when {
                 address != null -> item(key = "address") {
-                    FeedAddressCard(address, add, onSubscribe = { viewModel.subscribe(IncomingFeed.fromLink(address) ?: address) })
+                    FeedAddressCard(address, add, onSubscribe = { subscribe(IncomingFeed.fromLink(address) ?: address) })
                 }
                 enabled == null -> Unit
                 enabled.isEmpty() -> item(key = "no-directory") {
@@ -607,12 +613,17 @@ private fun FeedAddressCard(address: String, state: AddPodcastState, onSubscribe
                 )
             }
             if (state is AddPodcastState.Failed) {
-                Text(
-                    stringResource(state.message),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
+                val feedAddress = IncomingFeed.fromLink(address) ?: address
+                when (rememberHomeNetworkError(state, state.message == R.string.podcast_error_unreachable, feedAddress)) {
+                    HomeNetworkError.BLOCKED -> HomeNetworkBlockedHint(Modifier.padding(top = 8.dp))
+                    HomeNetworkError.GRANTED_SINCE -> Unit
+                    HomeNetworkError.NONE -> Text(
+                        stringResource(state.message),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
             }
             SubscribeButton(working, onClick = onSubscribe, modifier = Modifier.align(Alignment.End).padding(top = 12.dp))
         }
@@ -721,8 +732,15 @@ fun PodcastPreviewScreen(
         }
         when (val current = state) {
             is PreviewState.Failed -> Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                Text(stringResource(current.message), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                TextButton(onClick = viewModel::load) { Text(stringResource(R.string.podcast_preview_retry)) }
+                // A shared link to a feed on the home network: the hint instead of a bare error, and retrying asks (review5 P4).
+                val retry = rememberHomeNetworkRequester { viewModel.load() }
+                when (rememberHomeNetworkError(current, current.message == R.string.podcast_error_unreachable, feedUrl)) {
+                    HomeNetworkError.BLOCKED -> HomeNetworkBlockedHint()
+                    HomeNetworkError.GRANTED_SINCE -> Unit
+                    HomeNetworkError.NONE ->
+                        Text(stringResource(current.message), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                }
+                TextButton(onClick = { retry(feedUrl) }) { Text(stringResource(R.string.podcast_preview_retry)) }
             }
             // Cancel leads back to the results.
             is PreviewState.Archived -> ReactivateDialog(

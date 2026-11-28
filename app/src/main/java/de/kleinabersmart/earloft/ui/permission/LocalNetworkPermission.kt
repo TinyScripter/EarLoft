@@ -10,9 +10,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -20,6 +26,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.repository.ServerRepository
 import de.kleinabersmart.earloft.core.data.share.ShareLinks
@@ -31,6 +38,7 @@ import de.kleinabersmart.earloft.core.data.sync.SyncFailure
 import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.ui.orOnError
+import de.kleinabersmart.earloft.ui.settings.HomeNetworkSettingsButton
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -76,6 +84,33 @@ fun rememberLocalNetworkRequester(block: () -> Unit): () -> Unit {
 }
 
 /**
+ * Like [rememberLocalNetworkRequester], but asks only if the address passed in is on the home network ([isHomeNetworkInput]): for
+ * inputs that are mostly on the internet, such as a feed address. [block] gets the address and runs afterwards in any case.
+ */
+@Composable
+fun rememberHomeNetworkRequester(block: (address: String) -> Unit): (address: String) -> Unit {
+    val context = LocalContext.current
+    val currentBlock by rememberUpdatedState(block)
+    // Saveable: the system dialog may outlive the activity (rotation), its answer still belongs to this address.
+    var pending by rememberSaveable { mutableStateOf<String?>(null) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        pending?.let { address ->
+            pending = null
+            currentBlock(address)
+        }
+    }
+    return { address ->
+        if (LocalNetworkPermission.isGranted(context) || !isHomeNetworkInput(address)) {
+            currentBlock(address)
+        } else {
+            pending = address
+            LocalNetworkPermission.askedThisProcess = true
+            launcher.launch(LocalNetworkPermission.name)
+        }
+    }
+}
+
+/**
  * Whether the home network permission is granted, checked again each time the screen resumes: the way back from the app settings
  * ([openAppSettings]) has to show the result. Always `true` before Android 17.
  */
@@ -96,7 +131,63 @@ fun rememberLocalNetworkGranted(): Boolean {
  * one of not reaching the server, not e.g. wrong credentials.
  */
 internal fun blockedByHomeNetwork(unreachable: Boolean, address: String, granted: Boolean): Boolean =
-    unreachable && !granted && ShareLinks.isHomeNetworkAddress(address)
+    unreachable && !granted && isHomeNetworkInput(address)
+
+/**
+ * Whether [input] is an address on the home network, also as typed into a form without a scheme (`192.168.0.5:4533`, which the
+ * server form then tries with https and http).
+ */
+internal fun isHomeNetworkInput(input: String): Boolean {
+    val text = input.trim()
+    return ShareLinks.isHomeNetworkAddress(if ("://" in text) text else "http://$text")
+}
+
+/** What a form shows for its connection error at a home network address (review5 P4). */
+internal enum class HomeNetworkError {
+    /** The error as it is: another error, an address on the internet, or the permission was already there. */
+    NONE,
+
+    /** The permission is missing: the hint and the way to the app settings instead of a bare timeout. */
+    BLOCKED,
+
+    /** Granted only after the error (back from the app settings): the old timeout no longer applies, connecting again tells. */
+    GRANTED_SINCE,
+}
+
+/**
+ * [unreachable]: the error is one of not reaching the server; [granted]: the permission now; [grantedAtError]: when the error came.
+ * Without the permission a form on the home network only ever showed "Server unreachable (timeout)" after 15 s, and once the system
+ * no longer asks (two denials) nothing led to the cause (review5 P4).
+ */
+internal fun homeNetworkError(unreachable: Boolean, address: String, granted: Boolean, grantedAtError: Boolean): HomeNetworkError =
+    when {
+        !unreachable || !isHomeNetworkInput(address) -> HomeNetworkError.NONE
+        !granted -> HomeNetworkError.BLOCKED
+        !grantedAtError -> HomeNetworkError.GRANTED_SINCE
+        else -> HomeNetworkError.NONE
+    }
+
+/** [homeNetworkError] for the form's current [error] (any value that changes with each connection attempt). */
+@Composable
+internal fun rememberHomeNetworkError(error: Any, unreachable: Boolean, address: String): HomeNetworkError {
+    val context = LocalContext.current
+    val granted = rememberLocalNetworkGranted()
+    val grantedAtError = remember(error) { LocalNetworkPermission.isGranted(context) }
+    return homeNetworkError(unreachable, address, granted, grantedAtError)
+}
+
+/** In a form instead of the connection error ([HomeNetworkError.BLOCKED]): what is missing and the way to the app settings. */
+@Composable
+internal fun HomeNetworkBlockedHint(modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(
+            stringResource(R.string.home_network_blocked),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+        HomeNetworkSettingsButton()
+    }
+}
 
 /**
  * Ids of the [targets] (id to address) on the home network to sync again once the permission is granted, so an old timeout does not

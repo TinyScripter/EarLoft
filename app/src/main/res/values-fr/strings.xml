@@ -365,6 +365,7 @@
     <string name="sync_failed_library_changed">La bibliothèque « %1$s » a changé sur le serveur pendant la synchronisation. Rien n’a été supprimé ; la prochaine synchronisation réessaiera.</string>
     <string name="sync_failed_permission">EarLoft n’est pas autorisé à lire la musique de cet appareil. Autorisez l’accès dans les paramètres de l’application, sous « Autorisations ».</string>
     <string name="sync_failed_home_network">accès au réseau domestique non autorisé</string>
+    <string name="home_network_blocked">Accès au réseau domestique non autorisé. Dans les paramètres de l’application, autorisez « Appareils à proximité ».</string>
     <string name="sync_failed_local_unavailable">La musique de cet appareil ne peut pas être lue pour le moment. La prochaine synchronisation réessaiera.</string>
     <string name="sync_failed_other">La synchronisation a échoué en raison d’une erreur interne. La prochaine synchronisation réessaiera.</string>
     <string name="edit_server_title">Modifier le serveur</string>
