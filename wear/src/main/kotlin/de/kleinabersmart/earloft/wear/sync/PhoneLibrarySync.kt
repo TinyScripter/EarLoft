@@ -85,6 +85,9 @@ class PhoneLibrarySync @Inject internal constructor(
             planner.plan(replaceSchedule = phoneBack)
             return@withLock
         }
+        // Report the positions first: a server removed on the phone takes its books along with their progress, and whatever the
+        // new episode manifest no longer contains goes the same way (review5 P63).
+        episodeReporter.report()
         // Unreadable: the known servers stay (an empty list would remove them along with their songs).
         val serversDto = servers?.let { decodeOrNull<WearServersDto>(it.value, "Servers") }
         if (servers != null && serversDto != null) {
@@ -100,8 +103,6 @@ class PhoneLibrarySync @Inject internal constructor(
         manifest?.let { bytes -> readOrNull("Manifest") { WearCodec.decodeManifest(bytes) }?.let { manifestApplier.apply(it) } }
         val podcasts = phoneData.assetPayloads(WearPaths.PODCASTS).values.firstOrNull()
         if (podcasts != null) {
-            // Report the positions first: whatever the new manifest no longer contains is deleted by the mirror along with its progress.
-            episodeReporter.report()
             readOrNull("Episodes") { WearCodec.decodeCompressed<WearPodcastManifest>(podcasts) }
                 ?.let { episodeQueue.setOrder(podcastMirror.apply(it)) }
         }

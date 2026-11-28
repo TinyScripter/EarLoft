@@ -40,6 +40,8 @@ import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinClientInfo
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinServerRegistry
 import de.kleinabersmart.earloft.core.network.subsonic.SubsonicApi
 import de.kleinabersmart.earloft.core.network.subsonic.SubsonicServerRegistry
+import de.kleinabersmart.earloft.core.wearsync.WearBookDto
+import de.kleinabersmart.earloft.core.wearsync.WearBookTrackDto
 import de.kleinabersmart.earloft.core.wearsync.WearCodec
 import de.kleinabersmart.earloft.core.wearsync.WearEpisodeDto
 import de.kleinabersmart.earloft.core.wearsync.WearEpisodeReportDto
@@ -54,6 +56,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearServerSourceDto
 import de.kleinabersmart.earloft.core.wearsync.WearServersDto
 import de.kleinabersmart.earloft.core.wearsync.WearSettingsDto
 import de.kleinabersmart.earloft.core.wearsync.WearSongDto
+import de.kleinabersmart.earloft.core.wearsync.WearSpokenServerDto
 import de.kleinabersmart.earloft.wear.download.WatchState
 import de.kleinabersmart.earloft.wear.download.WearDownloadPlanner
 import kotlinx.coroutines.test.runTest
@@ -276,6 +279,28 @@ class PhoneLibrarySyncTest {
         val reported = phoneData.reports.flatMap { it.progress }.single()
         assertEquals("e2", reported.guid)
         assertEquals(120_000L, reported.progress.positionMs)
+    }
+
+    @Test
+    fun `progress goes to the phone before a removed audiobook server takes its books`() = runTest {
+        val abs = WearSpokenServerDto("abs1", "Audiobookshelf", "https://books.example.org")
+        val audiobook = WearBookDto("abs1", "b1", "Book", durationMs = 3_600_000, tracks = listOf(WearBookTrackDto(0, "f1", durationMs = 3_600_000)))
+        publish(
+            servers = WearServersDto(servers = listOf(navidrome), spokenServers = listOf(abs)),
+            podcasts = podcasts("e1").copy(books = listOf(audiobook)),
+        )
+        sync.sync()
+        val book = db.bookDao().booksOf("abs1").single().bookId
+        db.bookDao().upsertProgress(BookProgressEntity(book, positionMs = 900_000, durationMs = 3_600_000, updatedAt = System.currentTimeMillis()))
+
+        // Removed on the phone, along with its books in the episode manifest.
+        publish(podcasts = podcasts("e1"))
+        sync.sync()
+
+        assertTrue(db.bookDao().booksOf("abs1").isEmpty())
+        val reported = phoneData.reports.flatMap { it.progress }.single()
+        assertEquals("b1", reported.guid)
+        assertEquals(900_000L, reported.progress.positionMs)
     }
 
     @Test
