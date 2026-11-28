@@ -180,6 +180,21 @@ class PodcastFeedParserTest {
     }
 
     @Test
+    fun `an attribute with an undeclared namespace prefix is a feed error, not a runtime exception`() {
+        // KXmlParser throws a plain RuntimeException ("Undefined Prefix") here (review5 P3).
+        val failure = runCatching {
+            parse(
+                """
+                <rss version="2.0"><channel><title>T</title>
+                  <item><enclosure url="https://example.com/1.mp3" foo:bar="1"/></item>
+                </channel></rss>
+                """,
+            )
+        }.exceptionOrNull()
+        assertTrue("was $failure", failure is PodcastFeedException)
+    }
+
+    @Test
     fun `rss image falls back to the plain image element`() {
         val feed = parse(
             """

@@ -12,6 +12,7 @@ import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToLong
 
 /** Not a readable RSS or Atom feed. */
@@ -80,6 +81,11 @@ object PodcastFeedParser {
         val root = try {
             readTree(input, charset)
         } catch (e: XmlPullParserException) {
+            throw PodcastFeedException("Not valid XML", e)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: RuntimeException) {
+            // KXmlParser throws a plain RuntimeException ("Undefined Prefix") for an attribute with an undeclared namespace prefix.
             throw PodcastFeedException("Not valid XML", e)
         }
         return when (root?.name) {

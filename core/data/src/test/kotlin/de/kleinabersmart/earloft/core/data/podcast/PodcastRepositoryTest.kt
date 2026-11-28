@@ -75,6 +75,9 @@ class PodcastRepositoryTest {
     /** Runs while the feed is being fetched (changes made during a sync). */
     private var duringFetch: () -> Unit = {}
 
+    /** Feed addresses that serve their own body instead of [served]. */
+    private val servedOverrides: MutableMap<String, String> = java.util.concurrent.ConcurrentHashMap()
+
     @Before
     fun setUp() {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), EarLoftDatabase::class.java)
@@ -86,7 +89,8 @@ class PodcastRepositoryTest {
                 duringFetch()
                 if (chain.request().url.isHttps && !httpsAvailable) throw IOException("no TLS")
                 val ard = chain.request().url.host == "api.ardaudiothek.de"
-                val body = (if (ard) ardServed else served) ?: throw IOException("offline")
+                val address = chain.request().url.toString()
+                val body = servedOverrides[address] ?: (if (ard) ardServed else served) ?: throw IOException("offline")
                 Response.Builder()
                     .request(chain.request()).protocol(Protocol.HTTP_1_1).code(if (ard) 200 else servedCode).message("OK")
                     .body(body.toResponseBody("application/rss+xml".toMediaType()))
@@ -1606,6 +1610,25 @@ class PodcastRepositoryTest {
         // Every subscription adopted its own result.
         assertEquals(feedIds.toSet(), summary.newEpisodes.map { it.feedId }.toSet())
         feedIds.forEach { id -> assertTrue(db.bookDao().booksOf(id).any { it.title == "New" }) }
+    }
+
+    @Test
+    fun `one feed that cannot be read does not fail the sync of the others`() = runTest {
+        val good = (repository.subscribe("https://example.com/good.xml") as SubscribeResult.Added).feedId
+        val bad = (repository.subscribe("https://example.com/bad.xml") as SubscribeResult.Added).feedId
+        served = feed("New" to "Fri, 31 Oct 2025 06:00:00 GMT", "A" to "Thu, 30 Oct 2025 06:00:00 GMT")
+        // An attribute with an undeclared prefix makes the XML parser throw a plain RuntimeException (review5 P3).
+        servedOverrides["https://example.com/bad.xml"] =
+            """<rss version="2.0"><channel><title>Bad</title><item><title>X</title><enclosure url="https://example.com/x.mp3" foo:bar="1"/></item></channel></rss>"""
+
+        val summary = repository.refreshAll()
+
+        assertEquals(false, summary.ok)
+        assertEquals(false, summary.allFailed)
+        assertEquals(setOf(good), summary.newEpisodes.map { it.feedId }.toSet())
+        assertTrue(db.bookDao().booksOf(good).any { it.title == "New" })
+        assertEquals(1, db.podcastDao().feed(bad)!!.failedRefreshes)
+        assertEquals(FeedError.NOT_A_FEED, db.podcastDao().feed(bad)!!.lastError)
     }
 
     @Test

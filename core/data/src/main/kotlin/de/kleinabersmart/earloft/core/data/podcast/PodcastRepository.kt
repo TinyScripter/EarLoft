@@ -923,7 +923,7 @@ class PodcastRepository @Inject constructor(
         val feeds = dao.feeds().filter { !it.isLocal && it.syncsWithOthers && which(it) }
         val gate = Semaphore(PARALLEL_FETCHES)
         val outcomes = coroutineScope {
-            feeds.map { feed -> async { gate.withPermit { refreshOne(feed.feedId) } } }.awaitAll()
+            feeds.map { feed -> async { gate.withPermit { refreshShielded(feed) } } }.awaitAll()
         }
         feeds.zip(outcomes).forEach { (feed, outcome) ->
             when (outcome) {
@@ -956,6 +956,21 @@ class PodcastRepository @Inject constructor(
                 null
             }
             is RefreshOutcome.Done -> outcome.result.also { follow(feedId, outcome.movedTo) }
+        }
+
+    /**
+     * [refreshOne], but an unexpected exception (a parser bug, an unreadable feed that throws something other than an
+     * [IOException]) only fails this one feed: inside `coroutineScope`, it would cancel the parallel fetches of all the other
+     * feeds and fail every sync for as long as the feed is subscribed (review5 P3).
+     */
+    private suspend fun refreshShielded(feed: PodcastFeedEntity): RefreshOutcome =
+        try {
+            refreshOne(feed.feedId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Sync of ${feed.title} failed unexpectedly", e)
+            RefreshOutcome.Failed(FeedError.NOT_A_FEED)
         }
 
     /** Result of a fetch: adopted (with announced new address) or failed. */
