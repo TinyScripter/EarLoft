@@ -25,6 +25,21 @@ class QueuedAlbumTest {
     }
 
     @Test
+    fun `the endless mix appended behind the album's last track keeps it the album`() {
+        assertEquals(7L, state(entry(1, 7), entry(2, 7), entry(3, 3), entry(4, 9), current = 1).queuedAlbumId())
+    }
+
+    @Test
+    fun `once the mix behind the album plays, the album is no longer loaded`() {
+        assertNull(state(entry(1, 7), entry(2, 7), entry(3, 3), entry(4, 9), current = 2).queuedAlbumId())
+    }
+
+    @Test
+    fun `a song of another album in between is no longer the album`() {
+        assertNull(state(entry(1, 7), entry(2, 3), entry(3, 7), current = 0).queuedAlbumId())
+    }
+
+    @Test
     fun `songs without album, an empty queue and a loaded book count as no album`() {
         assertNull(state(entry(1, null), entry(2, null)).queuedAlbumId())
         assertNull(PlayerState().queuedAlbumId())

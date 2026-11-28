@@ -38,7 +38,8 @@ internal data class LocalBookFiles(
 /**
  * Which files form a book (concept 12.1): a folder in "Audiobooks" is a book with one file per chapter
  * (MP3 folder); a file directly in "Audiobooks" is a book of its own (m4b). Subfolders form separate books, except disc
- * folders ("CD 1", "Disc 2", [discNumber]): like with Audiobookshelf they belong to the book above them.
+ * folders ("CD 1", "Disc 2", [discNumber]): like with Audiobookshelf they belong to the book above them, unless their album tags
+ * name different books (the parts of a series).
  */
 internal object LocalBookLayout {
     const val ROOT = "Audiobooks"
@@ -69,10 +70,19 @@ internal object LocalBookLayout {
             val parent = folder.substringBeforeLast('/')
             val disc = discNumber(folder.substringAfterLast('/'))?.takeUnless { parent.equals(ROOT, ignoreCase = true) }
             if (disc != null) {
-                folders.getOrPut(parent) { mutableListOf() } += FileOfBook(row, disc, row.path.substringBeforeLast('/').substringBeforeLast('/'))
+                folders.getOrPut(parent) { mutableListOf() } +=
+                    FileOfBook(row, disc, row.path.substringBeforeLast('/').substringBeforeLast('/'), discFolder = folder)
             } else {
                 folders.getOrPut(folder) { mutableListOf() } += FileOfBook(row, 0, row.path.substringBeforeLast('/'))
             }
+        }
+        for ((folder, entries) in folders.entries.toList()) {
+            val apart = separateBooks(entries) ?: continue
+            folders[folder] = entries.filterTo(mutableListOf()) { it.discFolder == null }
+            for ((discFolder, discEntries) in apart) {
+                folders[discFolder] = discEntries.mapTo(mutableListOf()) { FileOfBook(it.row, 0, it.row.path.substringBeforeLast('/')) }
+            }
+            if (folders.getValue(folder).isEmpty()) folders.remove(folder)
         }
         // The same path on two volumes (internal and SD card, e.g. while moving) is one book from one of them: otherwise its chapters
         // came twice, or two books with the same key swapped places at every scan (review5 P36).
@@ -88,7 +98,22 @@ internal object LocalBookLayout {
         return books.sortedBy { it.key.lowercase() }
     }
 
-    private class FileOfBook(val row: AudioFileRow, val disc: Int, val bookFolderPath: String)
+    private class FileOfBook(val row: AudioFileRow, val disc: Int, val bookFolderPath: String, val discFolder: String? = null)
+
+    /**
+     * The disc folders of one parent by folder, if their album tags name different books ("Teil 1", "Teil 2" of a series, each a
+     * novel of its own); `null` if they are discs of one book: same album without the disc suffix, or no tags at all.
+     */
+    private fun separateBooks(entries: List<FileOfBook>): Map<String, List<FileOfBook>>? {
+        val byDisc = entries.filter { it.discFolder != null }.groupBy { it.discFolder!! }
+        if (byDisc.size < 2) return null
+        val albums = byDisc.values.mapNotNull { files ->
+            val parent = files.first().row.path.substringBeforeLast('/').substringAfterLast('/')
+            // Without tags MediaStore reports the folder as album, which says nothing about the book.
+            commonValue(files.map { it.row.album?.takeIf { album -> album != parent }?.replace(DISC_SUFFIX, "") })
+        }
+        return byDisc.takeIf { albums.distinctBy { it.lowercase() }.size > 1 }
+    }
 
     private val DISC_SUFFIX = Regex("""\s*[-–:,(\[]?\s*(?:cd|dis[ck]|teil)\s*\d{1,3}\s*[)\]]?\s*$""", RegexOption.IGNORE_CASE)
 

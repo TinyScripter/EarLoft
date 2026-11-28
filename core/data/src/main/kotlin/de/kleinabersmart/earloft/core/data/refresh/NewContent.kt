@@ -51,21 +51,29 @@ sealed interface NewContent {
  * What was just found together with [unread], what the section's notification still shows (neither tapped nor swiped away):
  * otherwise a later sync replaced it, and an earlier podcast with its buttons disappeared without being seen (review5 P19).
  * The newer entries come first; an album, podcast or book in both counts once, with the newer title.
+ *
+ * At most [MAX_MERGED] albums, podcasts or books and [MAX_MERGED_EPISODES] episodes per podcast are kept: a notification left
+ * standing for months would otherwise carry its whole history in its extras, up to the binder's limit, beyond which it is dropped.
  */
 fun NewContent.withUnread(unread: NewContent?): NewContent = when {
     this is NewContent.Music && unread is NewContent.Music -> NewContent.Music(
         (albums + unread.albums).groupBy { it.albumId }.values
             .map { same -> same.first().copy(songs = same.sumOf { it.songs }) }
-            .sortedByDescending { it.songs },
+            .sortedByDescending { it.songs }
+            .take(MAX_MERGED),
     )
     this is NewContent.Podcasts && unread is NewContent.Podcasts -> NewContent.Podcasts(
         episodes = (episodes + unread.episodes).groupBy { it.feedId }.values
-            .map { same -> same.first().copy(episodeIds = same.flatMap { it.episodeIds }.distinct()) },
-        moved = (moved + unread.moved).distinct(),
+            .map { same -> same.first().copy(episodeIds = same.flatMap { it.episodeIds }.distinct().take(MAX_MERGED_EPISODES)) }
+            .take(MAX_MERGED),
+        moved = (moved + unread.moved).distinct().take(MAX_MERGED),
     )
-    this is NewContent.Books && unread is NewContent.Books -> NewContent.Books((books + unread.books).distinctBy { it.bookId })
+    this is NewContent.Books && unread is NewContent.Books -> NewContent.Books((books + unread.books).distinctBy { it.bookId }.take(MAX_MERGED))
     else -> this
 }
+
+internal const val MAX_MERGED = 100
+internal const val MAX_MERGED_EPISODES = 50
 
 /** Shows [NewContent] as a notification; the app provides the implementation (texts, channel, cover, tap target). */
 interface NewContentNotifier {

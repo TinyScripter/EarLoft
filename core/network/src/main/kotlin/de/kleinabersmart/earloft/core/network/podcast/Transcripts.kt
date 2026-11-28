@@ -140,12 +140,12 @@ private fun cueTime(raw: String): Long? {
 // --- HTML (Podcasting 2.0: <cite>Speaker:</cite> <time>0:00</time> <p>Text</p>) ---
 
 /**
- * An element's content may not run into the next element of the same kind: HTML allows `<p>` without `</p>`, and each unclosed
- * one made the search run to the end of the text, quadratic and not cancellable on 5 MB (review5 P37). Such a `<p>` stays out
- * as before.
+ * An element ends at its closing tag or, as HTML allows `<p>` without `</p>`, where the next `<cite>`, `<time>` or `<p>` begins.
+ * Searching for the closing tag alone made each unclosed one run to the end of the text, quadratic and not cancellable on 5 MB
+ * (review5 P37); its text is kept.
  */
 private val HTML_PART = Regex(
-    """<(cite|time|p)\b[^>]*>((?:(?!<\1\b).)*?)</\1\s*>""",
+    """<(cite|time|p)\b[^>]*>((?:(?!<(?:cite|time|p)\b).)*?)(?:</\1\s*>|(?=<(?:cite|time|p)\b)|\z)""",
     setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
 )
 private val BREAK = Regex("""<br\s*/?>|</(?:p|div|li|h\d)>""", RegexOption.IGNORE_CASE)
@@ -163,7 +163,7 @@ private fun parseHtml(body: String): List<TranscriptSegment> {
         when (part.groupValues[1].lowercase()) {
             "cite" -> speaker = content.removeSuffix(":").trim().takeIf { it.isNotEmpty() }
             "time" -> start = cueTime(content)
-            else -> {
+            else -> if (content.isNotEmpty()) {
                 result += TranscriptSegment(content, startMs = start, speaker = speaker)
                 start = null
             }

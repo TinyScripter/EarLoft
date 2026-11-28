@@ -30,6 +30,20 @@ class NewContentMergeTest {
     }
 
     @Test
+    fun `a notification left standing keeps only the newest entries`() {
+        val unread = NewContent.Books((1L..MAX_MERGED).map { NewBook(it, "Old $it", "Author") })
+        val found = NewContent.Books(listOf(NewBook(1_000, "New", "Author")))
+        val episodes = NewContent.Podcasts(listOf(NewEpisodes("a", "A", (1L..MAX_MERGED_EPISODES).toList())))
+
+        val merged = found.withUnread(unread) as NewContent.Books
+        val mergedEpisodes = NewContent.Podcasts(listOf(NewEpisodes("a", "A", listOf(0L)))).withUnread(episodes) as NewContent.Podcasts
+
+        assertEquals(MAX_MERGED, merged.books.size)
+        assertEquals(1_000L, merged.books.first().bookId)
+        assertEquals((0L until MAX_MERGED_EPISODES).toList(), mergedEpisodes.episodes.single().episodeIds)
+    }
+
+    @Test
     fun `new songs of the same album add up and the album with most new songs comes first`() {
         val unread = NewContent.Music(listOf(NewAlbum(1, "Takk...", "Sigur Rós", 2), NewAlbum(2, "Hvarf", "Sigur Rós", 3)))
         val found = NewContent.Music(listOf(NewAlbum(1, "Takk...", "Sigur Rós", 2)))

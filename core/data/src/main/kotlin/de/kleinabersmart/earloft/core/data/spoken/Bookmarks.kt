@@ -98,15 +98,17 @@ class Bookmarks @Inject constructor(
     }
 
     /** `true` if nothing is pending anymore. */
-    suspend fun push(bookmarkId: Long): Boolean = serverMutex.withLock { pushLocked(bookmarkId) }
+    suspend fun push(bookmarkId: Long): Boolean = send(bookmarkId) == Pushed.DONE
 
-    private suspend fun pushLocked(bookmarkId: Long): Boolean {
-        val bookmark = dao.bookmark(bookmarkId) ?: return true
-        if (!bookmark.dirty) return true
+    private suspend fun send(bookmarkId: Long): Pushed = serverMutex.withLock { pushLocked(bookmarkId) }
+
+    private suspend fun pushLocked(bookmarkId: Long): Pushed {
+        val bookmark = dao.bookmark(bookmarkId) ?: return Pushed.DONE
+        if (!bookmark.dirty) return Pushed.DONE
         // Watch: no connection to Audiobookshelf (Wear concept 16.2).
-        if (!policy.syncsWithBookServers) return true
-        val book = dao.book(bookmark.bookId) ?: return true
-        val server = servers.server(book.serverId) ?: return false
+        if (!policy.syncsWithBookServers) return Pushed.DONE
+        val book = dao.book(bookmark.bookId) ?: return Pushed.DONE
+        val server = servers.server(book.serverId) ?: return Pushed.UNREACHABLE
         return try {
             val remoteTime = bookmark.remoteTime
             val time = remoteTime ?: (bookmark.positionMs / 1000.0)
@@ -114,7 +116,7 @@ class Bookmarks @Inject constructor(
                 bookmark.deleted -> {
                     if (remoteTime != null) api.deleteBookmark(server, book.remoteId, remoteTime)
                     dao.deleteDeletedBookmark(bookmarkId, bookmark.updatedAt)
-                    return true
+                    return Pushed.DONE
                 }
                 remoteTime == null -> api.createBookmark(server, book.remoteId, AbsBookmarkUpdate(time, bookmark.title))
                 else -> try {
@@ -126,17 +128,17 @@ class Bookmarks @Inject constructor(
                 }
             }
             dao.markBookmarkClean(bookmarkId, time, bookmark.updatedAt)
-            true
+            Pushed.DONE
         } catch (e: IOException) {
             Log.w(TAG, "Bookmark in ${book.title} not reported", e)
             BookProgressWorker.schedule(context)
-            false
+            e.pushFailure()
         }
     }
 
     /** Reports everything pending. `true` if nothing is open anymore. */
     suspend fun pushPending(serverId: String? = null): Boolean =
-        pushPerServer(dao.dirtyBookmarks(), serverId, { dao.book(it.bookId)?.serverId }) { push(it.bookmarkId) }
+        pushPerServer(dao.dirtyBookmarks(), serverId, { dao.book(it.bookId)?.serverId }) { send(it.bookmarkId) }
 
     /**
      * Fetches the account's bookmarks with [fetch] (from `/api/me`) and adopts them for the books of [serverId]: new ones are

@@ -635,6 +635,7 @@ class UserDataBackupTest {
         val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         try {
             // The sync already brought the books with a newer position from the server; item-2 got its own speed here meanwhile.
+            newDevice.bookDao().upsertServer(SpokenServerEntity("abs", "ABS", "https://abs.example", libraryId = "lib"))
             val first = book(newDevice, "abs", "item-1", BookKind.BOOK)
             val second = book(newDevice, "abs", "item-2", BookKind.BOOK)
             newDevice.bookDao().upsertProgress(progress(first, 900, updatedAt = 90))
@@ -652,6 +653,19 @@ class UserDataBackupTest {
         } finally {
             newDevice.close()
         }
+    }
+
+    @Test
+    fun `a speed reset on a book without server is not brought back by an older backup`() = runTest {
+        val local = book(main, LOCAL_BOOK_SERVER_ID, "Audiobooks/Buch/", BookKind.BOOK)
+        main.bookDao().upsertProgress(progress(local, 300, updatedAt = 30).copy(speed = 1.4f))
+        backupFor(main).mirror()
+        // Reset to the default here before the next mirror; the time of the progress stays.
+        main.bookDao().upsertProgress(progress(local, 300, updatedAt = 30))
+
+        backupFor(main).applyProgress(user.userDataDao().progress())
+
+        assertNull(main.bookDao().progress(local)!!.speed)
     }
 
     @Test

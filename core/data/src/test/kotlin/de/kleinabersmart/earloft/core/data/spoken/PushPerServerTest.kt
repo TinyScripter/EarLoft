@@ -1,5 +1,8 @@
 package de.kleinabersmart.earloft.core.data.spoken
 
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsException
+import java.io.IOException
+import java.net.SocketTimeoutException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -14,21 +17,44 @@ class PushPerServerTest {
     private fun serverOf(entry: String) = entry.substringBefore(':', "").ifEmpty { null }
 
     @Test
-    fun `after a failure the rest of that server waits, the others go out`() = runBlocking {
+    fun `after an unreachable server the rest of that server waits, the others go out`() = runBlocking {
         val tried = mutableListOf<String>()
 
-        val done = pushPerServer(entries, serverId = null, serverOf = { serverOf(it) }) { tried += it; !it.startsWith("home") }
+        val done = pushPerServer(entries, serverId = null, serverOf = { serverOf(it) }) {
+            tried += it
+            if (it.startsWith("home")) Pushed.UNREACHABLE else Pushed.DONE
+        }
 
         assertFalse(done)
         assertEquals(listOf("home:1", "away:1", "away:2", "none"), tried)
     }
 
     @Test
+    fun `an entry the server rejects holds back nothing else of that server`() = runBlocking {
+        val tried = mutableListOf<String>()
+
+        val done = pushPerServer(entries, serverId = null, serverOf = { serverOf(it) }) {
+            tried += it
+            if (it == "home:1") Pushed.REJECTED else Pushed.DONE
+        }
+
+        assertFalse(done)
+        assertEquals(entries, tried)
+    }
+
+    @Test
     fun `only the entries of the given server`() = runBlocking {
         val tried = mutableListOf<String>()
 
-        assertTrue(pushPerServer(entries, serverId = "away", serverOf = { serverOf(it) }) { tried += it; true })
+        assertTrue(pushPerServer(entries, serverId = "away", serverOf = { serverOf(it) }) { tried += it; Pushed.DONE })
 
         assertEquals(listOf("away:1", "away:2"), tried)
+    }
+
+    @Test
+    fun `an answer from the server rejects only the entry, no answer counts as unreachable`() {
+        assertEquals(Pushed.REJECTED, AbsException(404, "HTTP 404").pushFailure())
+        assertEquals(Pushed.UNREACHABLE, SocketTimeoutException().pushFailure())
+        assertEquals(Pushed.UNREACHABLE, IOException("reset").pushFailure())
     }
 }

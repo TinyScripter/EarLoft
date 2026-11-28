@@ -95,7 +95,20 @@ class TranscriptsTest {
         val segments = parseTranscript(html, TranscriptFormat.HTML).segments
 
         assertTrue("took ${(System.nanoTime() - started) / 1_000_000} ms", System.nanoTime() - started < 3_000_000_000L)
-        assertEquals(listOf(TranscriptSegment("The end.", 1_000, speaker = "Anna")), segments)
+        assertEquals(TranscriptSegment("The end.", 1_000, speaker = "Anna"), segments.last())
+        assertEquals(20_000, segments.dropLast(1).sumOf { it.text.split("Some words here.").size - 1 })
+    }
+
+    @Test
+    fun `a paragraph without closing tag keeps its text and ends where the next one begins`() {
+        val html = "<p>First.<p>Second.<cite>Bob:</cite><time>0:05</time><p>Third.</p>"
+
+        val segments = parseTranscript(html, TranscriptFormat.HTML).segments
+
+        assertEquals(
+            listOf(TranscriptSegment("First."), TranscriptSegment("Second."), TranscriptSegment("Third.", 5_000, speaker = "Bob")),
+            segments,
+        )
     }
 
     @Test

@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 
@@ -11,12 +12,29 @@ import android.util.Log
  * loses its extras.
  *
  * From API 33 a value is only unpacked when it is read itself, so every value is read here: `ComponentActivity` hands all extras to
- * each `SavedStateHandle` of its view models as default arguments, and that reads every value (review5 P39).
+ * each `SavedStateHandle` of its view models as default arguments, and that reads every value (review5 P39). There only the
+ * unreadable values go, so a share keeps its text and a voice search its query.
  */
 internal fun Intent.dropUnreadableExtras() {
     try {
         // A copy: on success the intent's own extras stay packed and are unpacked again on first use.
-        extras?.let { copy -> copy.keySet().forEach { @Suppress("DEPRECATION") copy.get(it) } }
+        val copy = extras ?: return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            copy.isEmpty
+            return
+        }
+        val unreadable = copy.keySet().filter { key ->
+            try {
+                @Suppress("DEPRECATION") copy.get(key)
+                false
+            } catch (e: RuntimeException) {
+                Log.w("IntentExtras", "Dropping unreadable extra $key of $action", e)
+                true
+            }
+        }
+        if (unreadable.isEmpty()) return
+        unreadable.forEach(copy::remove)
+        replaceExtras(copy)
     } catch (e: RuntimeException) {
         Log.w("IntentExtras", "Dropping unreadable extras of $action", e)
         replaceExtras(null as Bundle?)

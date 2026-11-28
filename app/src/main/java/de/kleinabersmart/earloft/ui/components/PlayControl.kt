@@ -44,13 +44,19 @@ fun PlayPauseButton(
 }
 
 /**
- * The album the whole music queue consists of, or null if it mixes albums (playlist, mix, songs added by hand) or a book is
+ * The album the music queue was started with, or null if it mixes albums (playlist, mix, songs added in between) or a book is
  * loaded. A playlist that happens to stand on a song of an album doesn't count as "this album is loaded".
+ *
+ * The queue counts as the album if it begins with its songs, the current title is one of them, and none of the album comes
+ * after them: songs appended at the end – the endless mix behind the last track, or "Add to queue" – keep it the album.
  */
 internal fun PlayerState.queuedAlbumId(): Long? {
     if (spoken != null || queue.isEmpty()) return null
     val albumId = queue.first().albumId ?: return null
-    return albumId.takeIf { queue.all { it.albumId == albumId } }
+    val albumEnd = queue.indexOfFirst { it.albumId != albumId }.takeIf { it >= 0 } ?: queue.size
+    if (currentIndex !in 0 until albumEnd) return null
+    for (i in albumEnd until queue.size) if (queue[i].albumId == albumId) return null
+    return albumId
 }
 
 /**

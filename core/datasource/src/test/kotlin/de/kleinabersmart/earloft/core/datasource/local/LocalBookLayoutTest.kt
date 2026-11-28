@@ -62,6 +62,27 @@ class LocalBookLayoutTest {
     }
 
     @Test
+    fun `parts of a series whose tags name different books stay books of their own`() {
+        val base = "/storage/emulated/0/Audiobooks/Autor/Serie"
+        val books = LocalBookLayout.group(
+            listOf(
+                row(1, "$base/Teil 1/01.mp3", album = "Die Ernte", track = 1),
+                row(2, "$base/Teil 1/02.mp3", album = "Die Ernte", track = 2),
+                row(3, "$base/Teil 2/01.mp3", album = "Der Winter", track = 1),
+                row(4, "$base/intro.mp3", album = "Serie"),
+            ),
+        )
+
+        assertEquals(
+            listOf("Audiobooks/Autor/Serie/", "Audiobooks/Autor/Serie/Teil 1/", "Audiobooks/Autor/Serie/Teil 2/"),
+            books.map { it.key },
+        )
+        assertEquals(listOf(listOf(4L), listOf(1L, 2L), listOf(3L)), books.map { book -> book.files.map { it.id } })
+        assertEquals("$base/Teil 1", books[1].folderPath)
+        assertEquals("Teil 1", books[1].folderName)
+    }
+
+    @Test
     fun `only bare disc names count, and not directly in the root`() {
         assertEquals(1, LocalBookLayout.discNumber("CD 1"))
         assertEquals(2, LocalBookLayout.discNumber("cd02"))

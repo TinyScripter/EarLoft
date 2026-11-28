@@ -376,6 +376,48 @@ class PhoneLibrarySyncTest {
     }
 
     @Test
+    fun `a confirmation counts once, also when the hold ended by itself before`() {
+        val now = 1_000_000L
+        assertFalse(guard.allows(drops = true, now = now))
+        guard.confirm()
+        // The phone came back in the meantime.
+        assertTrue(guard.allows(drops = false, now = now + 1))
+
+        assertFalse(guard.allows(drops = true, now = now + 2))
+    }
+
+    @Test
+    fun `confirming without a hold lets no later drop through`() {
+        guard.confirm()
+
+        assertFalse(guard.allows(drops = true, now = 1_000_000L))
+    }
+
+    @Test
+    fun `clearing on the watch itself is applied without asking again`() = runTest {
+        publish(manifest = manifest("s1", "s2"), podcasts = podcasts("e1", "e2"))
+        sync.sync()
+        db.wearDao().upsert(db.wearDao().getSelections().single().copy(key = "album:2"))
+
+        // "Remove all" in the storage screen: the phone answers with an empty selection.
+        guard.expectRemoval()
+        publish(manifest = WearManifest(), podcasts = WearPodcastManifest())
+        sync.sync()
+
+        assertTrue(episodeGuids().isEmpty())
+        assertFalse(guard.held.value)
+    }
+
+    @Test
+    fun `a removal asked for on the watch is expected only for a few minutes`() {
+        val now = 1_000_000L
+        guard.expectRemoval(now)
+
+        assertTrue(guard.allows(drops = true, now = now + RemovalGuard.EXPECTED_REMOVAL_MS - 1))
+        assertFalse(guard.allows(drops = true, now = now + RemovalGuard.EXPECTED_REMOVAL_MS))
+    }
+
+    @Test
     fun `what counts as a drop`() {
         assertFalse(RemovalGuard.drops(known = 3, kept = 3, newPhone = true, atLeast = 2))
         assertTrue(RemovalGuard.drops(known = 3, kept = 2, newPhone = true, atLeast = 2))

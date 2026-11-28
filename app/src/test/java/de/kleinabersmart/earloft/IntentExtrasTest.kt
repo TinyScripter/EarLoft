@@ -12,7 +12,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -93,7 +92,7 @@ class IntentExtrasTest {
 
     @Test
     @Config(sdk = [34])
-    fun `from API 33 an extra of an unknown class is dropped before the activity's view models read it`() {
+    fun `from API 33 an extra of an unknown class is dropped before the activity's view models read it, the others stay`() {
         val intent = Intent(Intent.ACTION_SEND).apply {
             replaceExtras(packed(Bundle().apply { putString(Intent.EXTRA_TEXT, "link"); putParcelable("foreign", Unreadable()) }))
         }
@@ -105,9 +104,23 @@ class IntentExtrasTest {
         // `ComponentActivity` hands the extras to every `SavedStateHandle` as default arguments, which reads each value.
         val activity = Robolectric.buildActivity(ComponentActivity::class.java, intent).setup().get()
         val handle = ViewModelProvider(activity)[WithState::class.java].handle
-        assertTrue(handle.keys().isEmpty())
-        assertNull(activity.intent.extras)
+        assertEquals(setOf(Intent.EXTRA_TEXT), handle.keys())
+        assertEquals("link", handle.get<String>(Intent.EXTRA_TEXT))
+        assertFalse(activity.intent.hasExtra("foreign"))
         assertEquals(Intent.ACTION_SEND, activity.intent.action)
+    }
+
+    @Test
+    @Config(sdk = [34])
+    fun `from API 33 a share with an extra of an unknown class reaches the app with its text`() {
+        val shared = Intent(Intent.ACTION_SEND).apply {
+            replaceExtras(packed(Bundle().apply { putString(Intent.EXTRA_TEXT, "link"); putParcelable("foreign", Unreadable()) }))
+        }
+
+        val forwarded = shared.forwardedToMainActivity(ApplicationProvider.getApplicationContext())
+
+        assertEquals("link", forwarded.getStringExtra(Intent.EXTRA_TEXT))
+        assertNotNull(forwarded.getStringExtra(EXTRA_LAUNCH_ID))
     }
 
     @Test

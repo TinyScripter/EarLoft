@@ -30,6 +30,7 @@ import de.kleinabersmart.earloft.wear.download.WearDownloadScheduler
 import de.kleinabersmart.earloft.wear.download.WatchStorageRepository
 import de.kleinabersmart.earloft.wear.download.WearDownloadPlanner
 import de.kleinabersmart.earloft.wear.sync.PhoneSelections
+import de.kleinabersmart.earloft.wear.sync.RemovalGuard
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -103,6 +104,7 @@ class StorageViewModel @Inject constructor(
     private val bookDao: BookDao,
     private val planner: WearDownloadPlanner,
     private val scheduler: WearDownloadScheduler,
+    private val removalGuard: RemovalGuard,
 ) : ViewModel() {
 
     private val _removeFailed = MutableStateFlow(false)
@@ -145,6 +147,8 @@ class StorageViewModel @Inject constructor(
                 StoredSection.PODCASTS -> WearClearScope.PODCASTS
                 StoredSection.BOOKS -> WearClearScope.BOOKS
             }
+            // Asked for here: the phone's empty answer is no drop to hold (review5 P1).
+            removalGuard.expectRemoval()
             if (!phoneSelections.clearSelections(scope)) {
                 _removeFailed.value = true
                 return@launch
@@ -157,6 +161,7 @@ class StorageViewModel @Inject constructor(
     fun remove(entry: StoredEntry) {
         viewModelScope.launch {
             _removeFailed.value = false
+            removalGuard.expectRemoval()
             val sent = when (val ref = entry.ref) {
                 is StoredRef.Music -> phoneSelections.setSelected(ref.kind, ref.phoneRefId, selected = false)
                 is StoredRef.Spoken -> phoneSelections.deselectSpoken(ref.serverId, ref.remoteId)

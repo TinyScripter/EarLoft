@@ -239,6 +239,12 @@ class UserDataBackup @Inject constructor(
     suspend fun awaitRestore() = restoreFinished.await()
 
     /**
+     * Like [awaitRestore], and until the backup was applied for the first time: only then are the restored subscriptions noted whose
+     * first sync must not let the automation download their newest episodes ([pendingOf]).
+     */
+    suspend fun awaitFirstApply() = if (started.get()) firstApplied.await() else restoreFinished.await()
+
+    /**
      * Applies what from the backup fits now. The download automation calls this before every decision: backed-up
      * progress and downloads should apply before it downloads the newest unplayed episodes – otherwise, after
      * syncing a restored subscription, it would download played episodes and those whose download was removed on the old device.
@@ -368,9 +374,10 @@ class UserDataBackup @Inject constructor(
         } ?: return null
         val until = restoredAt + WATCH_HOLD_MS
         if (now >= until) return null
-        val songsWait = pending.wearSelections.isNotEmpty() && sourceDao.getServers().any { it.lastFullSyncAt < restoredAt }
+        // A switched-off server never syncs: waiting for it would hold back the watch for the whole day.
+        val songsWait = pending.wearSelections.isNotEmpty() && sourceDao.getServers().any { it.enabled && it.lastFullSyncAt < restoredAt }
         val booksWait = pending.wearBooks.isNotEmpty() && (
-            bookDao.servers().any { it.lastFullSyncAt < restoredAt } ||
+            bookDao.servers().any { it.enabled && it.lastFullSyncAt < restoredAt } ||
                 restoredFeeds().any { podcastDao.feed(it)?.lastRefreshAt == 0L }
             )
         return until.takeIf { songsWait || booksWait }
@@ -630,6 +637,9 @@ class UserDataBackup @Inject constructor(
                     .flatMap { chunk -> bookDao.bookRefs(serverId, chunk.map { it.remoteId }) }
                     .associate { it.remoteId to it.bookId }
                 val current = bookIds.values.chunked(MAX_ARGS).flatMap { bookDao.progressOf(it) }.associateBy { it.bookId }
+                // Only there does a sync create the progress without them. Elsewhere an older backup must not bring back a speed the
+                // user just reset to the default, before the next mirror (as `updatedAt` does not change with it).
+                val fromBookServer = bookDao.server(serverId) != null
                 rows.forEach { row ->
                     val bookId = bookIds[row.remoteId]
                     val existing = bookId?.let { current[it] }
@@ -639,7 +649,7 @@ class UserDataBackup @Inject constructor(
                             bookDao.upsertProgress(row.toMain(bookId))
                             applied++
                         }
-                        else -> {
+                        fromBookServer -> {
                             // Position and time stay; what was set here already wins.
                             val withEffects = existing.copy(
                                 speed = existing.speed ?: row.speed,

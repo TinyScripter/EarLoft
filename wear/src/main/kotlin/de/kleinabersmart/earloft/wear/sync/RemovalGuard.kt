@@ -17,7 +17,8 @@ import javax.inject.Singleton
  * held until the user confirms it on the watch ([confirm]) or [HOLD_MS] have passed.
  *
  * A drop is: the server list falling to nothing, more than half of the selections or of the unfinished episodes and books
- * gone at once, or any removal within [HOLD_MS] after the phone's database changed ([notePhoneDatabase]).
+ * gone at once, or any removal within [HOLD_MS] after the phone's database changed ([notePhoneDatabase]). A removal the user
+ * started on the watch itself ([expectRemoval]) is no drop.
  */
 @Singleton
 class RemovalGuard @Inject constructor(
@@ -53,8 +54,10 @@ class RemovalGuard @Inject constructor(
     /** May a state that [drops] (see [drops]) be applied? If not, it is held, and the watch looks again when the hold ends. */
     fun allows(drops: Boolean, now: Long = System.currentTimeMillis()): Boolean {
         val since = prefs.getLong(KEY_HELD_SINCE, 0)
-        if (!drops || prefs.getBoolean(KEY_CONFIRMED, false) || (since > 0 && now - since >= HOLD_MS)) {
-            if (since > 0) prefs.edit { remove(KEY_HELD_SINCE); remove(KEY_CONFIRMED) }
+        val expected = now < prefs.getLong(KEY_EXPECTED_UNTIL, 0)
+        if (!drops || expected || prefs.getBoolean(KEY_CONFIRMED, false) || (since > 0 && now - since >= HOLD_MS)) {
+            // A confirmation counts once, also when the hold ended by itself in the meantime: otherwise it let every later drop through.
+            if (since > 0 || prefs.contains(KEY_CONFIRMED)) prefs.edit { remove(KEY_HELD_SINCE); remove(KEY_CONFIRMED) }
             _held.value = false
             return true
         }
@@ -69,7 +72,15 @@ class RemovalGuard @Inject constructor(
 
     /** The user wants the phone's state here too; the caller lets the sync run again. */
     fun confirm() {
-        prefs.edit { putBoolean(KEY_CONFIRMED, true) }
+        if (prefs.getLong(KEY_HELD_SINCE, 0) > 0) prefs.edit { putBoolean(KEY_CONFIRMED, true) }
+    }
+
+    /**
+     * The user removes things on the watch (storage screen, "Remove all"): the phone's answer within [EXPECTED_REMOVAL_MS] is
+     * applied, even if it takes everything, instead of asking once more.
+     */
+    fun expectRemoval(now: Long = System.currentTimeMillis()) {
+        prefs.edit { putLong(KEY_EXPECTED_UNTIL, now + EXPECTED_REMOVAL_MS) }
     }
 
     companion object {
@@ -79,8 +90,10 @@ class RemovalGuard @Inject constructor(
         private const val KEY_NEW_SINCE = "phone_database_new_since"
         private const val KEY_HELD_SINCE = "held_since"
         private const val KEY_CONFIRMED = "confirmed"
+        private const val KEY_EXPECTED_UNTIL = "expected_until"
 
         const val HOLD_MS = 24 * 60 * 60_000L
+        const val EXPECTED_REMOVAL_MS = 5 * 60_000L
 
         /**
          * Whether keeping [kept] of [known] entries is a drop: any removal from a [newPhone], otherwise all of them (from

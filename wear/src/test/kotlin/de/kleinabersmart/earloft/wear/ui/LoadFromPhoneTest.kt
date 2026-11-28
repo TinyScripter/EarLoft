@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.wear.ui
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -22,5 +23,21 @@ class LoadFromPhoneTest {
         assertEquals("tracks", result)
         assertEquals(2, unreachableShown)
         assertEquals(4, phoneChecks)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `each look waits twice as long, up to the limit`() = runTest {
+        val answers = ArrayDeque(listOf(null, null, null, null, "tracks"))
+        val looks = mutableListOf<Long>()
+
+        loadFromPhone(
+            phoneIsThere = { looks += testScheduler.currentTime; true },
+            onUnreachable = {},
+            retryMs = 1_000,
+            maxRetryMs = 4_000,
+        ) { answers.removeFirst() }
+
+        assertEquals(listOf(1_000L, 3_000L, 7_000L, 11_000L), looks)
     }
 }

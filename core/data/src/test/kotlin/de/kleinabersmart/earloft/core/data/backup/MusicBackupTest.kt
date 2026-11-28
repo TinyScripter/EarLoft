@@ -400,6 +400,9 @@ class MusicBackupTest {
 
             assertEquals(restoredAt + day, backup.watchHoldUntil(now = restoredAt + 1))
             assertNull("a day at most", backup.watchHoldUntil(now = restoredAt + day))
+            newDevice.sourceDao().setEnabled("nav", false)
+            assertNull("a switched-off server never syncs", backup.watchHoldUntil(now = restoredAt + 1))
+            newDevice.sourceDao().setEnabled("nav", true)
             newDevice.sourceDao().setSyncGeneration("nav", 1, restoredAt + 1)
             assertNull("every server synced since the restore", backup.watchHoldUntil(now = restoredAt + 2))
 

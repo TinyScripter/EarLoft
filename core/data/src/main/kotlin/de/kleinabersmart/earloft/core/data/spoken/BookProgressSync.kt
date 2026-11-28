@@ -143,40 +143,42 @@ class BookProgressSync @Inject constructor(
      * from the watch): the newer timestamp wins even over an unsent state, so if the server's state is newer it is adopted
      * instead of overwritten (review4 Y18). A state just recorded here is newer anyway and goes up without asking.
      */
-    suspend fun push(bookId: Long, checkServer: Boolean = false): Boolean {
-        val progress = dao.progress(bookId) ?: return true
-        if (!progress.dirty) return true
+    suspend fun push(bookId: Long, checkServer: Boolean = false): Boolean = send(bookId, checkServer) == Pushed.DONE
+
+    private suspend fun send(bookId: Long, checkServer: Boolean): Pushed {
+        val progress = dao.progress(bookId) ?: return Pushed.DONE
+        if (!progress.dirty) return Pushed.DONE
         // Watch: it reports the state to the phone (Wear concept 16.2).
-        if (!policy.syncsWithBookServers) return true
-        val book = dao.book(bookId) ?: return true
+        if (!policy.syncsWithBookServers) return Pushed.DONE
+        val book = dao.book(bookId) ?: return Pushed.DONE
         if (book.kind == BookKind.EPISODE || hasNoBookServer(book.serverId)) {
             // Episodes and books from the device or from ARD Sounds have no server that would need to know the progress.
             dao.markClean(bookId, progress.updatedAt)
-            return true
+            return Pushed.DONE
         }
-        val server = servers.server(book.serverId) ?: return false
+        val server = servers.server(book.serverId) ?: return Pushed.UNREACHABLE
         lastPush[bookId] = System.currentTimeMillis()
         return try {
             if (checkServer) {
                 val remote = api.progress(server, book.remoteId)
-                if (remote != null && applyRemote(book.serverId, remote)) return true
+                if (remote != null && applyRemote(book.serverId, remote)) return Pushed.DONE
             }
             api.updateProgress(server, book.remoteId, progress.toUpdate())
             if (reopened.remove(bookId) && !progress.finished && progress.positionMs > 0) {
                 api.updateProgress(server, book.remoteId, progress.toUpdate())
             }
             dao.markClean(bookId, progress.updatedAt)
-            true
+            Pushed.DONE
         } catch (e: IOException) {
             Log.w(TAG, "Progress of ${book.title} not sent", e)
             BookProgressWorker.schedule(context)
-            false
+            e.pushFailure()
         }
     }
 
     /** Sends everything pending, only that of [serverId] if given ([pushPerServer]). `true` if nothing is open anymore. */
     suspend fun pushPending(serverId: String? = null): Boolean =
-        pushPerServer(dao.dirtyProgress(), serverId, { dao.book(it.bookId)?.serverId }) { push(it.bookId, checkServer = true) }
+        pushPerServer(dao.dirtyProgress(), serverId, { dao.book(it.bookId)?.serverId }) { send(it.bookId, checkServer = true) }
 
     /**
      * Adopt the whole account's progress where the server is newer (during a full sync). Returns the response so that

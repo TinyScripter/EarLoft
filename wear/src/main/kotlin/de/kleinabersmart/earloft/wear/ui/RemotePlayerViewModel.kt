@@ -121,7 +121,9 @@ class RemotePlayerViewModel @Inject constructor(
         pendingPlaying,
         pendingShuffle,
         pendingRepeat,
-        phoneLive,
+        // Not [phoneLive]: play/pause is a toggle, and showing "paused" while waiting for the new report made a tap on play pause the
+        // phone. Only the position waits for it.
+        phoneReachable,
     ) { remote, playing, shuffle, repeat, reachable ->
         val dto = remote ?: return@combine PlayerState()
         val spoken = dto.hasMedia && dto.isSpoken

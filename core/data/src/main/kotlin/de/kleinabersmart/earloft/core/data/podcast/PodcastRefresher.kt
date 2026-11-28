@@ -57,7 +57,11 @@ class PodcastRefresher internal constructor(
     private val localPodcasts: LocalPodcasts,
     private val events: RefreshEvents,
     private val scope: CoroutineScope,
-    /** Until the backed-up subscriptions are back in the database (only noticeably slow on the first start after a restore). */
+    /**
+     * Until the backed-up subscriptions are back in the database and the backup was applied first (only noticeably slow on the first
+     * start after a restore): a restored subscription synced before that no longer counts as restored, and the automation downloaded
+     * its newest episodes instead of only those downloaded on the old device.
+     */
     private val awaitRestore: suspend () -> Unit,
 ) {
     @Inject constructor(
@@ -69,7 +73,7 @@ class PodcastRefresher internal constructor(
         events: RefreshEvents,
         @ApplicationScope scope: CoroutineScope,
         backup: UserDataBackup,
-    ) : this(context, repository, dao, settings, localPodcasts, events, scope, backup::awaitRestore)
+    ) : this(context, repository, dao, settings, localPodcasts, events, scope, backup::awaitFirstApply)
 
     private val started = AtomicBoolean(false)
     private val lastStaleCheck = AtomicLong(0)

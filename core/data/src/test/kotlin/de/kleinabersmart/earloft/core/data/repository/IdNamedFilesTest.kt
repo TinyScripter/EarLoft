@@ -43,4 +43,19 @@ class IdNamedFilesTest {
         forgetIdFilesOfOtherDatabase(context, directory)
         assertEquals("covers by address stay", setOf("u123.img"), files())
     }
+
+    @Test
+    fun `a database from before the creation marker counts as another one once it is created anew`() {
+        marker.delete()
+        directory.mkdirs()
+        listOf("5.jpg", "u123.img").forEach { File(directory, it).writeText("x") }
+
+        forgetIdFilesOfOtherDatabase(context, directory)
+        forgetIdFilesOfOtherDatabase(context, directory)
+        assertEquals(setOf("5.jpg", "u123.img"), files())
+
+        databaseCreatedAt(2_000_000)
+        forgetIdFilesOfOtherDatabase(context, directory)
+        assertEquals(setOf("u123.img"), files())
+    }
 }

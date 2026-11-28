@@ -82,7 +82,7 @@ class PhoneRemote @Inject constructor(
 
     /**
      * The phone had forgotten the subscription ([WearRemoteSubscription.TTL_MS] without one) and rewrites its state now: until that
-     * report comes, the last one may be minutes old and must not be counted on as playing (review5 P64). Ends with a report sampled
+     * report comes, the last one may be minutes old and its position must not be counted on (review5 P64). Ends with a report sampled
      * after the new subscription, or after [AWAIT_REPORT_MS] at the latest.
      */
     val awaitingReport: Flow<Boolean> = _awaitingReport
@@ -99,8 +99,12 @@ class PhoneRemote @Inject constructor(
         val now = SystemClock.elapsedRealtime()
         val lapsed = now - subscribedAt > WearRemoteSubscription.TTL_MS
         val wallClock = System.currentTimeMillis()
-        if (!sendToPhone(WearPaths.REMOTE_SUBSCRIBE, ByteArray(0))) return
+        // Before sending: a quick report must find it to end it.
         if (lapsed) _awaitingReport.value = wallClock
+        if (!sendToPhone(WearPaths.REMOTE_SUBSCRIBE, ByteArray(0))) {
+            if (lapsed) _awaitingReport.compareAndSet(wallClock, null)
+            return
+        }
         subscribedAt = now
     }
 
