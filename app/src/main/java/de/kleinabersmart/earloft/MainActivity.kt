@@ -42,6 +42,7 @@ import de.kleinabersmart.earloft.core.data.sync.LibraryRefresher
 import de.kleinabersmart.earloft.core.data.sync.LibrarySettings
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.playback.EXTRA_OPEN_NOW_PLAYING
+import de.kleinabersmart.earloft.core.playback.EXTRA_REQUEST_HOME_NETWORK
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.notification.AppNewContentNotifier
 import de.kleinabersmart.earloft.notification.NewContentTarget
@@ -84,6 +85,9 @@ class MainActivity : ComponentActivity() {
     /** Tapping the notification of the playing music should always show the playback screen. */
     private var openNowPlaying by mutableStateOf(false)
 
+    /** Tapping "Open on phone" on Android Auto's home network hint should ask right away, ignoring `askedThisProcess` (review5 P11). */
+    private var requestHomeNetwork by mutableStateOf(false)
+
     /** Podcast address shared by another app (concept 13); the UI opens it as a preview. */
     private var sharedFeedUrl by mutableStateOf<String?>(null)
 
@@ -115,6 +119,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         intent.dropUnreadableExtras()
         if (intent.safeBooleanExtra(EXTRA_OPEN_NOW_PLAYING)) openNowPlaying = true
+        if (intent.safeBooleanExtra(EXTRA_REQUEST_HOME_NETWORK)) requestHomeNetwork = true
         playFromSearch(intent)
         playNewEpisode(intent)
         openSharedFeed(intent)
@@ -209,12 +214,14 @@ class MainActivity : ComponentActivity() {
         // either sign: then the launch ID tells (review4 8.4).
         if (savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0 && handledLaunches.claim(intent)) {
             openNowPlaying = intent.safeBooleanExtra(EXTRA_OPEN_NOW_PLAYING)
+            requestHomeNetwork = intent.safeBooleanExtra(EXTRA_REQUEST_HOME_NETWORK)
             playFromSearch(intent)
             playNewEpisode(intent)
             openSharedFeed(intent)
             openNewContent(NewContentTarget.from(intent))
         } else if (savedInstanceState != null) {
             openNowPlaying = savedInstanceState.getBoolean(STATE_OPEN_NOW_PLAYING)
+            requestHomeNetwork = savedInstanceState.getBoolean(STATE_REQUEST_HOME_NETWORK)
             sharedFeedUrl = savedInstanceState.getString(STATE_SHARED_FEED)
             newContentTarget = NewContentTarget.from(savedInstanceState.getBundle(STATE_NEW_CONTENT))
         }
@@ -262,6 +269,8 @@ class MainActivity : ComponentActivity() {
                             EarLoftApp(
                                 openNowPlaying = openNowPlaying,
                                 onNowPlayingOpened = { openNowPlaying = false },
+                                requestHomeNetwork = requestHomeNetwork,
+                                onHomeNetworkRequested = { requestHomeNetwork = false },
                                 sharedFeedUrl = sharedFeedUrl,
                                 onSharedFeedOpened = { sharedFeedUrl = null },
                                 newContentTarget = newContentTarget,
@@ -289,12 +298,14 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putBoolean(STATE_OPEN_NOW_PLAYING, openNowPlaying)
+        outState.putBoolean(STATE_REQUEST_HOME_NETWORK, requestHomeNetwork)
         outState.putString(STATE_SHARED_FEED, sharedFeedUrl)
         outState.putBundle(STATE_NEW_CONTENT, newContentTarget?.toBundle())
     }
 
     private companion object {
         const val STATE_OPEN_NOW_PLAYING = "open_now_playing"
+        const val STATE_REQUEST_HOME_NETWORK = "request_home_network"
         const val STATE_SHARED_FEED = "shared_feed"
         const val STATE_NEW_CONTENT = "new_content"
 

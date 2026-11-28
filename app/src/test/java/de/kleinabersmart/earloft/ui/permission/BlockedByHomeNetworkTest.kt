@@ -99,4 +99,53 @@ class BlockedByHomeNetworkTest {
 
         assertEquals(listOf("home-syncing"), failedAtHome(targets, emptyMap()))
     }
+
+    @Test
+    fun `requesting the audio gate with local network marks home network as asked in this process`() {
+        val previous = LocalNetworkPermission.askedThisProcess
+        try {
+            LocalNetworkPermission.askedThisProcess = false
+            recordPermissionsRequested(requestedPermissions(includeLocalNetwork = false))
+            assertFalse(LocalNetworkPermission.askedThisProcess)
+
+            recordPermissionsRequested(requestedPermissions(includeLocalNetwork = true))
+            assertTrue(LocalNetworkPermission.askedThisProcess)
+        } finally {
+            LocalNetworkPermission.askedThisProcess = previous
+        }
+    }
+
+    @Test
+    fun `a grant via the audio gate or across activity recreation triggers resync once`() {
+        val state = GrantState()
+        // Audio gate observes denied before the prompt ever composed.
+        state.observe(granted = false)
+        // Granted in the audio gate; an early check sees true, without swallowing the transition.
+        state.observe(granted = true)
+        assertTrue(state.consumeNewlyGranted(granted = true))
+        // Subsequent compositions (or rotations) do not resync again.
+        assertFalse(state.consumeNewlyGranted(granted = true))
+
+        // Revoked later, then granted in system settings while the activity is recreated.
+        assertFalse(state.consumeNewlyGranted(granted = false))
+        assertTrue(state.consumeNewlyGranted(granted = true))
+        assertFalse(state.consumeNewlyGranted(granted = true))
+    }
+
+    @Test
+    fun `starting with the home network permission already granted does not trigger resync`() {
+        val state = GrantState()
+        state.observe(granted = true)
+        assertFalse(state.consumeNewlyGranted(granted = true))
+    }
+
+    @Test
+    fun `permanent denial opens app settings only when the system answered without a dialog`() {
+        // review5 P11: immediate denial with rationale false before and after means no dialog was shown.
+        assertTrue(isPermanentlyDeniedAfterRequest(granted = false, rationaleBefore = false, rationaleAfter = false, elapsedMs = 20))
+        // User answered a dialog (slow), or rationale was true before, or permission was granted.
+        assertFalse(isPermanentlyDeniedAfterRequest(granted = false, rationaleBefore = false, rationaleAfter = false, elapsedMs = 900))
+        assertFalse(isPermanentlyDeniedAfterRequest(granted = false, rationaleBefore = true, rationaleAfter = false, elapsedMs = 20))
+        assertFalse(isPermanentlyDeniedAfterRequest(granted = true, rationaleBefore = false, rationaleAfter = false, elapsedMs = 20))
+    }
 }

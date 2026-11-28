@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.ui.permission
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -53,15 +54,47 @@ import javax.inject.Inject
  */
 object LocalNetworkPermission {
     const val name = "android.permission.ACCESS_LOCAL_NETWORK"
+    internal const val REQUIRED_SDK = 37
 
-    val isRequired: Boolean get() = Build.VERSION.SDK_INT >= 37
+    val isRequired: Boolean get() = isRequiredFor(Build.VERSION.SDK_INT)
 
-    /** The system was asked in this process (by a form or by [HomeNetworkPermissionPrompt]): don't ask a second time right away. */
+    internal fun isRequiredFor(sdkInt: Int): Boolean = sdkInt >= REQUIRED_SDK
+
+    /** The system was asked in this process (by a form, [AudioPermissionGate] or [HomeNetworkPermissionPrompt]): don't ask a second time right away. */
     @Volatile
     var askedThisProcess = false
 
+    private val grantState = GrantState()
+
     fun isGranted(context: Context): Boolean =
-        !isRequired || ContextCompat.checkSelfPermission(context, name) == PackageManager.PERMISSION_GRANTED
+        (!isRequired || ContextCompat.checkSelfPermission(context, name) == PackageManager.PERMISSION_GRANTED)
+            .also { grantState.observe(it) }
+
+    /** Records [granted] and returns `true` once when the permission changed from denied to granted in this process (review5 P41). */
+    internal fun consumeNewlyGranted(granted: Boolean): Boolean = grantState.consumeNewlyGranted(granted)
+}
+
+/**
+ * Process-wide tracker for the home network permission (review5 P41). Keeping the last state here instead of per-screen
+ * `remember` ensures that granting it outside [HomeNetworkPermissionPrompt] (via [AudioPermissionGate], or in system settings
+ * while the activity is recreated for theme/language changes) still triggers [HomeNetworkViewModel.resyncFailedAtHome].
+ */
+internal class GrantState {
+    private var lastGranted: Boolean? = null
+
+    /** Notes [granted] without consuming a denied → granted transition. */
+    @Synchronized
+    fun observe(granted: Boolean) {
+        if (lastGranted == null || !granted) lastGranted = granted
+    }
+
+    /** Updates the state to [granted] and returns `true` only on a transition from denied to granted. */
+    @Synchronized
+    fun consumeNewlyGranted(granted: Boolean): Boolean {
+        val becameGranted = granted && lastGranted == false
+        lastGranted = granted
+        return becameGranted
+    }
 }
 
 /**
@@ -251,25 +284,63 @@ class HomeNetworkViewModel @Inject constructor(
 /**
  * Asks for the home network permission once per process as soon as a server or feed on the home network exists and the
  * permission is missing: after restoring a backup or moving to a new device, no form asks for it, and every connection would
- * end in a timeout without a hint (review4 T5). Does nothing before Android 17.
+ * end in a timeout without a hint (review4 T5). With [forceRequest] (opened from Android Auto's home network hint, review5 P11),
+ * asks immediately even if [LocalNetworkPermission.askedThisProcess] is already set, and opens app settings if permanently denied.
+ * Does nothing before Android 17.
  */
 @Composable
-fun HomeNetworkPermissionPrompt(viewModel: HomeNetworkViewModel = hiltViewModel()) {
-    if (!LocalNetworkPermission.isRequired) return
+fun HomeNetworkPermissionPrompt(
+    forceRequest: Boolean = false,
+    onForceRequestHandled: () -> Unit = {},
+    viewModel: HomeNetworkViewModel = hiltViewModel(),
+) {
+    if (!LocalNetworkPermission.isRequired) {
+        if (forceRequest) LaunchedEffect(Unit) { onForceRequestHandled() }
+        return
+    }
     val context = LocalContext.current
     val needed by viewModel.needed.collectAsStateWithLifecycle()
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    // Granted from this request, a form or the app settings ("Open settings" at a sync error): each shows up at the next resume.
-    val granted = rememberLocalNetworkGranted()
-    var wasDenied by remember { mutableStateOf(!granted) }
-    LaunchedEffect(granted) {
-        if (granted && wasDenied) viewModel.resyncFailedAtHome()
-        wasDenied = !granted
-    }
-    LaunchedEffect(needed) {
-        if (needed && !LocalNetworkPermission.askedThisProcess && !LocalNetworkPermission.isGranted(context)) {
-            LocalNetworkPermission.askedThisProcess = true
-            launcher.launch(LocalNetworkPermission.name)
+    val currentOnForceRequestHandled by rememberUpdatedState(onForceRequestHandled)
+    val forcedRequest = remember { ForcedRequestState() }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (forcedRequest.openSettingsIfNoDialog) {
+            forcedRequest.openSettingsIfNoDialog = false
+            val rationaleAfter = context.findActivity()?.shouldShowRequestPermissionRationale(LocalNetworkPermission.name)
+            val elapsedMs = SystemClock.elapsedRealtime() - forcedRequest.launchedAt
+            if (isPermanentlyDeniedAfterRequest(isGranted, forcedRequest.rationaleBefore, rationaleAfter, elapsedMs)) {
+                context.openAppSettings()
+            }
         }
     }
+    // Granted from this request, a form, the audio gate or the app settings ("Open settings" at a sync error): each shows up here.
+    val granted = rememberLocalNetworkGranted()
+    LaunchedEffect(granted) {
+        if (LocalNetworkPermission.consumeNewlyGranted(granted)) viewModel.resyncFailedAtHome()
+    }
+    LaunchedEffect(needed, forceRequest) {
+        when {
+            forceRequest -> {
+                currentOnForceRequestHandled()
+                if (!LocalNetworkPermission.isGranted(context)) {
+                    LocalNetworkPermission.askedThisProcess = true
+                    forcedRequest.rationaleBefore =
+                        context.findActivity()?.shouldShowRequestPermissionRationale(LocalNetworkPermission.name) == true
+                    forcedRequest.launchedAt = SystemClock.elapsedRealtime()
+                    forcedRequest.openSettingsIfNoDialog = true
+                    launcher.launch(LocalNetworkPermission.name)
+                }
+            }
+            needed && !LocalNetworkPermission.askedThisProcess && !LocalNetworkPermission.isGranted(context) -> {
+                LocalNetworkPermission.askedThisProcess = true
+                forcedRequest.openSettingsIfNoDialog = false
+                launcher.launch(LocalNetworkPermission.name)
+            }
+        }
+    }
+}
+
+private class ForcedRequestState {
+    var rationaleBefore = false
+    var launchedAt = 0L
+    var openSettingsIfNoDialog = false
 }

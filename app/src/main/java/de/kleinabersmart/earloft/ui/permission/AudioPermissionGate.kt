@@ -75,14 +75,17 @@ fun AudioPermissionGate(
         // The system shows no dialog anymore only if it answered at once, as in [rememberPermissionRequester]: a dialog closed
         // with Back or beside it also leaves the rationale flag `false` (review2 J63).
         val rationaleAfter = context.findActivity()?.shouldShowRequestPermissionRationale(AudioPermission.name)
-        val answeredAtOnce = SystemClock.elapsedRealtime() - request.launchedAt < NO_DIALOG_MS
-        permanentlyDenied = !audioGranted && !request.rationaleBefore && rationaleAfter == false && answeredAtOnce
+        val elapsedMs = SystemClock.elapsedRealtime() - request.launchedAt
+        permanentlyDenied = isPermanentlyDeniedAfterRequest(audioGranted, request.rationaleBefore, rationaleAfter, elapsedMs)
     }
 
     LifecycleResumeEffect(Unit) {
         granted = AudioPermission.isGranted(context)
         onPauseOrDispose { }
     }
+
+    // Record the home-network state before the gate can grant it alongside audio or via settings (review5 P41).
+    LaunchedEffect(Unit) { LocalNetworkPermission.isGranted(context) }
 
     // Only on change: otherwise every new activity (rotation, light/dark, language) would run a full music scan.
     var wasGranted by rememberSaveable { mutableStateOf(granted) }
@@ -99,7 +102,9 @@ fun AudioPermissionGate(
             onRequest = {
                 request.rationaleBefore = context.findActivity()?.shouldShowRequestPermissionRationale(AudioPermission.name) == true
                 request.launchedAt = SystemClock.elapsedRealtime()
-                launcher.launch(requestedPermissions())
+                val permissions = requestedPermissions()
+                recordPermissionsRequested(permissions)
+                launcher.launch(permissions)
             },
             onOpenSettings = { context.openAppSettings() },
             onSkip = onSkip,
@@ -133,8 +138,8 @@ internal fun rememberPermissionRequester(permission: String, isGranted: () -> Bo
     val currentIsGranted by rememberUpdatedState(isGranted)
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val rationaleAfter = context.findActivity()?.shouldShowRequestPermissionRationale(permission)
-        val answeredAtOnce = SystemClock.elapsedRealtime() - request.launchedAt < NO_DIALOG_MS
-        if (!granted && !request.rationaleBefore && rationaleAfter == false && answeredAtOnce) {
+        val elapsedMs = SystemClock.elapsedRealtime() - request.launchedAt
+        if (isPermanentlyDeniedAfterRequest(granted, request.rationaleBefore, rationaleAfter, elapsedMs)) {
             request.inSettings = true
             context.openAppSettings()
         }
@@ -166,8 +171,15 @@ private class RequestState {
     var inSettings = false
 }
 
+internal fun isPermanentlyDeniedAfterRequest(
+    granted: Boolean,
+    rationaleBefore: Boolean,
+    rationaleAfter: Boolean?,
+    elapsedMs: Long,
+): Boolean = !granted && !rationaleBefore && rationaleAfter == false && elapsedMs < NO_DIALOG_MS
+
 /** Without a dialog the system answers within a few frames; a person needs longer. */
-private const val NO_DIALOG_MS = 500L
+internal const val NO_DIALOG_MS = 500L
 
 @Composable
 private fun PermissionRationale(
@@ -216,13 +228,18 @@ private fun PermissionRationale(
     }
 }
 
-private fun requestedPermissions(): Array<String> = buildList {
+internal fun requestedPermissions(includeLocalNetwork: Boolean = LocalNetworkPermission.isRequired): Array<String> = buildList {
     add(AudioPermission.name)
     // The playback notification is exempt from this, but the app's notices aren't.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
     // So that existing and newly set up home network servers are reachable right away.
-    if (LocalNetworkPermission.isRequired) add(LocalNetworkPermission.name)
+    if (includeLocalNetwork) add(LocalNetworkPermission.name)
 }.toTypedArray()
+
+/** Marks the home network permission as asked when the audio gate requests it along with audio (review5 P40). */
+internal fun recordPermissionsRequested(permissions: Array<String>) {
+    if (LocalNetworkPermission.name in permissions) LocalNetworkPermission.askedThisProcess = true
+}
 
 internal fun Context.openAppSettings() = startOrHint(this) {
     startActivity(

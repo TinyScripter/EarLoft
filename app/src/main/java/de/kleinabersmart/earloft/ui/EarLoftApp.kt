@@ -204,6 +204,8 @@ import de.kleinabersmart.earloft.ui.components.rememberCollectionFavorites
 fun EarLoftApp(
     openNowPlaying: Boolean = false,
     onNowPlayingOpened: () -> Unit = {},
+    requestHomeNetwork: Boolean = false,
+    onHomeNetworkRequested: () -> Unit = {},
     sharedFeedUrl: String? = null,
     onSharedFeedOpened: () -> Unit = {},
     newContentTarget: NewContentTarget? = null,
@@ -641,7 +643,10 @@ fun EarLoftApp(
         playerViewModel.playbackStarts.collect { miniPlayerScrollHide.show() }
     }
 
-    HomeNetworkPermissionPrompt()
+    HomeNetworkPermissionPrompt(
+        forceRequest = requestHomeNetwork,
+        onForceRequestHandled = onHomeNetworkRequested,
+    )
     val snackbarModel = hiltViewModel<SnackbarViewModel>()
     val snackbars = snackbarModel.snackbars
     val snackbarHost = snackbarModel.host
