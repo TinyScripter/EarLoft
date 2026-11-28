@@ -858,6 +858,24 @@ class UserMigrationTest {
         }
     }
 
+    @Test
+    fun `v21 to v22 keeps starred episodes and adds empty watch books`() {
+        helper.createDatabase(DB_NAME, 21).use { db ->
+            db.execSQL("INSERT INTO episode_stars (serverId, remoteId, starredAt) VALUES ('f', 'guid-1', 9)")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 22, true).use { db ->
+            db.query("SELECT starredAt FROM episode_stars WHERE serverId = 'f' AND remoteId = 'guid-1'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(9, cursor.getInt(0))
+            }
+            db.query("SELECT COUNT(*) FROM wear_books").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "user-migration-test"
     }

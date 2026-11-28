@@ -21,6 +21,7 @@ import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
+import de.kleinabersmart.earloft.core.database.entity.WearBookEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.LOCAL_BOOK_SERVER_ID
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
@@ -32,6 +33,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -746,6 +748,100 @@ class UserDataBackupTest {
         main.podcastDao().deleteFeed("feed-1")
         backup.mirror()
         assertTrue(user.userDataDao().episodeStars().isEmpty())
+    }
+
+    @Test
+    fun `watch episodes and books are saved by key, wait for their book on a new device and go with their subscription or server`() = runTest {
+        fillMain()
+        main.podcastDao().upsertFeed(PodcastFeedEntity("trial", "https://example.org/trial", "Trial", subscribed = false))
+        val first = book(main, "feed-1", "guid-1")
+        val second = book(main, "feed-1", "guid-2")
+        val absBook = book(main, "abs", "item-1", BookKind.BOOK)
+        val trial = book(main, "trial", "guid-t")
+        listOf(first to 100L, second to 200L, absBook to 300L, trial to 400L).forEach { (bookId, addedAt) ->
+            main.wearDao().insertBook(WearBookEntity(bookId, addedAt))
+        }
+        val backup = backupFor(main)
+        backup.mirror()
+        // A trial subscription is not backed up: its selection would never find its episode again.
+        assertEquals(
+            mapOf(("feed-1" to "guid-1") to 100L, ("feed-1" to "guid-2") to 200L, ("abs" to "item-1") to 300L),
+            user.userDataDao().wearBooks().associate { (it.serverId to it.remoteId) to it.addedAt },
+        )
+
+        // Taken off the watch: drops out of the backup (only the `wear_books` part read).
+        main.wearDao().deleteBook(second)
+        backup.mirror(setOf("wear_books"))
+        assertEquals(setOf("guid-1", "item-1"), user.userDataDao().wearBooks().map { it.remoteId }.toSet())
+
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            val restoring = backupFor(newDevice)
+            val saved = user.userDataDao().wearBooks()
+            // No episode or book yet: they wait.
+            assertEquals(saved, restoring.applyWearBooks(saved))
+            val again = book(newDevice, "feed-1", "guid-1")
+            assertEquals(listOf("item-1"), restoring.applyWearBooks(saved).map { it.remoteId })
+            assertEquals(listOf(again), newDevice.wearDao().observeBookIds().first())
+            assertEquals(listOf(100L), newDevice.wearDao().keyedBooks().map { it.addedAt })
+            // Selected here meanwhile: keeps its own timestamp.
+            val book = book(newDevice, "abs", "item-1", BookKind.BOOK)
+            newDevice.wearDao().insertBook(WearBookEntity(book, 5))
+            assertTrue(restoring.applyWearBooks(saved).isEmpty())
+            assertEquals(mapOf("guid-1" to 100L, "item-1" to 5L), newDevice.wearDao().keyedBooks().associate { it.remoteId to it.addedAt })
+        } finally {
+            newDevice.close()
+        }
+
+        // The episode drops out of the feed: its selection stays backed up in case it comes back.
+        main.podcastDao().deleteEpisodesOf("feed-1")
+        backup.mirror()
+        assertEquals(setOf("guid-1", "item-1"), user.userDataDao().wearBooks().map { it.remoteId }.toSet())
+
+        main.podcastDao().deleteFeed("feed-1")
+        backup.mirror()
+        assertEquals(listOf("item-1"), user.userDataDao().wearBooks().map { it.remoteId })
+        main.bookDao().deleteServer("abs")
+        backup.mirror()
+        assertTrue(user.userDataDao().wearBooks().isEmpty())
+    }
+
+    @Test
+    fun `the watch is held while restored watch episodes wait, until the servers and restored subscriptions are synced or a day has passed`() = runTest {
+        fillMain()
+        main.wearDao().insertBook(WearBookEntity(book(main, "feed-1", "guid-1"), 100))
+        backupFor(main).mirror()
+        val saved = user.userDataDao().snapshot()
+        val restoredAt = 1_000_000L
+        val day = 24 * 60 * 60_000L
+        val marker = noBackupFile("user_data_restored")
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            marker.createNewFile()
+            marker.setLastModified(restoredAt)
+            val backup = backupFor(newDevice)
+            backup.restore(saved)
+            backup.applyFirst(saved)
+
+            assertEquals(restoredAt + day, backup.watchHoldUntil(now = restoredAt + 1))
+            assertNull("a day at most", backup.watchHoldUntil(now = restoredAt + day))
+            val abs = newDevice.bookDao().server("abs")!!
+            newDevice.bookDao().upsertServer(abs.copy(lastFullSyncAt = restoredAt + 1))
+            assertEquals("the restored subscription has not fetched its episodes yet", restoredAt + day, backup.watchHoldUntil(now = restoredAt + 1))
+            val feed = newDevice.podcastDao().feed("feed-1")!!
+            newDevice.podcastDao().upsertFeed(feed.copy(lastRefreshAt = restoredAt + 1))
+            assertNull("every server and restored subscription synced", backup.watchHoldUntil(now = restoredAt + 2))
+
+            newDevice.podcastDao().upsertFeed(feed)
+            book(newDevice, "feed-1", "guid-1")
+            backup.applyFirst(saved)
+            assertNull("the episode is back", backup.watchHoldUntil(now = restoredAt + 1))
+            assertEquals(listOf("guid-1"), newDevice.wearDao().keyedBooks().map { it.remoteId })
+        } finally {
+            newDevice.close()
+            marker.delete()
+            noBackupFile("restored_feeds").delete()
+        }
     }
 
     private fun bookmark(

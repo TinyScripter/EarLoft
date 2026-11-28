@@ -162,6 +162,19 @@ data class UserEpisodeStarEntity(
 )
 
 /**
+ * A podcast episode or book selected individually for the watch (`wear_books` of the main database, since version 22), via
+ * `(serverId, remoteId)` of its book instead of the `bookId`. Comes back once its episode or book exists again on a new device;
+ * goes away with its subscription or Audiobookshelf server.
+ */
+@Entity(tableName = "wear_books", primaryKeys = ["serverId", "remoteId"])
+data class UserWearBookEntity(
+    val serverId: String,
+    val remoteId: String,
+    /** Order on the watch. */
+    val addedAt: Long,
+)
+
+/**
  * A book from ARD Sounds in the library (`books` with `serverId = ardsounds`, since version 18), via its ID at ARD Sounds.
  * The app fetches the book itself from there again on a new device; progress and bookmarks come via their own rows.
  * [parts] (since version 19) are its parts in their order, including those ARD Sounds no longer carries: without them,

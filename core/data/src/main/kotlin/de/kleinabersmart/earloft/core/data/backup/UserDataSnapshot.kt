@@ -12,6 +12,7 @@ import de.kleinabersmart.earloft.core.database.dao.KeyedPlaylistEntry
 import de.kleinabersmart.earloft.core.database.dao.KeyedProgress
 import de.kleinabersmart.earloft.core.database.dao.KeyedSong
 import de.kleinabersmart.earloft.core.database.dao.KeyedStarredEpisode
+import de.kleinabersmart.earloft.core.database.dao.KeyedWearBook
 import de.kleinabersmart.earloft.core.database.dao.RowChanges
 import de.kleinabersmart.earloft.core.database.dao.UserDataChanges
 import de.kleinabersmart.earloft.core.database.dao.UserDataDao
@@ -39,6 +40,7 @@ import de.kleinabersmart.earloft.core.database.entity.UserPodcastEntity
 import de.kleinabersmart.earloft.core.database.entity.UserServerEntity
 import de.kleinabersmart.earloft.core.database.entity.UserSongKey
 import de.kleinabersmart.earloft.core.database.entity.UserSpokenServerEntity
+import de.kleinabersmart.earloft.core.database.entity.UserWearBookEntity
 import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
 import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
@@ -64,12 +66,14 @@ data class UserDataSnapshot(
     val episodeStars: Map<BookKey, UserEpisodeStarEntity> = emptyMap(),
     /** Books from ARD Sounds in the library, by their ID at ARD Sounds. */
     val ardBooks: Map<String, UserArdBookEntity> = emptyMap(),
+    /** Episodes and books selected individually for the watch. */
+    val wearBooks: Map<BookKey, UserWearBookEntity> = emptyMap(),
 ) {
     val isEmpty: Boolean
         get() = servers.isEmpty() && spokenServers.isEmpty() && podcasts.isEmpty() && listeningStats.isEmpty() &&
             listeningDays.isEmpty() && progress.isEmpty() && playlists.isEmpty() && favorites.isEmpty() &&
             playEvents.isEmpty() && wearSelections.isEmpty() && episodeDownloads.isEmpty() && collectionFavorites.isEmpty() &&
-            bookmarks.isEmpty() && episodeStars.isEmpty() && ardBooks.isEmpty()
+            bookmarks.isEmpty() && episodeStars.isEmpty() && ardBooks.isEmpty() && wearBooks.isEmpty()
 
     /**
      * Whether there is any server, subscription or statistics entry. Removing the last server keeps the statistics, so a main
@@ -127,6 +131,7 @@ data class UserDataSnapshot(
             bookmarks = newest(bookmarks, other.bookmarks) { it.updatedAt },
             episodeStars = other.episodeStars + episodeStars,
             ardBooks = other.ardBooks + ardBooks,
+            wearBooks = other.wearBooks + wearBooks,
         )
     }
 
@@ -148,6 +153,7 @@ data class UserDataSnapshot(
         bookmarks = rowChanges(previous.bookmarks, bookmarks),
         episodeStars = rowChanges(previous.episodeStars, episodeStars),
         ardBooks = rowChanges(previous.ardBooks, ardBooks),
+        wearBooks = rowChanges(previous.wearBooks, wearBooks),
     )
 
     companion object {
@@ -169,6 +175,7 @@ data class UserDataSnapshot(
             bookmarks: List<UserBookmarkEntity> = emptyList(),
             episodeStars: List<UserEpisodeStarEntity> = emptyList(),
             ardBooks: List<UserArdBookEntity> = emptyList(),
+            wearBooks: List<UserWearBookEntity> = emptyList(),
         ) = UserDataSnapshot(
             servers = servers.associateBy { it.sourceId },
             spokenServers = spokenServers.associateBy { it.serverId },
@@ -186,6 +193,7 @@ data class UserDataSnapshot(
             bookmarks = bookmarks.associateBy { it.key },
             episodeStars = episodeStars.associateBy { BookKey(it.serverId, it.remoteId) },
             ardBooks = ardBooks.associateBy { it.remoteId },
+            wearBooks = wearBooks.associateBy { BookKey(it.serverId, it.remoteId) },
         )
 
         /**
@@ -194,8 +202,10 @@ data class UserDataSnapshot(
          * only those the server doesn't fully know: not yet reported, not reported in their current state, or with a note,
          * which it doesn't store), local playlists (with `backupKey`), favorites of
          * songs, albums and artists without a server, listening history, the selection for the watch (already keyed, see `UserDataBackup`),
-         * downloads of episodes of backed-up subscriptions, saved episodes and the books from ARD Sounds in the library along with their parts
-         * ([ardParts], per book).
+         * downloads of episodes of backed-up subscriptions, saved episodes, the books from ARD Sounds in the library along with their parts
+         * ([ardParts], per book) and the episodes and books selected for the watch ([wearBooks]; only those of a backed-up subscription or
+         * Audiobookshelf server, from the device or from ARD Sounds: one of a trial subscription would never find its episode again and
+         * would hold the watch after a restore).
          */
         fun ofMain(
             sources: List<SourceEntity>,
@@ -215,6 +225,7 @@ data class UserDataSnapshot(
             episodeStars: List<KeyedStarredEpisode> = emptyList(),
             ardBooks: List<KeyedBook> = emptyList(),
             ardParts: List<KeyedBookPart> = emptyList(),
+            wearBooks: List<KeyedWearBook> = emptyList(),
         ) = ofUser(
             servers = sources.filter { it.type.isServer }.map { it.toUser() },
             spokenServers = spokenServers.map { it.toUser() },
@@ -227,6 +238,11 @@ data class UserDataSnapshot(
             episodeStars = episodeStars.map { UserEpisodeStarEntity(it.serverId, it.remoteId, it.starredAt) },
             ardBooks = ardParts.groupBy { it.remoteId }.let { parts ->
                 ardBooks.map { UserArdBookEntity(it.remoteId, it.addedAt, parts[it.remoteId]?.let(::encodeArdParts)) }
+            },
+            // Like the starred episodes, also those from the device (the scan creates them again).
+            wearBooks = (spokenServers.map { it.serverId } + feeds.map { it.feedId }).toSet().let { kept ->
+                wearBooks.filter { hasNoBookServer(it.serverId) || it.serverId in kept }
+                    .map { UserWearBookEntity(it.serverId, it.remoteId, it.addedAt) }
             },
             listeningStats = listeningStats.map { it.toUser() },
             listeningDays = listeningDays.map { it.toUser() },
@@ -298,6 +314,7 @@ suspend fun UserDataDao.snapshot() = UserDataSnapshot.ofUser(
     bookmarks = bookmarks(),
     episodeStars = episodeStars(),
     ardBooks = ardBooks(),
+    wearBooks = wearBooks(),
 )
 
 /** [mine] where it is at least as new as [other], otherwise [other]. */

@@ -148,7 +148,7 @@ abstract class BackupDao {
             "(SELECT COUNT(*) FROM books WHERE kind = 'EPISODE' AND starredAt IS NOT NULL) AS starredEpisodes, " +
             "(SELECT COUNT(*) FROM books WHERE serverId = '$ARD_BOOK_SERVER_ID') AS ardBooks, " +
             "(SELECT COUNT(*) FROM book_tracks t JOIN books b ON b.bookId = t.bookId WHERE b.kind = 'EPISODE' AND t.trackIndex = 0 " +
-            "AND t.downloadState NOT IN ('NONE', 'REMOVED')) AS episodeDownloads",
+            "AND t.downloadState NOT IN ('NONE', 'REMOVED')) AS episodeDownloads, (SELECT COUNT(*) FROM wear_books) AS wearBooks",
     )
     abstract suspend fun rowCounts(): BackupRowCounts
 }
@@ -171,6 +171,7 @@ data class BackupRowCounts(
     val starredEpisodes: Int,
     val ardBooks: Int,
     val episodeDownloads: Int,
+    val wearBooks: Int,
 ) {
     /** Whether any kind has fewer rows than in [before]. */
     fun shrankSince(before: BackupRowCounts): Boolean =
@@ -178,7 +179,8 @@ data class BackupRowCounts(
             bookmarks < before.bookmarks || favoriteSongs < before.favoriteSongs || favoriteCollections < before.favoriteCollections ||
             playlists < before.playlists || playlistEntries < before.playlistEntries || playEvents < before.playEvents ||
             wearSelections < before.wearSelections || listeningStats < before.listeningStats || listeningDays < before.listeningDays ||
-            starredEpisodes < before.starredEpisodes || ardBooks < before.ardBooks || episodeDownloads < before.episodeDownloads
+            starredEpisodes < before.starredEpisodes || ardBooks < before.ardBooks || episodeDownloads < before.episodeDownloads ||
+            wearBooks < before.wearBooks
 }
 
 /**

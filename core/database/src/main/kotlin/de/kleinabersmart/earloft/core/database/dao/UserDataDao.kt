@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.database.entity.UserPlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlaylistEntryEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlayEventEntity
+import de.kleinabersmart.earloft.core.database.entity.UserWearBookEntity
 import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
 import de.kleinabersmart.earloft.core.database.entity.UserListeningDayEntity
 import de.kleinabersmart.earloft.core.database.entity.UserListeningStatEntity
@@ -73,6 +74,9 @@ abstract class UserDataDao {
 
     @Query("SELECT * FROM ard_books")
     abstract suspend fun ardBooks(): List<UserArdBookEntity>
+
+    @Query("SELECT * FROM wear_books")
+    abstract suspend fun wearBooks(): List<UserWearBookEntity>
 
     @Upsert
     protected abstract suspend fun upsertServers(rows: List<UserServerEntity>)
@@ -178,9 +182,19 @@ abstract class UserDataDao {
     @Delete
     protected abstract suspend fun deleteArdBooks(rows: List<UserArdBookEntity>)
 
+    @Upsert
+    protected abstract suspend fun upsertWearBooks(rows: List<UserWearBookEntity>)
+
+    @Delete
+    protected abstract suspend fun deleteWearBooks(rows: List<UserWearBookEntity>)
+
     /** Like [deleteProgressKeys] for the starred episodes. */
     @Query("DELETE FROM episode_stars WHERE serverId = :serverId AND remoteId IN (:remoteIds)")
     abstract suspend fun deleteEpisodeStarKeys(serverId: String, remoteIds: List<String>)
+
+    /** Like [deleteProgressKeys] for the watch selections. */
+    @Query("DELETE FROM wear_books WHERE serverId = :serverId AND remoteId IN (:remoteIds)")
+    abstract suspend fun deleteWearBookKeys(serverId: String, remoteIds: List<String>)
 
     @Query("DELETE FROM book_progress WHERE serverId IN (:serverIds)")
     protected abstract suspend fun deleteProgressOf(serverIds: List<String>)
@@ -194,9 +208,12 @@ abstract class UserDataDao {
     @Query("DELETE FROM episode_stars WHERE serverId IN (:serverIds)")
     protected abstract suspend fun deleteEpisodeStarsOf(serverIds: List<String>)
 
+    @Query("DELETE FROM wear_books WHERE serverId IN (:serverIds)")
+    protected abstract suspend fun deleteWearBooksOf(serverIds: List<String>)
+
     /**
      * Writes all changes in one go; [UserDataChanges.isEmpty] saves the call. With a subscription or
-     * Audiobookshelf server, its progress and bookmarks are dropped too, including those not yet applied; with
+     * Audiobookshelf server, its progress, bookmarks and watch selections are dropped too, including those not yet applied; with
      * a subscription also its downloads and starred episodes.
      */
     @Transaction
@@ -234,10 +251,13 @@ abstract class UserDataDao {
             if (episodeStars.deletes.isNotEmpty()) deleteEpisodeStars(episodeStars.deletes)
             if (ardBooks.upserts.isNotEmpty()) upsertArdBooks(ardBooks.upserts)
             if (ardBooks.deletes.isNotEmpty()) deleteArdBooks(ardBooks.deletes)
+            if (wearBooks.upserts.isNotEmpty()) upsertWearBooks(wearBooks.upserts)
+            if (wearBooks.deletes.isNotEmpty()) deleteWearBooks(wearBooks.deletes)
             val removedServers = podcasts.deletes.map { it.feedId } + spokenServers.deletes.map { it.serverId }
             removedServers.chunked(MAX_ARGS).forEach {
                 deleteProgressOf(it)
                 deleteBookmarksOf(it)
+                deleteWearBooksOf(it)
             }
             podcasts.deletes.map { it.feedId }.chunked(MAX_ARGS).forEach {
                 deleteEpisodeDownloadsOf(it)
@@ -275,10 +295,11 @@ data class UserDataChanges(
     val episodeDownloads: RowChanges<UserEpisodeDownloadEntity> = RowChanges(),
     val episodeStars: RowChanges<UserEpisodeStarEntity> = RowChanges(),
     val ardBooks: RowChanges<UserArdBookEntity> = RowChanges(),
+    val wearBooks: RowChanges<UserWearBookEntity> = RowChanges(),
 ) {
     val isEmpty: Boolean
         get() = servers.isEmpty && spokenServers.isEmpty && podcasts.isEmpty && listeningStats.isEmpty && listeningDays.isEmpty &&
             progress.isEmpty && bookmarks.isEmpty && playlists.isEmpty && playlistEntries.isEmpty && favorites.isEmpty && collectionFavorites.isEmpty &&
             playEvents.isEmpty &&
-            wearSelections.isEmpty && episodeDownloads.isEmpty && episodeStars.isEmpty && ardBooks.isEmpty
+            wearSelections.isEmpty && episodeDownloads.isEmpty && episodeStars.isEmpty && ardBooks.isEmpty && wearBooks.isEmpty
 }

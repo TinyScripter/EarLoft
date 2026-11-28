@@ -54,6 +54,10 @@ interface WearDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertBook(book: WearBookEntity)
 
+    /** The selected episodes and books with the cross-device key of their book (backup). */
+    @Query("SELECT b.serverId AS serverId, b.remoteId AS remoteId, w.addedAt AS addedAt FROM wear_books w JOIN books b ON b.bookId = w.bookId")
+    suspend fun keyedBooks(): List<KeyedWearBook>
+
     @Query("DELETE FROM wear_books WHERE bookId = :bookId")
     suspend fun deleteBook(bookId: Long)
 
@@ -234,3 +238,6 @@ interface WearDao {
     )
     fun observeSelectionProgress(): Flow<List<WearSelectionProgressRow>>
 }
+
+/** An episode or book selected for the watch, with the key of its book ([WearDao.keyedBooks]). */
+data class KeyedWearBook(val serverId: String, val remoteId: String, val addedAt: Long)

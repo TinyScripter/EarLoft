@@ -25,7 +25,9 @@ import de.kleinabersmart.earloft.core.database.entity.UserEpisodeStarEntity
 import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlayEventEntity
+import de.kleinabersmart.earloft.core.database.entity.UserWearBookEntity
 import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
+import de.kleinabersmart.earloft.core.database.entity.WearBookEntity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -66,6 +68,7 @@ import javax.inject.Singleton
  *   As long as its book is missing, it stays in `user.db`; it goes away with its subscription or server.
  * - **Bookmarks** likewise; they are added if their book has none at the same position yet.
  * - **Saved episodes** likewise; an already saved one keeps its timestamp.
+ * - **Episodes and books selected for the watch** likewise; an already selected one keeps its timestamp.
  * - **Books from ARD Sounds** are not brought back by any scan or server: [restoreArdBooks] fetches them from ARD Sounds, with the
  *   original time they were added; without a connection on the next start. After that their progress and bookmarks behave like the rest.
  * - **Music** ([MusicBackup]) likewise, as soon as its songs, albums and playlists are back: local playlists (created empty
@@ -123,9 +126,10 @@ class UserDataBackup @Inject constructor(
 
     /**
      * `true` while the watch must not learn the phone's state yet (review5 P1): until the restore at startup and the first apply
-     * have run, and afterwards as long as backed-up watch selections still wait for their songs – until every server has been
-     * fully synced since the restore, at most [WATCH_HOLD_MS]. Otherwise the freshly installed phone would tell the watch that
-     * everything is gone, and the watch would delete its downloads, and drop listening history for songs not known here yet.
+     * have run, and afterwards as long as backed-up watch selections still wait for their songs, episodes or books – until every
+     * server they may come from has been fully synced since the restore, at most [WATCH_HOLD_MS] (see [watchHoldUntil]). Otherwise
+     * the freshly installed phone would tell the watch that everything is gone, and the watch would delete its downloads, and drop
+     * listening history for songs not known here yet.
      */
     val holdsWatch: StateFlow<Boolean> = watchHold.asStateFlow()
 
@@ -344,16 +348,26 @@ class UserDataBackup @Inject constructor(
         }
     }
 
-    /** Until when the watch is held ([holdsWatch]); `null` = not (anymore). */
+    /**
+     * Until when the watch is held ([holdsWatch]); `null` = not (anymore). Backed-up selections of albums and playlists wait until
+     * every music server has been fully synced since the restore; selected episodes and books until every Audiobookshelf server
+     * has been, and every subscription the restore created has fetched its episodes. Afterwards what still waits has no song,
+     * episode or book anymore.
+     */
     internal suspend fun watchHoldUntil(now: Long = System.currentTimeMillis()): Long? {
-        if (waiting?.pending?.wearSelections.isNullOrEmpty()) return null
+        val pending = waiting?.pending ?: return null
+        if (pending.wearSelections.isEmpty() && pending.wearBooks.isEmpty()) return null
         val restoredAt = withContext(Dispatchers.IO) {
             File(context.noBackupFilesDir, RESTORED_MARKER).takeIf { it.exists() }?.lastModified()
         } ?: return null
         val until = restoredAt + WATCH_HOLD_MS
         if (now >= until) return null
-        // Once every server has been fully synced since the restore, what still waits has no songs anymore.
-        return until.takeIf { sourceDao.getServers().any { it.lastFullSyncAt < restoredAt } }
+        val songsWait = pending.wearSelections.isNotEmpty() && sourceDao.getServers().any { it.lastFullSyncAt < restoredAt }
+        val booksWait = pending.wearBooks.isNotEmpty() && (
+            bookDao.servers().any { it.lastFullSyncAt < restoredAt } ||
+                restoredFeeds().any { podcastDao.feed(it)?.lastRefreshAt == 0L }
+            )
+        return until.takeIf { songsWait || booksWait }
     }
 
     /** Under [mutex]: applies and remembers the rest for later. */
@@ -481,6 +495,9 @@ class UserDataBackup @Inject constructor(
             episodeStars = saved.episodeStars.values
                 .map { it.copy(serverId = ids[it.serverId] ?: it.serverId) }
                 .associateBy { BookKey(it.serverId, it.remoteId) },
+            wearBooks = saved.wearBooks.values
+                .map { it.copy(serverId = ids[it.serverId] ?: it.serverId) }
+                .associateBy { BookKey(it.serverId, it.remoteId) },
         )
     }
 
@@ -519,7 +536,8 @@ class UserDataBackup @Inject constructor(
                     "${saved.podcasts.size} podcasts, ${saved.listeningStats.size} statistics entries, " +
                     "${saved.progress.size} progress entries, ${saved.bookmarks.size} bookmarks, ${saved.playlists.size} playlists, ${saved.favorites.size} favorites, " +
                     "${saved.playEvents.size} listening history entries, ${saved.wearSelections.size} watch selections, " +
-                    "${saved.episodeDownloads.size} episode downloads, ${saved.episodeStars.size} saved episodes " +
+                    "${saved.episodeDownloads.size} episode downloads, ${saved.episodeStars.size} saved episodes, " +
+                    "${saved.wearBooks.size} episodes and books for the watch " +
                     "(follow with their books and songs)",
             )
         }
@@ -703,6 +721,30 @@ class UserDataBackup @Inject constructor(
         return unresolved
     }
 
+    /**
+     * Selects the backed-up episodes and books for the watch that exist here; one selected already keeps its timestamp. Returns the
+     * rest whose episode or book is (still) missing.
+     */
+    internal suspend fun applyWearBooks(saved: Collection<UserWearBookEntity>): List<UserWearBookEntity> {
+        if (saved.isEmpty()) return emptyList()
+        val unresolved = mutableListOf<UserWearBookEntity>()
+        database.withTransaction {
+            saved.groupBy { it.serverId }.forEach { (serverId, rows) ->
+                val bookIds = rows.chunked(MAX_ARGS)
+                    .flatMap { chunk -> bookDao.bookRefs(serverId, chunk.map { it.remoteId }) }
+                    .associate { it.remoteId to it.bookId }
+                rows.forEach { row ->
+                    val bookId = bookIds[row.remoteId]
+                    if (bookId == null) unresolved += row else database.wearDao().insertBook(WearBookEntity(bookId, row.addedAt))
+                }
+            }
+        }
+        if (unresolved.size < saved.size) {
+            Log.i(TAG, "Watch episodes and books restored: ${saved.size - unresolved.size}, still without book: ${unresolved.size}")
+        }
+        return unresolved
+    }
+
     /** Returns the backed-up books from ARD Sounds that don't exist here (yet); [restoreArdBooks] fetches them. */
     internal suspend fun applyArdBooks(saved: Collection<UserArdBookEntity>): List<UserArdBookEntity> {
         if (saved.isEmpty()) return emptyList()
@@ -715,6 +757,7 @@ class UserDataBackup @Inject constructor(
         val progress = applyProgress(pending.progress)
         val bookmarks = applyBookmarks(pending.bookmarks)
         val episodeStars = applyEpisodeStars(pending.episodeStars)
+        val wearBooks = applyWearBooks(pending.wearBooks)
         val ardBooks = applyArdBooks(pending.ardBooks)
         // After progress: played episodes don't come back.
         val episodeDownloads = applyEpisodeDownloads(pending.episodeDownloads)
@@ -730,6 +773,7 @@ class UserDataBackup @Inject constructor(
                 bookmarks = bookmarks,
                 episodeDownloads = episodeDownloads,
                 episodeStars = episodeStars,
+                wearBooks = wearBooks,
                 ardBooks = ardBooks,
                 restoredFeeds = restoredFeeds,
                 playlists = music.applyPlaylists(saved, pending.playlists),
@@ -812,7 +856,7 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Forgets backed-up progress and bookmarks of the episodes [remoteIds] of [serverId] whose ID has
+     * Forgets backed-up progress, bookmarks, stars and watch selections of the episodes [remoteIds] of [serverId] whose ID has
      * changed (switch source, concept 12.10): mirroring only deletes what still exists in the main database, and
      * the new IDs are added on their own.
      */
@@ -821,6 +865,7 @@ class UserDataBackup @Inject constructor(
             userDao.deleteProgressKeys(serverId, it)
             userDao.deleteBookmarkKeys(serverId, it)
             userDao.deleteEpisodeStarKeys(serverId, it)
+            userDao.deleteWearBookKeys(serverId, it)
         }
         // The remembered snapshot no longer matches `user.db`; re-read on the next mirroring.
         mirrored = null
@@ -859,6 +904,7 @@ class UserDataBackup @Inject constructor(
         val waitingDownloads = stillWaiting?.episodeDownloads.orEmpty().map { BookKey(it.serverId, it.remoteId) }.toSet()
         val waitingBookmarks = stillWaiting?.bookmarks.orEmpty().map { it.key }.toSet()
         val waitingStars = stillWaiting?.episodeStars.orEmpty().map { BookKey(it.serverId, it.remoteId) }.toSet()
+        val waitingWearBooks = stillWaiting?.wearBooks.orEmpty().map { BookKey(it.serverId, it.remoteId) }.toSet()
         val waitingArdBooks = stillWaiting?.ardBooks.orEmpty().map { it.remoteId }.toSet()
         val changes = current.changesSince(previous).let { changes ->
             // A book from ARD Sounds that has not been fetched back yet stays backed up, otherwise it would be dropped before fetching.
@@ -882,6 +928,10 @@ class UserDataBackup @Inject constructor(
             val starDeletes = changes.episodeStars.deletes.filter {
                 BookKey(it.serverId, it.remoteId) !in waitingStars && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
             }
+            val wearBookDeletes = changes.wearBooks.deletes.filter {
+                removedWithArdBook(it.serverId, it.remoteId) ||
+                    BookKey(it.serverId, it.remoteId) !in waitingWearBooks && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
+            }
             val songs = music.resolve((changes.favorites.deletes.map { it.song } + changes.playEvents.deletes.map { it.song }).toSet())
             // Rows without a year that the rows with a year here have replaced (review3 Q13): they match no edition, so the check
             // below would keep them for good.
@@ -891,6 +941,7 @@ class UserDataBackup @Inject constructor(
                 bookmarks = changes.bookmarks.copy(deletes = bookmarkDeletes),
                 episodeDownloads = changes.episodeDownloads.copy(deletes = downloadDeletes),
                 episodeStars = changes.episodeStars.copy(deletes = starDeletes),
+                wearBooks = changes.wearBooks.copy(deletes = wearBookDeletes),
                 ardBooks = changes.ardBooks.copy(deletes = ardBookDeletes),
                 favorites = changes.favorites.copy(deletes = changes.favorites.deletes.filter { it.song in songs || replaced.supersedes(it) }),
                 collectionFavorites = changes.collectionFavorites.copy(
@@ -922,6 +973,8 @@ class UserDataBackup @Inject constructor(
         // Which downloads are backed up depends on the backed-up subscriptions.
         val downloads = read("book_tracks", "podcast_feeds")
         val stars = read("books")
+        // Which watch selections are backed up depends on the backed-up servers and subscriptions.
+        val wearBooks = read("wear_books", "books", "spoken_servers", "podcast_feeds")
         // The parts of the books from ARD Sounds change on sync.
         val ards = read("books", "book_tracks")
         // While music plays, only the listening history grows: then only its new events are read, not all of it (J18 in review2).
@@ -935,8 +988,8 @@ class UserDataBackup @Inject constructor(
         val playEventId = if (musicData != null) newestRead else maxOf(basePlayEventId, newestRead)
         val fresh = UserDataSnapshot.ofMain(
             sources = if (servers) sourceDao.getServers() else emptyList(),
-            spokenServers = if (spokenServers || progress || bookmarks) bookDao.servers() else emptyList(),
-            feeds = if (feeds || downloads) podcastDao.keptFeeds() else emptyList(),
+            spokenServers = if (spokenServers || progress || bookmarks || wearBooks) bookDao.servers() else emptyList(),
+            feeds = if (feeds || downloads || wearBooks) podcastDao.keptFeeds() else emptyList(),
             listeningStats = if (stats) statsDao.all() else emptyList(),
             listeningDays = if (days) statsDao.allDays() else emptyList(),
             progress = if (progress) bookDao.keyedProgressToBackUp() else emptyList(),
@@ -951,6 +1004,7 @@ class UserDataBackup @Inject constructor(
             episodeStars = if (stars) podcastDao.keyedStarredEpisodes() else emptyList(),
             ardBooks = if (ards) bookDao.keyedBooksOf(ARD_BOOK_SERVER_ID) else emptyList(),
             ardParts = if (ards) bookDao.keyedPartsOf(ARD_BOOK_SERVER_ID) else emptyList(),
+            wearBooks = if (wearBooks) database.wearDao().keyedBooks() else emptyList(),
         )
         if (base == null) return fresh to playEventId
         return UserDataSnapshot(
@@ -975,6 +1029,7 @@ class UserDataBackup @Inject constructor(
             bookmarks = if (bookmarks) fresh.bookmarks else base.bookmarks,
             episodeStars = if (stars) fresh.episodeStars else base.episodeStars,
             ardBooks = if (ards) fresh.ardBooks else base.ardBooks,
+            wearBooks = if (wearBooks) fresh.wearBooks else base.wearBooks,
         ) to playEventId
     }
 
@@ -999,15 +1054,15 @@ class UserDataBackup @Inject constructor(
 
         /** The longest the watch waits for its restored selections ([holdsWatch]); a full sync takes hours at most. */
         const val WATCH_HOLD_MS = 24 * 60 * 60_000L
-        val WATCH_HOLD_TABLES = arrayOf("sources", "songs", "wear_selections")
+        val WATCH_HOLD_TABLES = arrayOf("sources", "songs", "wear_selections", "spoken_servers", "podcast_feeds", "books", "wear_books")
         const val ARD_ATTEMPTS = 3
         const val ARD_RETRY_MS = 30_000L
         const val MAX_ARGS = 500
         val MIRRORED_TABLES = arrayOf(
             "sources", "spoken_servers", "podcast_feeds", "listening_stats", "listening_days", "book_progress", "bookmarks",
             "songs", "albums", "artists", "playlists", "playlist_entries", "play_events", "wear_selections", "book_tracks",
-            // Only for the saved episodes; then only their part is read.
-            "books",
+            // Only for the saved episodes and the watch selections; then only their parts are read.
+            "books", "wear_books",
         )
     }
 }
@@ -1035,12 +1090,14 @@ internal data class Pending(
     val episodeDownloads: List<UserEpisodeDownloadEntity> = emptyList(),
     val episodeStars: List<UserEpisodeStarEntity> = emptyList(),
     val ardBooks: List<UserArdBookEntity> = emptyList(),
+    val wearBooks: List<UserWearBookEntity> = emptyList(),
     /** Restored subscriptions whose episodes are not there yet (see `PodcastDao.excludeAllFromAutomatic`). */
     val restoredFeeds: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = progress.isEmpty() && bookmarks.isEmpty() && playlists.isEmpty() && favorites.isEmpty() && collectionFavorites.isEmpty() && playEvents.isEmpty() &&
-            wearSelections.isEmpty() && episodeDownloads.isEmpty() && episodeStars.isEmpty() && ardBooks.isEmpty() && restoredFeeds.isEmpty()
+            wearSelections.isEmpty() && episodeDownloads.isEmpty() && episodeStars.isEmpty() && ardBooks.isEmpty() && wearBooks.isEmpty() &&
+            restoredFeeds.isEmpty()
 
     companion object {
         fun of(saved: UserDataSnapshot) = Pending(
@@ -1054,6 +1111,7 @@ internal data class Pending(
             episodeDownloads = saved.episodeDownloads.values.toList(),
             episodeStars = saved.episodeStars.values.toList(),
             ardBooks = saved.ardBooks.values.toList(),
+            wearBooks = saved.wearBooks.values.toList(),
         )
     }
 }

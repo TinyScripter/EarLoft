@@ -24,6 +24,7 @@ import de.kleinabersmart.earloft.core.database.entity.UserPlaylistEntryEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPodcastEntity
 import de.kleinabersmart.earloft.core.database.entity.UserServerEntity
 import de.kleinabersmart.earloft.core.database.entity.UserSpokenServerEntity
+import de.kleinabersmart.earloft.core.database.entity.UserWearBookEntity
 import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
 import java.io.File
 
@@ -37,7 +38,7 @@ import java.io.File
  * of albums and artists; 10 "removed from Continue listening" on progress; 11 speed and effects per subscription and book, speed nullable; 12 saved time per day;
  * 13 episode list and "Continue listening" per subscription; 14 bookmarks; 15 keep ready per subscription; 16 starred episodes; 17 deselected book libraries;
  * 18 books from ARD Sounds; 19 their parts; 20 album year in the keys of songs, albums and the watch selection; 21 "Keep up to date"
- * per subscription.
+ * per subscription; 22 the watch's individually selected episodes and books.
  */
 @Database(
     entities = [
@@ -57,6 +58,7 @@ import java.io.File
         UserBookmarkEntity::class,
         UserEpisodeStarEntity::class,
         UserArdBookEntity::class,
+        UserWearBookEntity::class,
     ],
     version = UserDatabase.VERSION,
     exportSchema = true,
@@ -81,6 +83,7 @@ import java.io.File
         AutoMigration(from = 18, to = 19),
         AutoMigration(from = 19, to = 20),
         AutoMigration(from = 20, to = 21),
+        AutoMigration(from = 21, to = 22),
     ],
 )
 abstract class UserDatabase : RoomDatabase() {
@@ -101,7 +104,7 @@ abstract class UserDatabase : RoomDatabase() {
         const val NAME = "user.db"
 
         /** Schema version; the full backup rejects files of a newer one. */
-        const val VERSION = 21
+        const val VERSION = 22
 
         /**
          * A copy outside the app databases (full backup, `FullBackup`): older versions are migrated when
