@@ -40,6 +40,39 @@ class RejoinWaitTest {
         assertFalse(awaitLocalOrQueued(FakePlayer(remote = true, items = 0), timeoutMs = 200))
     }
 
+    @Test
+    fun `resuming waits briefly for the receiver's titles, the restore waits on`() = runBlocking {
+        val started = System.nanoTime()
+        var settledAfterMs = -1L
+
+        val local = awaitRejoin(FakePlayer(remote = true, items = 0), queueWaitMs = 200, totalMs = 600) {
+            settledAfterMs = (System.nanoTime() - started) / 1_000_000
+        }
+
+        val totalMs = (System.nanoTime() - started) / 1_000_000
+        assertFalse(local)
+        assertTrue("settled after $settledAfterMs ms", settledAfterMs in 200 until 500)
+        assertTrue("returned after $totalMs ms", totalMs >= 600)
+    }
+
+    @Test
+    fun `a receiver with titles settles resuming at once`() = runBlocking {
+        var settled = false
+
+        assertFalse(awaitRejoin(FakePlayer(remote = true, items = 2), queueWaitMs = 10_000, totalMs = 45_000) { settled = true })
+
+        assertTrue(settled)
+    }
+
+    @Test
+    fun `without a cast session resuming is not settled early`() = runBlocking {
+        var settled = false
+
+        assertTrue(awaitRejoin(FakePlayer(remote = false, items = 0), queueWaitMs = 10_000, totalMs = 45_000) { settled = true })
+
+        assertFalse(settled)
+    }
+
     private class FakePlayer(private val remote: Boolean, private val items: Int) : SimpleBasePlayer(Looper.getMainLooper()) {
         override fun getState(): State = State.Builder()
             .setDeviceInfo(

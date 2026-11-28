@@ -143,8 +143,9 @@ class PlaybackService : MediaLibraryService() {
 
     /**
      * Completed once [restoreQueue] has read the saved state and set it (or left it), or once it waits for a cast session the app
-     * reattached to: resuming playback (media button, Android Auto) doesn't need to wait for that, up to [REJOIN_WAIT_MS] for an
-     * empty receiver (review5 P15).
+     * reattached to and the receiver reported its titles, at most [RECEIVER_QUEUE_WAIT_MS]: resuming playback (media button,
+     * Android Auto) doesn't need to wait the full [REJOIN_WAIT_MS] for an empty receiver, but shouldn't replace the receiver's
+     * queue reported a moment later either (review5 P15).
      */
     private val restoreSettled = CompletableDeferred<Unit>()
 
@@ -591,10 +592,9 @@ class PlaybackService : MediaLibraryService() {
      */
     private fun restoreQueue(player: Player) {
         restoreJob = mainScope.launch {
-            suspend fun taken(): Boolean {
-                if (player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) restoreSettled.complete(Unit)
-                return !awaitLocalOrQueued(player, REJOIN_WAIT_MS) || player.mediaItemCount > 0
-            }
+            suspend fun taken(): Boolean =
+                !awaitRejoin(player, RECEIVER_QUEUE_WAIT_MS, REJOIN_WAIT_MS) { restoreSettled.complete(Unit) } ||
+                    player.mediaItemCount > 0
             // If a book or episode played last, it is loaded (paused) instead of the music queue.
             val lastBookId = queuePersistence.lastBookId()
             if (lastBookId != null) {
@@ -963,6 +963,24 @@ private const val SESSION_MIX_SERVER_TIMEOUT_MS = 1_200L
 
 /** Reattaching to a cast session after start can take this long (discovery and connecting). */
 private const val REJOIN_WAIT_MS = 45_000L
+
+/** How long resuming playback waits for the receiver of a reattached cast session to report its titles (review5 P15). */
+private const val RECEIVER_QUEUE_WAIT_MS = 3_000L
+
+/**
+ * Main thread. While [player] casts to a reattached session, waits up to [queueWaitMs] for the receiver's titles, then calls
+ * [settled] and waits for the rest of [totalMs] if the receiver is still empty. Without a cast session it returns at once without
+ * [settled]. `true` if it plays on the device (review5 P15).
+ */
+internal suspend fun awaitRejoin(player: Player, queueWaitMs: Long, totalMs: Long, settled: () -> Unit): Boolean {
+    if (player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE) return true
+    val started = System.nanoTime()
+    val local = awaitLocalOrQueued(player, queueWaitMs)
+    settled()
+    if (local || player.mediaItemCount > 0) return local
+    val waitedMs = (System.nanoTime() - started) / 1_000_000
+    return awaitLocalOrQueued(player, (totalMs - waitedMs).coerceAtLeast(0))
+}
 
 /**
  * Main thread. Waits at most [timeoutMs] until [player] plays on the device again, or, cast, the receiver of a reattached session
