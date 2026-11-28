@@ -14,6 +14,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -43,24 +45,71 @@ fun PasswordVisibilityToggle(visible: Boolean, onToggle: () -> Unit) {
 }
 
 /**
- * Leaving a form with unsaved input ([dirty]): Back, the back gesture and the returned function ask first whether to discard
- * it; without changes they close right away ([onClose]).
+ * A tap on the tab that is already selected takes it back to its start page and would drop a half-filled form on it without
+ * asking (review5 P43). An open form with unsaved input registers here; the navigation bar then asks it first ([intercept]),
+ * and the form calls [resetTab] once the user has chosen to discard.
+ */
+class TabResetGuard(private val resetTab: () -> Unit = {}) {
+
+    private val askers = mutableListOf<() -> Unit>()
+
+    /** [ask] shows the form's discard question; until [unregister] a tap on the current tab goes there. */
+    fun register(ask: () -> Unit) {
+        askers += ask
+    }
+
+    fun unregister(ask: () -> Unit) {
+        askers -= ask
+    }
+
+    /** Tap on the current tab: `true` if a form took it over to ask first, the tab then stays as it is for now. */
+    fun intercept(): Boolean {
+        val ask = askers.lastOrNull() ?: return false
+        ask()
+        return true
+    }
+
+    /** The user discarded the form after [intercept]: the tab goes back to its start page after all. */
+    fun proceed() = resetTab()
+}
+
+val LocalTabResetGuard = staticCompositionLocalOf { TabResetGuard() }
+
+/**
+ * Leaving a form with unsaved input ([dirty]): Back, the back gesture, a tap on the current tab and the returned function ask
+ * first whether to discard it; without changes they close right away ([onClose]). Discarding after the tab tap takes the tab
+ * to its start page, as the tap would have done.
  */
 @Composable
 fun rememberDiscardGuard(dirty: Boolean, onClose: () -> Unit): () -> Unit {
     var asking by rememberSaveable { mutableStateOf(false) }
+    var askedByTab by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = dirty) { asking = true }
+    val tabGuard = LocalTabResetGuard.current
+    DisposableEffect(tabGuard, dirty) {
+        val ask = {
+            askedByTab = true
+            asking = true
+        }
+        if (dirty) tabGuard.register(ask)
+        onDispose { tabGuard.unregister(ask) }
+    }
     if (asking) {
+        val dismiss = {
+            asking = false
+            askedByTab = false
+        }
         AlertDialog(
-            onDismissRequest = { asking = false },
+            onDismissRequest = dismiss,
             title = { Text(stringResource(R.string.form_discard_title)) },
             confirmButton = {
                 DestructiveTextButton(onClick = {
-                    asking = false
-                    onClose()
+                    val toStart = askedByTab
+                    dismiss()
+                    if (toStart) tabGuard.proceed() else onClose()
                 }) { Text(stringResource(R.string.form_discard)) }
             },
-            dismissButton = { TextButton(onClick = { asking = false }) { Text(stringResource(R.string.form_keep_editing)) } },
+            dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.form_keep_editing)) } },
         )
     }
     return { if (dirty) asking = true else onClose() }

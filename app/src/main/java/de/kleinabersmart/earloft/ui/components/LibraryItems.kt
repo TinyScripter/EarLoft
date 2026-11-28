@@ -671,9 +671,14 @@ fun ArtistAvatar(
  * dialog of the app.
  */
 @Composable
-fun DestructiveTextButton(onClick: () -> Unit, content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
+fun DestructiveTextButton(
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
+) {
     androidx.compose.material3.TextButton(
         onClick = onClick,
+        enabled = enabled,
         colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
         content = content,
     )

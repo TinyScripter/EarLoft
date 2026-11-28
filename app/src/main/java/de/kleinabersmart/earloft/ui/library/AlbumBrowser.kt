@@ -65,6 +65,7 @@ import de.kleinabersmart.earloft.ui.components.foldedLetterOf
 import de.kleinabersmart.earloft.ui.components.gridContentPadding
 import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.player.LocalMiniPlayerScrollHide
+import de.kleinabersmart.earloft.ui.player.ShowMiniPlayerOnPageChange
 import de.kleinabersmart.earloft.ui.spoken.LocalAppHeaderCollapsed
 import de.kleinabersmart.earloft.ui.spoken.ShowStartOnNewFront
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbarHeight
@@ -116,6 +117,7 @@ fun AlbumBrowser(
     val browse: AlbumBrowseViewModel = hiltViewModel()
     val view by browse.view.collectAsStateWithLifecycle()
     val gridSize by browse.gridSize.collectAsStateWithLifecycle()
+    ShowMiniPlayerOnPageChange(view)
     val playControl: PlayControlViewModel = hiltViewModel()
     val playingAlbumId by playControl.playingAlbumId.collectAsStateWithLifecycle()
     val scrollLabel = albumScrollLabel(sort)
@@ -203,6 +205,7 @@ fun AlbumViewButton() {
     val browse: AlbumBrowseViewModel = hiltViewModel()
     val view by browse.view.collectAsStateWithLifecycle()
     val gridSize by browse.gridSize.collectAsStateWithLifecycle()
+    ShowMiniPlayerOnPageChange(view)
     val selected = view ?: return
     var open by rememberSaveable { mutableStateOf(false) }
     val title = stringResource(R.string.album_view_label)

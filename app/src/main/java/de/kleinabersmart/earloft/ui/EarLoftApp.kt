@@ -196,6 +196,8 @@ import de.kleinabersmart.earloft.ui.spoken.bookFraction
 import de.kleinabersmart.earloft.ui.spoken.rememberBookDownloads
 import de.kleinabersmart.earloft.ui.spoken.rememberFeedDownloads
 import de.kleinabersmart.earloft.ui.components.LocalScrollToTop
+import de.kleinabersmart.earloft.ui.components.LocalTabResetGuard
+import de.kleinabersmart.earloft.ui.components.TabResetGuard
 import de.kleinabersmart.earloft.ui.components.ScrollToTopRequests
 import de.kleinabersmart.earloft.ui.components.LocalCollectionFavorites
 import de.kleinabersmart.earloft.ui.components.rememberCollectionFavorites
@@ -643,6 +645,8 @@ fun EarLoftApp(
         playerViewModel.playbackStarts.collect { miniPlayerScrollHide.show() }
     }
 
+    val tabResetGuard = remember(navigator) { TabResetGuard { navigator.selectTab(navigationState.topLevelRoute) } }
+
     HomeNetworkPermissionPrompt(
         forceRequest = requestHomeNetwork,
         onForceRequestHandled = onHomeNetworkRequested,
@@ -663,6 +667,7 @@ fun EarLoftApp(
         LocalBookDownloads provides rememberBookDownloads(),
         LocalFeedDownloads provides rememberFeedDownloads(),
         LocalMiniPlayerScrollHide provides miniPlayerScrollHide,
+        LocalTabResetGuard provides tabResetGuard,
         LocalLibraryLinks provides remember(navigator) {
             // From the player or the queue over it (song menus, "Go to"), the page opens beneath the player (review H30).
             LibraryLinks(
@@ -699,7 +704,10 @@ fun EarLoftApp(
                     NavigationSuiteItem(
                         selected = destination.route == navigationState.topLevelRoute,
                         onClick = {
-                            if (navigator.selectTab(destination.route)) {
+                            val ownTab = destination.route == navigationState.topLevelRoute
+                            if (ownTab && tabResetGuard.intercept()) {
+                                // A form with unsaved input asks first; discarding resets the tab after all.
+                            } else if (navigator.selectTab(destination.route)) {
                                 scrollToTop.getValue(destination.route).request()
                                 miniPlayerScrollHide.show()
                             }

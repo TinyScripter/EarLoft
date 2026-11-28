@@ -40,6 +40,7 @@ import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsPageUrl
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsShowId
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.parseArdSoundsInput
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import de.kleinabersmart.earloft.ui.settings.databaseExportMessage
 import kotlinx.coroutines.launch
 
@@ -112,7 +113,8 @@ fun SourceSwitchDialog(
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = viewModel::switch, enabled = ready != null) {
+                    // Episodes get reassigned to the new source, which cannot be undone: red like every irreversible action.
+                    DestructiveTextButton(onClick = viewModel::switch, enabled = ready != null) {
                         Text(stringResource(R.string.podcast_source_switch_do))
                     }
                 },

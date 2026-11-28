@@ -1,13 +1,21 @@
 package de.kleinabersmart.earloft.ui.player
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
 
 /**
  * Moves the mini player out of the way while reading a list (user, 2026-11-21): it slides down as soon as a list on the page
@@ -44,3 +52,20 @@ class MiniPlayerScrollHide : NestedScrollConnection {
  * header. Outside the app (previews) an unattached instance that changes nothing.
  */
 val LocalMiniPlayerScrollHide = staticCompositionLocalOf { MiniPlayerScrollHide() }
+
+/**
+ * Brings the mini player back whenever [page] changes, e.g. another tab of the library pager or another album view: they are no
+ * route of their own, and the crate or carousel don't scroll vertically, so it would otherwise stay away there (review5 P54).
+ * Not for the first value, which comes with the route change that showed it already.
+ */
+@Composable
+fun ShowMiniPlayerOnPageChange(page: Any?) {
+    val scrollHide = LocalMiniPlayerScrollHide.current
+    val current by rememberUpdatedState(page)
+    LaunchedEffect(scrollHide) {
+        snapshotFlow { current }.laterPages().collect { scrollHide.show() }
+    }
+}
+
+/** Every page after the first one; `null` (not known yet) doesn't count. */
+internal fun <T : Any> Flow<T?>.laterPages(): Flow<T> = filterNotNull().distinctUntilChanged().drop(1)

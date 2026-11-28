@@ -93,6 +93,7 @@ import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.components.LoadingIndicator
 import de.kleinabersmart.earloft.ui.valueOrNull
 import kotlinx.coroutines.launch
+import de.kleinabersmart.earloft.ui.player.ShowMiniPlayerOnPageChange
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 private enum class LibraryTab(val label: Int) {
@@ -164,6 +165,8 @@ fun LibraryScreen(
             LibraryTab.PLAYLISTS, LibraryTab.STATS -> {}
         }
     }
+
+    ShowMiniPlayerOnPageChange(pagerState.currentPage)
 
     Column(modifier.fillMaxSize()) {
         PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {

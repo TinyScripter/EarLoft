@@ -15,6 +15,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
+import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.ui.spoken.BookLauncher
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,8 +44,19 @@ fun PlayPauseButton(
 }
 
 /**
+ * The album the whole music queue consists of, or null if it mixes albums (playlist, mix, songs added by hand) or a book is
+ * loaded. A playlist that happens to stand on a song of an album doesn't count as "this album is loaded".
+ */
+internal fun PlayerState.queuedAlbumId(): Long? {
+    if (spoken != null || queue.isEmpty()) return null
+    val albumId = queue.first().albumId ?: return null
+    return albumId.takeIf { queue.all { it.albumId == albumId } }
+}
+
+/**
  * Play/pause for tiles in the overviews that have no ViewModel of their own for it (albums, search).
  * If the album or episode is playing, the button pauses; if it is loaded and paused, it resumes; otherwise it starts.
+ * An album counts as loaded only if the queue is exactly this album ([queuedAlbumId]).
  */
 @HiltViewModel
 class PlayControlViewModel @Inject constructor(
@@ -53,9 +65,9 @@ class PlayControlViewModel @Inject constructor(
     private val launcher: BookLauncher,
 ) : ViewModel() {
 
-    /** The album a title is currently playing from (not: paused). */
+    /** The album currently playing as the whole queue (not: paused). */
     val playingAlbumId: StateFlow<Long?> = playback.state
-        .map { if (it.isPlaying) it.current?.albumId else null }
+        .map { if (it.isPlaying) it.queuedAlbumId() else null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** The book or episode currently playing (not: paused). */
@@ -64,7 +76,7 @@ class PlayControlViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun playOrPauseAlbum(albumId: Long) {
-        if (playback.state.value.current?.albumId == albumId) {
+        if (playback.state.value.queuedAlbumId() == albumId) {
             playback.togglePlayPause()
         } else {
             viewModelScope.launch { library.album(albumId).first()?.songs?.let { playback.play(it) } }
