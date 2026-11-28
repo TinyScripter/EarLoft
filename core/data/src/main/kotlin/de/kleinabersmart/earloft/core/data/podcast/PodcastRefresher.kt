@@ -25,12 +25,14 @@ import de.kleinabersmart.earloft.core.data.spoken.LocalPodcasts
 import de.kleinabersmart.earloft.core.data.work.ensurePeriodicWork
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import kotlinx.coroutines.launch
@@ -71,10 +73,33 @@ class PodcastRefresher internal constructor(
 
     private val started = AtomicBoolean(false)
     private val lastStaleCheck = AtomicLong(0)
+    /**
+     * Syncs triggered by the user: how many of everything, and how many per subscription. One switch for all made every subscription's
+     * page spin while any sync ran, and the first of two to finish turned it off (review5 P52).
+     */
+    private val runningAll = MutableStateFlow(0)
+    private val runningFeeds = MutableStateFlow<Map<String, Int>>(emptyMap())
     private val _refreshing = MutableStateFlow(false)
 
     /** `true` while a sync triggered by the user is running (for pull-to-refresh). */
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
+
+    /** Changes the counts above and with them [refreshing]; locked, so the last change always writes the current state. */
+    @Synchronized
+    private fun running(all: Int = 0, feedId: String? = null, feed: Int = 0) {
+        if (all != 0) runningAll.update { it + all }
+        if (feedId != null) {
+            runningFeeds.update { running ->
+                val count = (running[feedId] ?: 0) + feed
+                if (count > 0) running + (feedId to count) else running - feedId
+            }
+        }
+        _refreshing.value = runningAll.value > 0 || runningFeeds.value.isNotEmpty()
+    }
+
+    /** `true` while a sync triggered by the user covers [feedId]: everything, or just this subscription. */
+    fun refreshing(feedId: String): Flow<Boolean> =
+        combine(runningAll, runningFeeds) { all, feeds -> all > 0 || feedId in feeds }.distinctUntilChanged()
 
     fun start() {
         if (!started.compareAndSet(false, true)) return
@@ -112,14 +137,14 @@ class PodcastRefresher internal constructor(
     /** On request: reports start and end (with the number of new episodes) to the UI. */
     fun refreshAll() {
         scope.launch {
-            _refreshing.value = true
+            running(all = +1)
             try {
                 events.emit(RefreshEvent.Started(RefreshKind.PODCASTS))
                 localPodcasts.sync()
                 val summary = repository.refreshAll()
                 events.emit(RefreshEvent.Finished(RefreshKind.PODCASTS, summary.newCount, failed = !summary.ok))
             } finally {
-                _refreshing.value = false
+                running(all = -1)
             }
         }
     }
@@ -142,14 +167,14 @@ class PodcastRefresher internal constructor(
     /** On request: syncs only the subscription [feedId] (a podcast from the device syncs its files), paused or not. */
     fun refreshFeed(feedId: String) {
         scope.launch {
-            _refreshing.value = true
+            running(feedId = feedId, feed = +1)
             try {
                 events.emit(RefreshEvent.Started(RefreshKind.PODCASTS))
                 localPodcasts.sync()
                 val result = repository.refresh(feedId)
                 events.emit(RefreshEvent.Finished(RefreshKind.PODCASTS, result?.newEpisodeIds?.size ?: 0, failed = result == null))
             } finally {
-                _refreshing.value = false
+                running(feedId = feedId, feed = -1)
             }
         }
     }

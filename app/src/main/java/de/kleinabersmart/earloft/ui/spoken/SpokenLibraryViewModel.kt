@@ -30,6 +30,7 @@ import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.model.SpokenServer
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
+import de.kleinabersmart.earloft.navigation.BookGroupKind
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.asLoadState
 import kotlinx.coroutines.Dispatchers
@@ -96,6 +97,25 @@ class SpokenLibraryViewModel @Inject constructor(
         .asLoadState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
+    /**
+     * The group [name] of [kind] for its page (series, author, narrator, genre), grouped off the main thread: the books change with
+     * every saved position, and the page grouped the whole library on the main thread every 15 s during playback (review5 P47).
+     * `Ready(null)` if the group is gone.
+     */
+    fun bookGroup(kind: BookGroupKind, name: String): Flow<LoadState<BookGroup?>> = allBooks
+        .map { state ->
+            when (state) {
+                is LoadState.Ready -> LoadState.Ready(
+                    state.value.groups(kind).firstOrNull { if (kind == BookGroupKind.GENRE) sameGenre(it.name, name) else it.name == name },
+                )
+                LoadState.Loading -> LoadState.Loading
+                LoadState.Missing -> LoadState.Missing
+                LoadState.Failed -> LoadState.Failed
+            }
+        }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.Default)
+
     val bookSort: StateFlow<BookSort> = settings.bookSort
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookSort.TITLE)
 
@@ -139,6 +159,8 @@ class SpokenLibraryViewModel @Inject constructor(
     ) { all, (sort, filter), downloaded, genre, library ->
         all.sortedAndFiltered(sort, filter, downloaded, genre?.takeIf { g -> all.any { it.book.hasGenre(g) } }, library)
     }
+        // Off the main thread, as the series and authors: the books change with every saved position (review5 P47).
+        .flowOn(Dispatchers.Default)
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 

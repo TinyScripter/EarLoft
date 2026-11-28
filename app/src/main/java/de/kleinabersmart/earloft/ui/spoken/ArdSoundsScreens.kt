@@ -92,7 +92,9 @@ fun ArdSoundsScreen(
     val library by viewModel.library.collectAsStateWithLifecycle()
     val subscribed by viewModel.subscribed.collectAsStateWithLifecycle()
     val subscriptions by viewModel.subscriptions.collectAsStateWithLifecycle()
-    var unsubscribing by remember { mutableStateOf<ArdSubscription?>(null) }
+    // By its show, saveable: the question used to go away when the screen was rotated (review5 P51).
+    var unsubscribingId by rememberSaveable { mutableStateOf<String?>(null) }
+    val unsubscribing = unsubscribingId?.let { id -> subscriptions.firstOrNull { it.showId == id } }
     val category by viewModel.category.collectAsStateWithLifecycle()
     val shows by viewModel.shows.collectAsStateWithLifecycle()
     val search by viewModel.search.collectAsStateWithLifecycle()
@@ -111,16 +113,16 @@ fun ArdSoundsScreen(
 
     unsubscribing?.let { subscription ->
         AlertDialog(
-            onDismissRequest = { unsubscribing = null },
+            onDismissRequest = { unsubscribingId = null },
             title = { Text(stringResource(R.string.ard_books_unsubscribe)) },
             text = { Text(stringResource(R.string.ard_books_unsubscribe_confirm, subscription.title)) },
             confirmButton = {
                 DestructiveTextButton(onClick = {
                     viewModel.unsubscribe(subscription.showId)
-                    unsubscribing = null
+                    unsubscribingId = null
                 }) { Text(stringResource(R.string.ard_books_unsubscribe)) }
             },
-            dismissButton = { TextButton(onClick = { unsubscribing = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { TextButton(onClick = { unsubscribingId = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 
@@ -172,7 +174,7 @@ fun ArdSoundsScreen(
                                 Icon(painterResource(DesignR.drawable.ic_notifications), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             },
                             trailingContent = {
-                                IconButton(onClick = { unsubscribing = subscription }) {
+                                IconButton(onClick = { unsubscribingId = subscription.showId }) {
                                     Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.ard_books_unsubscribe))
                                 }
                             },

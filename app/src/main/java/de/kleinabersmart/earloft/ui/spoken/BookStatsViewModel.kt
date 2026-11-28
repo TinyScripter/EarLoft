@@ -14,13 +14,14 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -63,13 +64,20 @@ class BookStatsViewModel @Inject constructor(
         yearFlow.value = value
     }
 
-    private val _refresh = MutableStateFlow(StatsRefresh.IDLE)
-    val refresh: StateFlow<StatsRefresh> = _refresh.asStateFlow()
+    /**
+     * Fetch state per server: switching from a server only reachable at home to another one used to wait for the first one's timeout,
+     * and showed "fetch failed" for the second one, which had never been asked (review5 P50).
+     */
+    private val refreshStates = MutableStateFlow<Map<String, StatsRefresh>>(emptyMap())
+
+    /** Fetch state of the displayed server. */
+    val refresh: StateFlow<StatsRefresh> = combine(selectedServerId, refreshStates) { id, states -> states[id] ?: StatsRefresh.IDLE }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StatsRefresh.IDLE)
 
     init {
-        // On opening and on every server change, fetch the state if it is older than an hour.
+        // On opening and on every server change, fetch the state if it is older than an hour; a change ends the fetch before.
         viewModelScope.launch {
-            selectedServerId.filterNotNull().collect { id -> refresh(id) }
+            selectedServerId.filterNotNull().collectLatest { id -> refresh(id) }
         }
     }
 
@@ -80,8 +88,14 @@ class BookStatsViewModel @Inject constructor(
     }
 
     private suspend fun refresh(serverId: String) {
-        _refresh.value = StatsRefresh.RUNNING
-        _refresh.value = if (serverStats.refresh(serverId)) StatsRefresh.IDLE else StatsRefresh.FAILED
+        refreshStates.update { it + (serverId to StatsRefresh.RUNNING) }
+        // Ended by a server change: no state of its own left behind.
+        var result = StatsRefresh.IDLE
+        try {
+            if (!serverStats.refresh(serverId)) result = StatsRefresh.FAILED
+        } finally {
+            refreshStates.update { it + (serverId to result) }
+        }
     }
 
     fun select(serverId: String) {

@@ -67,7 +67,9 @@ class EpisodeMenuViewModel @Inject constructor(
     /** Remove a book from ARD Sounds including downloads from the library (`books_improvements.md` M9). */
     fun removeFromLibrary(item: BookWithProgress) {
         val id = item.book.id
-        if (!item.book.isArdSounds || loadedBookId.value == id) return
+        // From the player itself: [loadedBookId] is only kept up to date while someone collects it, and book tiles and the
+        // book page don't (review5 P46).
+        if (!item.book.isArdSounds || playback.state.value.spoken?.bookId == id) return
         act {
             bookDownloads.remove(id)
             ardBooks.remove(id)
@@ -119,7 +121,10 @@ class EpisodeMenuViewModel @Inject constructor(
         combine(trialFeedsSource, loadedBookIdSource, ::Pair),
     ) { queued, downloaded, downloadedEpisodes, (head, second), (trialFeeds, loaded) ->
         EpisodeMenuFacts(queued, downloaded, downloadedEpisodes, head, second, trialFeeds, loaded)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }
+        // Without the last value once nobody listens: from the second opening on the menu otherwise showed it for a moment, stale
+        // by then (review5 P46).
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), null)
 
     fun playNext(bookId: Long) {
         act { continueListening.playNext(bookId) }

@@ -46,6 +46,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected as selectedSemantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
@@ -348,6 +350,8 @@ private fun QueueRow(
                 onLongClickLabel = stringResource(R.string.action_more),
                 onLongClick = { if (selecting) selection.toggle(item.book.id) else menu = true },
             )
+            // TalkBack learns whether the row is selected, as in the episode lists (review5 P49).
+            .semantics { if (selecting) selectedSemantics = selected }
             .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
     ) {
         EpisodeMenu(item, expanded = menu, onDismiss = { menu = false }, onSelect = selection?.let { { it.toggle(item.book.id) } })

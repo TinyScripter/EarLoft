@@ -71,7 +71,9 @@ class PodcastFeedViewModel @AssistedInject constructor(
         trialPages.closed(feedId)
     }
 
-    val refreshing: StateFlow<Boolean> = refresher.refreshing
+    /** Only a sync of this subscription or of everything (review5 P52). */
+    val refreshing: StateFlow<Boolean> = refresher.refreshing(feedId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     fun refresh() = refresher.refreshFeed(feedId)
 
@@ -127,6 +129,14 @@ class PodcastFeedViewModel @AssistedInject constructor(
     val downloadStates: StateFlow<Map<Long, TrackDownload>> = podcasts.downloadStates(feedId)
         .orOnError(emptyMap())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /**
+     * Played episodes with a downloaded file, as in the subscription's menu: only then does "Delete played downloads" in its settings
+     * have anything to delete. Any finished download used to show it, and confirming deleted nothing (review5 P48).
+     */
+    val hasHeardDownloads: StateFlow<Boolean> = combine(episodes, downloadStates) { state, downloads ->
+        state.valueOrNull.orEmpty().any { it.progress?.finished == true && downloads[it.book.id] == TrackDownload.DONE }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** The episodes by the subscription's filter and order (chips and sorting on its page). */
     val shownEpisodes: StateFlow<LoadState<List<BookWithProgress>>> = combine(

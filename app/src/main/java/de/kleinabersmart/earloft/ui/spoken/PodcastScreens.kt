@@ -1089,7 +1089,7 @@ fun PodcastSettingsScreen(
     viewModel: PodcastFeedViewModel = hiltViewModel<PodcastFeedViewModel, PodcastFeedViewModel.Factory> { it.create(feedId) },
 ) {
     val feed by viewModel.feed.collectAsStateWithLifecycle()
-    val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
+    val hasHeardDownloads by viewModel.hasHeardDownloads.collectAsStateWithLifecycle()
     val areaEffects by viewModel.areaEffects.collectAsStateWithLifecycle()
     val credentialsUser by viewModel.credentialsUser.collectAsStateWithLifecycle()
     val credentialsAddress by viewModel.credentialsAddress.collectAsStateWithLifecycle()
@@ -1143,7 +1143,7 @@ fun PodcastSettingsScreen(
                     val defaultCount by viewModel.defaultAutoDownloadCount.collectAsStateWithLifecycle()
                     FeedAutoCountRow(current, defaultCount, viewModel::setAutoDownloadCount)
                 }
-                if (downloadStates.values.any { it == TrackDownload.DONE }) {
+                if (hasHeardDownloads) {
                     row("remove-heard") {
                         var confirm by rememberSaveable { mutableStateOf(false) }
                         ActionRow(

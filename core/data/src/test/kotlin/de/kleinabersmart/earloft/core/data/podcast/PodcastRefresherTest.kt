@@ -35,6 +35,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -77,6 +78,12 @@ class PodcastRefresherTest {
     private val requested = Collections.synchronizedList(mutableListOf<String>())
     private var localScans = 0
 
+    /** Holds the fetch of a feed with "slow" in its address until opened. */
+    private val slowGate = java.util.concurrent.CountDownLatch(1)
+
+    @Volatile
+    private var holdSlow = false
+
     /** The refresher's application scope; [settle] waits for what it launched. */
     private val work = Job()
     private val scope = CoroutineScope(Dispatchers.Default + work)
@@ -88,6 +95,7 @@ class PodcastRefresherTest {
             .addInterceptor { chain ->
                 val url = chain.request().url.toString()
                 requested += url
+                if ("slow" in url && holdSlow) slowGate.await()
                 val body = served[url] ?: throw IOException("offline")
                 Response.Builder()
                     .request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
@@ -252,6 +260,25 @@ class PodcastRefresherTest {
             listOf(RefreshEvent.Started(RefreshKind.PODCASTS), RefreshEvent.Finished(RefreshKind.PODCASTS, 2, failed = false)),
             got,
         )
+        assertFalse(refresher.refreshing.value)
+    }
+
+    @Test
+    fun `the page of a subscription spins only while it or everything is synced`() = runBlocking {
+        val slow = subscribed("slow", hoursAgo = 7)
+        val other = subscribed("other", hoursAgo = 7)
+        val refresher = refresher()
+        holdSlow = true
+
+        refresher.refreshFeed(slow)
+        withTimeout(10_000) { refresher.refreshing(slow).first { it } }
+
+        // review5 P52: one switch for all made every page spin.
+        assertFalse(refresher.refreshing(other).first())
+        assertTrue(refresher.refreshing.value)
+        slowGate.countDown()
+        settle()
+        assertFalse(refresher.refreshing(slow).first())
         assertFalse(refresher.refreshing.value)
     }
 

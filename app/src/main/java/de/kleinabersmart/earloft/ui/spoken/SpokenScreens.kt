@@ -799,11 +799,9 @@ fun BookGroupScreen(
     modifier: Modifier = Modifier,
     viewModel: SpokenLibraryViewModel = hiltViewModel(),
 ) {
-    val booksState by viewModel.allBooks.collectAsStateWithLifecycle()
+    val groupState by remember(kind, name) { viewModel.bookGroup(kind, name) }.collectAsStateWithLifecycle(LoadState.Loading)
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
-    val group = remember(booksState, kind, name) {
-        booksState.valueOrNull?.groups(kind)?.firstOrNull { if (kind == BookGroupKind.GENRE) sameGenre(it.name, name) else it.name == name }
-    }
+    val group = groupState.valueOrNull
     val description by remember(kind, name) {
         if (kind == BookGroupKind.AUTHOR) viewModel.authorDescription(name) else flowOf(null)
     }.collectAsStateWithLifecycle(null)
@@ -812,7 +810,7 @@ fun BookGroupScreen(
             title = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
         )
-        when (booksState) {
+        when (groupState) {
             LoadState.Loading -> LoadingIndicator()
             LoadState.Missing, LoadState.Failed -> LoadFailedHint()
             is LoadState.Ready -> if (group == null) {
