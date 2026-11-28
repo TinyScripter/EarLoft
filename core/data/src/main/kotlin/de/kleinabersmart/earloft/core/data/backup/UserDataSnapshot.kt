@@ -198,7 +198,7 @@ data class UserDataSnapshot(
 
         /**
          * What is backed up from the main database: music servers, ABS servers, subscribed podcasts, statistics,
-         * progress (for Audiobookshelf only what has not been reported yet), bookmarks (without deleted ones; for Audiobookshelf
+         * progress (for Audiobookshelf only what has not been reported yet or has its own speed or effects), bookmarks (without deleted ones; for Audiobookshelf
          * only those the server doesn't fully know: not yet reported, not reported in their current state, or with a note,
          * which it doesn't store), local playlists (with `backupKey`), favorites of
          * songs, albums and artists without a server, listening history, the selection for the watch (already keyed, see `UserDataBackup`),
@@ -246,8 +246,10 @@ data class UserDataSnapshot(
             },
             listeningStats = listeningStats.map { it.toUser() },
             listeningDays = listeningDays.map { it.toUser() },
+            // Audiobookshelf keeps the position, but not the book's own speed and effects: those stay in the backup after reporting
+            // (review5 P28).
             progress = spokenServers.map { it.serverId }.toSet().let { abs ->
-                progress.filter { it.serverId !in abs || it.progress.dirty }.map { it.toUser() }
+                progress.filter { it.serverId !in abs || it.progress.dirty || it.progress.hasOwnPlayback }.map { it.toUser() }
             },
             bookmarks = spokenServers.map { it.serverId }.toSet().let { abs ->
                 bookmarks.filter { !it.bookmark.deleted && (it.serverId !in abs || !it.bookmark.knownToServer) }.map { it.toUser() }
@@ -341,6 +343,10 @@ fun ListeningStatEntity.toUser() =
     UserListeningStatEntity(source, groupKey, itemKey, kind, groupTitle, itemTitle, listenedMs, lastListenedAt)
 
 fun ListeningDayEntity.toUser() = UserListeningDayEntity(day, kind, groupKey, listenedMs, savedMs)
+
+/** The book plays with its own speed, "skip silence" or volume instead of those of its section (review5 P28). */
+internal val BookProgressEntity.hasOwnPlayback: Boolean
+    get() = speed != null || skipSilence != null || volumeBoostDb != null
 
 fun KeyedProgress.toUser() = with(progress) {
     UserBookProgressEntity(serverId, remoteId, positionMs, durationMs, finished, speed, updatedAt, dirty, hidden, skipSilence, volumeBoostDb)

@@ -607,6 +607,54 @@ class UserDataBackupTest {
     }
 
     @Test
+    fun `a reported Audiobookshelf book keeps its own speed and effects in the backup`() = runTest {
+        // review5 P28: the server knows the position, but not the book's own speed, "skip silence" and volume.
+        fillMain()
+        val faster = book(main, "abs", "item-1", BookKind.BOOK)
+        val louder = book(main, "abs", "item-2", BookKind.BOOK)
+        main.bookDao().upsertProgress(progress(faster, 300, updatedAt = 30).copy(speed = 1.4f, skipSilence = true))
+        main.bookDao().upsertProgress(progress(louder, 400, updatedAt = 40).copy(volumeBoostDb = 6))
+        backupFor(main).mirror()
+
+        val saved = user.userDataDao().progress().associateBy { it.remoteId }
+        assertEquals(setOf("item-1", "item-2"), saved.keys)
+        assertEquals(1.4f, saved.getValue("item-1").speed)
+        assertEquals(true, saved.getValue("item-1").skipSilence)
+        assertEquals(6, saved.getValue("item-2").volumeBoostDb)
+    }
+
+    @Test
+    fun `own speed and effects come back even when the server's position is newer`() = runTest {
+        fillMain()
+        main.bookDao().upsertProgress(
+            progress(book(main, "abs", "item-1", BookKind.BOOK), 300, updatedAt = 30).copy(speed = 1.4f, skipSilence = true, volumeBoostDb = 6),
+        )
+        main.bookDao().upsertProgress(progress(book(main, "abs", "item-2", BookKind.BOOK), 300, updatedAt = 30).copy(speed = 1.4f))
+        backupFor(main).mirror()
+
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            // The sync already brought the books with a newer position from the server; item-2 got its own speed here meanwhile.
+            val first = book(newDevice, "abs", "item-1", BookKind.BOOK)
+            val second = book(newDevice, "abs", "item-2", BookKind.BOOK)
+            newDevice.bookDao().upsertProgress(progress(first, 900, updatedAt = 90))
+            newDevice.bookDao().upsertProgress(progress(second, 900, updatedAt = 90).copy(speed = 0.8f))
+
+            assertTrue(backupFor(newDevice).applyProgress(user.userDataDao().progress()).isEmpty())
+
+            val restored = newDevice.bookDao().progress(first)!!
+            assertEquals(900L, restored.positionMs)
+            assertEquals(90L, restored.updatedAt)
+            assertEquals(1.4f, restored.speed)
+            assertEquals(true, restored.skipSilence)
+            assertEquals(6, restored.volumeBoostDb)
+            assertEquals(0.8f, newDevice.bookDao().progress(second)!!.speed)
+        } finally {
+            newDevice.close()
+        }
+    }
+
+    @Test
     fun `progress waits for its book on a new device and only wins when newer`() = runTest {
         fillMain()
         main.bookDao().upsertProgress(progress(book(main, "feed-1", "guid-1"), 100, updatedAt = 10))

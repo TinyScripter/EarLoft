@@ -616,7 +616,9 @@ class UserDataBackup @Inject constructor(
 
     /**
      * Transfers backed-up progress into the main database if its book exists there and it is newer than the
-     * existing one. Returns the rest whose book is (still) missing.
+     * existing one. Otherwise only the book's own speed and effects are taken over where the existing progress has none: the
+     * sync of an Audiobookshelf server brings the position back first, but not those (review5 P28). Returns the rest whose
+     * book is (still) missing.
      */
     internal suspend fun applyProgress(saved: Collection<UserBookProgressEntity>): List<UserBookProgressEntity> {
         if (saved.isEmpty()) return emptyList()
@@ -630,11 +632,24 @@ class UserDataBackup @Inject constructor(
                 val current = bookIds.values.chunked(MAX_ARGS).flatMap { bookDao.progressOf(it) }.associateBy { it.bookId }
                 rows.forEach { row ->
                     val bookId = bookIds[row.remoteId]
+                    val existing = bookId?.let { current[it] }
                     when {
                         bookId == null -> unresolved += row
-                        (current[bookId]?.updatedAt ?: Long.MIN_VALUE) < row.updatedAt -> {
+                        existing == null || existing.updatedAt < row.updatedAt -> {
                             bookDao.upsertProgress(row.toMain(bookId))
                             applied++
+                        }
+                        else -> {
+                            // Position and time stay; what was set here already wins.
+                            val withEffects = existing.copy(
+                                speed = existing.speed ?: row.speed,
+                                skipSilence = existing.skipSilence ?: row.skipSilence,
+                                volumeBoostDb = existing.volumeBoostDb ?: row.volumeBoostDb,
+                            )
+                            if (withEffects != existing) {
+                                bookDao.upsertProgress(withEffects)
+                                applied++
+                            }
                         }
                     }
                 }
