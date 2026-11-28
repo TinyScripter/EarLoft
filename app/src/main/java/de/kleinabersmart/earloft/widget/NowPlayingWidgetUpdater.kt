@@ -47,7 +47,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
+import de.kleinabersmart.earloft.core.data.flow.restartOnError
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -210,18 +212,23 @@ class NowPlayingWidgetUpdater @Inject constructor(
                 .map { state -> state.entries.values.map { state.saved(it) } }
                 .filter { it.isNotEmpty() }
                 .distinctUntilChanged()
-                .collect { store.save(it) }
+                .onEach { store.save(it) }
+                // These collectors live as long as the process: one failure must not freeze the widget until then (review5 P20).
+                .restartOnError(TAG, "Saving the widget state")
+                .collect()
         }
         combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, ::Pair)
             .onEach { (book, podcast) ->
                 _state.value = _state.value.copy(bookSeek = book, podcastSeek = podcast)
                 NowPlayingWidget().updateAll(context)
             }
+            .restartOnError(TAG, "Widget skip steps")
             .launchIn(scope)
         @OptIn(FlowPreview::class)
         nowPlaying
             .debounce(UPDATE_THROTTLE_MS)
             .onEach { update(it) }
+            .restartOnError(TAG, "Widget update")
             .launchIn(scope)
         @OptIn(ExperimentalCoroutinesApi::class)
         combine(nowPlaying, widgetsPlaced, ::Pair)
@@ -230,6 +237,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
                 _state.update { it.withClock(clock, SystemClock.elapsedRealtime()) }
                 NowPlayingWidget().updateAll(context)
             }
+            .restartOnError(TAG, "Widget clock")
             .launchIn(scope)
     }
 

@@ -29,11 +29,16 @@ import de.kleinabersmart.earloft.core.wearsync.putAssetPayload
 import de.kleinabersmart.earloft.core.wearsync.putPayload
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
+import de.kleinabersmart.earloft.core.data.flow.restartOnError
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -79,7 +84,10 @@ class WearPublisher @Inject constructor(
     private fun publish(scope: CoroutineScope) {
         // History and progress the watch left while the phone app wasn't listening; while the restore holds the watch, packets
         // with songs not known here yet stay, and come in once it lets go.
-        scope.launch { userDataBackup.holdsWatch.collect { hold -> if (!hold) packets.catchUp() } }
+        // Every collector here lives as long as the process: one failure (full disk, Data Layer) must not end it (review5 P20).
+        scope.launch {
+            userDataBackup.holdsWatch.onEach { hold -> if (!hold) packets.catchUp() }.restartOnError(TAG, "Catching up watch packets").collect()
+        }
         scope.launch {
             // Every finished download on the phone changes a song's phone file, the watch's fallback when its server fails.
             // For the watch nothing else changes, yet every new manifest started its process and re-planned everything (up
@@ -89,10 +97,12 @@ class WearPublisher @Inject constructor(
                 .map { WearManifestBuilder.build(it, context.getString(R.string.favorites_title)) }
                 .unlessHeld()
                 .debounce { manifest -> if (manifest.withoutPhoneFiles() == lastStructure) PHONE_FILE_DEBOUNCE_MS else 0L }
-                .collect { manifest ->
+                .onEach { manifest ->
                     lastStructure = manifest.withoutPhoneFiles()
                     publishManifest(manifest)
                 }
+                .restartOnError(TAG, "Manifest")
+                .collect()
         }
         scope.launch {
             // While the phone plays an episode, it writes the progress every 15 s: pure progress changes only go out
@@ -104,10 +114,12 @@ class WearPublisher @Inject constructor(
                 .debounce { manifest ->
                     if (WearPodcastManifestBuilder.withoutProgress(manifest) == lastStructure) PROGRESS_DEBOUNCE_MS else CHANGE_DEBOUNCE_MS
                 }
-                .collect { manifest ->
+                .onEach { manifest ->
                     lastStructure = WearPodcastManifestBuilder.withoutProgress(manifest)
                     publishPodcasts(manifest)
                 }
+                .restartOnError(TAG, "Episode manifest")
+                .collect()
         }
         scope.launch {
             // The time the database was created: a new one makes the watch hold back removals (review5 P1).
@@ -122,7 +134,9 @@ class WearPublisher @Inject constructor(
                 )
             }
                 .distinctUntilChanged()
-                .collect { dataClient.putPayload(WearPaths.SERVERS, WearCodec.encode(it)) }
+                .onEach { dataClient.putPayload(WearPaths.SERVERS, WearCodec.encode(it)) }
+                .restartOnError(TAG, "Servers")
+                .collect()
         }
         scope.launch {
             combine(
@@ -152,13 +166,19 @@ class WearPublisher @Inject constructor(
                 )
             }
                 .distinctUntilChanged()
-                .collect { dataClient.putPayload(WearPaths.SETTINGS, WearCodec.encode(it)) }
+                .onEach { dataClient.putPayload(WearPaths.SETTINGS, WearCodec.encode(it)) }
+                .restartOnError(TAG, "Settings")
+                .collect()
         }
     }
 
-    /** Nothing while the restore holds the watch ([UserDataBackup.holdsWatch]); then the current state. */
+    /**
+     * Nothing while the restore holds the watch ([UserDataBackup.holdsWatch]); then the current state, read anew: the value last
+     * built during the hold may predate what the restore wrote just before it ended, and went out as an empty manifest (review5 P73).
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun <T : Any> Flow<T>.unlessHeld(): Flow<T> =
-        combine(this, userDataBackup.holdsWatch) { value, hold -> value.takeUnless { hold } }.filterNotNull()
+        userDataBackup.holdsWatch.flatMapLatest { hold -> if (hold) emptyFlow() else this }
 
     private fun WearManifest.withoutPhoneFiles() = copy(songs = songs.map { it.copy(phoneFile = null) })
 

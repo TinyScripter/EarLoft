@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import de.kleinabersmart.earloft.core.data.backup.UserDataBackup
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.core.playback.NowPlaying
 import kotlinx.coroutines.flow.first
@@ -27,13 +28,24 @@ data class SavedWidget(val nowPlaying: NowPlaying, val positionMs: Long?, val du
 /**
  * Last state per section beyond the end of the process, so the widgets don't go blank after a long pause and
  * a widget whose sections aren't currently playing shows what was last heard. Cover and colors are reloaded from it.
- * Excluded from backup (IDs of the main database).
+ * Excluded from backup (IDs of the main database). A state from before the main database was created anew refers to IDs that
+ * Room hands out again: cover and colors of another album, "play" of another book (review5 P21); it is dropped.
  */
 @Singleton
-class WidgetStateStore @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+class WidgetStateStore internal constructor(
+    private val context: Context,
+    /** When the main database was created (wall clock); `null` if unknown. */
+    private val databaseCreatedAt: suspend () -> Long?,
 ) {
+    @Inject constructor(@ApplicationContext context: Context, backup: UserDataBackup) :
+        this(context, { backup.databaseId()?.toLongOrNull() })
+
     suspend fun load(): Map<SpokenMode, SavedWidget> {
+        val created = databaseCreatedAt() ?: 0L
+        return loadAll().filterValues { it.lastActiveAt >= created }
+    }
+
+    private suspend fun loadAll(): Map<SpokenMode, SavedWidget> {
         val prefs = context.widgetStateDataStore.data.first()
         val saved = SpokenMode.entries.mapNotNull { area -> prefs.load(Keys(area.name.lowercase() + "_"))?.let { area to it } }.toMap()
         if (saved.isNotEmpty()) return saved
