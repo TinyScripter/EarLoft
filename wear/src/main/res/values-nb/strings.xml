@@ -33,6 +33,8 @@
     <string name="list_favorite_artists">Favorittartister</string>
     <string name="list_playlists">Spillelister</string>
     <string name="list_empty_watch">Ingenting på klokken ennå. Velg noe på telefonen eller nedenfor under «Telefon».</string>
+    <string name="removal_held_text">Telefonen har fjernet det som er på denne klokken. Det blir her til i morgen, med mindre du sletter det nå.</string>
+    <string name="removal_held_delete">Slett her også</string>
     <string name="list_empty_phone">Ingenting på telefonen</string>
     <string name="list_podcasts_empty_watch">Ingen episoder på klokken</string>
     <string name="list_books_empty_watch">Ingen bøker på klokken</string>

@@ -109,12 +109,15 @@ data class WearPhoneWantedDto(val since: Long)
  * [servers]: the Subsonic servers. [otherServers]: all other music servers (Jellyfin, Emby, concept 14) – a separate list because
  * older watches mirror every entry in [servers] as Subsonic; they don't know this list.
  * [spokenServers]: the enabled Audiobookshelf servers (books on the watch, Wear concept 16.2).
+ * [databaseId]: changes when the phone's database is created anew (new installation, data cleared, recreated after damage);
+ * the watch then holds back removals until the user confirms them (review5 P1). `null` from older phones.
  */
 @Serializable
 data class WearServersDto(
     val servers: List<WearServerDto> = emptyList(),
     val otherServers: List<WearServerDto> = emptyList(),
     val spokenServers: List<WearSpokenServerDto> = emptyList(),
+    val databaseId: String? = null,
 )
 
 /** An Audiobookshelf server; [serverId] is the same on both devices. */

@@ -35,6 +35,8 @@
     <string name="list_favorite_artists">Artistes favoris</string>
     <string name="list_playlists">Playlists</string>
     <string name="list_empty_watch">Rien sur la montre pour l’instant. Choisissez du contenu sur le téléphone ou ci-dessous, sous « Téléphone ».</string>
+    <string name="removal_held_text">Le téléphone a retiré ce qui se trouve sur cette montre. Tout reste ici jusqu’à demain, sauf si tu le supprimes maintenant.</string>
+    <string name="removal_held_delete">Supprimer ici aussi</string>
     <string name="list_empty_phone">Rien sur le téléphone</string>
     <string name="list_podcasts_empty_watch">Aucun épisode sur la montre</string>
     <string name="list_books_empty_watch">Aucun livre sur la montre</string>

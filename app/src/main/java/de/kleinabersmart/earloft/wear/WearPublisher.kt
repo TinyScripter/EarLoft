@@ -110,12 +110,15 @@ class WearPublisher @Inject constructor(
                 }
         }
         scope.launch {
+            // The time the database was created: a new one makes the watch hold back removals (review5 P1).
+            val databaseId = userDataBackup.databaseId()
             combine(servers.servers(), audiobookshelf.mirrored) { music, spoken ->
                 val (subsonic, other) = music.partition { it.type == SourceType.SUBSONIC }
                 WearServersDto(
                     servers = subsonic.map { it.toDto() },
                     otherServers = other.map { it.toDto() },
                     spokenServers = spoken.map { WearSpokenServerDto(it.serverId, it.name, it.baseUrl, it.credentialsStamp) },
+                    databaseId = databaseId,
                 )
             }
                 .distinctUntilChanged()

@@ -61,6 +61,7 @@ fun StartScreen(
         onClick = onClick,
         onOpenOnPhone = viewModel::openStoreOnPhone,
         onRetry = viewModel::refresh,
+        onConfirmRemoval = viewModel::confirmRemoval,
     )
 }
 
@@ -71,6 +72,7 @@ private fun StartContent(
     onClick: (StartTarget) -> Unit,
     onOpenOnPhone: (nodeId: String) -> Unit,
     onRetry: () -> Unit,
+    onConfirmRemoval: () -> Unit,
 ) {
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
@@ -83,6 +85,10 @@ private fun StartContent(
         ) {
             if (state.hasContent || state.phoneConnected) {
                 header(R.string.start_section_watch, transformationSpec)
+                if (state.removalHeld) {
+                    message(R.string.removal_held_text, transformationSpec)
+                    action(R.string.removal_held_delete, transformationSpec, onClick = onConfirmRemoval)
+                }
                 action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(false) }, secondary = state.nowPlaying)
                 // Only one entry per kind if some of it is on the watch (even if it is still downloading).
                 if (state.hasMusic) action(R.string.list_music, transformationSpec, onClick = { onClick(StartTarget.MUSIC) })
@@ -199,6 +205,7 @@ private val previewCallbacks: @Composable (StartUiState) -> Unit = { state ->
             onClick = {},
             onOpenOnPhone = {},
             onRetry = {},
+            onConfirmRemoval = {},
         )
     }
 }
@@ -212,6 +219,13 @@ private fun StartAppMissingPreview() = previewCallbacks(StartUiState(phone = Pho
 @Composable
 private fun StartPhoneConnectedPreview() = previewCallbacks(
     StartUiState(phone = PhoneStatus.Connected("phone"), phoneNowPlaying = "Moonlight"),
+)
+
+@WearPreviewDevices
+@WearPreviewFontScales
+@Composable
+private fun StartRemovalHeldPreview() = previewCallbacks(
+    StartUiState(phone = PhoneStatus.Connected("phone"), hasMusic = true, removalHeld = true),
 )
 
 @WearPreviewDevices

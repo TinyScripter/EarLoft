@@ -33,6 +33,8 @@
     <string name="list_favorite_artists">Favoritartister</string>
     <string name="list_playlists">Spellistor</string>
     <string name="list_empty_watch">Inget på klockan än. Välj något på telefonen eller nedan under ”Telefon”.</string>
+    <string name="removal_held_text">Telefonen har tagit bort det som finns på den här klockan. Det stannar här till i morgon om du inte raderar det nu.</string>
+    <string name="removal_held_delete">Radera här också</string>
     <string name="list_empty_phone">Inget på telefonen</string>
     <string name="list_podcasts_empty_watch">Inga avsnitt på klockan</string>
     <string name="list_books_empty_watch">Inga böcker på klockan</string>

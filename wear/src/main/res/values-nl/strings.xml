@@ -33,6 +33,8 @@
     <string name="list_favorite_artists">Favoriete artiesten</string>
     <string name="list_playlists">Playlists</string>
     <string name="list_empty_watch">Nog niets op het horloge. Kies iets op de telefoon of hieronder bij ‘Telefoon’.</string>
+    <string name="removal_held_text">De telefoon heeft verwijderd wat op dit horloge staat. Het blijft hier tot morgen, tenzij je het nu verwijdert.</string>
+    <string name="removal_held_delete">Ook hier verwijderen</string>
     <string name="list_empty_phone">Niets op de telefoon</string>
     <string name="list_podcasts_empty_watch">Geen afleveringen op het horloge</string>
     <string name="list_books_empty_watch">Geen boeken op het horloge</string>

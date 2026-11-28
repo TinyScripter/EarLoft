@@ -33,6 +33,8 @@
     <string name="list_favorite_artists">Favoritkunstnere</string>
     <string name="list_playlists">Playlister</string>
     <string name="list_empty_watch">Der er intet på uret endnu. Vælg noget på telefonen eller nedenfor under »Telefon«.</string>
+    <string name="removal_held_text">Telefonen har fjernet det, der er på dette ur. Det bliver her til i morgen, medmindre du sletter det nu.</string>
+    <string name="removal_held_delete">Slet også her</string>
     <string name="list_empty_phone">Intet på telefonen</string>
     <string name="list_podcasts_empty_watch">Ingen afsnit på uret</string>
     <string name="list_books_empty_watch">Ingen bøger på uret</string>

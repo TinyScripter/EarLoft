@@ -35,6 +35,8 @@
     <string name="list_favorite_artists">Artistas favoritos</string>
     <string name="list_playlists">Listas</string>
     <string name="list_empty_watch">Aún no hay nada en el reloj. Elige algo en el teléfono o más abajo, en «Teléfono».</string>
+    <string name="removal_held_text">El teléfono ha quitado lo que hay en este reloj. Se queda aquí hasta mañana, salvo que lo borres ahora.</string>
+    <string name="removal_held_delete">Borrar también aquí</string>
     <string name="list_empty_phone">No hay nada en el teléfono</string>
     <string name="list_podcasts_empty_watch">No hay episodios en el reloj</string>
     <string name="list_books_empty_watch">No hay libros en el reloj</string>

@@ -34,6 +34,8 @@
     <string name="list_favorite_artists">Favorite artists</string>
     <string name="list_playlists">Playlists</string>
     <string name="list_empty_watch">Nothing on the watch yet. Choose something on the phone or below under “Phone”.</string>
+    <string name="removal_held_text">The phone removed what is on this watch. It stays here until tomorrow unless you delete it now.</string>
+    <string name="removal_held_delete">Delete here too</string>
     <string name="list_empty_phone">Nothing on the phone</string>
     <string name="list_podcasts_empty_watch">No episodes on the watch</string>
     <string name="list_books_empty_watch">No books on the watch</string>

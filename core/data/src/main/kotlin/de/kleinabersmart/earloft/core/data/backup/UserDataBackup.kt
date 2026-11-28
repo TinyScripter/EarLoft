@@ -529,6 +529,14 @@ class UserDataBackup @Inject constructor(
         }
     }
 
+    /**
+     * Identifies this main database: the time it was created, so a new installation or a database created anew after damage
+     * gets a new one (the watch holds back removals then, review5 P1). `null` for a database older than the marker.
+     */
+    suspend fun databaseId(): String? = withContext(Dispatchers.IO) {
+        File(context.noBackupFilesDir, EarLoftDatabase.CREATED_MARKER).takeIf { it.exists() }?.lastModified()?.toString()
+    }
+
     /** Whether the main database was created after the last restore (both markers live in `noBackupFilesDir`). */
     private suspend fun mainRecreatedSinceRestore(): Boolean = withContext(Dispatchers.IO) {
         val restored = File(context.noBackupFilesDir, RESTORED_MARKER)

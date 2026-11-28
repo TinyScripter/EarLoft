@@ -31,6 +31,8 @@
     <string name="list_favorite_artists">Lieblingskünstler</string>
     <string name="list_playlists">Playlists</string>
     <string name="list_empty_watch">Noch nichts auf der Uhr. Wähle etwas am Telefon oder unten unter „Smartphone“.</string>
+    <string name="removal_held_text">Das Telefon hat entfernt, was auf dieser Uhr ist. Es bleibt bis morgen hier, außer du löschst es jetzt.</string>
+    <string name="removal_held_delete">Auch hier löschen</string>
     <string name="list_empty_phone">Nichts auf dem Telefon</string>
     <string name="list_podcasts_empty_watch">Keine Folgen auf der Uhr</string>
     <string name="list_books_empty_watch">Keine Bücher auf der Uhr</string>

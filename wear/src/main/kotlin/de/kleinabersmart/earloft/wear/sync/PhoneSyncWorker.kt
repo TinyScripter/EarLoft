@@ -12,6 +12,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
+import java.util.concurrent.TimeUnit
 
 /**
  * Applies server and manifest from the phone ([PhoneLibrarySync]). As a worker because the
@@ -54,5 +55,16 @@ class PhoneSyncWorker(
                 OneTimeWorkRequestBuilder<PhoneSyncWorker>().build(),
             )
         }
+
+        /** A run after [delayMs], when a held state from the phone applies by itself ([RemovalGuard]). */
+        fun enqueueIn(context: Context, delayMs: Long) {
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                HELD_WORK_NAME,
+                ExistingWorkPolicy.REPLACE,
+                OneTimeWorkRequestBuilder<PhoneSyncWorker>().setInitialDelay(delayMs.coerceAtLeast(0), TimeUnit.MILLISECONDS).build(),
+            )
+        }
+
+        private const val HELD_WORK_NAME = "phone-sync-held"
     }
 }

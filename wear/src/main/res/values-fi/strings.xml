@@ -33,6 +33,8 @@
     <string name="list_favorite_artists">Suosikkiartistit</string>
     <string name="list_playlists">Soittolistat</string>
     <string name="list_empty_watch">Kellossa ei ole vielä mitään. Valitse jotain puhelimessa tai alempaa kohdasta ”Puhelin”.</string>
+    <string name="removal_held_text">Puhelin poisti sen, mitä tässä kellossa on. Se pysyy täällä huomiseen, ellet poista sitä nyt.</string>
+    <string name="removal_held_delete">Poista myös täältä</string>
     <string name="list_empty_phone">Puhelimessa ei ole mitään</string>
     <string name="list_podcasts_empty_watch">Kellossa ei ole jaksoja</string>
     <string name="list_books_empty_watch">Kellossa ei ole kirjoja</string>

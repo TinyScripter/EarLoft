@@ -1,8 +1,10 @@
 package de.kleinabersmart.earloft.wear.ui
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
@@ -14,6 +16,8 @@ import de.kleinabersmart.earloft.wear.download.WatchStorageRepository
 import de.kleinabersmart.earloft.wear.sync.PhoneConnection
 import de.kleinabersmart.earloft.wear.sync.PhoneRemote
 import de.kleinabersmart.earloft.wear.sync.PhoneStatus
+import de.kleinabersmart.earloft.wear.sync.PhoneSyncWorker
+import de.kleinabersmart.earloft.wear.sync.RemovalGuard
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -44,6 +48,8 @@ data class StartUiState(
     val hasBooks: Boolean = false,
     /** Sections enabled on the phone (General → Sections); the others are missing on the watch and on the phone. */
     val areas: List<SpokenMode> = SpokenMode.entries,
+    /** The phone removed most of what is on the watch; it stays until confirmed ([RemovalGuard]). */
+    val removalHeld: Boolean = false,
 ) {
     /** The remote control exists as long as a phone with the app is connected. */
     val phoneConnected: Boolean get() = phone is PhoneStatus.Connected
@@ -60,6 +66,8 @@ class StartViewModel @Inject constructor(
     continueListening: ContinueListening,
     books: BookRepository,
     watchState: WatchState,
+    private val removalGuard: RemovalGuard,
+    @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val openOnPhone = MutableStateFlow<OpenOnPhoneResult?>(null)
@@ -99,9 +107,15 @@ class StartViewModel @Inject constructor(
             hasBooks = state.hasBooks && SpokenMode.BOOKS in areas,
             areas = areas,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StartUiState())
+    }.combine(removalGuard.held) { state, held -> state.copy(removalHeld = held) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StartUiState())
 
     fun refresh() = phoneConnection.refresh()
+
+    /** Applies the phone's state here too, with what it removes. */
+    fun confirmRemoval() {
+        removalGuard.confirm()
+        PhoneSyncWorker.enqueue(context)
+    }
 
     fun openStoreOnPhone(nodeId: String) {
         viewModelScope.launch {

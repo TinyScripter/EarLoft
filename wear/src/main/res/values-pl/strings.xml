@@ -37,6 +37,8 @@
     <string name="list_favorite_artists">Ulubieni wykonawcy</string>
     <string name="list_playlists">Playlisty</string>
     <string name="list_empty_watch">Na zegarku nic jeszcze nie ma. Wybierz coś na telefonie lub poniżej w sekcji „Telefon”.</string>
+    <string name="removal_held_text">Telefon usunął to, co jest na tym zegarku. Zostanie tu do jutra, chyba że usuniesz to teraz.</string>
+    <string name="removal_held_delete">Usuń też tutaj</string>
     <string name="list_empty_phone">Na telefonie nic nie ma</string>
     <string name="list_podcasts_empty_watch">Brak odcinków na zegarku</string>
     <string name="list_books_empty_watch">Brak książek na zegarku</string>

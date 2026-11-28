@@ -89,6 +89,8 @@ class PhoneLibrarySyncTest {
     private val phoneData = FakePhoneData()
     private val phone = FakePhoneLink()
     private val scheduler = RecordingScheduler()
+    private val rechecks = mutableListOf<Long>()
+    private val guard = RemovalGuard(context) { rechecks += it }
 
     @Before
     fun setUp() = runTest {
@@ -148,6 +150,10 @@ class PhoneLibrarySyncTest {
             episodeQueue,
             state,
             planner,
+            guard,
+            db.sourceDao(),
+            db.wearDao(),
+            db.bookDao(),
         )
     }
 
@@ -301,6 +307,82 @@ class PhoneLibrarySyncTest {
         val reported = phoneData.reports.flatMap { it.progress }.single()
         assertEquals("b1", reported.guid)
         assertEquals(900_000L, reported.progress.positionMs)
+    }
+
+    @Test
+    fun `a phone that suddenly reports nothing removes nothing until it is confirmed on the watch`() = runTest {
+        publish(manifest = manifest("s1", "s2"), podcasts = podcasts("e1", "e2"))
+        sync.sync()
+        db.wearDao().upsert(db.wearDao().getSelections().single().copy(key = "album:2"))
+
+        // A reinstalled phone app before its restore: no servers, no selections, no episodes.
+        publish(servers = WearServersDto(), manifest = WearManifest(), podcasts = WearPodcastManifest())
+        sync.sync()
+
+        assertNotNull(db.sourceDao().get("nd"))
+        assertEquals(listOf("Song s1", "Song s2"), songTitles())
+        assertEquals(listOf("e1", "e2"), episodeGuids())
+        assertTrue(guard.held.value)
+        assertEquals(listOf(RemovalGuard.HOLD_MS), rechecks)
+
+        guard.confirm()
+        sync.sync()
+
+        assertNull(db.sourceDao().get("nd"))
+        assertTrue(episodeGuids().isEmpty())
+        assertFalse(guard.held.value)
+    }
+
+    @Test
+    fun `a phone that brings everything back ends the hold`() = runTest {
+        publish()
+        sync.sync()
+        publish(servers = WearServersDto())
+        sync.sync()
+        assertTrue(guard.held.value)
+
+        publish()
+        sync.sync()
+
+        assertFalse(guard.held.value)
+        assertNotNull(db.sourceDao().get("nd"))
+    }
+
+    @Test
+    fun `single removals apply at once, but not from a phone whose database is new`() = runTest {
+        publish(servers = WearServersDto(servers = listOf(navidrome), databaseId = "1"), podcasts = podcasts("e1", "e2", "e3"))
+        sync.sync()
+
+        publish(servers = WearServersDto(servers = listOf(navidrome), databaseId = "1"), podcasts = podcasts("e1", "e2"))
+        sync.sync()
+        assertEquals(listOf("e1", "e2"), episodeGuids())
+
+        // Reinstalled: the restore brought the servers back, one episode is missing.
+        publish(servers = WearServersDto(servers = listOf(navidrome), databaseId = "2"), podcasts = podcasts("e1"))
+        sync.sync()
+        assertEquals(listOf("e1", "e2"), episodeGuids())
+        assertTrue(guard.held.value)
+    }
+
+    @Test
+    fun `the hold ends by itself after a day`() {
+        val now = 1_000_000L
+        assertFalse(guard.allows(drops = true, now = now))
+        assertFalse(guard.allows(drops = true, now = now + RemovalGuard.HOLD_MS - 1))
+        assertTrue(guard.allows(drops = true, now = now + RemovalGuard.HOLD_MS))
+        assertFalse(guard.held.value)
+    }
+
+    @Test
+    fun `what counts as a drop`() {
+        assertFalse(RemovalGuard.drops(known = 3, kept = 3, newPhone = true, atLeast = 2))
+        assertTrue(RemovalGuard.drops(known = 3, kept = 2, newPhone = true, atLeast = 2))
+        assertFalse("one of one selection", RemovalGuard.drops(known = 1, kept = 0, newPhone = false, atLeast = 2))
+        assertTrue("the only server", RemovalGuard.drops(known = 1, kept = 0, newPhone = false, atLeast = 1))
+        assertTrue(RemovalGuard.drops(known = 2, kept = 0, newPhone = false, atLeast = 2))
+        assertFalse(RemovalGuard.drops(known = 3, kept = 1, newPhone = false, atLeast = 2))
+        assertTrue(RemovalGuard.drops(known = 4, kept = 1, newPhone = false, atLeast = 2))
+        assertFalse(RemovalGuard.drops(known = 4, kept = 2, newPhone = false, atLeast = 2))
     }
 
     @Test

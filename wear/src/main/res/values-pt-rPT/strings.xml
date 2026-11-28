@@ -35,6 +35,8 @@
     <string name="list_favorite_artists">Artistas favoritos</string>
     <string name="list_playlists">Listas de reprodução</string>
     <string name="list_empty_watch">Ainda nada no relógio. Escolha algo no telemóvel ou abaixo, em «Telemóvel».</string>
+    <string name="removal_held_text">O telemóvel removeu o que está neste relógio. Fica aqui até amanhã, a menos que o apagues agora.</string>
+    <string name="removal_held_delete">Apagar aqui também</string>
     <string name="list_empty_phone">Nada no telemóvel</string>
     <string name="list_podcasts_empty_watch">Não há episódios no relógio</string>
     <string name="list_books_empty_watch">Não há livros no relógio</string>

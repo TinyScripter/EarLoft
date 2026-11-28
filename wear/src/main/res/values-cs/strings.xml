@@ -37,6 +37,8 @@
     <string name="list_favorite_artists">Oblíbení interpreti</string>
     <string name="list_playlists">Playlisty</string>
     <string name="list_empty_watch">V hodinkách zatím nic není. Vyberte něco v telefonu nebo níže v části „Telefon“.</string>
+    <string name="removal_held_text">Telefon odebral to, co je na těchto hodinkách. Zůstane to tu do zítřka, pokud to teď nesmažeš.</string>
+    <string name="removal_held_delete">Smazat i tady</string>
     <string name="list_empty_phone">V telefonu nic není</string>
     <string name="list_podcasts_empty_watch">V hodinkách nejsou žádné epizody</string>
     <string name="list_books_empty_watch">V hodinkách nejsou žádné knihy</string>

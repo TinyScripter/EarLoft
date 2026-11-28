@@ -10,6 +10,7 @@ import de.kleinabersmart.earloft.core.data.sync.LibrarySyncer
 import de.kleinabersmart.earloft.core.data.wear.MirroredServer
 import de.kleinabersmart.earloft.core.data.wear.WearServerMirror
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
+import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.PlaylistDao
 import de.kleinabersmart.earloft.core.database.dao.SourceDao
 import de.kleinabersmart.earloft.core.database.dao.WearDao
@@ -28,6 +29,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearSettingsDto
 import de.kleinabersmart.earloft.wear.download.WatchState
 import de.kleinabersmart.earloft.wear.download.WearDownloadPlanner
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.SerializationException
 import kotlinx.coroutines.sync.withLock
@@ -52,6 +54,10 @@ class PhoneLibrarySync @Inject internal constructor(
     private val episodeQueue: EpisodeQueue,
     private val state: WatchState,
     private val planner: WearDownloadPlanner,
+    private val removalGuard: RemovalGuard,
+    private val sourceDao: SourceDao,
+    private val wearDao: WearDao,
+    private val bookDao: BookDao,
 ) {
     private val mutex = Mutex()
 
@@ -81,6 +87,8 @@ class PhoneLibrarySync @Inject internal constructor(
         val stamp = "$appVersionStamp:${servers?.value?.let(WearCodec::hash)}:$manifestHash:$podcastsHash"
         val phoneBack = phoneIsBack()
         if (!settingsChanged && stamp == state.appliedPhoneStamp) {
+            // The phone is back at the state the watch has: one held in between is gone.
+            removalGuard.allows(drops = false)
             servers?.let { requestMissingPasswords(phoneNodeId = it.key) }
             planner.plan(replaceSchedule = phoneBack)
             return@withLock
@@ -90,6 +98,17 @@ class PhoneLibrarySync @Inject internal constructor(
         episodeReporter.report()
         // Unreadable: the known servers stay (an empty list would remove them along with their songs).
         val serversDto = servers?.let { decodeOrNull<WearServersDto>(it.value, "Servers") }
+        val manifest = phoneData.assetPayloads(WearPaths.MANIFEST).values.firstOrNull()
+        // Each part on its own: one the watch can't read (newer phone app) must not block the others (review G29).
+        val manifestDto = manifest?.let { bytes -> readOrNull("Manifest") { WearCodec.decodeManifest(bytes) } }
+        val podcasts = phoneData.assetPayloads(WearPaths.PODCASTS).values.firstOrNull()
+        val podcastsDto = podcasts?.let { bytes -> readOrNull("Episodes") { WearCodec.decodeCompressed<WearPodcastManifest>(bytes) } }
+        // A phone that suddenly reports (almost) nothing: nothing is removed until the user confirms it or a day has passed.
+        val newPhone = removalGuard.notePhoneDatabase(serversDto?.databaseId)
+        if (!removalGuard.allows(drops(serversDto, manifestDto, podcastsDto, newPhone))) {
+            planner.plan(replaceSchedule = phoneBack, restart = restartDownloads)
+            return@withLock
+        }
         if (servers != null && serversDto != null) {
             val dto = serversDto
             val renewed = serverMirror.apply((dto.servers + dto.otherServers).mapNotNull { it.toMirrored() }) +
@@ -98,20 +117,38 @@ class PhoneLibrarySync @Inject internal constructor(
             phone.requestCredentials(renewed, phoneNodeId = servers.key)
             requestMissingPasswords(phoneNodeId = servers.key)
         }
-        val manifest = phoneData.assetPayloads(WearPaths.MANIFEST).values.firstOrNull()
-        // Each part on its own: one the watch can't read (newer phone app) must not block the others (review G29).
-        manifest?.let { bytes -> readOrNull("Manifest") { WearCodec.decodeManifest(bytes) }?.let { manifestApplier.apply(it) } }
-        val podcasts = phoneData.assetPayloads(WearPaths.PODCASTS).values.firstOrNull()
-        if (podcasts != null) {
-            readOrNull("Episodes") { WearCodec.decodeCompressed<WearPodcastManifest>(podcasts) }
-                ?.let { episodeQueue.setOrder(podcastMirror.apply(it)) }
-        }
+        manifestDto?.let { manifestApplier.apply(it) }
+        podcastsDto?.let { episodeQueue.setOrder(podcastMirror.apply(it)) }
         planner.plan(replaceSchedule = phoneBack, restart = restartDownloads)
         // A DataItem whose asset was not readable (yet) (phone out of range, transfer running) does not count as
         // applied; otherwise it would only come with the next change on the phone.
         if ((manifestHash == null || manifest != null) && (podcastsHash == null || podcasts != null)) {
             state.appliedPhoneStamp = stamp
         }
+    }
+
+    /**
+     * Whether the phone's state would remove much of what is on the watch ([RemovalGuard.drops]): all servers, more than half of
+     * the selections, or of the episodes and books not listened to the end (those that are drop out of the selection on their own).
+     */
+    private suspend fun drops(servers: WearServersDto?, manifest: WearManifest?, podcasts: WearPodcastManifest?, newPhone: Boolean): Boolean {
+        if (servers != null) {
+            val incoming = (servers.servers + servers.otherServers).map { it.sourceId } + servers.spokenServers.map { it.serverId }
+            val known = sourceDao.getServers().map { it.sourceId } + bookDao.servers().map { it.serverId }
+            if (RemovalGuard.drops(known.size, known.count { it in incoming }, newPhone, atLeast = 1)) return true
+        }
+        if (manifest != null) {
+            val incoming = manifest.selections.filter { it.kind != null }.mapTo(HashSet()) { it.key }
+            val known = wearDao.getSelections().map { it.key }
+            if (RemovalGuard.drops(known.size, known.count { it in incoming }, newPhone, atLeast = 2)) return true
+        }
+        if (podcasts != null) {
+            val incoming = (podcasts.episodes.map { it.feedId to it.guid } + podcasts.books.map { it.serverId to it.remoteId }).toSet()
+            val finished = bookDao.keyedProgress().filter { it.progress.finished }.mapTo(HashSet()) { it.serverId to it.remoteId }
+            val known = bookDao.observeBookRefs().first().map { it.serverId to it.remoteId }.filter { it !in finished }
+            if (RemovalGuard.drops(known.size, known.count { it in incoming }, newPhone, atLeast = 2)) return true
+        }
+        return false
     }
 
     /**
