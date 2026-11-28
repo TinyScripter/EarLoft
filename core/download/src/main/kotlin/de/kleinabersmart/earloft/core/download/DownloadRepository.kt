@@ -113,7 +113,12 @@ class DownloadRepository @Inject constructor(
     suspend fun removeSongs(songIds: List<Long>) =
         removeByUser(songIds.distinct().chunked(SQLITE_MAX_VARIABLES).flatMap { downloadDao.getForSongs(it) })
 
-    suspend fun removePlaylist(playlistId: Long) = removeSongs(playlistDao.getSongIds(playlistId))
+    /**
+     * Removes the playlist's downloads without excluding its songs from automations: playlists often contain
+     * favorites or automatic albums, so removing a playlist download must not lock them out (review5 P34).
+     */
+    suspend fun removePlaylist(playlistId: Long) =
+        remove(playlistDao.getSongIds(playlistId).distinct().chunked(SQLITE_MAX_VARIABLES).flatMap { downloadDao.getForSongs(it) })
 
     /**
      * Removed by the user: the songs are remembered so that no automation brings them back on its next reconcile (previously a

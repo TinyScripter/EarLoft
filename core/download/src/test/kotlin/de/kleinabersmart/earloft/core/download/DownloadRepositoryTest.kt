@@ -142,6 +142,30 @@ class DownloadRepositoryTest {
     }
 
     @Test
+    fun `removing a playlist download does not exclude its favorites from automatic downloads`() = runTest {
+        val albumId = library.album("Takk")
+        val liked = library.song(albumId, "A", "home" to "a")
+        val other = library.song(albumId, "B", "home" to "b")
+        library.db.syncDao().setSongFavorite(liked, true, 1)
+        val playlistId = library.db.playlistDao().insertPlaylist(PlaylistEntity(name = "Mix", updatedAt = 0))
+        library.db.playlistDao().insertEntries(
+            listOf(liked, other).mapIndexed { i, id -> PlaylistEntryEntity(playlistId = playlistId, songId = id, position = i) },
+        )
+
+        repository.reconcileFavoriteDownloads(enabled = true)
+        repository.downloadPlaylist(playlistId)
+        assertEquals("playlist:$playlistId", library.db.downloadDao().get("home:a")!!.pinnedBy)
+
+        repository.removePlaylist(playlistId)
+        assertTrue(library.db.downloadDao().getAll().isEmpty())
+
+        // review5 P34: the playlist did not lock out the favorite, so the favorites automation brings it back.
+        repository.reconcileFavoriteDownloads(enabled = true)
+        assertEquals(listOf("home:a"), library.db.downloadDao().getAll().map { it.sourceUid })
+        assertEquals("favorites", library.db.downloadDao().get("home:a")!!.pinnedBy)
+    }
+
+    @Test
     fun `song statuses combine local songs and downloads`() = runTest {
         val albumId = library.album("Takk")
         val local = library.song(albumId, "A", "local" to "a", "home" to "a")
