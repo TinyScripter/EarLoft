@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.core.network.subsonic
 import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.network.HttpStatusException
 import de.kleinabersmart.earloft.core.network.await
+import de.kleinabersmart.earloft.core.network.notStored
 import de.kleinabersmart.earloft.core.network.subsonic.dto.AlbumDto
 import de.kleinabersmart.earloft.core.network.subsonic.dto.OpenSubsonicExtensionDto
 import de.kleinabersmart.earloft.core.network.subsonic.dto.PlaylistDto
@@ -210,7 +211,7 @@ class SubsonicApi @Inject constructor(
     }
 
     private suspend fun execute(endpoint: String, request: Request): SubsonicResponse = withContext(Dispatchers.IO) {
-        client.newCall(request).await().use { response ->
+        client.newCall(request.notStored()).await().use { response ->
             val body = response.body.string()
             val envelope = try {
                 json.decodeFromString<SubsonicEnvelope>(body)

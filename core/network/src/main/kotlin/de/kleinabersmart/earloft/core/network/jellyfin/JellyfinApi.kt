@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.core.network.jellyfin
 import de.kleinabersmart.earloft.core.network.HttpStatusException
 import de.kleinabersmart.earloft.core.network.UnexpectedResponseException
 import de.kleinabersmart.earloft.core.network.await
+import de.kleinabersmart.earloft.core.network.notStored
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
@@ -392,7 +393,7 @@ class JellyfinApi @Inject constructor(
     ): Request = Request.Builder().url(url).tag(JellyfinServer::class.java, server).configure().build()
 
     private suspend fun execute(request: Request, using: OkHttpClient = client): String = withContext(Dispatchers.IO) {
-        using.newCall(request).await().use { response ->
+        using.newCall(request.notStored()).await().use { response ->
             if (!response.isSuccessful) throw HttpStatusException(response.code)
             response.body.string()
         }

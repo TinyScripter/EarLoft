@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.network.audiobookshelf
 
 import de.kleinabersmart.earloft.core.network.await
+import de.kleinabersmart.earloft.core.network.notStored
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
@@ -225,7 +226,7 @@ class AbsApi @Inject constructor(
         Request.Builder().url(url).header("Authorization", "Bearer ${server.token}").configure().build()
 
     private suspend fun execute(request: Request): String = withContext(Dispatchers.IO) {
-        client.newCall(request).await().use { response ->
+        client.newCall(request.notStored()).await().use { response ->
             val text = response.body.string()
             if (!response.isSuccessful) throw AbsException(response.code, "HTTP ${response.code}: ${text.take(200)}")
             text
