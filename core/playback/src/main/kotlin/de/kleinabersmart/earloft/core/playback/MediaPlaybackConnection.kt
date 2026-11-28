@@ -72,6 +72,7 @@ class MediaPlaybackConnection @Inject constructor(
     spokenSettings: SpokenSettings,
     /** The cast factory of the phone app; the session runs in this process, so it holds what the receiver doesn't. */
     private val sessionPlayerFactory: Optional<SessionPlayerFactory>,
+    private val phoneActionResolutions: PhoneActionResolutions,
 ) : PlaybackConnection {
     // With a handler: an exception in a start (resume music, enqueue for music) is logged instead of ending the app.
     private val scope = MainScope() + LoggingExceptionHandler
@@ -378,8 +379,11 @@ class MediaPlaybackConnection @Inject constructor(
         }
     }
 
-    override fun retryFailedStart() = withController {
-        if (shouldRetryFailedStart(hasError = playerError != null, playWhenReady = playWhenReady, itemCount = mediaItemCount)) prepare()
+    override fun retryFailedStart() {
+        phoneActionResolutions.notifyResolved()
+        withController {
+            if (shouldRetryFailedStart(hasError = playerError != null, playWhenReady = playWhenReady, itemCount = mediaItemCount)) prepare()
+        }
     }
 
     override fun pause() = withController { pause() }

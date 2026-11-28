@@ -89,6 +89,12 @@ import de.kleinabersmart.earloft.core.network.podcast.PODCAST_USER_AGENT
  */
 const val EXTRA_OPEN_NOW_PLAYING = "de.kleinabersmart.earloft.OPEN_NOW_PLAYING"
 
+/**
+ * Extra on the resolution intent of Android Auto's home network hint ([PhoneAction.HOME_NETWORK]): ask for the permission
+ * immediately even if the app already asked once in this process, or open app settings if permanently denied (review5 P11).
+ */
+const val EXTRA_REQUEST_HOME_NETWORK = "de.kleinabersmart.earloft.REQUEST_HOME_NETWORK"
+
 /** Playback service with a Media3 session (concept 7.1). */
 @OptIn(UnstableApi::class)
 @AndroidEntryPoint
@@ -125,6 +131,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var audioEffectSession: AudioEffectSession
     @Inject internal lateinit var browseTree: BrowseTree
     @Inject internal lateinit var phoneActionHints: PhoneActionHints
+    @Inject lateinit var phoneActionResolutions: PhoneActionResolutions
 
     /** For database work that may outlive the service (only suspending DataStore/Room calls). */
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
@@ -308,7 +315,18 @@ class PlaybackService : MediaLibraryService() {
 
         if (playbackPolicy.startMixButton) session?.let { sessionMix = sessionMixOf(player, factory, it) }
         session?.let {
-            phoneActions = PhoneActionPresenter(this, it, player, phoneActionHints, mainScope, appLaunch()).also(player::addListener)
+            val defaultResolution = appLaunch()
+            val homeNetworkResolution = appLaunch(APP_LAUNCH_HOME_NETWORK_REQUEST, EXTRA_REQUEST_HOME_NETWORK)
+            phoneActions = PhoneActionPresenter(this, SessionPhoneActionSink(it), player, phoneActionHints, mainScope) { action ->
+                if (action == PhoneAction.HOME_NETWORK) homeNetworkResolution else defaultResolution
+            }.also(player::addListener)
+            // Clear a stuck car hint from onSpokenNotPlayable once a permission is granted or an ABS sign-in completes (review5 P12).
+            mainScope.launch {
+                phoneActionResolutions.resolved.collect { phoneActions?.onCauseMayBeResolved() }
+            }
+            mainScope.launch {
+                phoneActionHints.serversWithoutKey.distinctUntilChanged().drop(1).collect { phoneActions?.onCauseMayBeResolved() }
+            }
         }
         session?.let { bindFavoriteButton(sessionPlayer, it) }
         session?.let { notifyAreaChanges(it) }
@@ -680,10 +698,11 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /** Opens the app as it is (resolution of a hint in the car, [PhoneActionPresenter]): the start page or what was open. */
-    private fun appLaunch(): PendingIntent? {
+    private fun appLaunch(requestCode: Int = APP_LAUNCH_REQUEST, extra: String? = null): PendingIntent? {
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: return null
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        return PendingIntent.getActivity(this, APP_LAUNCH_REQUEST, launchIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        if (extra != null) launchIntent.putExtra(extra, true)
+        return PendingIntent.getActivity(this, requestCode, launchIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
     private fun notifyObservers(nowPlaying: NowPlaying?) {
@@ -922,6 +941,9 @@ private const val SHAKE_VIBRATION_MS = 40L
 
 /** Request code of [PlaybackService.appLaunch]; the session activity uses 0. */
 private const val APP_LAUNCH_REQUEST = 1
+
+/** Request code of [PlaybackService.appLaunch] with [EXTRA_REQUEST_HOME_NETWORK] (review5 P11). */
+private const val APP_LAUNCH_HOME_NETWORK_REQUEST = 2
 
 /** How long a mix from the session's button waits for server suggestions; together with the database part well under 2 s. */
 private const val SESSION_MIX_SERVER_TIMEOUT_MS = 1_200L
