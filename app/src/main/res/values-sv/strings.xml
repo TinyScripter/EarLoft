@@ -1173,6 +1173,10 @@
         <item quantity="one">%d nedladdning har tagits bort</item>
         <item quantity="other">%d nedladdningar har tagits bort</item>
     </plurals>
+    <plurals name="episodes_delete_downloads_title">
+        <item quantity="one">Vill du radera %d nedladdning?</item>
+        <item quantity="other">Vill du radera %d nedladdningar?</item>
+    </plurals>
     <plurals name="episodes_removed_from_queue">
         <item quantity="one">%d avsnitt har tagits bort från kön</item>
         <item quantity="other">%d avsnitt har tagits bort från kön</item>

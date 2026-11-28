@@ -1173,6 +1173,10 @@
         <item quantity="one">%d download verwijderd</item>
         <item quantity="other">%d downloads verwijderd</item>
     </plurals>
+    <plurals name="episodes_delete_downloads_title">
+        <item quantity="one">%d download verwijderen?</item>
+        <item quantity="other">%d downloads verwijderen?</item>
+    </plurals>
     <plurals name="episodes_removed_from_queue">
         <item quantity="one">%d aflevering verwijderd uit de wachtrij</item>
         <item quantity="other">%d afleveringen verwijderd uit de wachtrij</item>

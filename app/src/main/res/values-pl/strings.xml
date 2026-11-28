@@ -1281,6 +1281,12 @@
         <item quantity="many">Usunięto %d pobranych plików</item>
         <item quantity="other">Usunięto %d pobranych plików</item>
     </plurals>
+    <plurals name="episodes_delete_downloads_title">
+        <item quantity="one">Usunąć %d pobrany plik?</item>
+        <item quantity="few">Usunąć %d pobrane pliki?</item>
+        <item quantity="many">Usunąć %d pobranych plików?</item>
+        <item quantity="other">Usunąć %d pobranych plików?</item>
+    </plurals>
     <plurals name="episodes_removed_from_queue">
         <item quantity="one">Usunięto %d odcinek z kolejki</item>
         <item quantity="few">Usunięto %d odcinki z kolejki</item>

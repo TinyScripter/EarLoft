@@ -80,4 +80,7 @@ class ContinueListening @Inject constructor(
 
     /** "Remove from queue". */
     suspend fun remove(bookId: Long) = queue.remove(bookId)
+
+    /** Removes several episodes from the queue in one step. */
+    suspend fun removeAll(bookIds: List<Long>) = queue.removeAll(bookIds)
 }

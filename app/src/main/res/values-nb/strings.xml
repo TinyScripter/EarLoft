@@ -1173,6 +1173,10 @@
         <item quantity="one">%d nedlasting fjernet</item>
         <item quantity="other">%d nedlastinger fjernet</item>
     </plurals>
+    <plurals name="episodes_delete_downloads_title">
+        <item quantity="one">Vil du slette %d nedlasting?</item>
+        <item quantity="other">Vil du slette %d nedlastinger?</item>
+    </plurals>
     <plurals name="episodes_removed_from_queue">
         <item quantity="one">%d episode fjernet fra køen</item>
         <item quantity="other">%d episoder fjernet fra køen</item>

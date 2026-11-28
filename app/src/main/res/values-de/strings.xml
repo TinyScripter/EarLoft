@@ -1174,6 +1174,10 @@
         <item quantity="one">%d Download gelöscht</item>
         <item quantity="other">%d Downloads gelöscht</item>
     </plurals>
+    <plurals name="episodes_delete_downloads_title">
+        <item quantity="one">%d Download löschen?</item>
+        <item quantity="other">%d Downloads löschen?</item>
+    </plurals>
     <plurals name="episodes_removed_from_queue">
         <item quantity="one">%d Folge aus der Warteschlange genommen</item>
         <item quantity="other">%d Folgen aus der Warteschlange genommen</item>

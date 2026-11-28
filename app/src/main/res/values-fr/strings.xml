@@ -1227,6 +1227,11 @@
         <item quantity="many">%d téléchargements supprimés</item>
         <item quantity="other">%d téléchargements supprimés</item>
     </plurals>
+    <plurals name="episodes_delete_downloads_title">
+        <item quantity="one">Supprimer %d téléchargement ?</item>
+        <item quantity="many">Supprimer %d téléchargements ?</item>
+        <item quantity="other">Supprimer %d téléchargements ?</item>
+    </plurals>
     <plurals name="episodes_removed_from_queue">
         <item quantity="one">%d épisode retiré de la file d’attente</item>
         <item quantity="many">%d épisodes retirés de la file d’attente</item>

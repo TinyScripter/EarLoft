@@ -296,8 +296,35 @@ class EpisodeMenuViewModel @Inject constructor(
         act { continueListening.playNext(items.map { it.book.id }) }
     }
 
-    fun removeFromQueue(items: List<BookWithProgress>) {
-        act { items.forEach { continueListening.remove(it.book.id) } }
+    /**
+     * Removes [items] from the queue, keeping the currently loaded episode as "Clear" does (review5 P45).
+     * [onDone] receives the actual number removed and an undo action that restores non-trial episodes to their old positions.
+     */
+    fun removeFromQueue(
+        items: List<BookWithProgress>,
+        onDone: (removedCount: Int, undo: (suspend () -> Unit)?) -> Unit = { _, _ -> },
+    ) {
+        act {
+            val loadedId = playback.state.value.spoken?.bookId
+            val before = continueListening.episodes.first().map { it.book.id }
+            val inQueue = before.toHashSet()
+            val targets = items.map { it.book.id }.distinct().filter { it in inQueue && it != loadedId }
+            if (targets.isEmpty()) return@act
+            val trial = podcasts.trialEpisodeIds(targets)
+            continueListening.removeAll(targets)
+            val restorable = targets.filterTo(HashSet()) { it !in trial }
+            val restoreOrder = before.filterNot { it in targets && it in trial }
+            val undo: (suspend () -> Unit)? = if (restorable.isEmpty()) {
+                null
+            } else {
+                suspend {
+                    restoreOrder.filter { it in restorable }.forEach { continueListening.append(it) }
+                    val last = restoreOrder.lastOrNull { it in restorable }
+                    if (restoreOrder.size > 1 && last != null) continueListening.reorder(restoreOrder, last)
+                }
+            }
+            onDone(targets.size, undo)
+        }
     }
 
     fun removeDownloads(items: List<BookWithProgress>) {

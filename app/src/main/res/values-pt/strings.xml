@@ -1227,6 +1227,11 @@
         <item quantity="many">%d downloads removidos</item>
         <item quantity="other">%d downloads removidos</item>
     </plurals>
+    <plurals name="episodes_delete_downloads_title">
+        <item quantity="one">Excluir %d download?</item>
+        <item quantity="many">Excluir %d downloads?</item>
+        <item quantity="other">Excluir %d downloads?</item>
+    </plurals>
     <plurals name="episodes_removed_from_queue">
         <item quantity="one">%d episódio removido da fila</item>
         <item quantity="many">%d episódios removidos da fila</item>

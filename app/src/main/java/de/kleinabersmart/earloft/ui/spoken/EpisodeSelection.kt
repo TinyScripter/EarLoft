@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -16,6 +17,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -43,6 +45,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.BookWithProgress
+import de.kleinabersmart.earloft.ui.components.DestructiveTextButton
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import kotlinx.coroutines.launch
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
@@ -107,16 +110,19 @@ fun EpisodeSelectionBar(
     val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
     val queued by viewModel.queued.collectAsStateWithLifecycle()
     val trialFeeds by viewModel.trialFeeds.collectAsStateWithLifecycle()
+    val loadedBookId by viewModel.loadedBookId.collectAsStateWithLifecycle()
     // Subscribed, so that "Play next" knows the frontmost episode.
     viewModel.queueHead.collectAsStateWithLifecycle()
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     val selected = shown.filter { it.book.id in selection }
     val count = selected.size
+    val downloadedSelected = selected.filter { it.book.id in downloaded }
     // Episodes of trial subscriptions would forget "played" right away (review2 J4): the button only acts on the others.
     val markable = selected.filter { it.book.serverId !in trialFeeds }
     val allPlayed = markable.isNotEmpty() && markable.all { it.progress?.finished == true }
     var menu by remember { mutableStateOf(false) }
+    var confirmDeleteDownloads by rememberSaveable { mutableStateOf(false) }
 
     BackHandler(enabled = selection.active) { selection.clear() }
     LaunchedEffect(shown, loaded) { if (loaded) selection.retain(shown.map { it.book.id }) }
@@ -164,21 +170,36 @@ fun EpisodeSelectionBar(
                     Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    if (selected.any { it.book.id in downloaded }) DropdownMenuItem(
+                    if (downloadedSelected.isNotEmpty()) DropdownMenuItem(
                         text = { Text(stringResource(R.string.episode_delete_download)) },
                         onClick = {
                             menu = false
-                            viewModel.removeDownloads(selected)
-                            done(quantity(resources, R.plurals.episodes_downloads_removed, selected.count { it.book.id in downloaded }))
+                            if (multiDownloadDeleteNeedsConfirmation(downloadedSelected.size)) {
+                                confirmDeleteDownloads = true
+                            } else {
+                                viewModel.removeDownloads(downloadedSelected)
+                                done(quantity(resources, R.plurals.episodes_downloads_removed, downloadedSelected.size))
+                            }
                         },
                     )
                     if (inQueue || selected.all { it.book.id in queued }) {
-                        DropdownMenuItem(
+                        // Keep the currently loaded episode in the queue, as "Clear" does (review5 P45).
+                        val removable = selected.filter { it.book.id != loadedBookId }
+                        if (removable.isNotEmpty()) DropdownMenuItem(
                             text = { Text(stringResource(R.string.episode_queue_remove)) },
                             onClick = {
                                 menu = false
-                                viewModel.removeFromQueue(selected)
-                                done(quantity(resources, R.plurals.episodes_removed_from_queue, count))
+                                viewModel.removeFromQueue(removable) { removedCount, restore ->
+                                    val text = quantity(resources, R.plurals.episodes_removed_from_queue, removedCount)
+                                    if (restore == null) {
+                                        snackbars.show(text)
+                                    } else {
+                                        snackbars.show(text, SnackbarDuration.Long, resources.getString(R.string.action_undo)) {
+                                            viewModel.undo(restore)
+                                        }
+                                    }
+                                }
+                                selection.clear()
                             },
                         )
                     } else {
@@ -219,7 +240,32 @@ fun EpisodeSelectionBar(
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
         modifier = modifier,
     )
+    if (confirmDeleteDownloads) {
+        if (downloadedSelected.isEmpty()) {
+            confirmDeleteDownloads = false
+        } else {
+            AlertDialog(
+                onDismissRequest = { confirmDeleteDownloads = false },
+                title = {
+                    Text(pluralStringResource(R.plurals.episodes_delete_downloads_title, downloadedSelected.size, downloadedSelected.size))
+                },
+                text = { Text(stringResource(R.string.podcast_remove_heard_downloads_summary)) },
+                confirmButton = {
+                    DestructiveTextButton(onClick = {
+                        val targets = downloadedSelected
+                        confirmDeleteDownloads = false
+                        viewModel.removeDownloads(targets)
+                        done(quantity(resources, R.plurals.episodes_downloads_removed, targets.size))
+                    }) { Text(stringResource(R.string.book_download_delete_confirm)) }
+                },
+                dismissButton = { TextButton(onClick = { confirmDeleteDownloads = false }) { Text(stringResource(R.string.action_cancel)) } },
+            )
+        }
+    }
 }
+
+/** Deleting downloads of two or more selected episodes asks with a destructive confirmation (review5 P45). */
+internal fun multiDownloadDeleteNeedsConfirmation(count: Int): Boolean = count >= 2
 
 private fun quantity(resources: android.content.res.Resources, id: Int, count: Int): String =
     resources.getQuantityString(id, count, count)

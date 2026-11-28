@@ -1227,6 +1227,11 @@
         <item quantity="many">%d transferências removidas</item>
         <item quantity="other">%d transferências removidas</item>
     </plurals>
+    <plurals name="episodes_delete_downloads_title">
+        <item quantity="one">Eliminar %d transferência?</item>
+        <item quantity="many">Eliminar %d transferências?</item>
+        <item quantity="other">Eliminar %d transferências?</item>
+    </plurals>
     <plurals name="episodes_removed_from_queue">
         <item quantity="one">%d episódio removido da fila</item>
         <item quantity="many">%d episódios removidos da fila</item>

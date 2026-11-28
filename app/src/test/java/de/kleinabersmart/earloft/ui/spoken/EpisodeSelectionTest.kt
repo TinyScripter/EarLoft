@@ -42,4 +42,12 @@ class EpisodeSelectionTest {
 
         assertEquals(setOf(2L, 3L), selection.ids)
     }
+
+    @Test
+    fun `deleting downloads asks from two episodes onwards`() {
+        assertFalse(multiDownloadDeleteNeedsConfirmation(0))
+        assertFalse(multiDownloadDeleteNeedsConfirmation(1))
+        assertTrue(multiDownloadDeleteNeedsConfirmation(2))
+        assertTrue(multiDownloadDeleteNeedsConfirmation(10))
+    }
 }

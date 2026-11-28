@@ -1173,6 +1173,10 @@
         <item quantity="one">%d lataus poistettu</item>
         <item quantity="other">%d latausta poistettu</item>
     </plurals>
+    <plurals name="episodes_delete_downloads_title">
+        <item quantity="one">Poistetaanko %d lataus?</item>
+        <item quantity="other">Poistetaanko %d latausta?</item>
+    </plurals>
     <plurals name="episodes_removed_from_queue">
         <item quantity="one">%d jakso poistettu jonosta</item>
         <item quantity="other">%d jaksoa poistettu jonosta</item>
