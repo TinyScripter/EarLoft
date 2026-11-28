@@ -42,6 +42,68 @@ class LocalBookLayoutTest {
     }
 
     @Test
+    fun `disc folders belong to the book above them, disc by disc`() {
+        // review5 P35: "CD 1" and "CD 2" became two books, and "Continue listening" ended after the first disc.
+        val base = "/storage/emulated/0/Audiobooks/Autor/Buch"
+        val books = LocalBookLayout.group(
+            listOf(
+                row(1, "$base/CD 2/01.mp3", track = 1),
+                row(2, "$base/CD 10/01.mp3", track = 1),
+                row(3, "$base/CD 1/02.mp3", track = 2),
+                row(4, "$base/CD 1/01.mp3", track = 1),
+                row(5, "$base/CD 2/02.mp3", track = 2),
+            ),
+        )
+
+        assertEquals(listOf("Audiobooks/Autor/Buch/"), books.map { it.key })
+        assertEquals(listOf(4L, 3L, 1L, 5L, 2L), books.single().files.map { it.id })
+        assertEquals("Buch", books.single().folderName)
+        assertEquals(base, books.single().folderPath)
+    }
+
+    @Test
+    fun `only bare disc names count, and not directly in the root`() {
+        assertEquals(1, LocalBookLayout.discNumber("CD 1"))
+        assertEquals(2, LocalBookLayout.discNumber("cd02"))
+        assertEquals(3, LocalBookLayout.discNumber("Disc 3"))
+        assertEquals(4, LocalBookLayout.discNumber("Disk_4"))
+        assertEquals(5, LocalBookLayout.discNumber("Teil 5"))
+        assertNull(LocalBookLayout.discNumber("1 – Der Anfang"))
+        assertNull(LocalBookLayout.discNumber("Teil 2 – Die Rückkehr"))
+
+        val books = LocalBookLayout.group(
+            listOf(
+                row(1, "/storage/emulated/0/Audiobooks/CD 1/a.mp3"),
+                row(2, "/storage/emulated/0/Audiobooks/Autor/Serie/1 – Anfang/a.mp3"),
+                row(3, "/storage/emulated/0/Audiobooks/Autor/Serie/2 – Ende/a.mp3"),
+            ),
+        )
+        assertEquals(
+            listOf("Audiobooks/Autor/Serie/1 – Anfang/", "Audiobooks/Autor/Serie/2 – Ende/", "Audiobooks/CD 1/"),
+            books.map { it.key },
+        )
+    }
+
+    @Test
+    fun `a book from disc folders takes its title without the disc`() {
+        val base = "/storage/emulated/0/Audiobooks/Autor/Buch"
+        val tagged = LocalBookLayout.group(
+            listOf(
+                row(1, "$base/CD 1/01.mp3", album = "Das Buch (CD 1)", track = 1),
+                row(2, "$base/CD 2/01.mp3", album = "Das Buch (CD 2)", track = 1),
+                row(3, "$base/CD 3/01.mp3", album = "Das Buch - CD 3", track = 1),
+            ),
+        ).single()
+        // Without tags MediaStore reports the disc folder as album: then the book's folder decides.
+        val untagged = LocalBookLayout.group(
+            listOf(row(1, "$base/CD 1/01.mp3", album = "CD 1"), row(2, "$base/CD 2/01.mp3", album = "CD 2")),
+        ).single()
+
+        assertEquals("Das Buch", LocalBookLayout.bookTitle(tagged))
+        assertEquals("Buch", LocalBookLayout.bookTitle(untagged))
+    }
+
+    @Test
     fun `finds the folder on a memory card too`() {
         assertEquals("Audiobooks/X/a.mp3", LocalBookLayout.relativePath("/storage/1234-ABCD/Audiobooks/X/a.mp3"))
         assertNull(LocalBookLayout.relativePath("/storage/emulated/0/Audiobooks"))

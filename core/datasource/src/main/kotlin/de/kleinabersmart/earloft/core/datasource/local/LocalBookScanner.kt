@@ -105,10 +105,17 @@ class LocalBookScanner @Inject constructor(
                 val added = book.files.minOf { it.dateAddedSec } * 1000
                 // Companion files only with a folder grant and only for books in their own folder. If the folder is currently
                 // unreadable, title, author and series would jump to tags and folder names without them until the next sync.
-                val sidecars = if (book.folderName != null && trees.isNotEmpty()) {
-                    val files = folders.list(book.files.first().path.substringBeforeLast('/'), trees)
+                val sidecars = if (book.folderPath != null && trees.isNotEmpty()) {
+                    val files = folders.list(book.folderPath, trees)
                         ?: return@map LocalBook(book.key, fingerprint = 0, added, details = null)
-                    BookSidecars.pick(files)
+                    val picked = BookSidecars.pick(files)
+                    // With disc folders the cover may lie next to the first disc's files instead of above them.
+                    val discFolder = book.files.first().path.substringBeforeLast('/')
+                    if (picked.cover == null && discFolder != book.folderPath) {
+                        picked.copy(cover = folders.list(discFolder, trees)?.let { BookSidecars.pick(it).cover })
+                    } else {
+                        picked
+                    }
                 } else {
                     BookSidecars()
                 }

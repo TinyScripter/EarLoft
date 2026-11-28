@@ -23,12 +23,22 @@ internal data class AudioFileRow(
     val fileName: String get() = path.substringAfterLast('/')
 }
 
-/** The files of a book in playback order. [key] is stable (path from "Audiobooks/") and serves as the ID. */
-internal data class LocalBookFiles(val key: String, val folderName: String?, val files: List<AudioFileRow>)
+/**
+ * The files of a book in playback order. [key] is stable (path from "Audiobooks/") and serves as the ID. [folderPath] is the
+ * book's folder on the device (with disc subfolders the one above them, where cover and companion files lie); `null` for a
+ * file directly in "Audiobooks".
+ */
+internal data class LocalBookFiles(
+    val key: String,
+    val folderName: String?,
+    val files: List<AudioFileRow>,
+    val folderPath: String? = null,
+)
 
 /**
  * Which files form a book (concept 12.1): a folder in "Audiobooks" is a book with one file per chapter
- * (MP3 folder); a file directly in "Audiobooks" is a book of its own (m4b). Subfolders form separate books.
+ * (MP3 folder); a file directly in "Audiobooks" is a book of its own (m4b). Subfolders form separate books, except disc
+ * folders ("CD 1", "Disc 2", [discNumber]): like with Audiobookshelf they belong to the book above them.
  */
 internal object LocalBookLayout {
     const val ROOT = "Audiobooks"
@@ -47,18 +57,48 @@ internal object LocalBookLayout {
 
     fun group(rows: List<AudioFileRow>): List<LocalBookFiles> {
         val inRoot = mutableListOf<Pair<String, AudioFileRow>>()
-        val folders = linkedMapOf<String, MutableList<AudioFileRow>>()
+        val folders = linkedMapOf<String, MutableList<FileOfBook>>()
         for (row in rows) {
             val relative = relativePath(row.path) ?: continue
             val folder = relative.substringBeforeLast('/')
-            if (folder.equals(ROOT, ignoreCase = true)) inRoot += relative to row else folders.getOrPut(folder) { mutableListOf() } += row
+            if (folder.equals(ROOT, ignoreCase = true)) {
+                inRoot += relative to row
+                continue
+            }
+            // A disc folder directly in "Audiobooks" has no book above it and stays a book of its own.
+            val parent = folder.substringBeforeLast('/')
+            val disc = discNumber(folder.substringAfterLast('/'))?.takeUnless { parent.equals(ROOT, ignoreCase = true) }
+            if (disc != null) {
+                folders.getOrPut(parent) { mutableListOf() } += FileOfBook(row, disc, row.path.substringBeforeLast('/').substringBeforeLast('/'))
+            } else {
+                folders.getOrPut(folder) { mutableListOf() } += FileOfBook(row, 0, row.path.substringBeforeLast('/'))
+            }
         }
         // The same path on two volumes (internal and SD card, e.g. while moving) is one book from one of them: otherwise its chapters
         // came twice, or two books with the same key swapped places at every scan (review5 P36).
         val books = inRoot.groupBy({ it.first }, { it.second }).map { (relative, rows) -> LocalBookFiles(relative, null, oneVolume(rows)) } +
-            folders.map { (folder, files) -> LocalBookFiles("$folder/", folder.substringAfterLast('/'), sortInReadingOrder(oneVolume(files))) }
+            folders.map { (folder, entries) ->
+                val discOf = entries.associate { it.row.id to it.disc }
+                val files = oneVolume(entries.map { it.row })
+                // Disc by disc, each in its own reading order (track numbers usually start at 1 on every disc).
+                val ordered = files.groupBy { discOf.getValue(it.id) }.toSortedMap().values.flatMap(::sortInReadingOrder)
+                val folderPath = entries.first { it.row.id == ordered.first().id }.bookFolderPath
+                LocalBookFiles("$folder/", folder.substringAfterLast('/'), ordered, folderPath)
+            }
         return books.sortedBy { it.key.lowercase() }
     }
+
+    private class FileOfBook(val row: AudioFileRow, val disc: Int, val bookFolderPath: String)
+
+    private val DISC_SUFFIX = Regex("""\s*[-–:,(\[]?\s*(?:cd|dis[ck]|teil)\s*\d{1,3}\s*[)\]]?\s*$""", RegexOption.IGNORE_CASE)
+
+    private val DISC_FOLDER = Regex("""^(?:cd|dis[ck]|teil)\s*[-_.]?\s*(\d{1,3})$""", RegexOption.IGNORE_CASE)
+
+    /**
+     * The number of a disc folder ("CD 1", "cd02", "Disc 3", "Disk_4", "Teil 2"), `null` for any other folder name: a name that is
+     * only that says nothing about a book, ripped audiobooks often come so (review5 P35).
+     */
+    fun discNumber(folderName: String): Int? = DISC_FOLDER.matchEntire(folderName.trim())?.groupValues?.get(1)?.toInt()
 
     /** The files of the volume holding most of [files]; on a tie the device's own storage, then by name. */
     private fun oneVolume(files: List<AudioFileRow>): List<AudioFileRow> {
@@ -129,7 +169,10 @@ internal object LocalBookLayout {
     fun bookTitle(book: LocalBookFiles, folderTitle: String? = book.folderName): String {
         // Without tags, MediaStore reports the file name as title and the folder as album: that says nothing about the book.
         val parent = book.files.first().path.substringBeforeLast('/').substringAfterLast('/')
-        val album = commonValue(book.files.map { it.album })?.takeIf { it != parent }
+        // Ripped discs often name the album per disc ("Title CD 1", "Title (Disc 2)"): one title for the whole book.
+        val fromDiscs = book.files.map { it.path.substringBeforeLast('/') }.distinct().size > 1
+        val albums = book.files.map { file -> file.album?.let { if (fromDiscs) it.replace(DISC_SUFFIX, "") else it } }
+        val album = commonValue(albums)?.takeIf { it != parent }
         val single = book.files.singleOrNull()
         val title = if (single != null) {
             val baseName = single.fileName.substringBeforeLast('.')
