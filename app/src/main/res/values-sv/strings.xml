@@ -357,6 +357,7 @@
     <!-- Favorites & playlists -->
     <string name="action_add_favorite">Lägg till i favoriter</string>
     <string name="action_remove_favorite">Ta bort från favoriter</string>
+    <string name="favorite_removed">”%1$s” borttagen från favoriter</string>
     <string name="library_playlists">Spellistor</string>
     <string name="library_stats">Statistik</string>
     <string name="music_stats_empty">Inget har spelats än. Låtar räknas så snart du har hört hälften av dem eller 30 sekunder.</string>
@@ -385,6 +386,7 @@
     <!-- Downloads -->
     <string name="action_download">Ladda ned</string>
     <string name="action_remove_download">Ta bort nedladdning</string>
+    <string name="song_download_removed">Nedladdningen av ”%1$s” har tagits bort</string>
     <string name="action_cancel_download">Avbryt nedladdning</string>
     <string name="download_album_done">Nedladdat – ta bort nedladdning</string>
     <string name="download_album_running">Laddar ned – avbryt</string>

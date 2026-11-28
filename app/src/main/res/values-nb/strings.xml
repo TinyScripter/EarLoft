@@ -357,6 +357,7 @@
     <!-- Favorites & playlists -->
     <string name="action_add_favorite">Legg til i favoritter</string>
     <string name="action_remove_favorite">Fjern fra favoritter</string>
+    <string name="favorite_removed">«%1$s» fjernet fra favoritter</string>
     <string name="library_playlists">Spillelister</string>
     <string name="library_stats">Statistikk</string>
     <string name="music_stats_empty">Ingenting er spilt ennå. Sanger telles så snart du har hørt halvparten av dem eller 30 sekunder.</string>
@@ -385,6 +386,7 @@
     <!-- Downloads -->
     <string name="action_download">Last ned</string>
     <string name="action_remove_download">Fjern nedlasting</string>
+    <string name="song_download_removed">Nedlasting av «%1$s» fjernet</string>
     <string name="action_cancel_download">Avbryt nedlasting</string>
     <string name="download_album_done">Nedlastet – fjern nedlasting</string>
     <string name="download_album_running">Laster ned – avbryt</string>

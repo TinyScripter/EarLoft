@@ -78,7 +78,7 @@ fun ArtistMenu(
             },
         )
         MixMenuItem(MixSeed.Artist(artistId), onDismiss)
-        CollectionFavoriteMenuItem(FavoriteKind.ARTIST, artistId, onDismiss)
+        CollectionFavoriteMenuItem(FavoriteKind.ARTIST, artistId, name, onDismiss)
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_add_to_playlist)) },
             leadingIcon = { Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = null) },

@@ -375,6 +375,7 @@
     <!-- Favorites & playlists -->
     <string name="action_add_favorite">Adicionar aos favoritos</string>
     <string name="action_remove_favorite">Remover dos favoritos</string>
+    <string name="favorite_removed">“%1$s” removido dos favoritos</string>
     <string name="library_playlists">Playlists</string>
     <string name="library_stats">Estatísticas</string>
     <string name="music_stats_empty">Nada tocado ainda. As músicas contam assim que você ouve metade delas ou 30 segundos.</string>
@@ -405,6 +406,7 @@
     <!-- Downloads -->
     <string name="action_download">Baixar</string>
     <string name="action_remove_download">Remover download</string>
+    <string name="song_download_removed">Download de “%1$s” removido</string>
     <string name="action_cancel_download">Cancelar download</string>
     <string name="download_album_done">Baixado – remover download</string>
     <string name="download_album_running">Baixando – cancelar</string>

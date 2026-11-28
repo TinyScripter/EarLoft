@@ -393,6 +393,7 @@
     <!-- Favorites & playlists -->
     <string name="action_add_favorite">Přidat do oblíbených</string>
     <string name="action_remove_favorite">Odebrat z oblíbených</string>
+    <string name="favorite_removed">„%1$s“ odebráno z oblíbených</string>
     <string name="library_playlists">Playlisty</string>
     <string name="library_stats">Statistiky</string>
     <string name="music_stats_empty">Zatím nic nepřehráno. Skladba se započítá, jakmile si poslechnete její polovinu nebo 30 sekund.</string>
@@ -425,6 +426,7 @@
     <!-- Downloads -->
     <string name="action_download">Stáhnout</string>
     <string name="action_remove_download">Odstranit stažené</string>
+    <string name="song_download_removed">Stažený soubor „%1$s“ odstraněn</string>
     <string name="action_cancel_download">Zrušit stahování</string>
     <string name="download_album_done">Staženo – odstranit stažené</string>
     <string name="download_album_running">Stahování – zrušit</string>

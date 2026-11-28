@@ -147,7 +147,7 @@ private fun AlbumContent(
             actions = {
                 if (state is LoadState.Ready) {
                     val album = state.value.album
-                    CollectionFavoriteButton(FavoriteKind.ALBUM, album.id)
+                    CollectionFavoriteButton(FavoriteKind.ALBUM, album.id, album.title)
                     ShareButton(ShareTarget.Album(album.id))
                     Box {
                         var menu by rememberSaveable { mutableStateOf(false) }

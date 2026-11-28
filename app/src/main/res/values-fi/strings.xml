@@ -357,6 +357,7 @@
     <!-- Favorites & playlists -->
     <string name="action_add_favorite">Lisää suosikkeihin</string>
     <string name="action_remove_favorite">Poista suosikeista</string>
+    <string name="favorite_removed">”%1$s” poistettu suosikeista</string>
     <string name="library_playlists">Soittolistat</string>
     <string name="library_stats">Tilastot</string>
     <string name="music_stats_empty">Mitään ei ole vielä soitettu. Kappale lasketaan, kun olet kuullut siitä puolet tai 30 sekuntia.</string>
@@ -385,6 +386,7 @@
     <!-- Downloads -->
     <string name="action_download">Lataa</string>
     <string name="action_remove_download">Poista lataus</string>
+    <string name="song_download_removed">Lataus ”%1$s” poistettu</string>
     <string name="action_cancel_download">Peruuta lataus</string>
     <string name="download_album_done">Ladattu – poista lataus</string>
     <string name="download_album_running">Ladataan – peruuta</string>

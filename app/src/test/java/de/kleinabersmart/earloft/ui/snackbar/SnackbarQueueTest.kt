@@ -163,4 +163,68 @@ class SnackbarQueueTest {
         expire()
         assertNull(shown)
     }
+
+    @Test
+    fun `onDismissed runs on expiry or replacement, not on action, withdrawal, interruption or rotation`() = runTest {
+        var expiredDismissed = 0
+        var replacedDismissed = 0
+        var actionedDismissed = 0
+        var actioned = 0
+        var withdrawnDismissed = 0
+        var keptDismissed = 0
+        var rotatedDismissed = 0
+
+        val firstRoot = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { queue.run() }
+
+        // Expiry invokes onDismissed.
+        queue.offer(SnackbarMessage("First", actionLabel = "Undo", onAction = {}, onDismissed = { expiredDismissed++ }))
+        runCurrent()
+        expire()
+        assertEquals(1, expiredDismissed)
+
+        // Replacement invokes onDismissed on the replaced message.
+        queue.offer(SnackbarMessage("Second", actionLabel = "Undo", onAction = {}, onDismissed = { replacedDismissed++ }))
+        runCurrent()
+        queue.offer(SnackbarMessage("Third", actionLabel = "Undo", onAction = { actioned++ }, onDismissed = { actionedDismissed++ }))
+        runCurrent()
+        assertEquals(1, replacedDismissed)
+
+        // ActionPerformed invokes onAction, not onDismissed.
+        host.currentSnackbarData?.performAction()
+        runCurrent()
+        assertEquals(1, actioned)
+        assertEquals(0, actionedDismissed)
+
+        // Withdrawal does not invoke onDismissed.
+        val withdrawn = SnackbarMessage("Withdrawn", actionLabel = "Undo", onAction = {}, onDismissed = { withdrawnDismissed++ })
+        queue.offer(withdrawn)
+        runCurrent()
+        queue.withdraw(withdrawn)
+        runCurrent()
+        assertEquals(0, withdrawnDismissed)
+
+        // A kept message interrupted by an urgent undo does not invoke onDismissed until it actually finishes.
+        queue.offer(SnackbarMessage("Kept", duration = SnackbarDuration.Indefinite, keep = true, onDismissed = { keptDismissed++ }))
+        runCurrent()
+        queue.offer(undo("Urgent"))
+        runCurrent()
+        assertEquals(0, keptDismissed)
+        expire() // urgent expires, kept returns
+        assertEquals("Kept", shown)
+        assertEquals(0, keptDismissed)
+        expire() // kept finishes
+        assertEquals(1, keptDismissed)
+
+        // Rotation (root cancellation) does not invoke onDismissed; the next root finishes it.
+        queue.offer(SnackbarMessage("Rotate", actionLabel = "Undo", onAction = {}, onDismissed = { rotatedDismissed++ }))
+        runCurrent()
+        firstRoot.cancelAndJoin()
+        assertEquals(0, rotatedDismissed)
+
+        start()
+        runCurrent()
+        assertEquals("Rotate", shown)
+        expire()
+        assertEquals(1, rotatedDismissed)
+    }
 }

@@ -23,6 +23,9 @@ internal class SnackbarQueue(private val host: SnackbarHostState) {
 
     /** [visible] was withdrawn: it must not come back when its root goes away right after. */
     private var visibleWithdrawn = false
+
+    /** [visible] is a kept message temporarily paused for an urgent one; it will be shown again. */
+    private var visibleInterrupted = false
     private val wake = Channel<Unit>(Channel.CONFLATED)
 
     /** The messages still to come, in order (for tests). */
@@ -40,6 +43,7 @@ internal class SnackbarQueue(private val host: SnackbarHostState) {
             message.isUrgent -> {
                 waiting.addFirst(shown)
                 waiting.addFirst(message)
+                visibleInterrupted = true
                 host.currentSnackbarData?.dismiss()
             }
             else -> waiting.addLast(message)
@@ -66,6 +70,7 @@ internal class SnackbarQueue(private val host: SnackbarHostState) {
             }
             visible = next
             visibleWithdrawn = false
+            visibleInterrupted = false
             val result = try {
                 host.showSnackbar(AppSnackbarVisuals(next))
             } catch (e: CancellationException) {
@@ -77,7 +82,10 @@ internal class SnackbarQueue(private val host: SnackbarHostState) {
             } finally {
                 visible = null
             }
-            if (result == SnackbarResult.ActionPerformed) next.onAction?.invoke()
+            when (result) {
+                SnackbarResult.ActionPerformed -> next.onAction?.invoke()
+                SnackbarResult.Dismissed -> if (!visibleWithdrawn && !visibleInterrupted) next.onDismissed?.invoke()
+            }
         }
     }
 

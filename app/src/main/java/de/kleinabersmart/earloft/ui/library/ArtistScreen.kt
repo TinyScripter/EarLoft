@@ -66,7 +66,7 @@ fun ArtistScreen(
             navigationIcon = { BackButton(onBack) },
             actions = {
                 (state as? LoadState.Ready)?.let { ready ->
-                    CollectionFavoriteButton(FavoriteKind.ARTIST, artistId)
+                    CollectionFavoriteButton(FavoriteKind.ARTIST, artistId, ready.value.artist.name)
                     ShareButton(ShareTarget.Artist(artistId))
                     var menu by rememberSaveable { mutableStateOf(false) }
                     Box {

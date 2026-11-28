@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -61,6 +63,7 @@ import de.kleinabersmart.earloft.core.model.SongOfflineStatus
 import de.kleinabersmart.earloft.ui.library.AlbumMenu
 import de.kleinabersmart.earloft.ui.library.ArtistMenu
 import de.kleinabersmart.earloft.ui.playlists.AddToPlaylistDialog
+import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 import coil3.compose.AsyncImage
 import de.kleinabersmart.earloft.core.model.AppUris
@@ -91,6 +94,9 @@ fun SongListItem(
     warning: String? = null,
 ) {
     val offlineController = LocalOfflineController.current
+    val collectionFavorites = LocalCollectionFavorites.current
+    val snackbars = LocalSnackbars.current
+    val resources = LocalResources.current
     val status = offline ?: offlineController?.statusOf(song.id)
     var addToPlaylist by rememberSaveable { mutableStateOf(false) }
     if (addToPlaylist) AddToPlaylistDialog(songIds = listOf(song.id), onDismiss = { addToPlaylist = false })
@@ -163,7 +169,21 @@ fun SongListItem(
                                 },
                                 onClick = {
                                     menuOpen = false
+                                    val wasFavorite = song.isFavorite
                                     actions.toggleFavorite(song)
+                                    if (wasFavorite) {
+                                        snackbars.show(
+                                            resources.getString(R.string.favorite_removed, song.title),
+                                            SnackbarDuration.Long,
+                                            resources.getString(R.string.action_undo),
+                                        ) {
+                                            if (collectionFavorites != null) {
+                                                collectionFavorites.restoreSongFavorite(song.id)
+                                            } else {
+                                                actions.toggleFavorite(song.copy(isFavorite = false))
+                                            }
+                                        }
+                                    }
                                 },
                             )
                             DropdownMenuItem(
@@ -217,20 +237,19 @@ fun SongListItem(
                                     },
                                 )
                                 // A download that is still waiting or running is cancelled, not "removed".
-                                SongOfflineState.DOWNLOADED, SongOfflineState.QUEUED, SongOfflineState.DOWNLOADING -> DropdownMenuItem(
-                                    text = {
-                                        val done = status.state == SongOfflineState.DOWNLOADED
-                                        Text(stringResource(if (done) R.string.action_remove_download else R.string.action_cancel_download))
-                                    },
-                                    leadingIcon = {
-                                        val done = status.state == SongOfflineState.DOWNLOADED
-                                        Icon(painterResource(if (done) DesignR.drawable.ic_delete else DesignR.drawable.ic_close), contentDescription = null)
-                                    },
-                                    onClick = {
-                                        menuOpen = false
-                                        offlineController?.removeDownload?.invoke(song.id)
-                                    },
-                                )
+                                SongOfflineState.DOWNLOADED, SongOfflineState.QUEUED, SongOfflineState.DOWNLOADING -> {
+                                    val done = status.state == SongOfflineState.DOWNLOADED
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(if (done) R.string.action_remove_download else R.string.action_cancel_download)) },
+                                        leadingIcon = {
+                                            Icon(painterResource(if (done) DesignR.drawable.ic_delete else DesignR.drawable.ic_close), contentDescription = null)
+                                        },
+                                        onClick = {
+                                            menuOpen = false
+                                            offlineController?.removeDownload?.invoke(song.id, song.title, done)
+                                        },
+                                    )
+                                }
                             }
                         }
                     }

@@ -19,9 +19,11 @@ import javax.inject.Singleton
 
 /**
  * A message to the user. With [actionLabel] and [onAction] the snackbar carries an action (for example "Undo");
- * [onAction] runs on the main thread when the action was tapped. [keep]: a new message doesn't replace this one but
- * waits until it has expired or was dismissed (for messages the user shouldn't miss); only one with an action of its own
- * ("Undo") goes first, and this one comes back after it ([SnackbarQueue]).
+ * [onAction] runs on the main thread when the action was tapped. [onDismissed] runs on the main thread when the
+ * snackbar expires, is dismissed or is replaced without [onAction] being tapped (not on rotation or withdrawal; for
+ * deferred deletion, review5 P58). [keep]: a new message doesn't replace this one but waits until it has expired or
+ * was dismissed (for messages the user shouldn't miss); only one with an action of its own ("Undo") goes first, and
+ * this one comes back after it ([SnackbarQueue]).
  */
 data class SnackbarMessage(
     val text: String,
@@ -29,6 +31,7 @@ data class SnackbarMessage(
     val onAction: (() -> Unit)? = null,
     val duration: SnackbarDuration = SnackbarDuration.Short,
     val keep: Boolean = false,
+    val onDismissed: (() -> Unit)? = null,
 )
 
 /**

@@ -357,6 +357,7 @@
     <!-- Favorites & playlists -->
     <string name="action_add_favorite">Toevoegen aan favorieten</string>
     <string name="action_remove_favorite">Verwijderen uit favorieten</string>
+    <string name="favorite_removed">‘%1$s’ uit favorieten verwijderd</string>
     <string name="library_playlists">Playlists</string>
     <string name="library_stats">Statistieken</string>
     <string name="music_stats_empty">Nog niets afgespeeld. Nummers tellen mee zodra je de helft of 30 seconden hebt gehoord.</string>
@@ -385,6 +386,7 @@
     <!-- Downloads -->
     <string name="action_download">Downloaden</string>
     <string name="action_remove_download">Download verwijderen</string>
+    <string name="song_download_removed">Download van ‘%1$s’ verwijderd</string>
     <string name="action_cancel_download">Download annuleren</string>
     <string name="download_album_done">Gedownload – download verwijderen</string>
     <string name="download_album_running">Bezig met downloaden – annuleren</string>

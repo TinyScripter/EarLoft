@@ -358,6 +358,7 @@
     <!-- Favorites & playlists -->
     <string name="action_add_favorite">Zu Favoriten hinzufügen</string>
     <string name="action_remove_favorite">Aus Favoriten entfernen</string>
+    <string name="favorite_removed">„%1$s“ aus Favoriten entfernt</string>
     <string name="library_playlists">Playlists</string>
     <string name="library_stats">Statistik</string>
     <string name="music_stats_empty">Noch nichts gehört. Ein Song zählt, sobald du die Hälfte oder 30 Sekunden gehört hast.</string>
@@ -386,6 +387,7 @@
     <!-- Downloads -->
     <string name="action_download">Herunterladen</string>
     <string name="action_remove_download">Download entfernen</string>
+    <string name="song_download_removed">Download von „%1$s“ entfernt</string>
     <string name="action_cancel_download">Download abbrechen</string>
     <string name="download_album_done">Heruntergeladen – Download entfernen</string>
     <string name="download_album_running">Wird heruntergeladen – abbrechen</string>
