@@ -146,6 +146,26 @@ class EpisodeMenuViewModelTest {
         awaitReal { continueListening.episodes.first { list -> list.map { it.book.id } == listOf(sub1, sub2) } }
     }
 
+    @Test
+    fun `undo after taking one out keeps what changed in the queue meanwhile`() = runTest {
+        val a = episode("u1")
+        val b = episode("u2")
+        val c = episode("u3")
+        listOf(a, b, c).forEach { continueListening.append(it) }
+        val undo = CompletableDeferred<suspend () -> Unit>()
+
+        viewModel.setQueued(b, queued = false) { undo.complete(it) }
+        val restore = awaitReal { undo.await() }
+        awaitReal { continueListening.episodes.first { list -> list.map { it.book.id } == listOf(a, c) } }
+        // Meanwhile the last one moved to the front: that stays, only the removed one comes back after its neighbor (review5 8.12).
+        awaitReal { continueListening.reorder(listOf(c, a), c) }
+        awaitReal { continueListening.episodes.first { list -> list.map { it.book.id } == listOf(c, a) } }
+        viewModel.undo(restore)
+
+        // The order itself is checked in ReinsertAtOldPlacesTest.
+        awaitReal { continueListening.episodes.first { list -> list.map { it.book.id } == listOf(c, a, b) } }
+    }
+
     private suspend fun episode(guid: String, feedId: String = "menu-sub"): Long = bookDao.upsertBook(
         BookEntity(serverId = feedId, kind = BookKind.EPISODE, remoteId = guid, title = guid, normTitle = guid, author = "", durationMs = 60_000),
     )

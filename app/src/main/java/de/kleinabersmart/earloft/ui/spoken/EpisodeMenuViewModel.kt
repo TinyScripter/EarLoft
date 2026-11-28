@@ -145,7 +145,8 @@ class EpisodeMenuViewModel @Inject constructor(
                 continueListening.remove(bookId)
                 onUndo {
                     continueListening.append(bookId)
-                    if (before.size > 1) continueListening.reorder(before, bookId)
+                    val order = reinsertAtOldPlaces(continueListening.episodes.first().map { it.book.id }, before, setOf(bookId))
+                    if (order.size > 1) continueListening.reorder(order, bookId)
                 }
             }
         }
@@ -324,8 +325,10 @@ class EpisodeMenuViewModel @Inject constructor(
             } else {
                 suspend {
                     restoreOrder.filter { it in restorable }.forEach { continueListening.append(it) }
-                    val last = restoreOrder.lastOrNull { it in restorable }
-                    if (restoreOrder.size > 1 && last != null) continueListening.reorder(restoreOrder, last)
+                    // Only the removed ones go back; what changed in the queue since stays (review5 8.12).
+                    val order = reinsertAtOldPlaces(continueListening.episodes.first().map { it.book.id }, restoreOrder, restorable)
+                    val last = order.lastOrNull { it in restorable }
+                    if (order.size > 1 && last != null) continueListening.reorder(order, last)
                 }
             }
             onDone(targets.size, undo)
@@ -358,6 +361,20 @@ class EpisodeMenuViewModel @Inject constructor(
             hint?.let(onHint)
         }
     }
+}
+
+/**
+ * [current] with [removed] back where they were in [before]: each right after its nearest earlier neighbor from [before] that is in
+ * the queue now, or at the front. What changed in the queue since (cleared, reordered, started) stays as it is (review5 8.12).
+ */
+internal fun reinsertAtOldPlaces(current: List<Long>, before: List<Long>, removed: Set<Long>): List<Long> {
+    val result = current.filterNot { it in removed }.toMutableList()
+    before.forEachIndexed { index, id ->
+        if (id !in removed) return@forEachIndexed
+        val anchor = before.subList(0, index).lastOrNull { it in result }
+        result.add(if (anchor == null) 0 else result.indexOf(anchor) + 1, id)
+    }
+    return result
 }
 
 /**
