@@ -217,7 +217,16 @@ data class WearPodcastManifest(
     val feeds: List<WearPodcastFeedDto> = emptyList(),
     val episodes: List<WearEpisodeDto> = emptyList(),
     val books: List<WearBookDto> = emptyList(),
+    /**
+     * Episodes and books that left the selection because they were listened to the end on the phone, for a few days: the watch
+     * removes them like ones listened to on the watch, not as a removal it should hold back (review5 8.12). Older watches ignore it.
+     */
+    val finished: List<WearSpokenKeyDto> = emptyList(),
 )
+
+/** Key of an episode (`feedId`, guid) or book (`serverId`, `remoteId`), the same on both devices. */
+@Serializable
+data class WearSpokenKeyDto(val serverId: String, val remoteId: String)
 
 /**
  * An audiobook (Wear concept 16.2). [serverId] is the Audiobookshelf server or, for books from the phone's device, its

@@ -157,6 +157,8 @@ class PhoneLibrarySync @Inject internal constructor(
         if (podcasts != null) {
             val incoming = (podcasts.episodes.map { it.feedId to it.guid } + podcasts.books.map { it.serverId to it.remoteId }).toSet()
             val finished = bookDao.keyedProgress().filter { it.progress.finished }.mapTo(HashSet()) { it.serverId to it.remoteId }
+            // Listened to the end on the phone: leaves the watch like one listened to here (review5 8.12).
+            podcasts.finished.mapTo(finished) { it.serverId to it.remoteId }
             val known = bookDao.observeBookRefs().first().map { it.serverId to it.remoteId }.filter { it !in finished }
             if (RemovalGuard.drops(known.size, known.count { it in incoming }, newPhone, atLeast = 2)) return true
         }

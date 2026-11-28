@@ -79,7 +79,7 @@ class WatchSpokenTest {
             ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(OkHttpClient())), SpokenSettings(context), covers, { _, _ -> }),
             ArdUploadAdoption(context, dao, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy())))
         val podcasts = PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("no source switch in tests") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()))
-        spoken = WatchSpoken(db, db.wearDao(), db.podcastDao(), dao, podcasts, syncer, progressSync)
+        spoken = WatchSpoken(db, db.wearDao(), db.podcastDao(), dao, podcasts, syncer, progressSync, WatchFinishedKeys(context))
         db.podcastDao().upsertFeed(PodcastFeedEntity("f1", "https://example.org/feed", "Podcast", imageUrl = "https://example.org/image.jpg"))
         dao.upsertServer(SpokenServerEntity("abs", "Audiobooks", "https://abs.example.org"))
     }
@@ -121,14 +121,29 @@ class WatchSpokenTest {
 
         db.bookDao().upsertProgress(BookProgressEntity(id, positionMs = 600_000, durationMs = 600_000, finished = true, updatedAt = 9))
 
-        assertTrue(spoken.load().episodes.isEmpty())
+        val finished = spoken.load()
+        assertTrue(finished.episodes.isEmpty())
         assertTrue(spoken.selectedIds().first().isEmpty())
+        // The watch learns why it is gone, also in later manifests (review5 8.12).
+        assertEquals(listOf(WatchSpokenKey("f1", "g1")), finished.finished)
+        assertEquals(listOf(WatchSpokenKey("f1", "g1")), spoken.load().finished)
 
         spoken.setSelected(id, selected = true)
 
         val content = spoken.load()
         assertEquals(listOf("g1"), content.episodes.map { it.guid })
         assertFalse(content.episodes.single().progress!!.finished)
+        assertTrue(content.finished.isEmpty())
+    }
+
+    @Test
+    fun `the watch hears of finished ones for a week`() {
+        val keys = WatchFinishedKeys(ApplicationProvider.getApplicationContext())
+        keys.add(listOf(WatchSpokenKey("f1", "g1")), now = 1_000)
+        keys.add(listOf(WatchSpokenKey("abs", "b1")), now = 2_000)
+
+        assertEquals(2, keys.current(now = WatchFinishedKeys.KEEP_MS).size)
+        assertEquals(listOf(WatchSpokenKey("abs", "b1")), keys.current(now = 1_000 + WatchFinishedKeys.KEEP_MS))
     }
 
     @Test

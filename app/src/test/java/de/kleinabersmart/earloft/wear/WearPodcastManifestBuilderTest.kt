@@ -3,6 +3,8 @@ package de.kleinabersmart.earloft.wear
 import de.kleinabersmart.earloft.core.data.wear.WatchEpisodeContent
 import de.kleinabersmart.earloft.core.data.wear.WatchFeedContent
 import de.kleinabersmart.earloft.core.data.wear.WatchSpokenContent
+import de.kleinabersmart.earloft.core.data.wear.WatchSpokenKey
+import de.kleinabersmart.earloft.core.wearsync.WearSpokenKeyDto
 import de.kleinabersmart.earloft.core.model.BookProgress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -35,6 +37,13 @@ class WearPodcastManifestBuilderTest {
         assertEquals(1.25f, manifest.episodes.first().progress!!.speed)
         // Episodes from the device are only available via the file channel.
         assertNull(manifest.episodes.last().audioUrl)
+    }
+
+    @Test
+    fun `ones finished on the phone go along by their key`() {
+        val manifest = WearPodcastManifestBuilder.build(WatchSpokenContent(listOf(feed), finished = listOf(WatchSpokenKey("f1", "c"))))
+
+        assertEquals(listOf(WearSpokenKeyDto("f1", "c")), manifest.finished)
     }
 
     @Test

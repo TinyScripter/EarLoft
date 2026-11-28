@@ -57,6 +57,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearServerSourceDto
 import de.kleinabersmart.earloft.core.wearsync.WearServersDto
 import de.kleinabersmart.earloft.core.wearsync.WearSettingsDto
 import de.kleinabersmart.earloft.core.wearsync.WearSongDto
+import de.kleinabersmart.earloft.core.wearsync.WearSpokenKeyDto
 import de.kleinabersmart.earloft.core.wearsync.WearSpokenServerDto
 import de.kleinabersmart.earloft.wear.download.WatchState
 import de.kleinabersmart.earloft.wear.download.WearDownloadPlanner
@@ -364,6 +365,19 @@ class PhoneLibrarySyncTest {
         sync.sync()
         assertEquals(listOf("e1", "e2"), episodeGuids())
         assertTrue(guard.held.value)
+    }
+
+    @Test
+    fun `episodes listened to the end on the phone leave at once, even all of them`() = runTest {
+        publish(podcasts = podcasts("e1", "e2", "e3"))
+        sync.sync()
+
+        // "Mark all as played" on the phone: every episode on the watch drops out of the selection at once.
+        publish(podcasts = podcasts().copy(finished = listOf("e1", "e2", "e3").map { WearSpokenKeyDto("f1", it) }))
+        sync.sync()
+
+        assertTrue(episodeGuids().isEmpty())
+        assertFalse(guard.held.value)
     }
 
     @Test

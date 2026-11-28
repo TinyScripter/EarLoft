@@ -10,6 +10,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearEpisodeDto
 import de.kleinabersmart.earloft.core.wearsync.WearEpisodeProgressDto
 import de.kleinabersmart.earloft.core.wearsync.WearPodcastFeedDto
 import de.kleinabersmart.earloft.core.wearsync.WearPodcastManifest
+import de.kleinabersmart.earloft.core.wearsync.WearSpokenKeyDto
 
 /** Maps the episodes and books for the watch to the episode manifest (Wear concept 16.1/16.2). */
 object WearPodcastManifestBuilder {
@@ -59,6 +60,7 @@ object WearPodcastManifestBuilder {
                 chapters = book.chapters.toDto(),
             )
         },
+        finished = content.finished.map { WearSpokenKeyDto(it.serverId, it.remoteId) },
     )
 
     /** The same manifest without progress: if only the progress values differ, the phone holds off sending. */

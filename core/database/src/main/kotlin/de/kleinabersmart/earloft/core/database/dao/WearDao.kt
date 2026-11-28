@@ -75,6 +75,13 @@ interface WearDao {
     @Query("DELETE FROM wear_books WHERE bookId IN (SELECT bookId FROM book_progress WHERE finished)")
     suspend fun deleteFinishedBooks(): Int
 
+    /** The selected episodes and books listened to the end, which [deleteFinishedBooks] removes (review5 8.12). */
+    @Query(
+        "SELECT b.serverId AS serverId, b.remoteId AS remoteId, w.addedAt AS addedAt FROM wear_books w " +
+            "JOIN books b ON b.bookId = w.bookId JOIN book_progress p ON p.bookId = w.bookId WHERE p.finished",
+    )
+    suspend fun finishedKeyedBooks(): List<KeyedWearBook>
+
     /**
      * Selected episodes and books in the order they were selected. Episodes of archived subscriptions and books of disabled servers
      * or of deselected Audiobookshelf libraries (review G46) stay selected but are kept off the watch; books from the device

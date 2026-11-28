@@ -90,6 +90,8 @@ data class WatchSpokenContent(
     val feeds: List<WatchFeedContent> = emptyList(),
     val episodes: List<WatchEpisodeContent> = emptyList(),
     val books: List<WatchBookContent> = emptyList(),
+    /** Dropped out of the selection because they were listened to the end on the phone ([WatchFinishedKeys]). */
+    val finished: List<WatchSpokenKey> = emptyList(),
 )
 
 /**
@@ -106,6 +108,7 @@ class WatchSpoken @Inject constructor(
     private val podcasts: PodcastRepository,
     private val bookSyncer: BookSyncer,
     private val progressSync: BookProgressSync,
+    private val finishedKeys: WatchFinishedKeys,
 ) {
     fun selectedIds(): Flow<Set<Long>> = wearDao.observeBookIds().map { it.toSet() }
 
@@ -148,6 +151,7 @@ class WatchSpoken @Inject constructor(
             .distinctUntilChanged()
 
     suspend fun load(): WatchSpokenContent = database.withTransaction {
+        finishedKeys.add(wearDao.finishedKeyedBooks().map { WatchSpokenKey(it.serverId, it.remoteId) })
         wearDao.deleteFinishedBooks()
         val feeds = LinkedHashMap<String, PodcastFeedEntity>()
         val episodes = mutableListOf<WatchEpisodeContent>()
@@ -170,6 +174,9 @@ class WatchSpoken @Inject constructor(
             },
             episodes = episodes,
             books = books,
+            // Selected again since: it is open again and goes to the watch as usual.
+            finished = finishedKeys.current() - (episodes.map { WatchSpokenKey(it.feedId, it.guid) } + books.map { WatchSpokenKey(it.serverId, it.remoteId) })
+                .toSet(),
         )
     }
 
