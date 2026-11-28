@@ -9,11 +9,12 @@ class ReplacesChargerJobTest {
 
     private fun replaces(
         jobOnCharger: Boolean = true,
+        jobWaitsForWifi: Boolean = true,
         waitingForPhone: Boolean = false,
         requireCharging: Boolean = false,
         charging: Boolean = false,
         wifiOn: Boolean = true,
-    ) = replacesChargerJob(jobOnCharger, waitingForPhone, requireCharging, charging, wifiOn)
+    ) = replacesChargerJob(jobOnCharger, jobWaitsForWifi, waitingForPhone, requireCharging, charging, wifiOn)
 
     @Test
     fun `a job waiting for the charger is replaced once Wi-Fi is on`() {
@@ -42,7 +43,14 @@ class ReplacesChargerJobTest {
     }
 
     @Test
-    fun `on the charger a delayed retry is replaced too, it may wait for hours`() {
+    fun `a job waiting out a server error keeps its backoff, on the charger and off it`() {
+        // review5 P65: replacing reset the backoff, and after three quick failures the songs came over Bluetooth.
+        assertFalse(replaces(jobWaitsForWifi = false))
+        assertFalse(replaces(jobWaitsForWifi = false, charging = true))
+    }
+
+    @Test
+    fun `on the charger a delayed retry for Wi-Fi is replaced too, it may wait for hours`() {
         assertTrue(replaces(charging = true))
         // On the charger the normal job may run even with the phone's setting "only on the charger".
         assertTrue(replaces(charging = true, requireCharging = true))

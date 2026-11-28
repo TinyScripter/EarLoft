@@ -194,9 +194,13 @@ class StorageViewModel @Inject constructor(
     fun watchWifi() {
         wifiWatch?.cancel()
         wifiWatch = viewModelScope.launch {
-            combine(scheduler.nextJobOnCharger, context.wifiConnectedFlow(), ::Pair).first { (jobOnCharger, wifi) ->
-                replacesChargerJob(jobOnCharger, watchState.waitingForPhone, watchState.settings.value.requireCharging, context.isCharging(), wifi)
-            }
+            combine(scheduler.nextJobOnCharger, watchState.waitingForWifi, context.wifiConnectedFlow(), ::Triple)
+                .first { (jobOnCharger, jobWaitsForWifi, wifi) ->
+                    replacesChargerJob(
+                        jobOnCharger, jobWaitsForWifi, watchState.waitingForPhone, watchState.settings.value.requireCharging,
+                        context.isCharging(), wifi,
+                    )
+                }
             scheduler.enqueue(replace = true)
         }
     }
@@ -221,18 +225,21 @@ class StorageViewModel @Inject constructor(
 /**
  * Whether a job that only starts on the charger after repeated attempts without Wi-Fi ([jobOnCharger]) should be replaced by a
  * normal one: the watch is on Wi-Fi now ([wifiOn]) and nothing else holds it back.
+ * - Only while the job waits for Wi-Fi ([jobWaitsForWifi]: the last run got none). After a server error it waits out its growing
+ *   backoff; a replacement would reset it, and after three quick failures the songs came over Bluetooth (review5 P65).
  * - Not while the job waits for the phone ([waitingForPhone], it uses the same charger job): Wi-Fi doesn't bring the phone back, and
  *   each replacement would start the foreground service only to fail on the phone again (review V1). Its return replans by itself.
  * - Not with the phone's setting "only on the charger" off the charger: the normal job would wait just the same.
- * - On the charger, too: there the job is a delayed retry whose wait grows up to hours ([charging]).
+ * - On the charger, too: there the job is a delayed retry for Wi-Fi whose wait grows up to hours ([charging]).
  */
 internal fun replacesChargerJob(
     jobOnCharger: Boolean,
+    jobWaitsForWifi: Boolean,
     waitingForPhone: Boolean,
     requireCharging: Boolean,
     charging: Boolean,
     wifiOn: Boolean,
-): Boolean = jobOnCharger && wifiOn && !waitingForPhone && (!requireCharging || charging)
+): Boolean = jobOnCharger && jobWaitsForWifi && wifiOn && !waitingForPhone && (!requireCharging || charging)
 
 /** The phone sends the manifest after 2 s of quiet; as with the "On the watch" switch, the desired state applies at most that long. */
 private const val REMOVING_TIMEOUT_MS = 20_000L
