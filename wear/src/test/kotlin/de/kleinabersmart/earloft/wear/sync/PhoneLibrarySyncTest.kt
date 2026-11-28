@@ -50,6 +50,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearPaths
 import de.kleinabersmart.earloft.core.wearsync.WearPodcastFeedDto
 import de.kleinabersmart.earloft.core.wearsync.WearPodcastManifest
 import de.kleinabersmart.earloft.core.wearsync.WearSelectionDto
+import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
 import de.kleinabersmart.earloft.core.wearsync.WearServerDto
 import de.kleinabersmart.earloft.core.wearsync.WearServerSourceDto
@@ -262,12 +263,13 @@ class PhoneLibrarySyncTest {
         publish()
         // The DataItem is there, its asset not yet (phone out of range during the transfer).
         phoneData.withholdAssets = true
-        sync.sync()
+        // review5 P71: reported as not done, so the job tries again instead of waiting for the next change on the phone.
+        assertFalse(sync.sync())
         assertTrue(songTitles().isEmpty())
         assertNull(state.appliedPhoneStamp)
 
         phoneData.withholdAssets = false
-        sync.sync()
+        assertTrue(sync.sync())
         assertEquals(listOf("Song s1", "Song s2"), songTitles())
     }
 
@@ -383,6 +385,35 @@ class PhoneLibrarySyncTest {
         assertFalse(RemovalGuard.drops(known = 3, kept = 1, newPhone = false, atLeast = 2))
         assertTrue(RemovalGuard.drops(known = 4, kept = 1, newPhone = false, atLeast = 2))
         assertFalse(RemovalGuard.drops(known = 4, kept = 2, newPhone = false, atLeast = 2))
+    }
+
+    @Test
+    fun `a restart the last run could not plan anymore is done by the next one`() = runTest {
+        publish()
+        sync.sync()
+        // Quality changed on the phone: the settings were saved, then the run ended before planning (review5 P66).
+        state.downloadRestartPending = true
+
+        sync.sync()
+
+        assertEquals(listOf(REPLACE, RESTART), scheduler.calls)
+        assertFalse(state.downloadRestartPending)
+    }
+
+    @Test
+    fun `changed ReplayGain or areas only plan and apply nothing again`() = runTest {
+        publish()
+        sync.sync()
+        // Removed on the watch meanwhile: applying the manifest again would bring it back.
+        db.wearDao().delete("album:1")
+
+        // review5 P67: every change of ReplayGain, pre-amp or areas decoded and applied everything again.
+        phoneData.publish(WearPaths.SETTINGS, WearCodec.encode(WearSettingsDto(preAmpDb = 3f, areas = listOf(SpokenMode.MUSIC))))
+        sync.sync()
+
+        assertTrue(db.wearDao().getSelections().isEmpty())
+        assertEquals(listOf(REPLACE, RESUME), scheduler.calls)
+        assertEquals(3f, state.settings.value.preAmpDb)
     }
 
     @Test

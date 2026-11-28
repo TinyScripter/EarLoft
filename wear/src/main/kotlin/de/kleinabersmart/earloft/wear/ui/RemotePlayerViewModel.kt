@@ -73,6 +73,13 @@ class RemotePlayerViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
+    /**
+     * The phone is there and its report is current: back after the subscription lapsed, the last report can be minutes old, and counted
+     * on from it the remote showed a wrong position "playing" until the phone's new report came (review5 P64).
+     */
+    private val phoneLive: StateFlow<Boolean> = combine(phoneReachable, remote.awaitingReport) { reachable, awaiting -> reachable && !awaiting }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     /** Something got through from or to the phone: if it counts as away, its status is checked again right away. */
     private fun recheckIfAway() {
         if (!phoneReachable.value) phoneConnection.refresh()
@@ -114,7 +121,7 @@ class RemotePlayerViewModel @Inject constructor(
         pendingPlaying,
         pendingShuffle,
         pendingRepeat,
-        phoneReachable,
+        phoneLive,
     ) { remote, playing, shuffle, repeat, reachable ->
         val dto = remote ?: return@combine PlayerState()
         val spoken = dto.hasMedia && dto.isSpoken
@@ -147,7 +154,7 @@ class RemotePlayerViewModel @Inject constructor(
      * the monotonic clock counts, so that a time sync along the way does not make the display jump.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    override val positionMs: StateFlow<Long> = combine(remoteState, phoneReachable, ::Pair)
+    override val positionMs: StateFlow<Long> = combine(remoteState, phoneLive, ::Pair)
         .flatMapLatest { (dto, reachable) ->
             flow {
                 val start = startPosition(dto, reachable, System.currentTimeMillis(), shownPosition)

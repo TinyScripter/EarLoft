@@ -2,9 +2,11 @@ package de.kleinabersmart.earloft.wear.sync
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.SystemClock
 import android.util.Log
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.MessageClient
+import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.wearsync.WearCodec
 import de.kleinabersmart.earloft.core.wearsync.WearPaths
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteAction
@@ -24,25 +26,27 @@ import de.kleinabersmart.earloft.core.wearsync.changesAt
 import de.kleinabersmart.earloft.core.wearsync.payloadsAt
 import de.kleinabersmart.earloft.core.wearsync.sendAndAwait
 import de.kleinabersmart.earloft.core.wearsync.sendPayload
-import de.kleinabersmart.earloft.core.data.di.ApplicationScope
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.shareIn
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerializationException
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.transformLatest
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationException
 
 /** The phone as a remote control (Wear concept 15): what it plays, what it has, and commands to it. */
 @Singleton
@@ -57,17 +61,58 @@ class PhoneRemote @Inject constructor(
      * subscribes immediately with the first. A separate loop per flow would mean several messages per view every
      * [WearRemoteSubscription.RENEW_MS] (Review V20).
      */
-    private val subscription: Flow<Unit> = flow<Unit> {
-        while (true) {
-            sendToPhone(WearPaths.REMOTE_SUBSCRIBE, ByteArray(0))
-            delay(WearRemoteSubscription.RENEW_MS)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val subscription: Flow<Unit> = phoneConnection.status
+        .map { it is PhoneStatus.Connected }
+        .distinctUntilChanged()
+        // Starts over when the phone is back: the subscription went out right away, not only with the next renewal up to 30 s later
+        // (review5 P64).
+        .transformLatest<Boolean, Unit> {
+            while (true) {
+                subscribe()
+                delay(WearRemoteSubscription.RENEW_MS)
+            }
         }
-    }.shareIn(applicationScope, SharingStarted.WhileSubscribed())
+        .shareIn(applicationScope, SharingStarted.WhileSubscribed())
+
+    /** When the last subscription reached the phone (`elapsedRealtime`); 0 = never. */
+    @Volatile private var subscribedAt = 0L
+
+    private val _awaitingReport = MutableStateFlow<Long?>(null)
+
+    /**
+     * The phone had forgotten the subscription ([WearRemoteSubscription.TTL_MS] without one) and rewrites its state now: until that
+     * report comes, the last one may be minutes old and must not be counted on as playing (review5 P64). Ends with a report sampled
+     * after the new subscription, or after [AWAIT_REPORT_MS] at the latest.
+     */
+    val awaitingReport: Flow<Boolean> = _awaitingReport
+        .transformLatest { since ->
+            emit(since != null)
+            if (since != null) {
+                delay(AWAIT_REPORT_MS)
+                _awaitingReport.compareAndSet(since, null)
+            }
+        }
+        .distinctUntilChanged()
+
+    private suspend fun subscribe() {
+        val now = SystemClock.elapsedRealtime()
+        val lapsed = now - subscribedAt > WearRemoteSubscription.TTL_MS
+        val wallClock = System.currentTimeMillis()
+        if (!sendToPhone(WearPaths.REMOTE_SUBSCRIBE, ByteArray(0))) return
+        if (lapsed) _awaitingReport.value = wallClock
+        subscribedAt = now
+    }
 
     /** What the phone is playing; `null` as long as it has not reported anything. */
     val state: Flow<WearRemoteStateDto?> = dataClient.changesAt(WearPaths.REMOTE_STATE)
         .subscribed()
         .map { dataClient.payloadsAt(WearPaths.REMOTE_STATE).values.firstOrNull()?.let(::decodeState) }
+        .onEach { dto ->
+            // A report sampled after the subscription (with some slack between the clocks) is the rewritten one.
+            val since = _awaitingReport.value
+            if (since != null && dto != null && dto.sampledAt >= since - CLOCK_SLACK_MS) _awaitingReport.compareAndSet(since, null)
+        }
         .distinctUntilChanged()
 
     /**
@@ -213,5 +258,7 @@ class PhoneRemote @Inject constructor(
     private companion object {
         const val TAG = "PhoneRemote"
         const val TRACKS_TIMEOUT_MS = 10_000L
+        const val AWAIT_REPORT_MS = 10_000L
+        const val CLOCK_SLACK_MS = 5_000L
     }
 }

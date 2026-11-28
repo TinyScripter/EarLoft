@@ -26,8 +26,13 @@ class PhoneSyncWorker(
     override suspend fun doWork(): Result {
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, PhoneSyncEntryPoint::class.java)
         return try {
-            entryPoint.phoneLibrarySync().sync()
-            Result.success()
+            if (entryPoint.phoneLibrarySync().sync() || runAttemptCount >= MAX_ATTEMPTS) {
+                Result.success()
+            } else {
+                // An asset not readable yet (phone out of range, transfer running): again with the backoff (review5 P71).
+                Log.w(TAG, "Asset from the phone not readable yet, trying again")
+                Result.retry()
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

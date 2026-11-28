@@ -12,6 +12,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearRemotePlayRequest
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteTrackDto
 import de.kleinabersmart.earloft.wear.R
 import de.kleinabersmart.earloft.wear.download.WatchStorageRepository
+import de.kleinabersmart.earloft.wear.sync.PhoneConnection
 import de.kleinabersmart.earloft.wear.sync.PhoneRemote
 import de.kleinabersmart.earloft.wear.sync.PhoneSelections
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,7 @@ class RemoteTracksViewModel @AssistedInject constructor(
     @Assisted private val refId: Long?,
     private val remote: PhoneRemote,
     private val phoneSelections: PhoneSelections,
+    private val phoneConnection: PhoneConnection,
     storage: WatchStorageRepository,
 ) : ViewModel() {
 
@@ -50,9 +52,11 @@ class RemoteTracksViewModel @AssistedInject constructor(
 
     init {
         viewModelScope.launch {
-            val result = remote.tracks(kind, refId)
+            val result = loadFromPhone(
+                phoneIsThere = { phoneConnection.connectedPhoneNodeId(fresh = true) != null },
+                onUnreachable = { _state.value = TrackListState.Message(R.string.remote_unreachable) },
+            ) { remote.tracks(kind, refId) }
             _state.value = when {
-                result == null -> TrackListState.Message(R.string.remote_unreachable)
                 !result.found -> TrackListState.Message(R.string.remote_missing)
                 else -> {
                     tracks = result.tracks

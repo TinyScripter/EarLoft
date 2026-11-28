@@ -587,8 +587,13 @@ data class WearSelectSpokenRequest(
 @Serializable
 enum class WearClearScope { ALL, MUSIC, PODCASTS, BOOKS }
 
+/**
+ * [scope] has no default: with [WearCodec]'s `coerceInputValues` an unknown value from a newer watch would otherwise become `ALL` on
+ * an older phone, "remove everything" (review5 P72). Unknown is `null`, and the phone ignores the request. Watches always send the
+ * field (`encodeDefaults`); "remove everything" from the oldest ones comes without a payload.
+ */
 @Serializable
-data class WearClearRequest(val scope: WearClearScope = WearClearScope.ALL)
+data class WearClearRequest(val scope: WearClearScope? = null)
 
 /** An artist of the phone with their albums (album artist, IDs from [WearRemoteLibraryDto.albums]). */
 @Serializable

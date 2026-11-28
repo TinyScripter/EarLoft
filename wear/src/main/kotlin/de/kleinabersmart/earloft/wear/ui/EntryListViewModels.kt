@@ -25,6 +25,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearRemotePodcastDto
 import de.kleinabersmart.earloft.core.wearsync.WearThumbnailFile
 import de.kleinabersmart.earloft.wear.R
 import de.kleinabersmart.earloft.wear.download.WatchStorageRepository
+import de.kleinabersmart.earloft.wear.sync.PhoneConnection
 import de.kleinabersmart.earloft.wear.sync.PhoneRemote
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -301,11 +302,12 @@ class RemoteBooksViewModel @Inject constructor(remote: PhoneRemote) : ViewModel(
     fun bookOf(key: Long): WearRemoteBookDto? = books.value?.firstOrNull { it.id == key }
 }
 
-/** The episodes of a subscription on the phone, queried once on opening: started ones first, then the newest (Wear concept 17). */
+/** The episodes of a subscription on the phone, queried on opening (again once the phone is back): started ones first, then the newest (Wear concept 17). */
 @HiltViewModel(assistedFactory = RemoteEpisodesViewModel.Factory::class)
 class RemoteEpisodesViewModel @AssistedInject constructor(
     @Assisted feedId: String,
     remote: PhoneRemote,
+    phoneConnection: PhoneConnection,
 ) : ViewModel() {
     private val _state = MutableStateFlow<EntryListState>(EntryListState.Loading)
     val state: StateFlow<EntryListState> = _state
@@ -314,9 +316,11 @@ class RemoteEpisodesViewModel @AssistedInject constructor(
 
     init {
         viewModelScope.launch {
-            val result = remote.episodes(feedId)
+            val result = loadFromPhone(
+                phoneIsThere = { phoneConnection.connectedPhoneNodeId(fresh = true) != null },
+                onUnreachable = { _state.value = EntryListState.Message(R.string.remote_unreachable) },
+            ) { remote.episodes(feedId) }
             _state.value = when {
-                result == null -> EntryListState.Message(R.string.remote_unreachable)
                 !result.found -> EntryListState.Message(R.string.remote_missing)
                 result.episodes.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
                 else -> {

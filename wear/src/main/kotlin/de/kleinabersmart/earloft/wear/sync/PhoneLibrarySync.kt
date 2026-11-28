@@ -69,16 +69,21 @@ class PhoneLibrarySync @Inject internal constructor(
         context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
     }
 
-    suspend fun sync() = mutex.withLock {
+    /**
+     * Applies what the phone published. @return `false` if a DataItem's asset was not readable (yet): it is not applied, and the caller
+     * tries again; only a new DataItem or the next process start would otherwise bring it (review5 P71).
+     */
+    suspend fun sync(): Boolean = mutex.withLock {
         // Settings first: quality and storage limit determine what the planner queues. If this watch does not understand them
-        // (newer value from the phone), the previous ones apply – servers and manifest still come. Changed skip intervals
-        // alone do not replan; only quality and the charger rule cancel a running download ([WearSettingsDto.restartsDownloadsAfter]).
+        // (newer value from the phone), the previous ones apply – servers and manifest still come. Only quality and the charger rule
+        // cancel a running download ([WearSettingsDto.restartsDownloadsAfter]); that is noted until the plan ran (review5 P66).
+        // Settings never apply servers and manifests again: only the plan reads them, and it runs either way. ReplayGain, pre-amp or
+        // areas used to decode everything again and sync every source (review5 P67).
         val previous = state.settings.value
         val adopted = phoneData.payloads(WearPaths.SETTINGS).values.firstOrNull()
             ?.let { bytes -> decodeOrNull<WearSettingsDto>(bytes, "Settings") }
             ?.takeIf { state.updateSettings(it) }
-        val settingsChanged = adopted?.let { it.withoutSeek() != previous.withoutSeek() } == true
-        val restartDownloads = adopted?.restartsDownloadsAfter(previous) == true
+        if (adopted?.restartsDownloadsAfter(previous) == true) state.downloadRestartPending = true
         val servers = phoneData.payloads(WearPaths.SERVERS).entries.firstOrNull()
         // Every process start of the watch triggers a run (message from the phone, download attempt, tile …). If nothing new
         // has arrived since the last apply, it stops at asking for passwords and planning.
@@ -86,12 +91,12 @@ class PhoneLibrarySync @Inject internal constructor(
         val manifestHash = phoneData.hashes(WearPaths.MANIFEST).values.firstOrNull()
         val stamp = "$appVersionStamp:${servers?.value?.let(WearCodec::hash)}:$manifestHash:$podcastsHash"
         val phoneBack = phoneIsBack()
-        if (!settingsChanged && stamp == state.appliedPhoneStamp) {
+        if (stamp == state.appliedPhoneStamp) {
             // The phone is back at the state the watch has: one held in between is gone.
             removalGuard.allows(drops = false)
             servers?.let { requestMissingPasswords(phoneNodeId = it.key) }
-            planner.plan(replaceSchedule = phoneBack)
-            return@withLock
+            plan(phoneBack)
+            return@withLock true
         }
         // Report the positions first: a server removed on the phone takes its books along with their progress, and whatever the
         // new episode manifest no longer contains goes the same way (review5 P63).
@@ -106,8 +111,8 @@ class PhoneLibrarySync @Inject internal constructor(
         // A phone that suddenly reports (almost) nothing: nothing is removed until the user confirms it or a day has passed.
         val newPhone = removalGuard.notePhoneDatabase(serversDto?.databaseId)
         if (!removalGuard.allows(drops(serversDto, manifestDto, podcastsDto, newPhone))) {
-            planner.plan(replaceSchedule = phoneBack, restart = restartDownloads)
-            return@withLock
+            plan(phoneBack)
+            return@withLock true
         }
         if (servers != null && serversDto != null) {
             val dto = serversDto
@@ -119,12 +124,19 @@ class PhoneLibrarySync @Inject internal constructor(
         }
         manifestDto?.let { manifestApplier.apply(it) }
         podcastsDto?.let { episodeQueue.setOrder(podcastMirror.apply(it)) }
-        planner.plan(replaceSchedule = phoneBack, restart = restartDownloads)
+        plan(phoneBack)
         // A DataItem whose asset was not readable (yet) (phone out of range, transfer running) does not count as
         // applied; otherwise it would only come with the next change on the phone.
-        if ((manifestHash == null || manifest != null) && (podcastsHash == null || podcasts != null)) {
-            state.appliedPhoneStamp = stamp
-        }
+        val complete = (manifestHash == null || manifest != null) && (podcastsHash == null || podcasts != null)
+        if (complete) state.appliedPhoneStamp = stamp
+        complete
+    }
+
+    /** Plans the downloads; a pending restart ([WatchState.downloadRestartPending]) is done with it and only then forgotten. */
+    private suspend fun plan(phoneBack: Boolean) {
+        val restart = state.downloadRestartPending
+        planner.plan(replaceSchedule = phoneBack, restart = restart)
+        if (restart) state.downloadRestartPending = false
     }
 
     /**

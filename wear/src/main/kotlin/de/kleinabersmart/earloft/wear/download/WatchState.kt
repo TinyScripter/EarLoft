@@ -111,6 +111,15 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         get() = prefs.getString(KEY_APPLIED_STAMP, null)
         set(value) = prefs.edit { putString(KEY_APPLIED_STAMP, value) }
 
+    /**
+     * Quality or the charger rule changed: the running download starts over with the next plan. Kept until that plan ran, also across
+     * a failed sync or the end of the process; the settings themselves are saved at once and would show no change any more
+     * (review5 P66).
+     */
+    var downloadRestartPending: Boolean
+        get() = prefs.getBoolean(KEY_RESTART_PENDING, false)
+        set(value) = prefs.edit { putBoolean(KEY_RESTART_PENDING, value) }
+
     /** @return `true` if something changed. */
     fun updateSettings(settings: WearSettingsDto): Boolean {
         if (settings == _settings.value) return false
@@ -285,6 +294,7 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         private const val KEY_LAST_ERROR_CODE = "last_error_code"
         private const val KEY_WAITING_WIFI = "waiting_wifi"
         private const val KEY_APPLIED_STAMP = "applied_phone_stamp"
+        private const val KEY_RESTART_PENDING = "download_restart_pending"
         private const val KEY_PHONE_FAILURES = "phone_unreachable_runs"
         private const val KEY_WAITING_PHONE = "waiting_phone"
         private const val KEY_RETRY_RUNS = "retry_runs"

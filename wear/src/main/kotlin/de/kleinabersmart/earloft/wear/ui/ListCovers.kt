@@ -83,25 +83,33 @@ class ListCovers @Inject constructor(
         return bitmap.asImageBitmap().also { cache.put(ref, it) }
     }
 
+    /**
+     * The image from the phone, kept in the cache directory. One older than [PHONE_MAX_AGE_MS] is fetched again when the phone is
+     * there: the key is an ID of the phone's database, which hands it out again after being created anew, and a new cover on the
+     * phone never came either (review5 P68). Without the phone the old one stays.
+     */
     private suspend fun fromPhone(thumbnail: WearThumbnailFile.Ref): Bitmap? {
         val file = File(context.cacheDir, "$PHONE_DIRECTORY/${fileName(thumbnail)}.jpg")
-        if (!file.isFile) {
-            val missedAt = phoneMissing[thumbnail]
-            if (missedAt != null && SystemClock.elapsedRealtime() - missedAt < PHONE_RETRY_MS) return null
-            // Without a phone, do not remember anything as "missing": the image should come after connecting.
-            phone.connectedPhoneNodeId() ?: return null
-            val bytes = phoneRequests.withPermit { phoneFiles.fetchThumbnail(thumbnail) }
-            if (bytes == null) {
-                phoneMissing[thumbnail] = SystemClock.elapsedRealtime()
-                return null
-            }
-            phoneMissing.remove(thumbnail)
-            withContext(Dispatchers.IO) {
-                file.parentFile?.mkdirs()
-                file.writeBytes(bytes)
-            }
+        val current = withContext(Dispatchers.IO) { file.isFile && System.currentTimeMillis() - file.lastModified() < PHONE_MAX_AGE_MS }
+        if (!current) fetchFromPhone(thumbnail, file)
+        return withContext(Dispatchers.IO) { if (file.isFile) BitmapFactory.decodeFile(file.path) else null }
+    }
+
+    private suspend fun fetchFromPhone(thumbnail: WearThumbnailFile.Ref, file: File) {
+        val missedAt = phoneMissing[thumbnail]
+        if (missedAt != null && SystemClock.elapsedRealtime() - missedAt < PHONE_RETRY_MS) return
+        // Without a phone, do not remember anything as "missing": the image should come after connecting.
+        phone.connectedPhoneNodeId() ?: return
+        val bytes = phoneRequests.withPermit { phoneFiles.fetchThumbnail(thumbnail) }
+        if (bytes == null) {
+            phoneMissing[thumbnail] = SystemClock.elapsedRealtime()
+            return
         }
-        return withContext(Dispatchers.IO) { BitmapFactory.decodeFile(file.path) }
+        phoneMissing.remove(thumbnail)
+        withContext(Dispatchers.IO) {
+            file.parentFile?.mkdirs()
+            file.writeBytes(bytes)
+        }
     }
 
     /** Identifiers of episodes can be long addresses: use their hash as the file name. */
@@ -115,6 +123,7 @@ class ListCovers @Inject constructor(
         const val CACHE_ENTRIES = 80
         const val PHONE_PARALLEL = 2
         const val PHONE_RETRY_MS = 10 * 60_000L
+        const val PHONE_MAX_AGE_MS = 7 * 24 * 60 * 60_000L
         const val PHONE_DIRECTORY = "phone_thumbnails"
     }
 }

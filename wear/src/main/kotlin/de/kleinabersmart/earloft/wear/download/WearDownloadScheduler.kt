@@ -38,8 +38,11 @@ class WearDownloadScheduler @Inject constructor(
     override suspend fun enqueue(replace: Boolean) {
         // Only a waiting job is replaced. A running one takes new entries from the database itself; replacing it would start the
         // song it is loading from 0 again and restart the foreground service and the Wi-Fi request with every new selection
-        // (review4 T63). Then appending is enough.
-        val replaceNow = replace && !isRunning()
+        // (review4 T63). Then appending is enough, and only if nothing waits behind it yet: each new selection appended a job
+        // without delay, which started at once after a run that failed for want of Wi-Fi (review5 P70).
+        val states = WorkManager.getInstance(context).getWorkInfosForUniqueWork(WORK_NAME).await().map { it.state }
+        if (!needsAppendedJob(states)) return
+        val replaceNow = replace && WorkInfo.State.RUNNING !in states
         // A replaced job starts from scratch, including the attempts without Wi-Fi (like a fresh runAttemptCount used to).
         if (replaceNow) state.clearRetries()
         enqueue(
@@ -57,8 +60,17 @@ class WearDownloadScheduler @Inject constructor(
         enqueue(requireCharging = state.settings.value.requireCharging, policy = ExistingWorkPolicy.REPLACE)
     }
 
-    private suspend fun isRunning(): Boolean =
-        WorkManager.getInstance(context).getWorkInfosForUniqueWork(WORK_NAME).await().any { it.state == WorkInfo.State.RUNNING }
+    /**
+     * From the running worker, before it appends its retry or charger job: a job appended behind it for a new selection would start
+     * right after it without delay, around the backoff (review5 P70). Its entries are in the database; the retry takes them along.
+     * Blocking: only called from the worker's own thread.
+     */
+    private fun cancelAppendedJobs() {
+        val manager = WorkManager.getInstance(context)
+        manager.getWorkInfosForUniqueWork(WORK_NAME).get()
+            .filter { it.state == WorkInfo.State.BLOCKED }
+            .forEach { manager.cancelWorkById(it.id).result.get() }
+    }
 
     /**
      * On every process start and sync: a waiting job stays – including one that only runs on the charger or is waiting for
@@ -75,6 +87,7 @@ class WearDownloadScheduler @Inject constructor(
      */
     fun enqueueOnCharger() {
         state.clearRetries()
+        cancelAppendedJobs()
         enqueue(requireCharging = true, policy = ExistingWorkPolicy.APPEND_OR_REPLACE, onCharger = true)
     }
 
@@ -84,6 +97,7 @@ class WearDownloadScheduler @Inject constructor(
      * charging), WorkManager reschedules it without a growing backoff (Review W1). [onCharger] keeps the current one's charging constraint.
      */
     fun enqueueRetry(delayMs: Long, onCharger: Boolean) {
+        cancelAppendedJobs()
         enqueue(
             requireCharging = onCharger || state.settings.value.requireCharging,
             policy = ExistingWorkPolicy.APPEND_OR_REPLACE,
@@ -136,3 +150,10 @@ internal interface WearDownloadModule {
     @Binds
     fun bindScheduler(scheduler: WearDownloadScheduler): DownloadScheduler
 }
+
+/**
+ * Whether a new selection needs a job of its own: not while one runs and another already waits behind it (review5 P70); the waiting
+ * one takes the new entries from the database.
+ */
+internal fun needsAppendedJob(states: List<WorkInfo.State>): Boolean =
+    WorkInfo.State.RUNNING !in states || states.none { it == WorkInfo.State.BLOCKED || it == WorkInfo.State.ENQUEUED }

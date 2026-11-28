@@ -150,4 +150,12 @@ class WearCodecTest {
         assertEquals("playlist:3", WearSelectionKind.PLAYLIST.key(3))
         assertEquals("favorites", WearSelectionKind.FAVORITES.key(null))
     }
+
+    @Test
+    fun `an unknown clear scope from a newer watch is no request to remove everything`() {
+        // review5 P72: coerced to the default, it became ALL.
+        assertEquals(null, WearCodec.decode<WearClearRequest>("""{"scope":"AUDIOBOOK_SHELVES"}""".encodeToByteArray()).scope)
+        assertEquals(WearClearScope.MUSIC, WearCodec.decode<WearClearRequest>(WearCodec.encode(WearClearRequest(WearClearScope.MUSIC))).scope)
+        assertEquals(WearClearScope.ALL, WearCodec.decode<WearClearRequest>(WearCodec.encode(WearClearRequest(WearClearScope.ALL))).scope)
+    }
 }
