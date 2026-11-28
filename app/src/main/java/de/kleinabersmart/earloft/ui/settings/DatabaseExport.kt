@@ -56,6 +56,10 @@ class DatabaseExport @Inject constructor(
     } catch (e: SQLiteException) {
         Log.w(TAG, "Database export failed", e)
         null
+    } catch (e: RuntimeException) {
+        // A `SecurityException` or `IllegalStateException` from the content resolver as well (review5 P44).
+        Log.w(TAG, "Database export failed", e)
+        null
     }
 
     private companion object {

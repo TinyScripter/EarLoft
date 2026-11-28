@@ -268,6 +268,23 @@ class PodcastFeedParserTest {
     }
 
     @Test
+    fun `episodes whose audio is not a web address are left out`() {
+        // review5 P38: the player would open a content:// or file:// address from a feed directly.
+        val feed = parse(
+            """
+            <rss version="2.0"><channel><title>T</title>
+              <item><title>Web</title><guid>1</guid><enclosure url=" https://example.com/1.mp3 " type="audio/mpeg"/></item>
+              <item><title>Provider</title><guid>2</guid><enclosure url="content://com.other.app/secret" type="audio/mpeg"/></item>
+              <item><title>File</title><guid>3</guid><enclosure url="file:///data/data/x/y.mp3" type="audio/mpeg"/></item>
+            </channel></rss>
+            """,
+        )
+
+        assertEquals(listOf("Web"), feed.episodes.map { it.title })
+        assertEquals("https://example.com/1.mp3", feed.episodes.single().audioUrl)
+    }
+
+    @Test
     fun `atom feed with enclosure links`() {
         val feed = parse(
             """

@@ -139,7 +139,15 @@ private fun cueTime(raw: String): Long? {
 
 // --- HTML (Podcasting 2.0: <cite>Speaker:</cite> <time>0:00</time> <p>Text</p>) ---
 
-private val HTML_PART = Regex("""<(cite|time|p)\b[^>]*>(.*?)</\1\s*>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+/**
+ * An element's content may not run into the next element of the same kind: HTML allows `<p>` without `</p>`, and each unclosed
+ * one made the search run to the end of the text, quadratic and not cancellable on 5 MB (review5 P37). Such a `<p>` stays out
+ * as before.
+ */
+private val HTML_PART = Regex(
+    """<(cite|time|p)\b[^>]*>((?:(?!<\1\b).)*?)</\1\s*>""",
+    setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+)
 private val BREAK = Regex("""<br\s*/?>|</(?:p|div|li|h\d)>""", RegexOption.IGNORE_CASE)
 
 private fun parseHtml(body: String): List<TranscriptSegment> {

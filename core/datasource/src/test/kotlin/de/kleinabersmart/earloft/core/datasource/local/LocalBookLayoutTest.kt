@@ -24,6 +24,24 @@ class LocalBookLayoutTest {
     }
 
     @Test
+    fun `the same book on two volumes is taken from one of them`() {
+        // review5 P36: while moving to the SD card, the chapters came twice and the m4b swapped places at every scan.
+        val books = LocalBookLayout.group(
+            listOf(
+                row(1, "/storage/emulated/0/Audiobooks/Ringe/a.mp3").copy(volume = "external_primary"),
+                row(2, "/storage/emulated/0/Audiobooks/Ringe/b.mp3").copy(volume = "external_primary"),
+                row(3, "/storage/1234-ABCD/Audiobooks/Ringe/a.mp3").copy(volume = "1234-abcd"),
+                row(4, "/storage/emulated/0/Audiobooks/Wurst.m4b").copy(volume = "external_primary"),
+                row(5, "/storage/1234-ABCD/Audiobooks/Wurst.m4b").copy(volume = "1234-abcd"),
+            ),
+        )
+
+        assertEquals(listOf("Audiobooks/Ringe/", "Audiobooks/Wurst.m4b"), books.map { it.key })
+        assertEquals(listOf(1L, 2L), books[0].files.map { it.id })
+        assertEquals(listOf(4L), books[1].files.map { it.id })
+    }
+
+    @Test
     fun `finds the folder on a memory card too`() {
         assertEquals("Audiobooks/X/a.mp3", LocalBookLayout.relativePath("/storage/1234-ABCD/Audiobooks/X/a.mp3"))
         assertNull(LocalBookLayout.relativePath("/storage/emulated/0/Audiobooks"))

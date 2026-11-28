@@ -100,8 +100,8 @@ object PodcastFeedParser {
         val feedPersons = channel.persons()
         val episodes = channel.children("item").mapNotNull { item ->
             val enclosure = item.child("enclosure")
-            val url = enclosure?.attr("url")?.trim().orEmpty()
-            if (url.isEmpty()) return@mapNotNull null
+            // Only http(s): the player would open a `content://` or `file://` address from a feed directly (review5 P38).
+            val url = webAddress(enclosure?.attr("url")) ?: return@mapNotNull null
             val guid = item.child("guid")
             ParsedEpisode(
                 guid = item.text("guid").ifEmpty { url },
@@ -134,8 +134,7 @@ object PodcastFeedParser {
         val feedPersons = feed.persons()
         val episodes = feed.children("entry").mapNotNull { entry ->
             val enclosure = entry.children("link").firstOrNull { it.attr("rel") == "enclosure" }
-            val url = enclosure?.attr("href")?.trim().orEmpty()
-            if (url.isEmpty()) return@mapNotNull null
+            val url = webAddress(enclosure?.attr("href")) ?: return@mapNotNull null
             ParsedEpisode(
                 guid = entry.text("id").ifEmpty { url },
                 title = entry.plain("title", NS_ATOM),

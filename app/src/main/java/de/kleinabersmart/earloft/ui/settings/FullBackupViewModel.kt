@@ -99,6 +99,11 @@ class FullBackupViewModel @Inject constructor(
             } catch (e: SQLException) {
                 Log.w(TAG, "Backup failed", e)
                 failed
+            } catch (e: RuntimeException) {
+                // Also a `SecurityException` or `IllegalStateException` from the content resolver (permission to the file taken back,
+                // provider gone): a message instead of only the log, and no "started" without a result (review5 P44).
+                Log.w(TAG, "Backup failed", e)
+                failed
             } finally {
                 running.set(false)
             }

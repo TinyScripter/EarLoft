@@ -134,20 +134,23 @@ fun rememberAudioPermissionRequester(onResult: (granted: Boolean) -> Unit): () -
 internal fun rememberPermissionRequester(permission: String, isGranted: () -> Boolean, onResult: (granted: Boolean) -> Unit): () -> Unit {
     val context = LocalContext.current
     val request = remember { RequestState() }
+    // Saved: the activity may be created anew while the user is in the system settings (dark mode, font size); the grant there
+    // would then no longer count (review5 P42).
+    var inSettings by rememberSaveable { mutableStateOf(false) }
     val currentOnResult by rememberUpdatedState(onResult)
     val currentIsGranted by rememberUpdatedState(isGranted)
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val rationaleAfter = context.findActivity()?.shouldShowRequestPermissionRationale(permission)
         val elapsedMs = SystemClock.elapsedRealtime() - request.launchedAt
         if (isPermanentlyDeniedAfterRequest(granted, request.rationaleBefore, rationaleAfter, elapsedMs)) {
-            request.inSettings = true
+            inSettings = true
             context.openAppSettings()
         }
         onResult(granted)
     }
     LifecycleResumeEffect(Unit) {
-        if (request.inSettings && currentIsGranted()) {
-            request.inSettings = false
+        if (inSettings && currentIsGranted()) {
+            inSettings = false
             currentOnResult(true)
         }
         onPauseOrDispose { }
@@ -166,9 +169,6 @@ internal fun rememberPermissionRequester(permission: String, isGranted: () -> Bo
 private class RequestState {
     var rationaleBefore = false
     var launchedAt = 0L
-
-    /** The system settings were opened instead of a dialog; a grant there counts on the return. */
-    var inSettings = false
 }
 
 internal fun isPermanentlyDeniedAfterRequest(

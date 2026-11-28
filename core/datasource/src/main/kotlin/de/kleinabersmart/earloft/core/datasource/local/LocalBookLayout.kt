@@ -35,6 +35,9 @@ internal object LocalBookLayout {
 
     private const val UNKNOWN = "<unknown>"
 
+    /** MediaStore's name of the device's own storage. */
+    private const val PRIMARY_VOLUME = "external_primary"
+
     /** Path from the folder [rootName] (also on SD cards); `null` if the file isn't inside it. */
     fun relativePath(path: String, rootName: String = ROOT): String? {
         val segments = path.split('/')
@@ -50,9 +53,22 @@ internal object LocalBookLayout {
             val folder = relative.substringBeforeLast('/')
             if (folder.equals(ROOT, ignoreCase = true)) inRoot += relative to row else folders.getOrPut(folder) { mutableListOf() } += row
         }
-        val books = inRoot.map { (relative, row) -> LocalBookFiles(relative, null, listOf(row)) } +
-            folders.map { (folder, files) -> LocalBookFiles("$folder/", folder.substringAfterLast('/'), sortInReadingOrder(files)) }
+        // The same path on two volumes (internal and SD card, e.g. while moving) is one book from one of them: otherwise its chapters
+        // came twice, or two books with the same key swapped places at every scan (review5 P36).
+        val books = inRoot.groupBy({ it.first }, { it.second }).map { (relative, rows) -> LocalBookFiles(relative, null, oneVolume(rows)) } +
+            folders.map { (folder, files) -> LocalBookFiles("$folder/", folder.substringAfterLast('/'), sortInReadingOrder(oneVolume(files))) }
         return books.sortedBy { it.key.lowercase() }
+    }
+
+    /** The files of the volume holding most of [files]; on a tie the device's own storage, then by name. */
+    private fun oneVolume(files: List<AudioFileRow>): List<AudioFileRow> {
+        val byVolume = files.groupBy { it.volume }
+        if (byVolume.size < 2) return files
+        return byVolume.entries.sortedWith(
+            compareByDescending<Map.Entry<String?, List<AudioFileRow>>> { it.value.size }
+                .thenByDescending { it.key == PRIMARY_VOLUME }
+                .thenBy { it.key.orEmpty() },
+        ).first().value
     }
 
     /**

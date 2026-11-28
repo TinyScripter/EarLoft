@@ -87,6 +87,18 @@ class TranscriptsTest {
     }
 
     @Test
+    fun `many paragraphs without closing tag are read in linear time`() {
+        // review5 P37: valid HTML; each unclosed <p> made the search run to the end of the text.
+        val html = "<p>Some words here. ".repeat(20_000) + "<cite>Anna:</cite><time>0:01</time><p>The end.</p>"
+        val started = System.nanoTime()
+
+        val segments = parseTranscript(html, TranscriptFormat.HTML).segments
+
+        assertTrue("took ${(System.nanoTime() - started) / 1_000_000} ms", System.nanoTime() - started < 3_000_000_000L)
+        assertEquals(listOf(TranscriptSegment("The end.", 1_000, speaker = "Anna")), segments)
+    }
+
+    @Test
     fun `plain html and text have no times`() {
         val html = parseTranscript("<div>First paragraph<br>Second paragraph</div>", TranscriptFormat.HTML)
         assertFalse(html.timed)

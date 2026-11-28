@@ -607,6 +607,11 @@ class SettingsViewModel @Inject constructor(
                 // of ending the app, as with the export and the full backup (review2 J60).
                 Log.w(TAG, "Backup import failed", e)
                 TransferMessage.DatabaseImportFailed
+            } catch (e: RuntimeException) {
+                // Also a `SecurityException` or `IllegalStateException` from the content resolver (permission to the file taken back,
+                // provider gone): a message instead of only the log, and no "started" without a result (review5 P44).
+                Log.w(TAG, "Backup import failed", e)
+                TransferMessage.DatabaseImportFailed
             } finally {
                 file?.delete()
                 databaseImportRunning.set(false)
@@ -653,6 +658,10 @@ class SettingsViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
+                Log.w(TAG, "OPML export failed", e)
+                TransferMessage.ExportFailed
+            } catch (e: RuntimeException) {
+                // As with the database import (review5 P44).
                 Log.w(TAG, "OPML export failed", e)
                 TransferMessage.ExportFailed
             }
