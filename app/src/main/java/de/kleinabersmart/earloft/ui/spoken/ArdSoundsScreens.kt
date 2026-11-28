@@ -95,6 +95,17 @@ fun ArdSoundsScreen(
     // By its show, saveable: the question used to go away when the screen was rotated (review5 P51).
     var unsubscribingId by rememberSaveable { mutableStateOf<String?>(null) }
     val unsubscribing = unsubscribingId?.let { id -> subscriptions.firstOrNull { it.showId == id } }
+    // Ended elsewhere while the question was open: forget it, or it would come back with a new subscription to the show. Only once
+    // the subscription was seen: right after a rotation the list may still be loading (review5 8.12).
+    var unsubscribingSeen by remember { mutableStateOf(false) }
+    LaunchedEffect(unsubscribing != null) {
+        if (unsubscribing != null) {
+            unsubscribingSeen = true
+        } else if (unsubscribingSeen) {
+            unsubscribingSeen = false
+            unsubscribingId = null
+        }
+    }
     val category by viewModel.category.collectAsStateWithLifecycle()
     val shows by viewModel.shows.collectAsStateWithLifecycle()
     val search by viewModel.search.collectAsStateWithLifecycle()

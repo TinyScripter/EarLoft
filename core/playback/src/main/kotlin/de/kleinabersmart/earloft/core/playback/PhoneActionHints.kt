@@ -166,7 +166,8 @@ internal class PhoneActionHints @Inject constructor(
     override suspend fun isStillBlocked(action: PhoneAction, bookId: Long?): Boolean = when (action) {
         PhoneAction.SET_UP -> setupNeeded()
         PhoneAction.SIGN_IN -> bookId?.let { bookRepository.bookNow(it) }?.let { isSignedOut(it) } ?: false
-        PhoneAction.HOME_NETWORK -> isLocalNetworkPermissionMissing() &&
+        // A VPN switched on since reaches the home network without the permission, also without a book (review5 8.12).
+        PhoneAction.HOME_NETWORK -> isLocalNetworkPermissionMissing() && !hasActiveVpn(context) &&
             (bookId == null || bookRepository.bookNow(bookId)?.let { homeNetworkBlocked(bookAddresses(it)) } == true)
         PhoneAction.AUDIO_ACCESS -> !AudioPermission.isGranted(context)
     }

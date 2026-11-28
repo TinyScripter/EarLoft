@@ -124,6 +124,8 @@ class WearDownloadWorker internal constructor(
         throw e
     } catch (e: Exception) {
         Log.e(TAG, "Download run failed, retrying later", e)
+        // It waits like after a server error, not for Wi-Fi: the charger may replace the job only in the latter case (review5 P65).
+        state.setWaitingForWifi(false)
         retryLater()
     }
 

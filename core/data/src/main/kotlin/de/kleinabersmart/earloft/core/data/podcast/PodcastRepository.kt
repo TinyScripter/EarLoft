@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.data.podcast
 
 import de.kleinabersmart.earloft.core.common.foldedSortKey
+import android.database.SQLException
 import android.text.Html
 import android.util.Log
 import androidx.room.withTransaction
@@ -968,12 +969,15 @@ class PodcastRepository @Inject constructor(
     /**
      * [refreshOne], but an unexpected exception (a parser bug, an unreadable feed that throws something other than an
      * [IOException]) only fails this one feed: inside `coroutineScope`, it would cancel the parallel fetches of all the other
-     * feeds and fail every sync for as long as the feed is subscribed (review5 P3).
+     * feeds and fail every sync for as long as the feed is subscribed (review5 P3). A database error is no fault of the feed: it
+     * fails the sync as before instead of marking every subscription "not a feed" (review5 8.12).
      */
     private suspend fun refreshShielded(feed: PodcastFeedEntity): RefreshOutcome =
         try {
             refreshOne(feed.feedId)
         } catch (e: CancellationException) {
+            throw e
+        } catch (e: SQLException) {
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Sync of ${feed.title} failed unexpectedly", e)

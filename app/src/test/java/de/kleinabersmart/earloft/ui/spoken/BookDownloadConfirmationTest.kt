@@ -14,8 +14,14 @@ class BookDownloadConfirmationTest {
 
     @Test
     fun `books ask before cancelling or deleting a download, episodes do not`() {
-        assertTrue(bookRemovalNeedsConfirmation(BookKind.BOOK))
-        assertFalse(bookRemovalNeedsConfirmation(BookKind.EPISODE))
+        assertTrue(bookRemovalNeedsConfirmation(BookKind.BOOK, bytes = 1))
+        assertFalse(bookRemovalNeedsConfirmation(BookKind.EPISODE, bytes = 1))
+    }
+
+    @Test
+    fun `a book download that wrote nothing yet is cancelled without asking`() {
+        // Waiting in the queue: the dialog would say "frees 0 B" (review5 8.12).
+        assertFalse(bookRemovalNeedsConfirmation(BookKind.BOOK, bytes = 0))
     }
 
     @Test

@@ -22,19 +22,29 @@ class WidgetStateStoreTest {
     private val book = NowPlaying(songId = null, title = "Book", artist = "B", albumId = null, isPlaying = false, bookId = 7)
 
     @Test
-    fun `states from before the main database was created anew are dropped`() = runBlocking {
-        var createdAt: Long? = 1_000L
-        val store = WidgetStateStore(context) { createdAt }
-        store.save(listOf(SavedWidget(song, null, null, lastActiveAt = 2_000), SavedWidget(book, 60_000, 120_000, lastActiveAt = 3_000)))
+    fun `states saved with an earlier main database are dropped`() = runBlocking {
+        var databaseId: String? = "1000"
+        val store = WidgetStateStore(context) { databaseId }
+        // Stamped later than the new database's creation (re-saved after a restart, or the clock): the database still tells.
+        store.save(listOf(SavedWidget(song, null, null, lastActiveAt = 4_000)))
+        assertEquals(setOf(SpokenMode.MUSIC), store.load().keys)
 
-        assertEquals(setOf(SpokenMode.MUSIC, SpokenMode.BOOKS), store.load().keys)
-
-        // The database was created anew after the music played, but before the book did.
-        createdAt = 2_500L
+        // The database was created anew after the music played, and the book played since.
+        databaseId = "2500"
+        store.save(listOf(SavedWidget(book, 60_000, 120_000, lastActiveAt = 3_000)))
         assertEquals(setOf(SpokenMode.BOOKS), store.load().keys)
+    }
 
-        // Unknown creation: everything stays.
-        createdAt = null
-        assertEquals(2, store.load().size)
+    @Test
+    fun `states without a known database go by time`() = runBlocking {
+        var databaseId: String? = null
+        val store = WidgetStateStore(context) { databaseId }
+        store.save(listOf(SavedWidget(song, null, null, lastActiveAt = 2_000)))
+
+        // Only the music section: the store's file outlives a single test.
+        databaseId = "2500"
+        assertEquals("from before the database", null, store.load()[SpokenMode.MUSIC])
+        databaseId = "1500"
+        assertEquals("Song", store.load()[SpokenMode.MUSIC]?.nowPlaying?.title)
     }
 }

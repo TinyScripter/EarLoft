@@ -154,8 +154,8 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
         is ArdBookKey.Item -> {
             val byCoreId = buildJsonObject { put("coreId", buildJsonObject { put("equalTo", parsed.coreId) }) }
             // The key of a title without coreId is its (numeric) id ([toKeyInput]); looked up by coreId only, such a title could not be
-            // added (review5 P33). In one query: the API takes `or`, its `id` is an Int.
-            val id = parsed.coreId.toLongOrNull()
+            // added (review5 P33). In one query: the API takes `or`, its `id` is an Int; a longer number can't be one.
+            val id = parsed.coreId.toIntOrNull()
             fetchItems(
                 if (id == null) byCoreId
                 else buildJsonObject { put("or", buildJsonArray { add(byCoreId); add(buildJsonObject { put("id", buildJsonObject { put("equalTo", id) }) }) }) },

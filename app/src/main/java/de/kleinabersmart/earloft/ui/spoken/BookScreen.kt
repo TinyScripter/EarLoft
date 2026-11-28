@@ -191,8 +191,12 @@ fun BookScreen(
                 onDownload = viewModel::startDownload,
                 // Cancelling a book download deletes all already downloaded files too: ask with the red confirmation, like deleting
                 // (review5 P8). An episode is small and, as in the episode list, is cancelled or deleted without confirmation.
-                onCancelDownload = { if (bookRemovalNeedsConfirmation(book.kind)) confirmDelete = true else viewModel.removeDownload() },
-                onDeleteDownload = { if (bookRemovalNeedsConfirmation(book.kind)) confirmDelete = true else viewModel.removeDownload() },
+                onCancelDownload = {
+                    if (bookRemovalNeedsConfirmation(book.kind, bookDownloadBytes(download, transfer))) confirmDelete = true else viewModel.removeDownload()
+                },
+                onDeleteDownload = {
+                    if (bookRemovalNeedsConfirmation(book.kind, bookDownloadBytes(download, transfer))) confirmDelete = true else viewModel.removeDownload()
+                },
                 onOpenGroup = onOpenGroup,
                 onUpload = upload::start.takeIf { book.isArdSounds && canUpload },
                 trialNotice = trialFeedId?.let { feedId ->
@@ -434,8 +438,11 @@ internal val DownloadFailure.label: Int
         DownloadFailure.OTHER -> R.string.download_failure_other
     }
 
-/** Books (often gigabytes) ask before cancelling or deleting a download; episodes don't (review5 P8). */
-internal fun bookRemovalNeedsConfirmation(kind: BookKind): Boolean = kind != BookKind.EPISODE
+/**
+ * Books (often gigabytes) ask before cancelling or deleting a download; episodes don't (review5 P8), nor a book download that hasn't
+ * written anything yet: "frees 0 B" asks about nothing (review5 8.12).
+ */
+internal fun bookRemovalNeedsConfirmation(kind: BookKind, bytes: Long): Boolean = kind != BookKind.EPISODE && bytes > 0
 
 /** Bytes freed by cancelling or deleting a book download, including an active partial transfer. */
 internal fun bookDownloadBytes(download: BookDownload, transfer: BookTransfer?): Long =

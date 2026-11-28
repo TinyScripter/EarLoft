@@ -102,6 +102,19 @@ class WearDownloadWorkerTest {
     }
 
     @Test
+    fun `a run that failed unexpectedly no longer counts as waiting for Wi-Fi`() = runTest {
+        book(files = 1)
+        // An earlier run waited for Wi-Fi; this one fails before it looks for it (review5 P65).
+        state.setWaitingForWifi(true)
+        edges.serverCheckError = IllegalStateException("Unexpected")
+
+        assertEquals(ListenableWorker.Result.success(), runWorker())
+
+        assertTrue(retryScheduled())
+        assertFalse(state.waitingForWifi.value)
+    }
+
+    @Test
     fun `an unexpected error does not fail the run but schedules the next one`() = runTest {
         // A failed run would take a selection appended to it down with it (review4 8.6 Y29).
         book(files = 1)
@@ -239,6 +252,9 @@ class WearDownloadWorkerTest {
         var wifi = true
         var wifiUp = true
         var bookServerKnown = true
+
+        /** Thrown by [hasBookServer], before the run looks for Wi-Fi. */
+        var serverCheckError: Exception? = null
         var server: (BookTrackEntity) -> DownloadOutcome = { DownloadOutcome.Done }
         var phone: (BookTrackEntity) -> DownloadOutcome = { DownloadOutcome.Done }
         val serverCalls = mutableListOf<Int>()
@@ -275,7 +291,10 @@ class WearDownloadWorkerTest {
             bookDao.markBookTrackDone(track.bookId, track.trackIndex, file.absolutePath, file.length())
         }
 
-        override suspend fun hasBookServer(serverId: String) = bookServerKnown
+        override suspend fun hasBookServer(serverId: String): Boolean {
+            serverCheckError?.let { throw it }
+            return bookServerKnown
+        }
         override suspend fun expiringBookKeys(withinSeconds: Long) = emptyList<String>()
         override suspend fun requestCredentials(sourceIds: Collection<String>) = Unit
         override suspend fun announcePhoneWait() = Unit

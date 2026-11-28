@@ -6,6 +6,7 @@ import mockwebserver3.MockWebServer
 import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -122,6 +123,17 @@ class ArdSoundsBooksTest {
         assertEquals("Dracula", book.title)
         val request = mockServer.takeRequest().body!!.utf8()
         assertTrue(request, "\"or\":[{\"coreId\":{\"equalTo\":\"17\"}},{\"id\":{\"equalTo\":17}}]" in request)
+    }
+
+    @Test
+    fun `a number too long for an id is looked up by coreId only`() = runTest {
+        // The API's id is an Int: a larger number in the query would be rejected as a whole (review5 8.12).
+        mockServer.enqueue(MockResponse.Builder().body("""{"data":{"items":{"nodes":[]}}}""").build())
+
+        books.book("item:99999999999")
+
+        val request = mockServer.takeRequest().body!!.utf8()
+        assertFalse(request, "\"or\"" in request)
     }
 
     @Test
