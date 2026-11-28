@@ -65,6 +65,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
@@ -139,6 +140,13 @@ class PlaybackService : MediaLibraryService() {
     /** For player access (main thread). */
     private val mainScope = MainScope() + LoggingExceptionHandler
     private var restoreJob: Job? = null
+
+    /**
+     * Completed once [restoreQueue] has read the saved state and set it (or left it), or once it waits for a cast session the app
+     * reattached to: resuming playback (media button, Android Auto) doesn't need to wait for that, up to [REJOIN_WAIT_MS] for an
+     * empty receiver (review5 P15).
+     */
+    private val restoreSettled = CompletableDeferred<Unit>()
 
     private var session: MediaLibrarySession? = null
     private var sessionMix: SessionMix? = null
@@ -281,6 +289,7 @@ class PlaybackService : MediaLibraryService() {
         // Books and episodes have their own configurable skip distances, see SpokenAwarePlayer.
         val sessionPlayer = SpokenAwarePlayer(player).also { this.sessionPlayer = it }
         sessionPlayer.chapterTitle = chapterTitle
+        sessionPlayer.bookSeek = bookListener::seekBy
         // Headphones: double click or "next" to the next chapter; for episodes without a further chapter to the next episode. The
         // chapter buttons in the notification and Auto make the same jumps (M4).
         val nextChapter = {
@@ -302,9 +311,10 @@ class PlaybackService : MediaLibraryService() {
             onStartMix = { sessionMix?.start() ?: false },
             onRootBrowsed = { phoneActions?.onRootBrowsed() },
             onSpokenNotPlayable = { bookId -> phoneActions?.onSpokenNotPlayable(bookId) },
+            onCarDisconnected = { phoneActions?.onCarDisconnected() },
             onSeekBookTrack = { trackIndex, positionMs -> bookListener.seekToTrack(trackIndex, positionMs) },
         ) {
-            restoreJob?.join()
+            restoreSettled.await()
         }
         // Before the first playback: the media card and lock screen load the cover via the CoverProvider.
         callback.grantSystemUiCoverAccess()
@@ -581,7 +591,10 @@ class PlaybackService : MediaLibraryService() {
      */
     private fun restoreQueue(player: Player) {
         restoreJob = mainScope.launch {
-            suspend fun taken() = !awaitLocal(player, REJOIN_WAIT_MS) || player.mediaItemCount > 0
+            suspend fun taken(): Boolean {
+                if (player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) restoreSettled.complete(Unit)
+                return !awaitLocalOrQueued(player, REJOIN_WAIT_MS) || player.mediaItemCount > 0
+            }
             // If a book or episode played last, it is loaded (paused) instead of the music queue.
             val lastBookId = queuePersistence.lastBookId()
             if (lastBookId != null) {
@@ -599,7 +612,7 @@ class PlaybackService : MediaLibraryService() {
             player.shuffleModeEnabled = restored.shuffle
             player.repeatMode = restored.repeatMode
             player.setMediaItems(restored.items, restored.startIndex, restored.startPositionMs)
-        }
+        }.also { job -> job.invokeOnCompletion { restoreSettled.complete(Unit) } }
     }
 
     /** Removes titles from the queue whose song no longer exists (e.g. server removed). */
@@ -951,20 +964,30 @@ private const val SESSION_MIX_SERVER_TIMEOUT_MS = 1_200L
 /** Reattaching to a cast session after start can take this long (discovery and connecting). */
 private const val REJOIN_WAIT_MS = 45_000L
 
-/** Main thread. Waits at most [timeoutMs] until [player] plays on the device again; `false` if it stays cast. */
-private suspend fun awaitLocal(player: Player, timeoutMs: Long): Boolean = withTimeoutOrNull(timeoutMs) {
-    callbackFlow {
-        val listener = object : Player.Listener {
-            override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
-                trySend(deviceInfo.playbackType)
+/**
+ * Main thread. Waits at most [timeoutMs] until [player] plays on the device again, or, cast, the receiver of a reattached session
+ * reports its titles: then there is nothing left to wait for (review5 P15). `true` if it plays on the device.
+ */
+internal suspend fun awaitLocalOrQueued(player: Player, timeoutMs: Long): Boolean {
+    fun settled() = player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE || player.mediaItemCount > 0
+    withTimeoutOrNull(timeoutMs) {
+        callbackFlow {
+            val listener = object : Player.Listener {
+                override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
+                    trySend(settled())
+                }
+
+                override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                    trySend(settled())
+                }
             }
-        }
-        player.addListener(listener)
-        send(player.deviceInfo.playbackType)
-        awaitClose { player.removeListener(listener) }
-    }.first { it != DeviceInfo.PLAYBACK_TYPE_REMOTE }
-    true
-} ?: false
+            player.addListener(listener)
+            send(settled())
+            awaitClose { player.removeListener(listener) }
+        }.first { it }
+    }
+    return player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE
+}
 
 /** Main thread. Whether a book or episode is the current item of [player], on every change. */
 private fun spokenLoaded(player: Player): Flow<Boolean> = callbackFlow {

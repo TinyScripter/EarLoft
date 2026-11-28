@@ -46,6 +46,16 @@ fun <T> queueWindow(items: List<T>, startIndex: Int, maxSize: Int, shuffle: Bool
 }
 
 /**
+ * [items] for a player that knows no shuffle and only plays forward (the cast receiver): the start title first, then all others in
+ * random order.
+ */
+fun <T> castShuffleOrder(items: List<T>, startIndex: Int, random: Random = Random): List<T> {
+    if (items.isEmpty()) return items
+    val start = startIndex.coerceIn(items.indices)
+    return (listOf(start) + (items.indices - start).shuffled(random)).map(items::get)
+}
+
+/**
  * [items] with the current one at [currentIndex] put back into the list order of [original] (after casting with shuffle,
  * [queueWindow]); titles not in [original] follow in their order. A title that occurs more than once is matched in turn.
  * @return the list and the new index of the current title (negative stays as it is).

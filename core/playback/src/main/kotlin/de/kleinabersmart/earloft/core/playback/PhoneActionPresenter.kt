@@ -42,6 +42,9 @@ internal interface PhoneActionSink {
 
     /** Sets or clears the platform session's error state; returns `false` if no notification controller is connected. */
     fun setErrorState(exception: PlaybackException?): Boolean
+
+    /** Whether Android Auto or Android Automotive is connected to the session. */
+    val carConnected: Boolean
 }
 
 @OptIn(UnstableApi::class)
@@ -56,6 +59,9 @@ internal class SessionPhoneActionSink(private val session: MediaSession) : Phone
         session.setPlaybackException(controller, exception)
         return true
     }
+
+    override val carConnected: Boolean
+        get() = session.connectedControllers.any { session.isAutoCompanionController(it) || session.isAutomotiveController(it) }
 }
 
 /**
@@ -71,6 +77,8 @@ internal class SessionPhoneActionSink(private val session: MediaSession) : Phone
  * The error state takes the car all controls but the metadata (Media3 keeps only the `COMMAND_GET_*` commands). So it is only set
  * while there is nothing to control: an empty queue or a player in an error state. Otherwise (a book fails while music plays or is
  * paused) the hint goes out as a non-fatal error, which Android Auto shows as a message and the controls stay.
+ * The platform session also feeds the media card of the quick settings, the lock screen and a paired watch: without a car connected
+ * the hint is only ever a non-fatal error, and one shown goes when the car disconnects ([onCarDisconnected]; review5 P10).
  * - Nothing set up at all ([onRootBrowsed], Android Auto opens the app): shown while the queue is empty, gone with the first title.
  */
 @OptIn(UnstableApi::class)
@@ -128,6 +136,12 @@ internal class PhoneActionPresenter(
         scope.launch { hints.forUnplayableBook(bookId)?.let { show(it, cause = null, bookId = bookId) } }
     }
 
+    /** The car went away: the media card and the lock screen get their controls back. */
+    fun onCarDisconnected() {
+        // Posted: the session may still list the controller while it reports the disconnect. A second car stays served.
+        scope.launch { if (!sink.carConnected) clear() }
+    }
+
     /** A permission was granted or an Audiobookshelf sign-in changed: clear a stuck hint if its cause is gone (review5 P12). */
     fun onCauseMayBeResolved() {
         val action = shown ?: return
@@ -149,7 +163,7 @@ internal class PhoneActionPresenter(
             }
         }
         val message = context.getString(action.message)
-        if (!hintAsErrorState(player.mediaItemCount, player.playerError)) {
+        if (!sink.carConnected || !hintAsErrorState(player.mediaItemCount, player.playerError)) {
             Log.d(TAG, "Hint for the car as a message: $action")
             sink.sendNonFatalError(message, extras)
             return

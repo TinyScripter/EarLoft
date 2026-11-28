@@ -377,6 +377,17 @@ internal class BookPlaybackListener(
         return true
     }
 
+    /**
+     * Seeks [deltaMs] from the current position in the loaded book, also to a file outside the cast window ([seekToTrack]); "-10 s" at
+     * the start of the window's first file went to its start instead of into the previous file (review5 P13). `false` without a
+     * loaded book or timeline.
+     */
+    fun seekBy(deltaMs: Long): Boolean {
+        val (_, timeline, position) = current() ?: return false
+        if (timeline.durationMs <= 0) return false
+        return seekInBook(timeline, (position + deltaMs).coerceIn(0, timeline.durationMs))
+    }
+
     /** Timeline and book position of the loaded book or episode; `null` for music and while the timeline is loading. */
     private fun current(): Triple<MediaItem, BookTimeline, Long>? {
         val item = player.currentMediaItem ?: return null
@@ -524,7 +535,9 @@ internal class BookPlaybackListener(
         // The first seek after a held-back adopting jump decides: either it is that jump, or the user was quicker.
         val held = heldAdoption.takeIf { !adopting }?.also { heldAdoption = null }
         if (held != null && seekedBookId != null && held.matches(seekedBookId, seeked.bookTrackIndex ?: 0, newPosition.positionMs)) {
-            touched -= seekedBookId
+            // Played meanwhile (cast, the jump came only after "play"): the book is touched here again, its position from now on
+            // is this device's state; untouched, neither the 15 s beat nor the next pause would save it (review5 P16).
+            if (!player.playWhenReady) touched -= seekedBookId
             return
         }
         seekedBookId?.let { touched += it }

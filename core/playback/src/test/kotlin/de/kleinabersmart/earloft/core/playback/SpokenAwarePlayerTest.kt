@@ -64,6 +64,34 @@ class SpokenAwarePlayerTest {
     }
 
     @Test
+    fun `beyond the first or last file the player holds the book seeks itself`() {
+        // Casting a book with many files: the player holds a window, its first file has no previous one (review5 P13).
+        val player = SpokenAwarePlayer(FakePlayer(item("book:1/7", MediaMetadata.MEDIA_TYPE_AUDIO_BOOK_CHAPTER), positionMs = 3_000))
+        val asked = mutableListOf<Long>()
+        player.bookSeek = { delta -> asked += delta; true }
+
+        player.seekBack()
+        assertEquals(listOf(-10_000L), asked)
+        assertEquals(3_000L, player.currentPosition)
+
+        player.seekTo(FakePlayer.DURATION_MS - 5_000)
+        player.seekForward()
+        assertEquals(listOf(-10_000L, 30_000L), asked)
+
+        // Within the file the player seeks as before.
+        player.seekTo(60_000)
+        player.seekBack()
+        assertEquals(50_000L, player.currentPosition)
+        assertEquals(2, asked.size)
+
+        // The book can't: to the start of the file as before.
+        player.bookSeek = { false }
+        player.seekTo(3_000)
+        player.seekBack()
+        assertEquals(0L, player.currentPosition)
+    }
+
+    @Test
     fun `music keeps the player's own steps`() {
         val player = SpokenAwarePlayer(FakePlayer(item("song:1", MediaMetadata.MEDIA_TYPE_MUSIC), positionMs = 60_000))
 

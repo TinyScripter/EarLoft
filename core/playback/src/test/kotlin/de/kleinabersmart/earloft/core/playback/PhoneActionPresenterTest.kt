@@ -107,10 +107,34 @@ class PhoneActionPresenterTest {
         assertSame(defaultResolution, signInAttached)
     }
 
+    @Test
+    fun `without a car the hint is only a message and the media card keeps its controls`() {
+        val sink = RecordingSink(carConnected = false)
+        val presenter = presenter(sink, EmptyPlayer(), FakeState(unplayable = PhoneAction.AUDIO_ACCESS, stillBlocked = true))
+
+        presenter.onSpokenNotPlayable(bookId = 5L)
+
+        assertNull(sink.errorState)
+        assertEquals(1, sink.nonFatal.size)
+    }
+
+    @Test
+    fun `a hint shown in the car goes when the car disconnects`() {
+        val sink = RecordingSink()
+        val presenter = presenter(sink, EmptyPlayer(), FakeState(unplayable = PhoneAction.SIGN_IN, stillBlocked = true))
+        presenter.onSpokenNotPlayable(bookId = 5L)
+        assertNotNull(sink.errorState)
+
+        sink.carConnected = false
+        presenter.onCarDisconnected()
+
+        assertNull(sink.errorState)
+    }
+
     private fun presenter(sink: RecordingSink, player: SimpleBasePlayer, state: FakeState) =
         PhoneActionPresenter(context, sink, player, state, TestScope(UnconfinedTestDispatcher())) { null }
 
-    private class RecordingSink : PhoneActionSink {
+    private class RecordingSink(override var carConnected: Boolean = true) : PhoneActionSink {
         var errorState: PlaybackException? = null
         val nonFatal = mutableListOf<String>()
 

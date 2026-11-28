@@ -99,6 +99,8 @@ internal class LibrarySessionCallback(
     private val onRootBrowsed: () -> Unit = {},
     /** A book or episode could not be prepared ([PhoneActionPresenter.onSpokenNotPlayable]); on the main thread. */
     private val onSpokenNotPlayable: (bookId: Long) -> Unit = {},
+    /** Android Auto or Automotive disconnected ([PhoneActionPresenter.onCarDisconnected]); on the main thread. */
+    private val onCarDisconnected: () -> Unit = {},
     /** [ACTION_SEEK_BOOK_TRACK]; on the main thread, `false` if there is no such file. */
     private val onSeekBookTrack: (trackIndex: Int, positionMs: Long) -> Boolean = { _, _ -> false },
     /** Waits until the service has restored the last queue ([PlaybackService.restoreQueue]). */
@@ -137,13 +139,17 @@ internal class LibrarySessionCallback(
         LibraryResult.ofItemList(paged, params)
     }
 
+    override fun onDisconnected(session: MediaSession, controller: MediaSession.ControllerInfo) {
+        if (session.isAutoCompanionController(controller) || session.isAutomotiveController(controller)) onCarDisconnected()
+    }
+
     override fun onSearch(
         session: MediaLibrarySession,
         browser: MediaSession.ControllerInfo,
         query: String,
         params: LibraryParams?,
     ): ListenableFuture<LibraryResult<Void>> = scope.future {
-        session.notifySearchResultChanged(browser, query, searchResults(query).size, params)
+        session.notifySearchResultChanged(browser, query, searchResults(query, fresh = true).size, params)
         LibraryResult.ofVoid()
     }
 
@@ -155,23 +161,16 @@ internal class LibrarySessionCallback(
         pageSize: Int,
         params: LibraryParams?,
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future {
-        val items = searchResults(query)
+        val items = searchResults(query, fresh = false)
         LibraryResult.ofItemList(items.drop(page * pageSize).take(pageSize), params)
     }
 
-    /**
-     * Last searched term along with the enabled areas and its results: [onSearch] is immediately followed by
-     * [onGetSearchResult], often page by page.
-     */
-    private var lastSearch: Pair<Pair<String, List<SpokenMode>>, List<MediaItem>>? = null
+    /** Keyed by the term along with the enabled areas. Runs on the main thread (scope), so it needs no lock. */
+    private val lastSearch = LastSearch<Pair<String, List<SpokenMode>>, List<MediaItem>>()
 
-    /** Runs on the main thread (scope), so [lastSearch] needs no lock. */
-    private suspend fun searchResults(query: String): List<MediaItem> {
+    private suspend fun searchResults(query: String, fresh: Boolean): List<MediaItem> {
         val key = query to browseTree.areas()
-        lastSearch?.takeIf { it.first == key }?.let { return it.second }
-        val items = browseTree.search(query)
-        lastSearch = key to items
-        return items
+        return if (fresh) lastSearch.fresh(key) { browseTree.search(query) } else lastSearch.page(key) { browseTree.search(query) }
     }
 
     /**
@@ -427,7 +426,7 @@ internal class LibrarySessionCallback(
         val item = mediaItems.singleOrNull() ?: return mediaItems to startIndex
         val folderId = MediaIds.contextOf(item.mediaId) ?: return mediaItems to startIndex
         val songs = browseTree.songsOf(folderId) ?: return mediaItems to startIndex
-        val index = songs.indexOfFirst { it.id == item.songId }
+        val index = startIndexIn(songs.map { it.id }, item.mediaId)
         if (index < 0) return mediaItems to startIndex
         return songs.map { it.toMediaItem() } to index
     }
@@ -632,6 +631,16 @@ internal fun controllerCommands(trusted: Boolean): ControllerCommands = if (trus
             .removeAll(Player.COMMAND_SET_MEDIA_ITEM, Player.COMMAND_CHANGE_MEDIA_ITEMS)
             .build(),
     )
+}
+
+/**
+ * Where in the folder's [songIds] the tapped song [mediaId] starts: at the position the browse tree gave it if the same song is still
+ * there (a playlist may hold it twice, review5 P17), otherwise at its first occurrence; `-1` if it isn't in the folder anymore.
+ */
+internal fun startIndexIn(songIds: List<Long>, mediaId: String): Int {
+    val songId = MediaIds.songId(mediaId) ?: return -1
+    MediaIds.positionOf(mediaId)?.takeIf { songIds.getOrNull(it) == songId }?.let { return it }
+    return songIds.indexOf(songId)
 }
 
 /** Start of a replaced queue: index in the kept titles and position in it. */

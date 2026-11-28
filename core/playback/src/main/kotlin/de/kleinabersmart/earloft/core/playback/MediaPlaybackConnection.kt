@@ -237,15 +237,7 @@ class MediaPlaybackConnection @Inject constructor(
     override fun play(songs: List<Song>, startIndex: Int, shuffle: Boolean) = withController {
         if (songs.isEmpty()) return@withController
         val index = if (shuffle) songs.indices.random() else startIndex.coerceIn(songs.indices)
-        if (shuffle && deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) {
-            // The cast receiver knows no shuffle and plays in list order: started at a random place, the titles before it never
-            // came (review G42). Like at the handover (E11) the list goes over already shuffled, with the start title first.
-            val order = listOf(index) + (songs.indices - index).shuffled()
-            setMediaItems(order.map { songs[it].toMediaItem() }, 0, 0)
-        } else {
-            shuffleModeEnabled = shuffle
-            setMediaItems(songs.map { it.toMediaItem() }, index, 0)
-        }
+        setQueue(songs.map { it.toMediaItem() }, index, 0, shuffle)
         prepare()
         playSetItems()
     }
@@ -277,12 +269,26 @@ class MediaPlaybackConnection @Inject constructor(
             // A title other than the saved one starts from the beginning.
             val start = index?.takeIf { it in restored.items.indices && it != restored.startIndex }
             useController {
-                shuffleModeEnabled = restored.shuffle
                 repeatMode = restored.repeatMode
-                setMediaItems(restored.items, start ?: restored.startIndex, if (start != null) 0 else restored.startPositionMs)
+                // While casting with shuffle, shuffled here too (review5 P14).
+                setQueue(restored.items, start ?: restored.startIndex, if (start != null) 0 else restored.startPositionMs, restored.shuffle)
                 prepare()
                 playSetItems()
             }
+        }
+    }
+
+    /**
+     * Sets a new music queue with [shuffle]. The cast receiver knows no shuffle and plays in list order: started at a random place,
+     * the titles before it never came (review G42), and a resumed queue played in list order (review5 P14). Like at the handover
+     * (E11) the list goes over already shuffled, with the start title first ([castShuffleOrder]).
+     */
+    private fun MediaController.setQueue(items: List<MediaItem>, startIndex: Int, startPositionMs: Long, shuffle: Boolean) {
+        if (shuffle && deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) {
+            setMediaItems(castShuffleOrder(items, startIndex), 0, startPositionMs)
+        } else {
+            shuffleModeEnabled = shuffle
+            setMediaItems(items, startIndex, startPositionMs)
         }
     }
 

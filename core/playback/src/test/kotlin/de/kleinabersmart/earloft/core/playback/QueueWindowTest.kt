@@ -17,6 +17,18 @@ class QueueWindowTest {
     }
 
     @Test
+    fun `a queue resumed with shuffle while casting goes over shuffled with the saved title first`() {
+        // review5 P14: the receiver knows no shuffle; a resumed queue of up to 50 titles used to play in list order.
+        val queue = (0 until 20).toList()
+        val order = castShuffleOrder(queue, 7, Random(3))
+
+        assertEquals(7, order.first())
+        assertEquals(queue, order.sorted())
+        assertNotEquals(queue - 7, order.drop(1))
+        assertEquals(emptyList<Int>(), castShuffleOrder(emptyList<Int>(), 0))
+    }
+
+    @Test
     fun `shuffled a short queue starts with the start item and keeps nothing before it`() {
         val window = queueWindow(items, 42, maxSize = 100, shuffle = true, random = Random(1))
 

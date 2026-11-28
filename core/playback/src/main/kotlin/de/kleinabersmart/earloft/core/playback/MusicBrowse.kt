@@ -37,7 +37,8 @@ internal class MusicBrowse @Inject constructor(
             libraryRepository.albumsOfGenre(MediaIds.genreName(parentId)!!).first().map { it.toBrowsableMediaItem(context) }
         MediaIds.artistId(parentId) != null ->
             libraryRepository.artist(MediaIds.artistId(parentId)!!).first()?.albums.orEmpty().map { it.toBrowsableMediaItem(context) }
-        else -> songsOf(parentId)?.map { it.toBrowsableSongItem(context, parentId) }
+        // With the position: a playlist may hold a song twice (review5 P17).
+        else -> songsOf(parentId)?.mapIndexed { position, song -> song.toBrowsableSongItem(context, parentId, position) }
     }
 
     /**

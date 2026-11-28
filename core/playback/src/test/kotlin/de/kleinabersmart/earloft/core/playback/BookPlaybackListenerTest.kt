@@ -357,6 +357,32 @@ class BookPlaybackListenerTest {
     }
 
     @Test
+    fun `a held-back jump that arrives only after play is saved again when playback stops`() = runBlocking {
+        val bookId = book()
+        load(bookId, positionMs = 300_000)
+        player.play()
+        idle()
+        player.pause()
+        eventually { assertEquals(300_000L, runBlocking { progress(bookId) }?.positionMs) }
+
+        holding.holdSeeks = true
+        Thread.sleep(20)
+        val foreignAt = System.currentTimeMillis()
+        db.bookDao().upsertProgress(progress(bookId)!!.copy(positionMs = 120_000, updatedAt = foreignAt))
+        eventually { assertEquals(1, holding.held.size) }
+        Thread.sleep(20)
+        // "Play" before the receiver carries out the jump (review5 P16).
+        player.play()
+        idle()
+        holding.releaseSeeks()
+        eventually { assertEquals(120_000L, player.currentPosition) }
+
+        player.pause()
+        eventually { assertTrue(runBlocking { progress(bookId) }!!.updatedAt > foreignAt) }
+        assertEquals(120_000L, progress(bookId)!!.positionMs)
+    }
+
+    @Test
     fun `scrubbing a paused book close to the end does not finish it`() = runBlocking {
         val bookId = book()
         load(bookId, positionMs = 300_000)

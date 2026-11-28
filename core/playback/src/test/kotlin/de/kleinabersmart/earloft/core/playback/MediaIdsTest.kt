@@ -30,6 +30,23 @@ class MediaIdsTest {
     }
 
     @Test
+    fun `a tap on the second occurrence of a song in a playlist starts there`() {
+        val playlist = listOf(1L, 42L, 3L, 42L)
+        val second = MediaIds.inContext(MediaIds.playlist(9), 42, position = 3)
+        assertEquals(42L, MediaIds.songId(second))
+        assertEquals(MediaIds.playlist(9), MediaIds.contextOf(second))
+
+        assertEquals(3, startIndexIn(playlist, second))
+        assertEquals(1, startIndexIn(playlist, MediaIds.inContext(MediaIds.playlist(9), 42, position = 1)))
+        // The playlist changed since Auto listed it: the song where it is now; gone, nothing.
+        assertEquals(1, startIndexIn(listOf(1L, 42L), second))
+        assertEquals(-1, startIndexIn(listOf(1L, 3L), second))
+        // Older ids without a position, and a search query with a hash in it.
+        assertEquals(1, startIndexIn(playlist, MediaIds.inContext(MediaIds.playlist(9), 42)))
+        assertEquals(7L, MediaIds.songId(MediaIds.inContext(MediaIds.search("C#/D"), 7, position = 0)))
+    }
+
+    @Test
     fun `plain ids have no folder`() {
         assertNull(MediaIds.contextOf(MediaIds.song(42)))
         assertNull(MediaIds.contextOf(MediaIds.album(7)))

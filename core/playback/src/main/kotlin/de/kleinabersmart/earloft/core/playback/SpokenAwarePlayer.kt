@@ -37,6 +37,12 @@ internal class SpokenAwarePlayer(player: Player) : ForwardingPlayer(player) {
             reportIncrements()
         }
 
+    /**
+     * Seeks by the given milliseconds from the current position in the loaded book, also to files the player doesn't hold: while casting it holds
+     * only a window of a book with many files (review5 P13). `false` if that is not possible. Main thread.
+     */
+    var bookSeek: ((deltaMs: Long) -> Boolean)? = null
+
     /** Chapter of the current book or episode; only set on the main thread. */
     var chapterTitle: String? = null
         set(value) {
@@ -131,10 +137,13 @@ internal class SpokenAwarePlayer(player: Player) : ForwardingPlayer(player) {
         if (flags.size() > 0) listeners.toList().forEach { it.onEvents(this, Player.Events(flags)) }
     }
 
-    /** Also seeks across file boundaries (audiobook made of several MP3 files). */
+    /** Also seeks across file boundaries (audiobook made of several MP3 files), beyond the player's window too ([bookSeek]). */
     private fun seekByMs(deltaMs: Long) {
         val target = currentPosition + deltaMs
         val duration = duration
+        val beyondFile = target < 0 || (duration != C.TIME_UNSET && target > duration)
+        val neighbor = if (target < 0) hasPreviousMediaItem() else hasNextMediaItem()
+        if (beyondFile && !neighbor && bookSeek?.invoke(deltaMs) == true) return
         when {
             target < 0 && hasPreviousMediaItem() -> {
                 val previousDuration = getMediaItemAt(currentMediaItemIndex - 1).mediaMetadata.durationMs

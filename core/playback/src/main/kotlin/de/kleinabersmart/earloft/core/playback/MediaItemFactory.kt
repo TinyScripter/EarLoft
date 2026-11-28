@@ -66,6 +66,7 @@ internal object MediaIds {
     private const val PODCASTS_PREFIX = "podcasts:"
     private const val BOOKS_PREFIX = "books:"
     private const val CONTEXT_SEPARATOR = '/'
+    private const val POSITION_SEPARATOR = '#'
 
     private val MUSIC_FOLDERS = setOf(MUSIC, ALBUMS, ARTISTS, GENRES, PLAYLISTS, FAVORITES, FAVORITE_ALBUMS, FAVORITE_ARTISTS, RECENT, LIBRARY)
     private val MUSIC_PREFIXES = listOf(SONG_PREFIX, ALBUM_PREFIX, ARTIST_PREFIX, GENRE_PREFIX, PLAYLIST_PREFIX, SEARCH_PREFIX)
@@ -109,13 +110,22 @@ internal object MediaIds {
     fun search(query: String) = "$SEARCH_PREFIX$query"
     fun searchQuery(mediaId: String): String? = mediaId.removePrefix(SEARCH_PREFIX).takeIf { mediaId.startsWith(SEARCH_PREFIX) }
 
-    /** Song [songId] as an entry of the folder [contextId]. */
-    fun inContext(contextId: String, songId: Long) = "$contextId$CONTEXT_SEPARATOR${song(songId)}"
+    /**
+     * Song [songId] as an entry of the folder [contextId], at [position] in it: a playlist may hold the same song twice, and a tap on
+     * the second one starts there (review5 P17).
+     */
+    fun inContext(contextId: String, songId: Long, position: Int? = null) =
+        "$contextId$CONTEXT_SEPARATOR${song(songId)}" + (position?.let { "$POSITION_SEPARATOR$it" } ?: "")
+
+    /** The position [inContext] gave the song in its folder; `null` if none. */
+    fun positionOf(mediaId: String): Int? =
+        mediaId.substringAfterLast(CONTEXT_SEPARATOR).substringAfter(POSITION_SEPARATOR, "").toIntOrNull()
 
     /** The folder in which a song was offered; `null` for a plain song ID. */
     fun contextOf(mediaId: String): String? = mediaId.substringBeforeLast(CONTEXT_SEPARATOR, "").ifEmpty { null }
 
-    fun songId(mediaId: String): Long? = idAfter(SONG_PREFIX, mediaId.substringAfterLast(CONTEXT_SEPARATOR))
+    fun songId(mediaId: String): Long? =
+        idAfter(SONG_PREFIX, mediaId.substringAfterLast(CONTEXT_SEPARATOR).substringBefore(POSITION_SEPARATOR))
     fun albumId(mediaId: String): Long? = idAfter(ALBUM_PREFIX, mediaId)
     fun artistId(mediaId: String): Long? = idAfter(ARTIST_PREFIX, mediaId)
     fun playlistId(mediaId: String): Long? = idAfter(PLAYLIST_PREFIX, mediaId)
@@ -141,8 +151,8 @@ val MediaMetadata.albumIdExtra: Long? get() = extras?.getLong(EXTRA_ALBUM_ID, -1
  */
 fun Song.toMediaItem(): MediaItem = toMediaItem(MediaIds.song(id), CoverProvider.queueCoverUri(albumId))
 
-internal fun Song.toBrowsableSongItem(context: Context, contextId: String): MediaItem =
-    toMediaItem(MediaIds.inContext(contextId, id), CoverProvider.albumCoverUri(context, albumId))
+internal fun Song.toBrowsableSongItem(context: Context, contextId: String, position: Int? = null): MediaItem =
+    toMediaItem(MediaIds.inContext(contextId, id, position), CoverProvider.albumCoverUri(context, albumId))
 
 private fun Song.toMediaItem(mediaId: String, artworkUri: Uri): MediaItem {
     val extras = Bundle().apply { putLong(EXTRA_ALBUM_ID, albumId) }
