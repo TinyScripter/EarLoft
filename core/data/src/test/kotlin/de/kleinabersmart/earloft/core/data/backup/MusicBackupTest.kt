@@ -30,11 +30,13 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class MusicBackupTest {
@@ -377,6 +379,39 @@ class MusicBackupTest {
         backup.applyFirst(user.userDataDao().snapshot())
 
         assertEquals(before, main.playlistDao().getSongIds(playlistId))
+    }
+
+    @Test
+    fun `the watch is held while restored selections wait for their songs, until the servers are synced or a day has passed`() = runTest {
+        fillOldDevice()
+        backupFor(main).mirror()
+        val saved = user.userDataDao().snapshot()
+        val restoredAt = 1_000_000L
+        val day = 24 * 60 * 60_000L
+        val marker = File(context.noBackupFilesDir, "user_data_restored")
+        val newDevice = newDatabase()
+        try {
+            marker.createNewFile()
+            marker.setLastModified(restoredAt)
+            sources(newDevice)
+            val backup = backupFor(newDevice)
+            backup.restore(saved)
+            backup.applyFirst(saved)
+
+            assertEquals(restoredAt + day, backup.watchHoldUntil(now = restoredAt + 1))
+            assertNull("a day at most", backup.watchHoldUntil(now = restoredAt + day))
+            newDevice.sourceDao().setSyncGeneration("nav", 1, restoredAt + 1)
+            assertNull("every server synced since the restore", backup.watchHoldUntil(now = restoredAt + 2))
+
+            newDevice.sourceDao().setSyncGeneration("nav", 1, 0)
+            val album = album(newDevice, "element of crime", "damals hinterm mond")
+            song(newDevice, album, 1, "damals hinterm mond")
+            backup.applyFirst(saved)
+            assertNull("all selections are back", backup.watchHoldUntil(now = restoredAt + 1))
+        } finally {
+            newDevice.close()
+            marker.delete()
+        }
     }
 
     @Test

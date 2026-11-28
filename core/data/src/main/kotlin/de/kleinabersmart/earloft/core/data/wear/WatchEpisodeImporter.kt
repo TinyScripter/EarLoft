@@ -61,9 +61,22 @@ class WatchEpisodeImporter @Inject constructor(
     private val importedPackets = ImportedPackets(context, PREFERENCES)
     private val mutex = Mutex()
 
-    /** @return number of adopted progress entries; ones older than the phone's and unknown ones don't count. */
-    suspend fun import(packetId: String, progress: List<WatchEpisodeProgress>, listening: List<WatchEpisodeListening>): Int = mutex.withLock {
+    /**
+     * @return number of adopted progress entries; ones older than the phone's and unknown ones don't count. `null` if
+     *   [deferUnknown] and an episode or book is not known (yet): nothing is adopted, and the packet may come again (after a
+     *   restore, until its subscriptions and servers are synced, review5 P1).
+     */
+    suspend fun import(
+        packetId: String,
+        progress: List<WatchEpisodeProgress>,
+        listening: List<WatchEpisodeListening>,
+        deferUnknown: Boolean = false,
+    ): Int? = mutex.withLock {
         if (packetId in importedPackets) return 0
+        if (deferUnknown) {
+            val keys = progress.map { it.feedId to it.guid } + listening.map { it.feedId to it.guid }
+            if (keys.distinct().any { (feedId, guid) -> bookDao.bookByRemote(feedId, guid) == null }) return null
+        }
         var applied = 0
         val toServer = mutableListOf<Long>()
         val toSessions = mutableListOf<SessionTime>()

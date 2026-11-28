@@ -34,6 +34,9 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onEach
@@ -116,6 +119,16 @@ class UserDataBackup @Inject constructor(
     /** Backed-up episode downloads are pending again; `EpisodeDownloads` then starts its job. */
     val downloadsQueued: Flow<Unit> = _downloadsQueued
 
+    private val watchHold = MutableStateFlow(true)
+
+    /**
+     * `true` while the watch must not learn the phone's state yet (review5 P1): until the restore at startup and the first apply
+     * have run, and afterwards as long as backed-up watch selections still wait for their songs – until every server has been
+     * fully synced since the restore, at most [WATCH_HOLD_MS]. Otherwise the freshly installed phone would tell the watch that
+     * everything is gone, and the watch would delete its downloads, and drop listening history for songs not known here yet.
+     */
+    val holdsWatch: StateFlow<Boolean> = watchHold.asStateFlow()
+
     /** Mirroring and applying read and write the same rows. */
     private val mutex = Mutex()
 
@@ -157,6 +170,7 @@ class UserDataBackup @Inject constructor(
                 applyFirst(saved)
             } finally {
                 firstApplied.complete(Unit)
+                launch { releaseWatchHold() }
             }
             launch { restoreArdBooks() }
             launch { applyWhenLibraryChanges() }
@@ -305,6 +319,41 @@ class UserDataBackup @Inject constructor(
             Log.e(TAG, "User data could not be applied", e)
             mutex.withLock { waiting = Waiting(saved, Pending.of(saved)) }
         }
+    }
+
+    /**
+     * Keeps [holdsWatch] up to date until it is released: on every change of the library and the servers (the last full sync
+     * after a restore may change no song), and at the deadline at the latest. Runs again after [restoreInsteadOfMirroring].
+     */
+    private suspend fun releaseWatchHold() {
+        while (true) {
+            val hold = try {
+                watchHoldUntil()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Watch hold not checked", e)
+                null
+            }
+            watchHold.value = hold != null
+            if (hold == null) return
+            withTimeoutOrNull((hold - System.currentTimeMillis()).coerceAtLeast(1)) {
+                database.invalidationTracker.createFlow(*WATCH_HOLD_TABLES, emitInitialState = false).first()
+            }
+            delay(APPLY_INTERVAL_MS)
+        }
+    }
+
+    /** Until when the watch is held ([holdsWatch]); `null` = not (anymore). */
+    internal suspend fun watchHoldUntil(now: Long = System.currentTimeMillis()): Long? {
+        if (waiting?.pending?.wearSelections.isNullOrEmpty()) return null
+        val restoredAt = withContext(Dispatchers.IO) {
+            File(context.noBackupFilesDir, RESTORED_MARKER).takeIf { it.exists() }?.lastModified()
+        } ?: return null
+        val until = restoredAt + WATCH_HOLD_MS
+        if (now >= until) return null
+        // Once every server has been fully synced since the restore, what still waits has no songs anymore.
+        return until.takeIf { sourceDao.getServers().any { it.lastFullSyncAt < restoredAt } }
     }
 
     /** Under [mutex]: applies and remembers the rest for later. */
@@ -494,9 +543,11 @@ class UserDataBackup @Inject constructor(
     private suspend fun restoreInsteadOfMirroring() {
         val saved = readUser()
         restoreFromBackup(saved)
+        watchHold.value = true
         applyAndWait(saved, pendingOf(saved))
         mirrored = null
         scope.launch { restoreArdBooks() }
+        scope.launch { releaseWatchHold() }
     }
 
     /**
@@ -937,6 +988,10 @@ class UserDataBackup @Inject constructor(
         const val FULL_READ_INTERVAL_MS = 30 * 60_000L
         val MUSIC_TABLES = arrayOf("songs", "albums", "artists", "playlists", "playlist_entries", "play_events", "wear_selections")
         const val APPLY_INTERVAL_MS = 5_000L
+
+        /** The longest the watch waits for its restored selections ([holdsWatch]); a full sync takes hours at most. */
+        const val WATCH_HOLD_MS = 24 * 60 * 60_000L
+        val WATCH_HOLD_TABLES = arrayOf("sources", "songs", "wear_selections")
         const val ARD_ATTEMPTS = 3
         const val ARD_RETRY_MS = 30_000L
         const val MAX_ARGS = 500

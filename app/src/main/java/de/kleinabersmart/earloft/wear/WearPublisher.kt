@@ -5,6 +5,7 @@ import android.util.Log
 import com.google.android.gms.wearable.DataClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.R
+import de.kleinabersmart.earloft.core.data.backup.UserDataBackup
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.data.spoken.SeekSteps
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
@@ -30,7 +31,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -53,6 +56,7 @@ class WearPublisher @Inject constructor(
     private val watchSpoken: WatchSpoken,
     private val audiobookshelf: AudiobookshelfServers,
     private val spokenSettings: SpokenSettings,
+    private val userDataBackup: UserDataBackup,
 ) {
     /** Last written manifest; `null` = still check with the Data Layer. */
     private var publishedHash: String? = null
@@ -60,10 +64,22 @@ class WearPublisher @Inject constructor(
     /** Like [publishedHash], for the episode manifest. */
     private var publishedPodcastsHash: String? = null
 
-    @OptIn(FlowPreview::class)
+    /**
+     * Only after the restore at startup (review5 P1): on the first start of a new installation the database is still empty, and
+     * the watch would take that for the wanted state – deleting servers, downloads, episodes and books.
+     */
     fun start(scope: CoroutineScope) {
-        // History and progress the watch left while the phone app wasn't listening.
-        scope.launch { packets.catchUp() }
+        scope.launch {
+            userDataBackup.awaitRestore()
+            publish(this)
+        }
+    }
+
+    @OptIn(FlowPreview::class)
+    private fun publish(scope: CoroutineScope) {
+        // History and progress the watch left while the phone app wasn't listening; while the restore holds the watch, packets
+        // with songs not known here yet stay, and come in once it lets go.
+        scope.launch { userDataBackup.holdsWatch.collect { hold -> if (!hold) packets.catchUp() } }
         scope.launch {
             // Every finished download on the phone changes a song's phone file, the watch's fallback when its server fails.
             // For the watch nothing else changes, yet every new manifest started its process and re-planned everything (up
@@ -71,6 +87,7 @@ class WearPublisher @Inject constructor(
             var lastStructure: WearManifest? = null
             selections.content()
                 .map { WearManifestBuilder.build(it, context.getString(R.string.favorites_title)) }
+                .unlessHeld()
                 .debounce { manifest -> if (manifest.withoutPhoneFiles() == lastStructure) PHONE_FILE_DEBOUNCE_MS else 0L }
                 .collect { manifest ->
                     lastStructure = manifest.withoutPhoneFiles()
@@ -83,6 +100,7 @@ class WearPublisher @Inject constructor(
             var lastStructure: WearPodcastManifest? = null
             watchSpoken.content()
                 .map(WearPodcastManifestBuilder::build)
+                .unlessHeld()
                 .debounce { manifest ->
                     if (WearPodcastManifestBuilder.withoutProgress(manifest) == lastStructure) PROGRESS_DEBOUNCE_MS else CHANGE_DEBOUNCE_MS
                 }
@@ -134,6 +152,10 @@ class WearPublisher @Inject constructor(
                 .collect { dataClient.putPayload(WearPaths.SETTINGS, WearCodec.encode(it)) }
         }
     }
+
+    /** Nothing while the restore holds the watch ([UserDataBackup.holdsWatch]); then the current state. */
+    private fun <T : Any> Flow<T>.unlessHeld(): Flow<T> =
+        combine(this, userDataBackup.holdsWatch) { value, hold -> value.takeUnless { hold } }.filterNotNull()
 
     private fun WearManifest.withoutPhoneFiles() = copy(songs = songs.map { it.copy(phoneFile = null) })
 

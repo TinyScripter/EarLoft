@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.wear
 import android.net.Uri
 import android.util.Log
 import com.google.android.gms.wearable.DataClient
+import de.kleinabersmart.earloft.core.data.backup.UserDataBackup
 import de.kleinabersmart.earloft.core.data.wear.WatchEpisodeImporter
 import de.kleinabersmart.earloft.core.data.wear.WatchEpisodeListening
 import de.kleinabersmart.earloft.core.data.wear.WatchEpisodeProgress
@@ -22,13 +23,16 @@ import javax.inject.Singleton
 /**
  * Listening history and episode/book progress the watch leaves as DataItems (Wear concept 4): imported (each package once,
  * by its ID) and then deleted. Normally from [PhoneWearListenerService.onDataChanged]; [catchUp] at app start reads what is
- * still lying around because the event never arrived (app force-stopped, review G51).
+ * still lying around because the event never arrived (app force-stopped, review G51). While a restore holds the watch
+ * ([UserDataBackup.holdsWatch]), a packet naming a song, episode or book not known here yet stays until it lets go: otherwise
+ * that listening would be lost (review5 P1).
  */
 @Singleton
 class WatchPackets @Inject constructor(
     private val dataClient: DataClient,
     private val playImporter: WatchPlayImporter,
     private val episodeImporter: WatchEpisodeImporter,
+    private val userDataBackup: UserDataBackup,
 ) {
     private val gate = PacketGate()
 
@@ -50,7 +54,12 @@ class WatchPackets @Inject constructor(
             dataClient.delete(uri)
             return@once
         }
-        val imported = playImporter.import(packet.packetId, packet.plays.map { WatchPlay(it.songUid, it.playedAt, it.listenedMs) })
+        val plays = packet.plays.map { WatchPlay(it.songUid, it.playedAt, it.listenedMs) }
+        val imported = playImporter.import(packet.packetId, plays, deferUnknown = userDataBackup.holdsWatch.value)
+        if (imported == null) {
+            Log.d(TAG, "Packet ${packet.packetId} kept: songs not restored yet")
+            return@once
+        }
         Log.d(TAG, "Packet ${packet.packetId}: $imported of ${packet.plays.size} plays imported")
         dataClient.delete(uri)
     }
@@ -70,7 +79,12 @@ class WatchPackets @Inject constructor(
                 WatchEpisodeProgress(it.feedId, it.guid, p.positionMs, p.durationMs, p.finished, p.speed, p.updatedAt, p.skipSilence, p.volumeBoostDb)
             },
             listening = report.listening.map { WatchEpisodeListening(it.feedId, it.guid, it.listenedMs, it.at) },
+            deferUnknown = userDataBackup.holdsWatch.value,
         )
+        if (applied == null) {
+            Log.d(TAG, "Packet ${report.packetId} kept: episodes or books not restored yet")
+            return@once
+        }
         Log.d(TAG, "Packet ${report.packetId} (episodes/books): $applied of ${report.progress.size} progress entries, ${report.listening.size} listening times")
         dataClient.delete(uri)
     }

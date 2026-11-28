@@ -14,6 +14,7 @@ import de.kleinabersmart.earloft.core.model.SourceType
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -94,6 +95,17 @@ class WatchPlayImporterTest {
         val imported = importer.import("p1", listOf(WatchPlay("gone:x", 1, 1), WatchPlay("home:h", 2, 2)))
 
         assertEquals(1, imported)
+        assertEquals(listOf(Triple(songId, 2L, 2L)), reporter.reported)
+    }
+
+    @Test
+    fun `after a restore a packet with songs not known yet waits for them`() = runTest {
+        val plays = listOf(WatchPlay("gone:x", 1, 1), WatchPlay("home:h", 2, 2))
+
+        assertEquals(null, importer.import("p1", plays, deferUnknown = true))
+        assertTrue(reporter.reported.isEmpty())
+        // Once the restore lets go, the same packet comes again and is imported as usual.
+        assertEquals(1, importer.import("p1", plays))
         assertEquals(listOf(Triple(songId, 2L, 2L)), reporter.reported)
     }
 

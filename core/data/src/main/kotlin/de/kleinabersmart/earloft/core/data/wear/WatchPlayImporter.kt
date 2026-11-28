@@ -35,13 +35,15 @@ class WatchPlayImporter @Inject constructor(
 
     /**
      * @return number of adopted plays; songs the phone doesn't know (e.g. removed by a
-     *   sync) and already imported packets don't count.
+     *   sync) and already imported packets don't count. `null` if [deferUnknown] and a song is not known (yet): nothing is
+     *   adopted, and the packet may come again (after a restore, until its songs are back, review5 P1).
      */
-    suspend fun import(packetId: String, plays: List<WatchPlay>): Int = mutex.withLock {
+    suspend fun import(packetId: String, plays: List<WatchPlay>, deferUnknown: Boolean = false): Int? = mutex.withLock {
         if (packetId in importedPackets) return 0
         val songIds = plays.map { it.songUid }.distinct().chunked(MAX_SQL_VARIABLES)
             .flatMap { wearDao.getSongIdsOfSources(it) }
             .associate { it.uid to it.songId }
+        if (deferUnknown && plays.any { it.songUid !in songIds }) return null
         var imported = 0
         database.withTransaction {
             for (play in plays) {

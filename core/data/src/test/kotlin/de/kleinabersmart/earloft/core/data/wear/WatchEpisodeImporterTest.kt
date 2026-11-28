@@ -188,6 +188,18 @@ class WatchEpisodeImporterTest {
         assertTrue(db.statsDao().all().isEmpty())
     }
 
+    @Test
+    fun `after a restore a packet with episodes not known yet waits for them`() = runTest {
+        val listening = listOf(WatchEpisodeListening(FEED_ID, GUID, 5_000, 1), WatchEpisodeListening(FEED_ID, "other", 5_000, 1))
+
+        assertEquals(null, importer.import("p1", listOf(progress(600_000, updatedAt = 2_000)), listening, deferUnknown = true))
+        assertEquals(null, db.bookDao().progress(episodeId))
+        assertTrue(db.statsDao().all().isEmpty())
+        // Once the restore lets go, the same packet comes again and is imported as usual.
+        assertEquals(1, importer.import("p1", listOf(progress(600_000, updatedAt = 2_000)), listening))
+        assertEquals(5_000L, db.statsDao().all().single().listenedMs)
+    }
+
     private companion object {
         const val FEED_ID = "feed-1"
         const val FEED_URL = "https://example.org/feed.xml"
