@@ -3,6 +3,9 @@ package de.kleinabersmart.earloft.cast
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.mediarouter.media.MediaRouteSelector
 import androidx.mediarouter.media.MediaRouter
 import com.google.android.gms.cast.CastDevice
 import com.google.android.gms.cast.framework.CastContext
@@ -10,6 +13,7 @@ import com.google.android.gms.cast.framework.CastSession
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,7 +25,7 @@ import javax.inject.Singleton
  *
  * For this, [remember] stores device and session while casting, and [keepUntil] until when the receiver will probably
  * still be playing its queue; a regular end ([forget]) clears both. When the player starts,
- * [select] looks for the device (at most [DISCOVERY_MS]), but only up to that point in time, and selects it only if the
+ * [select] looks for the device (at most [DISCOVERY_MS], see [findNowOrInForeground]), but only up to that point in time, and selects it only if the
  * remembered session is still running there ([CastReceiverStatus]): selecting launches our app on the receiver and displaces
  * another one that may be running there by now; detaching afterwards would end the receiver too. [CastSessionPlayerFactory] still
  * checks with [isOurs] after connecting whether it is the remembered session, and detaches otherwise (one it started itself
@@ -95,26 +99,24 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         fun busy() = castContext.sessionManager.currentCastSession != null || router.selectedRoute.matchesSelector(selector)
         fun isSaved(route: MediaRouter.RouteInfo) = CastDevice.getFromBundle(route.extras)?.deviceId == deviceId &&
             route.isEnabled && route.matchesSelector(selector)
+        fun expired() = System.currentTimeMillis() > prefs.getLong(KEY_UNTIL, 0)
         if (busy()) return
-        val route = router.routes.firstOrNull(::isSaved) ?: run {
-            val found = CompletableDeferred<MediaRouter.RouteInfo>()
-            val callback = object : MediaRouter.Callback() {
-                override fun onRouteAdded(router: MediaRouter, route: MediaRouter.RouteInfo) = check(route)
-                override fun onRouteChanged(router: MediaRouter, route: MediaRouter.RouteInfo) = check(route)
-                fun check(route: MediaRouter.RouteInfo) {
-                    if (isSaved(route)) found.complete(route)
-                }
-            }
-            router.addCallback(selector, callback, MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY)
-            try {
-                withTimeoutOrNull(DISCOVERY_MS) { found.await() }
-            } finally {
-                router.removeCallback(callback)
-            }
+        val lifecycle = ProcessLifecycleOwner.get().lifecycle
+        val route = findNowOrInForeground(
+            inForeground = { lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) },
+            awaitForeground = {
+                Log.i(TAG, "Device of the last session not found in the background, looking again once the app is opened")
+                lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.STARTED) }
+            },
+        ) {
+            if (busy() || expired()) null else router.routes.firstOrNull(::isSaved) ?: discover(router, selector, ::isSaved)
         }
+        // A session started in the meantime remembers itself; clearing now would forget it.
+        if (busy()) return
+        val over = expired()
         forget()
         if (route == null) {
-            if (!busy()) Log.i(TAG, "Device of the last session not found")
+            Log.i(TAG, if (over) "Last session is probably over, not rejoining" else "Device of the last session not found")
             return
         }
         val running = CastDevice.getFromBundle(route.extras)?.let { CastReceiverStatus.sessionIds(it) }
@@ -131,6 +133,27 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         // otherwise it would take any later, user-chosen session for the rejoin.
         delay(JOIN_MS)
         if (pending === selected) pending = null
+    }
+
+    private suspend fun discover(
+        router: MediaRouter,
+        selector: MediaRouteSelector,
+        isSaved: (MediaRouter.RouteInfo) -> Boolean,
+    ): MediaRouter.RouteInfo? {
+        val found = CompletableDeferred<MediaRouter.RouteInfo>()
+        val callback = object : MediaRouter.Callback() {
+            override fun onRouteAdded(router: MediaRouter, route: MediaRouter.RouteInfo) = check(route)
+            override fun onRouteChanged(router: MediaRouter, route: MediaRouter.RouteInfo) = check(route)
+            fun check(route: MediaRouter.RouteInfo) {
+                if (isSaved(route)) found.complete(route)
+            }
+        }
+        router.addCallback(selector, callback, MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY)
+        return try {
+            withTimeoutOrNull(DISCOVERY_MS) { found.await() }
+        } finally {
+            router.removeCallback(callback)
+        }
     }
 
     /** Main thread. The attempt failed (connecting failed) or the session has ended. */
@@ -163,4 +186,20 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         const val CONTEXT_POLL_MS = 250L
         const val TAG = "CastRejoin"
     }
+}
+
+/**
+ * [find] once; if that finds nothing while the app is in the background, once more as soon as it is opened. Route discovery
+ * found nothing within 15 s for an app restarted in the background (sticky playback service, no activity), but did within
+ * 2 s in the foreground (seen on the device, 2026-11-28). Forgetting the session then would have lost the rejoin for good.
+ */
+internal suspend fun <T : Any> findNowOrInForeground(
+    inForeground: () -> Boolean,
+    awaitForeground: suspend () -> Unit,
+    find: suspend () -> T?,
+): T? {
+    find()?.let { return it }
+    if (inForeground()) return null
+    awaitForeground()
+    return find()
 }

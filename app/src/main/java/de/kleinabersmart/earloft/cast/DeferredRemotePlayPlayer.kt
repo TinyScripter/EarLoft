@@ -46,6 +46,7 @@ internal class DeferredRemotePlayPlayer(
     private val giveUp = Runnable { finishLoad() }
     private var loading = false
     private var playAfterLoad = false
+    private var playAfterSwitch = false
 
     /** `SystemClock.elapsedRealtime()` of the last seek. */
     var lastSeekAtMs = 0L
@@ -67,8 +68,11 @@ internal class DeferredRemotePlayPlayer(
             override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
                 playAfterLoad = false
                 finishLoad()
+                val playOnReceiver = playAfterSwitch && deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+                playAfterSwitch = false
                 // When connecting: if the receiver is already running (rejoin), it's ready; otherwise the handover is loading.
                 if (playbackState != Player.STATE_READY) startLoad()
+                if (playOnReceiver) play()
             }
         })
     }
@@ -224,6 +228,15 @@ internal class DeferredRemotePlayPlayer(
         }
         if (!playWhenReady) playAfterLoad = false
         super.setPlayWhenReady(playWhenReady)
+    }
+
+    /**
+     * Main thread, while switching to the receiver (the handover runs before the device change is reported): once switched, the
+     * receiver should play as soon as it is ready. The app rejoins a running session with the receiver's own state, which may be
+     * paused; a "play" that started the phone just before was lost with that (seen on the device, 2026-11-28).
+     */
+    fun playOnceSwitched() {
+        playAfterSwitch = true
     }
 
     /** Only needed when loading without autoplay: removed and paused. */

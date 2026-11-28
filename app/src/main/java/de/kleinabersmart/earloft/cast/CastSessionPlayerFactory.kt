@@ -124,7 +124,9 @@ internal class CastSessionPlayerFactory @Inject constructor(
             .setLocalPlayer(localPlayer)
             .setRemotePlayer(remotePlayer)
             .setTransferCallback(
-                CastTransferCallback(cache, handOver, reserve, spokenItems::playable, ::showSkipped, ::awaitQueue) {
+                CastTransferCallback(cache, handOver, reserve, spokenItems::playable, ::showSkipped, ::awaitQueue) { phonePlaying ->
+                    // Someone pressed play while the app was still looking for the receiver: that applies to the receiver now.
+                    if (phonePlaying) sessionPlayer?.playOnceSwitched()
                     // Rejoined: the phone's player is empty after the restart; the music shuffle state is in the stored state.
                     scope.launch { handOver.phoneShuffle = queuePersistence.savedShuffle() }
                 },
@@ -694,8 +696,11 @@ private class CastTransferCallback(
     private val onSkipped: (skipped: Int, total: Int) -> Unit,
     /** What goes to the receiver as the queue (window without reserve). */
     private val onSent: (List<MediaItem>) -> Unit,
-    /** The app has rejoined a running session ([HandOver.resuming]); sets [HandOver.phoneShuffle] afterwards. */
-    private val onRejoined: () -> Unit,
+    /**
+     * The app has rejoined a running session ([HandOver.resuming]); sets [HandOver.phoneShuffle] afterwards. The parameter: whether
+     * the phone was playing at that moment.
+     */
+    private val onRejoined: (phonePlaying: Boolean) -> Unit,
 ) : CastPlayer.TransferCallback {
 
     override fun transferState(sourcePlayer: Player, targetPlayer: Player) {
@@ -744,7 +749,7 @@ private class CastTransferCallback(
         // or an older state) would otherwise replace or pause it.
         if (handOver.resuming || handOver.rejected) {
             handOver.phoneShuffle = null
-            if (handOver.resuming) onRejoined()
+            if (handOver.resuming) onRejoined(state.playWhenReady)
             handOver.resuming = false
             handOver.state = null
             onSent(emptyList())

@@ -108,6 +108,62 @@ class DeferredRemotePlayPlayerTest {
     }
 
     @Test
+    fun `a play from before rejoining goes to the receiver once it is ready`() {
+        val fake = FakePlayer()
+        val player = DeferredRemotePlayPlayer(fake)
+
+        player.playOnceSwitched()
+        fake.update { remote = true }
+        assertFalse("Not before the receiver has reported its state", fake.wantsPlay)
+
+        fake.update { receiverState = Player.STATE_READY }
+        assertTrue(fake.wantsPlay)
+    }
+
+    @Test
+    fun `a play from before rejoining plays a receiver that is already ready at once`() {
+        val fake = FakePlayer()
+        val player = DeferredRemotePlayPlayer(fake)
+
+        player.playOnceSwitched()
+        fake.update {
+            remote = true
+            receiverState = Player.STATE_READY
+        }
+        assertTrue(fake.wantsPlay)
+    }
+
+    @Test
+    fun `a rejoined receiver stays paused without a play from before`() {
+        val fake = FakePlayer()
+        DeferredRemotePlayPlayer(fake)
+
+        fake.update {
+            remote = true
+            receiverState = Player.STATE_READY
+        }
+        assertFalse(fake.wantsPlay)
+    }
+
+    @Test
+    fun `a play from before rejoining applies to that switch only`() {
+        val fake = FakePlayer()
+        val player = DeferredRemotePlayPlayer(fake)
+
+        player.playOnceSwitched()
+        fake.update {
+            remote = true
+            receiverState = Player.STATE_READY
+        }
+        fake.update {
+            remote = false
+            wantsPlay = false
+        }
+        fake.update { remote = true }
+        assertFalse(fake.wantsPlay)
+    }
+
+    @Test
     fun `on the phone nothing is held back`() {
         val fake = FakePlayer()
         val player = DeferredRemotePlayPlayer(fake)
