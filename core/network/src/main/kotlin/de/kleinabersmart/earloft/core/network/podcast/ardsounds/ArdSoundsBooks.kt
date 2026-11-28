@@ -151,7 +151,16 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
     /** The titles matching the key [parsed] (without checking whether they still belong to this book). */
     private suspend fun itemsOf(parsed: ArdBookKey): List<ItemNode> = when (parsed) {
         is ArdBookKey.Group -> fetchItems(buildJsonObject { put("groupId", buildJsonObject { put("equalTo", parsed.groupId) }) })
-        is ArdBookKey.Item -> fetchItems(buildJsonObject { put("coreId", buildJsonObject { put("equalTo", parsed.coreId) }) })
+        is ArdBookKey.Item -> {
+            val byCoreId = buildJsonObject { put("coreId", buildJsonObject { put("equalTo", parsed.coreId) }) }
+            // The key of a title without coreId is its (numeric) id ([toKeyInput]); looked up by coreId only, such a title could not be
+            // added (review5 P33). In one query: the API takes `or`, its `id` is an Int.
+            val id = parsed.coreId.toLongOrNull()
+            fetchItems(
+                if (id == null) byCoreId
+                else buildJsonObject { put("or", buildJsonArray { add(byCoreId); add(buildJsonObject { put("id", buildJsonObject { put("equalTo", id) }) }) }) },
+            )
+        }
         is ArdBookKey.Title -> fetchItems(
             buildJsonObject {
                 put("programSetId", buildJsonObject { put("equalTo", JsonPrimitive(parsed.programSetId)) })

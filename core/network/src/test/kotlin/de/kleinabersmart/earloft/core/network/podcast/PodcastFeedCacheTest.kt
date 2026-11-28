@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.network.podcast
 
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -7,6 +8,7 @@ import okhttp3.Cache
 import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -49,6 +51,21 @@ class PodcastFeedCacheTest {
         api.fetch(server.url("/feed.xml"))
 
         assertEquals(0, cache.writeSuccessCount())
+    }
+
+    @Test
+    fun `a feed is parsed as it arrives and one beyond the limit is rejected as truncated`() = runTest {
+        // review5 P26: read straight from the network instead of buffering up to 20 MB per feed first.
+        val items = (1..50).joinToString("") { "<item><title>Episode $it</title><guid>$it</guid><enclosure url=\"https://example.com/$it.mp3\" type=\"audio/mpeg\"/></item>" }
+        val feed = """<rss version="2.0"><channel><title>T</title>$items</channel></rss>"""
+        val small = PodcastFeedApi(OkHttpClient(), maxFeedBytes = feed.length.toLong())
+        val tight = PodcastFeedApi(OkHttpClient(), maxFeedBytes = feed.length / 2L)
+        server.enqueue(MockResponse.Builder().addHeader("Content-Type", "application/rss+xml").body(feed).build())
+        server.enqueue(MockResponse.Builder().addHeader("Content-Type", "application/rss+xml").body(feed).build())
+
+        val fetched = small.fetch(server.url("/feed.xml")) as FeedFetch.Fetched
+        assertEquals(50, fetched.feed.episodes.size)
+        assertThrows(PodcastFeedException::class.java) { runBlocking { tight.fetch(server.url("/feed.xml")) } }
     }
 
     @Test

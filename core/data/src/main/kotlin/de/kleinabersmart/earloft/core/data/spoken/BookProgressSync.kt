@@ -174,8 +174,9 @@ class BookProgressSync @Inject constructor(
         }
     }
 
-    /** Sends everything pending. `true` if nothing is open anymore. */
-    suspend fun pushPending(): Boolean = dao.dirtyProgress().map { push(it.bookId, checkServer = true) }.all { it }
+    /** Sends everything pending, only that of [serverId] if given ([pushPerServer]). `true` if nothing is open anymore. */
+    suspend fun pushPending(serverId: String? = null): Boolean =
+        pushPerServer(dao.dirtyProgress(), serverId, { dao.book(it.bookId)?.serverId }) { push(it.bookId, checkServer = true) }
 
     /**
      * Adopt the whole account's progress where the server is newer (during a full sync). Returns the response so that

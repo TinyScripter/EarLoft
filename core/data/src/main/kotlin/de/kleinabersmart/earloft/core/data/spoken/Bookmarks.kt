@@ -135,7 +135,8 @@ class Bookmarks @Inject constructor(
     }
 
     /** Reports everything pending. `true` if nothing is open anymore. */
-    suspend fun pushPending(): Boolean = dao.dirtyBookmarks().map { push(it.bookmarkId) }.all { it }
+    suspend fun pushPending(serverId: String? = null): Boolean =
+        pushPerServer(dao.dirtyBookmarks(), serverId, { dao.book(it.bookId)?.serverId }) { push(it.bookmarkId) }
 
     /**
      * Fetches the account's bookmarks with [fetch] (from `/api/me`) and adopts them for the books of [serverId]: new ones are

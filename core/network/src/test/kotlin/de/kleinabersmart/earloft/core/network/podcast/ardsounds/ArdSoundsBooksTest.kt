@@ -106,6 +106,25 @@ class ArdSoundsBooksTest {
     }
 
     @Test
+    fun `a title without coreId is found by its id`() = runTest {
+        // review5 P33: its key is the id, the lookup by coreId found nothing. A single title (a season is a collection, no book).
+        val withoutCoreId = item("17", "Bram Stoker: Dracula", null, allowDownload = true)
+            .replace("\"coreId\":\"urn:ard:publication:17\",", "")
+            .replace("\"type\":\"MULTIPART\"", "\"type\":\"SEASON\"")
+        mockServer.enqueue(
+            MockResponse.Builder().body(
+                """{"data":{"items":{"nodes":[$withoutCoreId]}}}""",
+            ).build(),
+        )
+
+        val book = books.book("item:17")!!
+
+        assertEquals("Dracula", book.title)
+        val request = mockServer.takeRequest().body!!.utf8()
+        assertTrue(request, "\"or\":[{\"coreId\":{\"equalTo\":\"17\"}},{\"id\":{\"equalTo\":17}}]" in request)
+    }
+
+    @Test
     fun `a group under a new id is found by the ids of its titles`() = runTest {
         mockServer.enqueue(
             MockResponse.Builder().body(

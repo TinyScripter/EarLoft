@@ -509,6 +509,13 @@ abstract class BookDao {
     @Query("SELECT b.serverId AS serverId, b.remoteId AS remoteId, m.* FROM bookmarks m JOIN books b ON b.bookId = m.bookId")
     abstract suspend fun keyedBookmarks(): List<KeyedBookmark>
 
+    /** Like [keyedBookmarks], without episodes of trial subscriptions, as [keyedProgressToBackUp] (review5 P31). */
+    @Query(
+        "SELECT b.serverId AS serverId, b.remoteId AS remoteId, m.* FROM bookmarks m JOIN books b ON b.bookId = m.bookId " +
+            "WHERE b.serverId NOT IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0)",
+    )
+    abstract suspend fun keyedBookmarksToBackUp(): List<KeyedBookmark>
+
     // --- Book keys: (serverId, remoteId) stays the same on a new device, the bookId does not ---
 
     @Query("SELECT bookId, serverId, remoteId FROM books")

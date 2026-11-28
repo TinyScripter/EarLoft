@@ -15,9 +15,9 @@ import javax.inject.Singleton
  */
 @Singleton
 class CoverFiles @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext private val context: Context,
 ) {
-    private val directory = File(context.noBackupFilesDir, "covers")
+    private val directory by lazy { forgetIdFilesOfOtherDatabase(context, File(context.noBackupFilesDir, "covers")) }
 
     fun has(albumId: Long): Boolean = file(albumId).isFile
 
@@ -39,7 +39,7 @@ class CoverFiles @Inject constructor(
     /** Deletes the covers of all albums not in [albumIds]. */
     fun retainOnly(albumIds: Set<Long>): Int {
         val files = directory.listFiles() ?: return 0
-        return files.count { it.nameWithoutExtension.toLongOrNull() !in albumIds && it.delete() }
+        return files.count { it.name != DATABASE_NOTE && it.nameWithoutExtension.toLongOrNull() !in albumIds && it.delete() }
     }
 
     private fun file(albumId: Long) = File(directory, "$albumId.jpg")

@@ -261,19 +261,25 @@ class UserDataBackup @Inject constructor(
     internal suspend fun pendingOf(saved: UserDataSnapshot): Pending {
         val played = if (saved.playEvents.isEmpty()) emptySet() else music.playKeys()
         val restored = restoredFeeds()
-        return Pending.of(saved).copy(
+        val all = Pending.of(saved)
+        return all.copy(
             // Progress without a backed-up server or subscription (earlier backups kept that of trial subscriptions) never finds
             // its book; it would be looked up again at every start (review4 T25).
             // A server or subscription known only here (import under the local identifier, not mirrored yet) still counts.
-            progress = saved.progress.values.filterNot {
-                saved.isOrphan(it.serverId) && bookDao.server(it.serverId) == null && podcastDao.feed(it.serverId)?.subscribed != true
-            },
+            progress = saved.progress.values.filterNot { isOrphanHere(saved, it.serverId) },
+            // Likewise bookmarks (review5 P31): one in an episode of a trial subscription kept the restore waiting for good, and it
+            // applied again at every change of books, songs or playlists.
+            bookmarks = all.bookmarks.filterNot { isOrphanHere(saved, it.serverId) },
             playEvents = saved.playEvents.filterKeys { it !in played }.values.toList(),
             restoredFeeds = saved.podcasts.keys.filter { feedId ->
                 feedId in restored && podcastDao.feed(feedId)?.lastRefreshAt == 0L && podcastDao.episodeCount(feedId) == 0
             },
         )
     }
+
+    /** [serverId] has no backed-up server or subscription, nor one here. */
+    private suspend fun isOrphanHere(saved: UserDataSnapshot, serverId: String): Boolean =
+        saved.isOrphan(serverId) && bookDao.server(serverId) == null && podcastDao.feed(serverId)?.subscribed != true
 
     /**
      * A backed-up subscription that is a trial subscription here (preview open, episode in the queue) becomes a real one, with the
@@ -920,7 +926,8 @@ class UserDataBackup @Inject constructor(
             }
             val bookmarkDeletes = changes.bookmarks.deletes.filter {
                 removedWithArdBook(it.serverId, it.remoteId) ||
-                    it.key !in waitingBookmarks && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
+                    it.key !in waitingBookmarks &&
+                    (bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty() || current.isOrphan(it.serverId))
             }
             val downloadDeletes = changes.episodeDownloads.deletes.filter {
                 BookKey(it.serverId, it.remoteId) !in waitingDownloads && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
@@ -1000,7 +1007,7 @@ class UserDataBackup @Inject constructor(
             wearSelections = musicData?.wearSelections.orEmpty(),
             episodeDownloads = if (downloads) podcastDao.keyedEpisodeDownloads() else emptyList(),
             collectionFavorites = musicData?.collectionFavorites.orEmpty(),
-            bookmarks = if (bookmarks) bookDao.keyedBookmarks() else emptyList(),
+            bookmarks = if (bookmarks) bookDao.keyedBookmarksToBackUp() else emptyList(),
             episodeStars = if (stars) podcastDao.keyedStarredEpisodes() else emptyList(),
             ardBooks = if (ards) bookDao.keyedBooksOf(ARD_BOOK_SERVER_ID) else emptyList(),
             ardParts = if (ards) bookDao.keyedPartsOf(ARD_BOOK_SERVER_ID) else emptyList(),

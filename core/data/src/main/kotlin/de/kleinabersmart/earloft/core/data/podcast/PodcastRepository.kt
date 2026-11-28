@@ -464,7 +464,9 @@ class PodcastRepository @Inject constructor(
      */
     suspend fun setPlayed(bookIds: Collection<Long>, played: Boolean): suspend () -> Unit {
         val now = System.currentTimeMillis()
-        val before = bookIds.distinct().associateWith { bookDao.progress(it) }
+        // Episodes already in that state stay as they are: a played one would otherwise count as played today, for the statistics
+        // and for "delete played after N days" (review5 P25).
+        val before = bookIds.distinct().associateWith { bookDao.progress(it) }.filterValues { !it.isAlready(played) }
         val rows = before.mapNotNull { (id, old) -> bookDao.book(id)?.let { playedProgress(it, old, played, now) } }
         if (rows.isNotEmpty()) bookDao.upsertAllProgress(rows)
         return {
@@ -494,6 +496,9 @@ class PodcastRepository @Inject constructor(
     private fun playedProgress(book: BookEntity, old: BookProgressEntity?, played: Boolean, now: Long) =
         playedProgress(book.bookId, book.durationMs, old, played, now)
 
+    private fun BookProgressEntity?.isAlready(played: Boolean): Boolean =
+        if (played) this?.finished == true else this == null || (!finished && positionMs == 0L)
+
     private fun playedProgress(bookId: Long, durationMs: Long, old: BookProgressEntity?, played: Boolean, now: Long): BookProgressEntity {
         val duration = durationMs.takeIf { it > 0 } ?: old?.durationMs ?: 0
         return BookProgressEntity(
@@ -505,6 +510,8 @@ class PodcastRepository @Inject constructor(
             updatedAt = now,
             skipSilence = old?.skipSilence,
             volumeBoostDb = old?.volumeBoostDb,
+            // Played before: it keeps the day it was finished.
+            finishedAt = if (played) old?.takeIf { it.finished }?.let { it.finishedAt ?: it.updatedAt } ?: now else null,
         )
     }
 
@@ -1115,8 +1122,13 @@ class PodcastRepository @Inject constructor(
             val persons = episode.persons.mapIndexed { index, p -> EpisodePersonEntity(id, index, p.name, p.role, p.group, p.imageUrl, p.url) }
             if (knownPersons[id].orEmpty() != persons) bookDao.replacePersons(id, persons)
             val track = BookTrackEntity(id, 0, episode.audioUrl, 0, episode.durationMs.takeIf { it > 0 } ?: existing?.durationMs ?: 0, episode.mimeType)
-            // The download state isn't part of the feed and must not trigger a write.
-            val stored = bookDao.tracks(id).map { it.copy(downloadState = TrackDownload.NONE, filePath = null, fileSize = 0, downloadFailure = null) }
+            // The download state isn't part of the feed and must not trigger a write; nor does an automatic download (review5 P27).
+            val stored = bookDao.tracks(id).map {
+                it.copy(
+                    downloadState = TrackDownload.NONE, filePath = null, fileSize = 0, downloadFailure = null, autoDownload = false,
+                    unavailableSince = null, remoteItemId = null,
+                )
+            }
             if (stored != listOf(track)) dao.setTrack(track)
             if (episode.chapters.isNotEmpty()) storeChapters(id, episode.chapters, ChapterSource.FEED, track.durationMs, existing?.chapterSource)
         }

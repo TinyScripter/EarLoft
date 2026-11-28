@@ -33,6 +33,9 @@ internal class FakeServer(
     val calls = mutableListOf<String>()
     var failure: Exception? = null
 
+    /** Only the playlists fail (an account without access to them). */
+    var playlistFailure: Exception? = null
+
     /** Runs when a playlist is being replaced, before anything happens (e.g. a change in the app meanwhile). */
     var whileReplacing: (suspend () -> Unit)? = null
     val playlists = LinkedHashMap<String, RemotePlaylist>()
@@ -68,6 +71,7 @@ internal class FakeServer(
 
     override suspend fun playlists(): List<RemotePlaylistInfo> {
         failure?.let { throw it }
+        playlistFailure?.let { throw it }
         return playlists.values.map { it.info }
     }
 

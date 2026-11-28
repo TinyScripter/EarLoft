@@ -56,7 +56,8 @@ class AbsSessionReporter @Inject constructor(
 ) {
     private val mutex = Mutex()
     private val activeSession = ConcurrentHashMap<Long, String>()
-    private val userIds = ConcurrentHashMap<String, String>()
+    /** Server → the token it was learned with and the account's user ID. */
+    private val userIds = ConcurrentHashMap<String, Pair<String, String>>()
     private val lastPush = ConcurrentHashMap<String, Long>()
 
     /**
@@ -117,7 +118,9 @@ class AbsSessionReporter @Inject constructor(
         val server = servers.server(book.serverId) ?: return Sent.UNREACHABLE
         lastPush[sessionId] = System.currentTimeMillis()
         return try {
-            val userId = userIds[server.serverId] ?: api.me(server).id.also { userIds[server.serverId] = it }
+            // Per sign-in: another account on the same server (new token) has another user ID (review5 P32).
+            val userId = userIds[server.serverId]?.takeIf { it.first == server.token }?.second
+                ?: api.me(server).id.also { userIds[server.serverId] = server.token to it }
             // Audiobookshelf takes the session's position into the progress if the session is newer, and a position before the end
             // makes a finished book unfinished again (checked on 2.38.0). A finished book therefore reports its end, as its progress does.
             val finished = bookDao.progress(session.bookId)?.finished == true

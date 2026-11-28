@@ -701,6 +701,25 @@ class UserDataBackupTest {
     }
 
     @Test
+    fun `bookmarks of trial subscriptions are not backed up, and the leftovers of a deleted trial neither wait nor stay`() = runTest {
+        fillMain()
+        main.podcastDao().upsertFeed(PodcastFeedEntity("trial", "https://example.org/trial", "Trial", subscribed = false))
+        main.bookDao().insertBookmark(BookmarkEntity(bookId = book(main, "trial", "guid-t"), positionMs = 4_000, title = "T", createdAt = 1, updatedAt = 1))
+        main.bookDao().insertBookmark(BookmarkEntity(bookId = book(main, "feed-1", "guid-1"), positionMs = 4_000, title = "S", createdAt = 1, updatedAt = 1))
+        // Left over from an older version: a bookmark in an episode of a trial the cleaner has deleted since (review5 P31).
+        user.openHelper.writableDatabase.execSQL(
+            "INSERT INTO bookmarks (serverId, remoteId, positionMs, title, note, createdAt, updatedAt, remoteTime) " +
+                "VALUES ('gone', 'guid-g', 5, 'G', '', 1, 1, NULL)",
+        )
+        val backup = backupFor(main)
+
+        assertTrue("nothing waits for the gone trial", backup.pendingOf(user.userDataDao().snapshot()).bookmarks.none { it.serverId == "gone" })
+        backup.mirror()
+
+        assertEquals(listOf("feed-1"), user.userDataDao().bookmarks().map { it.serverId })
+    }
+
+    @Test
     fun `a trial that becomes a subscription brings its progress into the backup at once`() = runTest {
         fillMain()
         main.podcastDao().upsertFeed(PodcastFeedEntity("trial", "https://example.org/trial", "Trial", subscribed = false))

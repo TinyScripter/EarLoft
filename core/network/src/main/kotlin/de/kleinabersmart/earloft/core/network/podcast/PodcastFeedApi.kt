@@ -13,7 +13,9 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import java.io.FilterInputStream
 import java.io.IOException
+import java.io.InputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,9 +52,13 @@ internal fun webAddress(raw: String?): String? =
  * against the protected feed ([FeedAuthInterceptor]); without it the host's stored credentials apply.
  */
 @Singleton
-class PodcastFeedApi @Inject constructor(
+class PodcastFeedApi internal constructor(
     private val client: OkHttpClient,
+    /** Bytes of a feed read at most; the rest is cut off and the parser rejects the feed as incomplete. */
+    private val maxFeedBytes: Long,
 ) {
+    @Inject constructor(client: OkHttpClient) : this(client, MAX_FEED_BYTES)
+
     suspend fun fetch(
         url: HttpUrl,
         etag: String? = null,
@@ -73,9 +79,10 @@ class PodcastFeedApi @Inject constructor(
             val movedTo = permanentTarget(url, response)?.toString()
             if (response.code == 304) return@use FeedFetch.NotModified(movedTo)
             if (!response.isSuccessful) throw HttpStatusException(response.code, movedTo)
-            // A feed that is too large is read truncated and rejected by the parser as incomplete.
+            // A feed that is too large is read truncated and rejected by the parser as incomplete. Parsed as it arrives: buffered
+            // first, four syncs in parallel held up to 80 MB besides what they parsed (review5 P26).
             val feed = PodcastFeedParser.parse(
-                response.peekBody(MAX_FEED_BYTES).byteStream(),
+                response.body.byteStream().limitedTo(maxFeedBytes),
                 charset = response.body.contentType()?.charset()?.name(),
             )
             FeedFetch.Fetched(feed, response.header("ETag"), response.header("Last-Modified"), movedTo)
@@ -151,6 +158,27 @@ class PodcastFeedApi @Inject constructor(
          */
         val NETWORK_NOT_STORED: CacheControl = CacheControl.Builder().noCache().noStore().build()
     }
+}
+
+/** At most [maxBytes] of this stream; after that it ends as if the file ended there. */
+internal fun InputStream.limitedTo(maxBytes: Long): InputStream = object : FilterInputStream(this) {
+    private var remaining = maxBytes
+
+    override fun read(): Int {
+        if (remaining <= 0) return -1
+        return super.read().also { if (it >= 0) remaining-- }
+    }
+
+    override fun read(b: ByteArray, off: Int, len: Int): Int {
+        if (remaining <= 0) return -1
+        return super.read(b, off, minOf(len.toLong(), remaining).toInt()).also { if (it > 0) remaining -= it }
+    }
+
+    override fun skip(n: Long): Long = super.skip(minOf(n, remaining)).also { remaining -= it }
+
+    override fun available(): Int = minOf(super.available().toLong(), remaining).toInt()
+
+    override fun markSupported(): Boolean = false
 }
 
 /**

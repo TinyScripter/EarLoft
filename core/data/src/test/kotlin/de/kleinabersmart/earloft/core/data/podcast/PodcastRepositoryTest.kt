@@ -1388,6 +1388,21 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `marking several as played keeps the day an already played one was finished`() = runTest {
+        val feedId = subscribe()
+        val (a, b) = listOf("A", "B").map { idOf(feedId, it) }
+        db.bookDao().upsertProgress(BookProgressEntity(a, 600_000, 600_000, finished = true, updatedAt = 5, finishedAt = 3))
+
+        repository.setPlayed(listOf(a, b), played = true)
+
+        // review5 P25: A counted as played today, for the statistics and "delete played after N days".
+        val played = db.bookDao().progress(a)!!
+        assertEquals(3L, played.finishedAt)
+        assertEquals(5L, played.updatedAt)
+        assertTrue(db.bookDao().progress(b)!!.finishedAt!! > 5)
+    }
+
+    @Test
     fun `nothing is queued when queueing the next episode is off`() = runTest {
         val feedId = subscribe()
         repository.setContinuous(feedId, false)

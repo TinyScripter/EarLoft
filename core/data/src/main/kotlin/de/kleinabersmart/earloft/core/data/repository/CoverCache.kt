@@ -16,9 +16,9 @@ import javax.inject.Singleton
  */
 @Singleton
 class CoverCache @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext private val context: Context,
 ) {
-    private val directory = File(context.cacheDir, "album_covers")
+    private val directory by lazy { forgetIdFilesOfOtherDatabase(context, File(context.cacheDir, "album_covers")) }
 
     /** `null` if there is no file or it is unreadable. */
     fun read(albumId: Long): Bitmap? = file(albumId).takeIf { it.isFile }?.let { file ->
@@ -36,7 +36,7 @@ class CoverCache @Inject constructor(
     }
 
     private fun trim() {
-        val files = directory.listFiles()?.filter { it.isFile } ?: return
+        val files = directory.listFiles()?.filter { it.isFile && it.name != DATABASE_NOTE } ?: return
         var total = files.sumOf { it.length() }
         for (file in files.sortedBy { it.lastModified() }) {
             if (total <= MAX_BYTES) break

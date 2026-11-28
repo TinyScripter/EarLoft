@@ -94,7 +94,7 @@ class LibrarySyncer @Inject constructor(
                     mergeResolver.mergeStarred(source.sourceId, starred.songs)
                     applyCollectionStars(source.sourceId, starred)
                 }
-                if (source is RemoteLibraryActions) playlistSyncer.sync(source.sourceId, source, afterFullSync = false)
+                if (source is RemoteLibraryActions) syncPlaylists(source, afterFullSync = false)
                 syncQueue.startIfPending()
                 if (added.isNotEmpty()) changeListeners.forEach { it.onSyncFinished() }
                 lastQuickSyncAt[source.sourceId] = System.currentTimeMillis()
@@ -161,7 +161,7 @@ class LibrarySyncer @Inject constructor(
             // The songs' stars came with the songs; those of albums and artists are only in the server's list.
             if (source is RemoteQuickSync) syncCollectionStars(source)
             // Playlists only now: their entries refer to the songs just synced.
-            if (source is RemoteLibraryActions) playlistSyncer.sync(source.sourceId, source)
+            if (source is RemoteLibraryActions) syncPlaylists(source)
             // The sync may have enqueued favorites for new server sources.
             syncQueue.startIfPending()
             changeListeners.forEach { it.onSyncFinished() }
@@ -182,6 +182,22 @@ class LibrarySyncer @Inject constructor(
             return
         }
         database.withTransaction { applyCollectionStars((source as MusicDataSource).sourceId, starred) }
+    }
+
+    /**
+     * Optional as well: the songs are synced at this point. A failure here (an account without access to playlists) used to turn the
+     * finished sync into a failed one: the server stood as failing, the automations didn't run, and the job scanned everything again
+     * (review5 P24).
+     */
+    private suspend fun syncPlaylists(source: RemoteLibraryActions, afterFullSync: Boolean = true) {
+        val sourceId = (source as MusicDataSource).sourceId
+        try {
+            playlistSyncer.sync(sourceId, source, afterFullSync)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Playlists of $sourceId not synced", e)
+        }
     }
 
     private suspend fun applyCollectionStars(sourceId: String, starred: RemoteStarred) {

@@ -120,8 +120,9 @@ class BookSyncer @Inject constructor(
             }
         }
         // First upload unreported progress: deleted books take it with them.
-        progressSync.pushPending()
-        bookmarks.pushPending()
+        // Only those of this server: another one only reachable at home would hold up this sync (review5 P30).
+        progressSync.pushPending(server.serverId)
+        bookmarks.pushPending(server.serverId)
         // Listening sessions too: their catch-up worker gives up after about 8 h, after that only this sends them (review4 T16).
         sessions.pushPending(server.serverId)
         // An aborted sync never gets this far and therefore deletes nothing.

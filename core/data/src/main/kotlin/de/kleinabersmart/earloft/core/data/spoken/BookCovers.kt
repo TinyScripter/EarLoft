@@ -5,9 +5,11 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import de.kleinabersmart.earloft.core.data.repository.DATABASE_NOTE
 import de.kleinabersmart.earloft.core.data.repository.PART_SUFFIX
 import de.kleinabersmart.earloft.core.data.repository.adoptingLegacy
 import de.kleinabersmart.earloft.core.data.repository.decodeScaled
+import de.kleinabersmart.earloft.core.data.repository.forgetIdFilesOfOtherDatabase
 import de.kleinabersmart.earloft.core.data.repository.hashedName
 import de.kleinabersmart.earloft.core.data.repository.isImage
 import de.kleinabersmart.earloft.core.data.repository.offlineImageDirectory
@@ -134,7 +136,7 @@ class BookCovers @Inject constructor(
         }
         podcastDao.allImageUrls().filter { it.startsWith("http") }.forEach { keep += urlFile(it).name }
         // `.part` files are currently being written by someone.
-        directory.listFiles()?.count { it.name !in keep && !it.name.endsWith(PART_SUFFIX) && it.delete() } ?: 0
+        directory.listFiles()?.count { it.name !in keep && it.name != DATABASE_NOTE && !it.name.endsWith(PART_SUFFIX) && it.delete() } ?: 0
     }
 
     private suspend fun feedImageFile(feedId: String): File? {
@@ -223,7 +225,7 @@ class BookCovers @Inject constructor(
     /** The file used to be named after `hashCode`; [retainKnown] thus moves all known ones once and clears away the rest. */
     private fun urlFile(url: String) = File(directory, "u${hashedName(url)}.img").adoptingLegacy(File(directory, "u${url.hashCode()}.img"))
 
-    private val directory by lazy { offlineImageDirectory(context, DIRECTORY) }
+    private val directory by lazy { forgetIdFilesOfOtherDatabase(context, offlineImageDirectory(context, DIRECTORY)) }
 
     /**
      * Stores [bytes] only if they are an image: an error page or a broken answer would otherwise stay as the cover for good,

@@ -41,6 +41,7 @@ class AbsSessionReporterTest {
     private var failSessions = false
     private var unreachable = false
     private var bookId = 0L
+    private val registry = AbsServerRegistry()
 
     @Before
     fun setUp() = runTest {
@@ -59,7 +60,8 @@ class AbsSessionReporterTest {
                 requests += request.method + " " + request.url.encodedPath to body
                 if (unreachable && request.url.encodedPath.endsWith("/session/local")) throw java.io.IOException("timeout")
                 val (code, json) = when {
-                    request.url.encodedPath.endsWith("/api/me") -> 200 to """{"id":"user-1","mediaProgress":[]}"""
+                    request.url.encodedPath.endsWith("/api/me") ->
+                        200 to """{"id":"${userOf(request.header("Authorization"))}","mediaProgress":[]}"""
                     failSessions -> 500 to "{}"
                     else -> 200 to "OK"
                 }
@@ -76,7 +78,7 @@ class AbsSessionReporterTest {
             override suspend fun remove(key: String) = Unit
         }
         db.bookDao().upsertServer(SpokenServerEntity("srv", "Server", "https://abs.example/"))
-        val servers = testAudiobookshelfServers(db.bookDao(), secrets, api)
+        val servers = testAudiobookshelfServers(db.bookDao(), secrets, api, registry)
         reporter = AbsSessionReporter(context, db.absSessionDao(), db.bookDao(), servers, api, PlaybackPolicy())
         bookId = db.bookDao().upsertBook(
             BookEntity(serverId = "srv", kind = BookKind.BOOK, remoteId = "item-1", title = "Book", normTitle = "book", author = "Author", durationMs = 36_000_000),
@@ -85,6 +87,19 @@ class AbsSessionReporterTest {
 
     @After
     fun tearDown() = db.close()
+
+    /** The test server's account per token: "token" is user-1. */
+    private fun userOf(authorization: String?) = authorization?.substringAfter("Bearer ").let { if (it == "token") "user-1" else "user-$it" }
+
+    @Test
+    fun `after signing in with another account the sessions carry its user id`() = runTest {
+        reporter.record(bookId, 60_000, positionMs = 600_000, durationMs = 36_000_000, force = true, now = 1_000_000)
+        // Same server, other account (review5 P32): signing in registers it with its token.
+        registry.register(registry["srv"]!!.copy(token = "anna"))
+        reporter.record(bookId, 30_000, positionMs = 640_000, durationMs = 36_000_000, force = true, now = 1_100_000)
+
+        assertEquals(listOf("user-1", "user-anna"), sessions().map { it.getString("userId") })
+    }
 
     private fun sessions() = requests.filter { it.first == "POST /api/session/local" }.map { JSONObject(it.second) }
 

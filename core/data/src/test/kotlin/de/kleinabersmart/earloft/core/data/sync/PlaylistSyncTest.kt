@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import java.io.IOException
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -57,6 +58,18 @@ class PlaylistSyncTest {
         assertEquals(3, playlist.songCount)
         assertEquals(listOf("B", "A", "B"), titles(playlist.id))
         assertEquals(0, db.syncDao().countActions())
+    }
+
+    @Test
+    fun `playlists that cannot be read do not fail the sync of the songs`() = runTest {
+        nd.playlistFailure = IOException("no access to playlists")
+        nd.tracks = nd.tracks + track("d", "D", 4)
+
+        assertTrue(syncer.syncSafely(nd))
+
+        assertTrue("nd" !in syncer.failures.value)
+        assertEquals(4, db.mergeDao().countSongSources("nd"))
+        nd.playlistFailure = null
     }
 
     @Test
