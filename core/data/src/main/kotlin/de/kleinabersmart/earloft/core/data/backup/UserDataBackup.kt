@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.source.DataSourceRegistry
 import de.kleinabersmart.earloft.core.data.spoken.ArdBooks
+import de.kleinabersmart.earloft.core.data.spoken.LocalBooks
 import de.kleinabersmart.earloft.core.data.spoken.decodeArdParts
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.BackupRowCounts
@@ -49,6 +50,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import de.kleinabersmart.earloft.core.model.ARD_BOOK_SERVER_ID
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.LOCAL_BOOK_SERVER_ID
+import de.kleinabersmart.earloft.core.model.SourceType
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
@@ -108,6 +111,10 @@ class UserDataBackup @Inject constructor(
     @Volatile
     private var restoreSucceeded = false
 
+    /** The restore or reading `user.db` failed at startup: nothing is known about what the watch may keep ([watchHoldUntil]). */
+    @Volatile
+    internal var restoreFailed = false
+
     /** Completed once what already fits has been applied after startup (even if the restore failed). */
     private val firstApplied = CompletableDeferred<Unit>()
 
@@ -129,7 +136,7 @@ class UserDataBackup @Inject constructor(
      * have run, and afterwards as long as backed-up watch selections still wait for their songs, episodes or books – until every
      * server they may come from has been fully synced since the restore, at most [WATCH_HOLD_MS] (see [watchHoldUntil]). Otherwise
      * the freshly installed phone would tell the watch that everything is gone, and the watch would delete its downloads, and drop
-     * listening history for songs not known here yet.
+     * listening history for songs not known here yet. If the restore fails, a fresh installation holds it for the same day.
      */
     val holdsWatch: StateFlow<Boolean> = watchHold.asStateFlow()
 
@@ -158,6 +165,7 @@ class UserDataBackup @Inject constructor(
                     // No flag: it is retried on the next start. Mirroring still does not happen, so that a backup
                     // not yet restored is not overwritten by the empty state.
                     Log.e(TAG, "User data could not be restored", e)
+                    restoreFailed = true
                     return@launch
                 } finally {
                     restoreFinished.complete(Unit)
@@ -169,6 +177,7 @@ class UserDataBackup @Inject constructor(
                 } catch (e: Exception) {
                     // Without the backup nothing can be held back from mirroring: as with a failed restore, no mirroring.
                     Log.e(TAG, "User data could not be read", e)
+                    restoreFailed = true
                     return@launch
                 }
                 applyFirst(saved)
@@ -367,6 +376,7 @@ class UserDataBackup @Inject constructor(
      * episode or book anymore.
      */
     internal suspend fun watchHoldUntil(now: Long = System.currentTimeMillis()): Long? {
+        if (restoreFailed) return failedRestoreHoldUntil(now)
         val pending = waiting?.pending ?: return null
         if (pending.wearSelections.isEmpty() && pending.wearBooks.isEmpty()) return null
         val restoredAt = withContext(Dispatchers.IO) {
@@ -374,13 +384,28 @@ class UserDataBackup @Inject constructor(
         } ?: return null
         val until = restoredAt + WATCH_HOLD_MS
         if (now >= until) return null
-        // A switched-off server never syncs: waiting for it would hold back the watch for the whole day.
-        val songsWait = pending.wearSelections.isNotEmpty() && sourceDao.getServers().any { it.enabled && it.lastFullSyncAt < restoredAt }
+        // A switched-off server never syncs: waiting for it would hold back the watch for the whole day. Music on the device counts
+        // like a server (its first scan since the restore), books on the device and from ARD Sounds too (review5 8.12).
+        val songsWait = pending.wearSelections.isNotEmpty() &&
+            sourceDao.observeAll().first().any { it.type != SourceType.PHONE && it.enabled && it.lastFullSyncAt < restoredAt }
         val booksWait = pending.wearBooks.isNotEmpty() && (
             bookDao.servers().any { it.enabled && it.lastFullSyncAt < restoredAt } ||
-                restoredFeeds().any { podcastDao.feed(it)?.lastRefreshAt == 0L }
+                restoredFeeds().any { podcastDao.feed(it)?.lastRefreshAt == 0L } ||
+                (pending.wearBooks.any { it.serverId == LOCAL_BOOK_SERVER_ID } && LocalBooks.completedAtMs < restoredAt) ||
+                (pending.wearBooks.any { it.serverId == ARD_BOOK_SERVER_ID } && pending.ardBooks.isNotEmpty() && ardBooks.get().enabled.first())
             )
         return until.takeIf { songsWait || booksWait }
+    }
+
+    /**
+     * After a failed restore the watch stays held for [WATCH_HOLD_MS] from the creation of this database (review5 8.12): a fresh
+     * installation would otherwise report everything as gone. An older database knows its state; then nothing is held.
+     */
+    private suspend fun failedRestoreHoldUntil(now: Long): Long? {
+        val createdAt = withContext(Dispatchers.IO) {
+            File(context.noBackupFilesDir, EarLoftDatabase.CREATED_MARKER).takeIf { it.exists() }?.lastModified()
+        } ?: return null
+        return (createdAt + WATCH_HOLD_MS).takeIf { now < it }
     }
 
     /** Under [mutex]: applies and remembers the rest for later. */

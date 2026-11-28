@@ -6,7 +6,11 @@ import androidx.test.core.app.ApplicationProvider
 import dagger.Lazy
 import de.kleinabersmart.earloft.core.data.source.DataSourceRegistry
 import de.kleinabersmart.earloft.core.data.spoken.ArdBooks
+import de.kleinabersmart.earloft.core.data.spoken.LocalBooks
 import de.kleinabersmart.earloft.core.data.spoken.testArdBooks
+import de.kleinabersmart.earloft.core.database.entity.UserArdBookEntity
+import de.kleinabersmart.earloft.core.database.entity.UserWearBookEntity
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import de.kleinabersmart.earloft.core.model.ARD_BOOK_SERVER_ID
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -922,6 +926,60 @@ class UserDataBackupTest {
             newDevice.close()
             marker.delete()
             noBackupFile("restored_feeds").delete()
+        }
+    }
+
+    @Test
+    fun `the watch is held for books on the device until their scan and for books from ARD Sounds until they are fetched`() = runTest {
+        val restoredAt = 1_000_000L
+        val day = 24 * 60 * 60_000L
+        val ardKey = "urn:ard:show:gs"
+        val local = BookKey(LOCAL_BOOK_SERVER_ID, "Author/Book")
+        val ard = BookKey(ARD_BOOK_SERVER_ID, ardKey)
+        fun saved(vararg keys: BookKey) = UserDataSnapshot(
+            ardBooks = mapOf(ardKey to UserArdBookEntity(ardKey, 1)),
+            wearBooks = keys.associateWith { UserWearBookEntity(it.serverId, it.remoteId, 1) },
+        )
+        val marker = noBackupFile("user_data_restored")
+        val settings = SpokenSettings(context)
+        try {
+            marker.createNewFile()
+            marker.setLastModified(restoredAt)
+            val backup = backupFor(main, testArdBooks(context, main, "https://ard.example/graphql".toHttpUrl(), settings))
+
+            backup.applyFirst(saved(local))
+            assertEquals("not scanned since the restore", restoredAt + day, backup.watchHoldUntil(now = restoredAt + 1))
+            LocalBooks.completedAtMs = restoredAt + 1
+            assertNull("scanned: what is missing is gone", backup.watchHoldUntil(now = restoredAt + 2))
+
+            backup.applyFirst(saved(ard))
+            assertNull("ARD Sounds switched off: it never comes", backup.watchHoldUntil(now = restoredAt + 1))
+            settings.setArdSoundsBooks(true)
+            assertEquals("not fetched yet", restoredAt + day, backup.watchHoldUntil(now = restoredAt + 1))
+            backup.applyFirst(saved(ard).copy(ardBooks = emptyMap()))
+            assertNull("nothing left to fetch", backup.watchHoldUntil(now = restoredAt + 1))
+        } finally {
+            LocalBooks.completedAtMs = 0
+            marker.delete()
+        }
+    }
+
+    @Test
+    fun `a failed restore holds a fresh installation's watch for a day`() = runTest {
+        val createdAt = 2_000_000L
+        val day = 24 * 60 * 60_000L
+        val created = noBackupFile(EarLoftDatabase.CREATED_MARKER)
+        val backup = backupFor(main)
+        backup.restoreFailed = true
+        try {
+            assertNull("an older database without a marker", backup.watchHoldUntil(now = createdAt + 1))
+            created.createNewFile()
+            created.setLastModified(createdAt)
+
+            assertEquals(createdAt + day, backup.watchHoldUntil(now = createdAt + 1))
+            assertNull("a day at most", backup.watchHoldUntil(now = createdAt + day))
+        } finally {
+            created.delete()
         }
     }
 

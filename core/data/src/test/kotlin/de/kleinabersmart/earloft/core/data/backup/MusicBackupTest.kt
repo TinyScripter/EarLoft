@@ -400,11 +400,16 @@ class MusicBackupTest {
 
             assertEquals(restoredAt + day, backup.watchHoldUntil(now = restoredAt + 1))
             assertNull("a day at most", backup.watchHoldUntil(now = restoredAt + day))
+            newDevice.sourceDao().setSyncGeneration("local", 1, restoredAt + 1)
+            assertEquals("the server has not synced yet", restoredAt + day, backup.watchHoldUntil(now = restoredAt + 1))
             newDevice.sourceDao().setEnabled("nav", false)
             assertNull("a switched-off server never syncs", backup.watchHoldUntil(now = restoredAt + 1))
             newDevice.sourceDao().setEnabled("nav", true)
             newDevice.sourceDao().setSyncGeneration("nav", 1, restoredAt + 1)
             assertNull("every server synced since the restore", backup.watchHoldUntil(now = restoredAt + 2))
+            // Music on the device counts like a server (review5 8.12).
+            newDevice.sourceDao().setSyncGeneration("local", 1, 0)
+            assertEquals("not scanned since the restore", restoredAt + day, backup.watchHoldUntil(now = restoredAt + 2))
 
             newDevice.sourceDao().setSyncGeneration("nav", 1, 0)
             val album = album(newDevice, "element of crime", "damals hinterm mond")

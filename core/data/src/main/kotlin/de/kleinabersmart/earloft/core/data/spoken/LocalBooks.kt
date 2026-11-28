@@ -44,7 +44,10 @@ class LocalBooks @Inject constructor(
      * (then everything stays as it is).
      */
     suspend fun sync(): Boolean = mutex.withLock {
-        if (!settings.useLocalBooks.first()) return@withLock true
+        if (!settings.useLocalBooks.first()) {
+            completedAtMs = System.currentTimeMillis()
+            return@withLock true
+        }
         val generation = dao.nextGeneration()
         val known = dao.countBooksOf(LOCAL_BOOK_SERVER_ID)
         val scan = try {
@@ -74,6 +77,7 @@ class LocalBooks @Inject constructor(
         } else {
             Log.w(TAG, "Removal of books on the device postponed (${scanned.size} of $known seen)")
         }
+        completedAtMs = System.currentTimeMillis()
         true
     }
 
@@ -146,8 +150,16 @@ class LocalBooks @Inject constructor(
         covers.invalidate(bookId)
     }
 
-    private companion object {
-        const val TAG = "LocalBooks"
-        const val SWEEP_AREA = "books"
+    internal companion object {
+        private const val TAG = "LocalBooks"
+        private const val SWEEP_AREA = "books"
+
+        /**
+         * When a [sync] last got through in this process (wall clock; 0 = not yet), also with the books on the device switched off.
+         * The backup holds the watch until then (review5 8.12). Process-wide like the singleton itself; static so the backup can
+         * read it without depending on the whole book stack.
+         */
+        @Volatile
+        internal var completedAtMs = 0L
     }
 }
