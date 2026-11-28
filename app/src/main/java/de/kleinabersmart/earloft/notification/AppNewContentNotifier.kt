@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Bundle
 import android.util.Log
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
@@ -17,6 +18,7 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.withLaunchId
 import de.kleinabersmart.earloft.core.data.refresh.NewContent
 import de.kleinabersmart.earloft.core.data.refresh.NewContentNotifier
+import de.kleinabersmart.earloft.core.data.refresh.withUnread
 import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
 import de.kleinabersmart.earloft.core.model.bookAuthorLine
@@ -30,7 +32,8 @@ import javax.inject.Singleton
 /**
  * Announces new music, episodes and books as a silent notification, one per area (each with its own channel). A tap
  * opens Home in that area or, for exactly one album, podcast or book, its page ([NewContentTarget]); then the cover
- * is shown in the notification too.
+ * is shown in the notification too. While the notification of an area is still there (neither tapped nor swiped away), the
+ * next one takes over what it said ([withUnread], review5 P19).
  */
 @Singleton
 class AppNewContentNotifier @Inject constructor(
@@ -59,10 +62,11 @@ class AppNewContentNotifier @Inject constructor(
         val manager = NotificationManagerCompat.from(context)
         if (!manager.areNotificationsEnabled()) return
         createChannels(manager)
-        val message = when (content) {
-            is NewContent.Music -> music(content)
-            is NewContent.Podcasts -> podcasts(content)
-            is NewContent.Books -> books(content)
+        val shown = content.withUnread(unread(manager, content.mode))
+        val message = when (shown) {
+            is NewContent.Music -> music(shown)
+            is NewContent.Podcasts -> podcasts(shown)
+            is NewContent.Books -> books(shown)
         }
         val mode = message.target.mode
         val open = Intent(context, MainActivity::class.java)
@@ -91,9 +95,23 @@ class AppNewContentNotifier @Inject constructor(
             .setSilent(true)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
             .apply { message.actions.forEach(::addAction) }
+            .addExtras(Bundle().apply { putString(EXTRA_CONTENT, NewContentJson.encode(shown)) })
             .build()
         manager.notify(notificationId(mode), notification)
     }
+
+    /** What the area's notification still shows; `null` once it was tapped, swiped away or removed by the system. */
+    private fun unread(manager: NotificationManagerCompat, mode: SpokenMode): NewContent? =
+        manager.activeNotifications.firstOrNull { it.id == notificationId(mode) && it.packageName == context.packageName }
+            ?.notification?.extras?.getString(EXTRA_CONTENT)
+            ?.let(NewContentJson::decode)
+
+    private val NewContent.mode: SpokenMode
+        get() = when (this) {
+            is NewContent.Music -> SpokenMode.MUSIC
+            is NewContent.Podcasts -> SpokenMode.PODCASTS
+            is NewContent.Books -> SpokenMode.BOOKS
+        }
 
     private fun music(content: NewContent.Music): Message {
         val songs = content.albums.sumOf { it.songs }
@@ -280,6 +298,9 @@ class AppNewContentNotifier @Inject constructor(
         fun notificationId(mode: SpokenMode): Int = NOTIFICATION_ID_BASE + mode.ordinal
 
         private const val TAG = "NewContentNotifier"
+
+        /** The shown [NewContent] as JSON ([NewContentJson]), for the next notification of the area. */
+        private const val EXTRA_CONTENT = "de.kleinabersmart.earloft.NEW_CONTENT"
         private const val LEGACY_CHANNEL_ID = "new_content"
         private const val NOTIFICATION_ID_BASE = 0x4e43
         private const val REQUEST_CODE_BASE = 0x4e43

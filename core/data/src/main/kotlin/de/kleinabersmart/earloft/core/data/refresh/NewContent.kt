@@ -47,6 +47,26 @@ sealed interface NewContent {
     }
 }
 
+/**
+ * What was just found together with [unread], what the section's notification still shows (neither tapped nor swiped away):
+ * otherwise a later sync replaced it, and an earlier podcast with its buttons disappeared without being seen (review5 P19).
+ * The newer entries come first; an album, podcast or book in both counts once, with the newer title.
+ */
+fun NewContent.withUnread(unread: NewContent?): NewContent = when {
+    this is NewContent.Music && unread is NewContent.Music -> NewContent.Music(
+        (albums + unread.albums).groupBy { it.albumId }.values
+            .map { same -> same.first().copy(songs = same.sumOf { it.songs }) }
+            .sortedByDescending { it.songs },
+    )
+    this is NewContent.Podcasts && unread is NewContent.Podcasts -> NewContent.Podcasts(
+        episodes = (episodes + unread.episodes).groupBy { it.feedId }.values
+            .map { same -> same.first().copy(episodeIds = same.flatMap { it.episodeIds }.distinct()) },
+        moved = (moved + unread.moved).distinct(),
+    )
+    this is NewContent.Books && unread is NewContent.Books -> NewContent.Books((books + unread.books).distinctBy { it.bookId })
+    else -> this
+}
+
 /** Shows [NewContent] as a notification; the app provides the implementation (texts, channel, cover, tap target). */
 interface NewContentNotifier {
     suspend fun show(content: NewContent)
