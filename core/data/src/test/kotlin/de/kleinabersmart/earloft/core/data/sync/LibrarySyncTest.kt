@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
+import de.kleinabersmart.earloft.core.database.entity.DownloadExclusionEntity
 import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.PlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.PlaylistEntryEntity
@@ -208,6 +209,19 @@ class LibrarySyncTest {
         val download = db.downloadDao().get("nd:x2")!!
         assertEquals(DownloadState.DONE, download.state)
         assertEquals(newId, download.songId)
+    }
+
+    @Test
+    fun `a new server id for the same track keeps the removed download removed`() = runTest {
+        val gong = track("x", "Gong", track = 4, sizeBytes = 100)
+        syncer.syncAdding(db, FakeSource("nd", listOf(gong, track("y", "Hoppípolla", track = 3))))
+        val songId = db.libraryDao().observeSongRows().first().single { it.title == "Gong" }.songId
+        db.downloadDao().exclude(listOf(DownloadExclusionEntity(songId, excludedAt = 1_000)))
+
+        syncer.syncAdding(db, FakeSource("nd", listOf(gong.copy(remoteId = "x2"), track("y", "Hoppípolla", track = 3))))
+
+        val newId = db.libraryDao().observeSongRows().first().single { it.title == "Gong" }.songId
+        assertEquals(listOf(newId), db.downloadDao().getExcluded(listOf(songId, newId)))
     }
 
     @Test

@@ -176,6 +176,10 @@ interface MergeDao {
     @Query("UPDATE OR IGNORE lyrics SET songId = :into WHERE songId = :from")
     suspend fun moveLyrics(from: Long, into: Long)
 
+    /** Keeps the exclusion [into] already has. */
+    @Query("UPDATE OR IGNORE download_exclusions SET songId = :into WHERE songId = :from")
+    suspend fun moveDownloadExclusions(from: Long, into: Long)
+
     @Query("UPDATE downloads SET songId = :into WHERE songId = :from")
     suspend fun moveDownloadsOfSong(from: Long, into: Long)
 

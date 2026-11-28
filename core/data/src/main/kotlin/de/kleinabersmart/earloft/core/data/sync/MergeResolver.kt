@@ -127,8 +127,8 @@ class MergeResolver @Inject constructor(
      * after moving a folder, Navidrome after a retag) became a second song in [merge], because the old source of the same
      * server still blocked the old song (V10). For every source about to be swept whose song loses its last source of this
      * server, a song of the same album that only this server's new source delivers and that matches by MBID or by position,
-     * title and length is joined with it: history, playlist entries, queue, lyrics, favorite and the downloaded file
-     * (if it is the same file) are kept. Two tracks that the server still delivers both stay two songs.
+     * title and length is joined with it: history, playlist entries, queue, lyrics, favorite, a removed download (so the
+     * automations don't fetch it again) and the downloaded file (if it is the same file) are kept. Two tracks that the server still delivers both stay two songs.
      *
      * Must be called within the sweep transaction, before [MergeDao.deleteStaleSongSources].
      */
@@ -158,6 +158,7 @@ class MergeResolver @Inject constructor(
             mergeDao.movePlaylistEntries(from.songId, into.songId)
             mergeDao.moveQueueItems(from.songId, into.songId)
             mergeDao.moveLyrics(from.songId, into.songId)
+            mergeDao.moveDownloadExclusions(from.songId, into.songId)
             if (from.isFavorite && !into.isFavorite) {
                 syncDao.setSongFavorite(into.songId, true, from.favoriteChangedAt)
                 if (candidate.starredAt == null) syncDao.pushFavoriteToServers(into.songId, favorite = true)
