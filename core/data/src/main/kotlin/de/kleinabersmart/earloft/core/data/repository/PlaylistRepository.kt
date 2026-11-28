@@ -82,15 +82,17 @@ class PlaylistRepository @Inject constructor(
 
     /**
      * New order: [entryIds] in the desired sequence (entries, not songs – a song can appear more than once).
-     * Entries not named by [entryIds] (e.g. just added by the sync) stay at the front. A server playlist
-     * is resent as a whole.
+     * Entries not named by [entryIds] (e.g. added by a sync while sorting) follow them in their order; they used to stay at the
+     * front and jumped there on "Save" or "Undo" (review5 P60). A server playlist is resent as a whole.
      */
     suspend fun reorder(playlistId: Long, entryIds: List<Long>) {
         if (entryIds.isEmpty()) return
         change {
+            val named = entryIds.toHashSet()
+            val order = entryIds + playlistDao.getEntryIds(playlistId).filter { it !in named }
             // After all previous positions, so no position is assigned twice.
             val start = playlistDao.nextPosition(playlistId)
-            entryIds.forEachIndexed { index, entryId -> playlistDao.setPosition(playlistId, entryId, start + index) }
+            order.forEachIndexed { index, entryId -> playlistDao.setPosition(playlistId, entryId, start + index) }
             playlistDao.touch(playlistId, System.currentTimeMillis())
             playlistId
         }

@@ -128,6 +128,12 @@ internal fun AlbumCarousel(
     val lastReset = remember { CarouselResetKey(resetKey) }
     LaunchedEffect(albums, resetKey) {
         val current = state.currentItem
+        // As in the crate (review4 T52): while the carousel moves (fling, random run, slider), a new list must not break it off with a
+        // jump; it moves on through the new list, and only the front album is noted (review5 P57).
+        if (lastReset.key == resetKey && (state.isScrollInProgress || sliding)) {
+            frontId = albums.getOrNull(current.coerceIn(0, (albums.size - 1).coerceAtLeast(0)))?.id
+            return@LaunchedEffect
+        }
         val target = when {
             // From `null` (filter still loading) to a value is no new filter (review4 T57).
             lastReset.key != null && lastReset.key != resetKey -> 0

@@ -30,6 +30,7 @@ import de.kleinabersmart.earloft.core.data.share.ShareContent
 import de.kleinabersmart.earloft.core.data.share.ShareRepository
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
 import de.kleinabersmart.earloft.core.download.EpisodeDownloads
+import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
 import de.kleinabersmart.earloft.ui.snackbar.Snackbars
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -97,15 +98,19 @@ class ShareViewModel @Inject constructor(
         }
         val name = title.replace(UNSAFE_FILE_NAME_CHARS, " ").trim().take(MAX_FILE_NAME).ifBlank { "episode" }
         val copy = File(directory, source.file.extension.let { if (it.isEmpty()) name else "$name.$it" })
-        if (source.file.length() > ANNOUNCE_COPY_BYTES) snackbars.show(context.getString(R.string.share_media_preparing))
+        // Taken back once the copy is there, as the mix hint (review5 P62): the share sheet should not open under it.
+        val preparing = SnackbarMessage(context.getString(R.string.share_media_preparing))
+        if (source.file.length() > ANNOUNCE_COPY_BYTES) snackbars.show(preparing)
         try {
             source.file.copyTo(copy, overwrite = true)
         } catch (e: IOException) {
             Log.w(TAG, "Episode $bookId not copied for sharing", e)
             copy.delete()
+            snackbars.withdraw(preparing)
             snackbars.show(context.getString(R.string.share_media_failed))
             return null
         }
+        snackbars.withdraw(preparing)
         return SharedMedia(FileProvider.getUriForFile(context, "${context.packageName}.shared", copy), source.mimeType ?: "audio/*")
     }
 

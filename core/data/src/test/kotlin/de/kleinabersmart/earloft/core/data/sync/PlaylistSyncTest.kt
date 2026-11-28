@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.data.repository.PlaylistRepository
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
+import de.kleinabersmart.earloft.core.database.entity.PlaylistEntryEntity
 import de.kleinabersmart.earloft.core.datasource.RawArtist
 import de.kleinabersmart.earloft.core.datasource.RawTrack
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -139,6 +140,21 @@ class PlaylistSyncTest {
         assertEquals(listOf("replace pl1 Mix [a, b, a, c]"), nd.calls)
         syncer.syncAdding(db, nd)
         assertEquals(listOf("A", "B", "A", "C"), titles(id))
+    }
+
+    @Test
+    fun `entries a sync brought while sorting follow the new order instead of jumping to the front`() = runTest {
+        nd.putPlaylist("Mix", listOf("a", "b"))
+        syncer.syncAdding(db, nd)
+        val id = playlists.playlists().first().single().id
+        val (a, b) = playlists.playlist(id).first()!!.entries.map { it.entryId }
+        // While sorting: a third song comes in (the screen only knows A and B).
+        db.playlistDao().insertEntries(listOf(PlaylistEntryEntity(playlistId = id, songId = songId("c"), position = db.playlistDao().nextPosition(id))))
+
+        playlists.reorder(id, listOf(b, a))
+
+        // review5 P60: C stayed at its small position and came first.
+        assertEquals(listOf("B", "A", "C"), titles(id))
     }
 
     @Test

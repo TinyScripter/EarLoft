@@ -53,8 +53,12 @@ fun AlbumMenu(
     val offline by remember(album.id) { viewModel.offline(album.id) }.collectAsStateWithLifecycle(AlbumOfflineStatus.EMPTY)
     val scope = rememberCoroutineScope()
     var menuOpen by rememberSaveable { mutableStateOf(true) }
-    var playlistSongs by remember { mutableStateOf<List<Long>?>(null) }
+    // Saveable (an ArrayList of IDs): rotated with the playlist dialog open, the menu was closed but still composed, and ⋮ was
+    // dead until leaving the page (review5 P56).
+    var playlistSongs by rememberSaveable { mutableStateOf<List<Long>?>(null) }
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
+    // Rotated while the IDs were still loading: nothing is left to show, so close instead of staying invisible.
+    LaunchedEffect(Unit) { if (!menuOpen && playlistSongs == null && !confirmRemove) onDismiss() }
 
     DropdownMenu(expanded = menuOpen, onDismissRequest = onDismiss) {
         DropdownMenuItem(
@@ -87,7 +91,7 @@ fun AlbumMenu(
             leadingIcon = { Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = null) },
             onClick = {
                 menuOpen = false
-                scope.launch { playlistSongs = viewModel.songIds(album.id) }
+                scope.launch { playlistSongs = ArrayList(viewModel.songIds(album.id)) }
             },
         )
         ShareMenuItem(ShareTarget.Album(album.id), onDismiss)

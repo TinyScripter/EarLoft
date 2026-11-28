@@ -51,7 +51,11 @@ fun ArtistMenu(
     var menuOpen by rememberSaveable { mutableStateOf(true) }
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    var playlistSongs by remember { mutableStateOf<List<Long>?>(null) }
+    // Saveable (an ArrayList of IDs): rotated with the playlist dialog open, the menu was closed but still composed, and ⋮ was
+    // dead until leaving the page (review5 P56).
+    var playlistSongs by rememberSaveable { mutableStateOf<List<Long>?>(null) }
+    // Rotated while the IDs were still loading: nothing is left to show, so close instead of staying invisible.
+    LaunchedEffect(Unit) { if (!menuOpen && playlistSongs == null && !confirmRemove) onDismiss() }
 
     DropdownMenu(expanded = menuOpen, onDismissRequest = onDismiss) {
         DropdownMenuItem(
@@ -84,7 +88,7 @@ fun ArtistMenu(
             leadingIcon = { Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = null) },
             onClick = {
                 menuOpen = false
-                scope.launch { playlistSongs = viewModel.songIds(artistId) }
+                scope.launch { playlistSongs = ArrayList(viewModel.songIds(artistId)) }
             },
         )
         ShareMenuItem(ShareTarget.Artist(artistId), onDismiss)

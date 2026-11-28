@@ -169,6 +169,10 @@ private fun FastScroller(
         val trackPx = with(density) { maxHeight.toPx() }
         val thumbPx = with(density) { THUMB_HEIGHT.toPx() }
         val rangePx = (trackPx - thumbPx).coerceAtLeast(1f)
+        // The gesture handlers live on across recompositions: the mini player appearing or the header collapsing changes the
+        // height, and with the captured values finger and thumb drifted apart (review5 P55, like T8).
+        val currentRangePx by rememberUpdatedState(rangePx)
+        val currentThumbPx by rememberUpdatedState(thumbPx)
 
         // Read only during placement: scrolling then only moves the thumb without recomposing. At the end of the list the first
         // visible row is the one [lastFirstIndex] returns, so the thumb reaches the bottom also for short lists.
@@ -193,14 +197,14 @@ private fun FastScroller(
                             onDragStart = { offset ->
                                 currentOnDragStart()
                                 dragging = true
-                                dragFraction = ((offset.y - thumbPx / 2) / rangePx).coerceIn(0f, 1f)
+                                dragFraction = ((offset.y - currentThumbPx / 2) / currentRangePx).coerceIn(0f, 1f)
                                 scrollTo(scope, currentScrollTo, lastFirstIndex(currentCount, currentVisibleCount()), dragFraction)
                             },
                             onDragEnd = { dragging = false },
                             onDragCancel = { dragging = false },
                             onVerticalDrag = { change, _ ->
                                 change.consume()
-                                dragFraction = ((change.position.y - thumbPx / 2) / rangePx).coerceIn(0f, 1f)
+                                dragFraction = ((change.position.y - currentThumbPx / 2) / currentRangePx).coerceIn(0f, 1f)
                                 scrollTo(scope, currentScrollTo, lastFirstIndex(currentCount, currentVisibleCount()), dragFraction)
                             },
                         )
@@ -209,7 +213,7 @@ private fun FastScroller(
                     .pointerInput(Unit) {
                         detectTapGestures { offset ->
                             currentOnDragStart()
-                            val fraction = ((offset.y - thumbPx / 2) / rangePx).coerceIn(0f, 1f)
+                            val fraction = ((offset.y - currentThumbPx / 2) / currentRangePx).coerceIn(0f, 1f)
                             scrollTo(scope, currentScrollTo, lastFirstIndex(currentCount, currentVisibleCount()), fraction)
                         }
                     },

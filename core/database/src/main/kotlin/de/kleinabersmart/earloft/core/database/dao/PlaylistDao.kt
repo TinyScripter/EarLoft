@@ -101,6 +101,9 @@ interface PlaylistDao {
     @Query("SELECT songId FROM playlist_entries WHERE playlistId = :playlistId ORDER BY position, entryId")
     suspend fun getSongIds(playlistId: Long): List<Long>
 
+    @Query("SELECT entryId FROM playlist_entries WHERE playlistId = :playlistId ORDER BY position, entryId")
+    suspend fun getEntryIds(playlistId: Long): List<Long>
+
     /**
      * The remote IDs of the entries on [sourceId] in playlist order; songs missing there are dropped.
      * If a server returns a song twice, the same source is always chosen.

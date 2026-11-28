@@ -89,8 +89,16 @@ class LibraryViewModel @Inject constructor(
     private val chosenDecades = MutableStateFlow(savedStateHandle.get<IntArray>(KEY_DECADES)?.toSet().orEmpty())
     private val chosenGenres = MutableStateFlow(savedStateHandle.get<ArrayList<String>>(KEY_GENRES)?.toSet().orEmpty())
 
-    val favoriteAlbumIds: StateFlow<Set<Long>> = favoritesRepository.favoriteAlbumIds().stateInViewModel(emptySet())
-    val favoriteArtistIds: StateFlow<Set<Long>> = favoritesRepository.favoriteArtistIds().stateInViewModel(emptySet())
+    /**
+     * Favorite albums and artists, `null` until loaded (as [selectedDecades]): with the favorites chip on after the end of the process,
+     * filtering against an empty set first flashed "No matches", and crate, carousel and grid lost their place (review5 P59).
+     */
+    private val loadedFavoriteAlbumIds: StateFlow<Set<Long>?> =
+        favoritesRepository.favoriteAlbumIds().map<Set<Long>, Set<Long>?> { it }.stateInViewModel(null)
+    private val loadedFavoriteArtistIds: StateFlow<Set<Long>?> =
+        favoritesRepository.favoriteArtistIds().map<Set<Long>, Set<Long>?> { it }.stateInViewModel(null)
+    val favoriteAlbumIds: StateFlow<Set<Long>> = loadedFavoriteAlbumIds.map { it.orEmpty() }.stateInViewModel(emptySet())
+    val favoriteArtistIds: StateFlow<Set<Long>> = loadedFavoriteArtistIds.map { it.orEmpty() }.stateInViewModel(emptySet())
 
     private val chosenFavorites = MutableStateFlow<Set<FavoritesChip>>(
         savedStateHandle.get<ArrayList<String>>(KEY_FAVORITES).orEmpty().mapNotNullTo(HashSet()) { name ->
@@ -122,24 +130,28 @@ class LibraryViewModel @Inject constructor(
 
     /** The albums (in their sort order) from the selected decades. */
     val albumsOfDecades: StateFlow<LoadState<List<Album>>> =
-        combine(albums, selectedDecades.map { it.orEmpty() }, favoritesOnly, favoriteAlbumIds) { state, chosen, favoritesOnly, favorites ->
+        combine(albums, selectedDecades.map { it.orEmpty() }, favoritesOnly, loadedFavoriteAlbumIds) { state, chosen, favoritesOnly, favorites ->
+            if (FavoritesChip.ALBUMS in favoritesOnly && favorites == null) return@combine LoadState.Loading
             state.filterAlbums(chosen.isNotEmpty()) { album -> album.year?.takeIf { it >= 1000 }?.let { it / 10 * 10 in chosen } == true }
-                .filterAlbums(FavoritesChip.ALBUMS in favoritesOnly) { it.id in favorites }
+                .filterAlbums(FavoritesChip.ALBUMS in favoritesOnly) { it.id in favorites.orEmpty() }
         }.stateInViewModel(LoadState.Loading)
 
     /** The albums (in their sort order) with at least one song from the selected genres. */
     val albumsOfGenres: StateFlow<LoadState<List<Album>>> =
-        combine(albums, selectedGenres.map { it.orEmpty() }, libraryRepository.albumGenreKeys(), favoritesOnly, favoriteAlbumIds) {
+        combine(albums, selectedGenres.map { it.orEmpty() }, libraryRepository.albumGenreKeys(), favoritesOnly, loadedFavoriteAlbumIds) {
                 state, chosen, genresOf, favoritesOnly, favorites ->
+            if (FavoritesChip.GENRES in favoritesOnly && favorites == null) return@combine LoadState.Loading
             state.filterAlbums(chosen.isNotEmpty()) { album -> genresOf[album.id]?.any { it in chosen } == true }
-                .filterAlbums(FavoritesChip.GENRES in favoritesOnly) { it.id in favorites }
+                .filterAlbums(FavoritesChip.GENRES in favoritesOnly) { it.id in favorites.orEmpty() }
         }.stateInViewModel(LoadState.Loading)
 
     /** The artists (in their sort order), with the "Favorites" chip only the favorited ones. */
     val artistsShown: StateFlow<LoadState<List<Artist>>> =
-        combine(artists, favoritesOnly, favoriteArtistIds) { state, favoritesOnly, favorites ->
-            if (FavoritesChip.ARTISTS in favoritesOnly && state is LoadState.Ready) {
-                LoadState.Ready(state.value.filter { it.id in favorites })
+        combine(artists, favoritesOnly, loadedFavoriteArtistIds) { state, favoritesOnly, favorites ->
+            if (FavoritesChip.ARTISTS in favoritesOnly && favorites == null) {
+                LoadState.Loading
+            } else if (FavoritesChip.ARTISTS in favoritesOnly && state is LoadState.Ready) {
+                LoadState.Ready(state.value.filter { it.id in favorites.orEmpty() })
             } else {
                 state
             }

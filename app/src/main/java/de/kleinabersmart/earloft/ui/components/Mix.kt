@@ -21,6 +21,7 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.mix.MixRepository
 import de.kleinabersmart.earloft.core.data.mix.MixSeed
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
+import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
 import de.kleinabersmart.earloft.ui.snackbar.Snackbars
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -57,13 +58,17 @@ class MixViewModel @Inject constructor(
     fun start(seed: MixSeed, afterCurrent: Boolean) {
         running?.cancel()
         running = viewModelScope.launch {
+            // Remembered: once shown it is taken back when the mix is ready; it used to stand its full time, and the result waited
+            // behind it (review5 P62).
+            val building = SnackbarMessage(context.getString(R.string.mix_building))
             val hint = launch {
                 delay(BUILDING_HINT_DELAY_MS)
-                snackbars.show(context.getString(R.string.mix_building))
+                snackbars.show(building)
             }
             try {
                 val songs = mixRepository.mix(seed)
                 hint.cancel()
+                snackbars.withdraw(building)
                 // After the current title: it is itself the starting point and comes first in the mix.
                 val upcoming = if (afterCurrent) songs.drop(1) else songs
                 when {
@@ -81,6 +86,7 @@ class MixViewModel @Inject constructor(
                 snackbars.show(context.getString(PlaybackR.string.mix_failed))
             } finally {
                 hint.cancel()
+                snackbars.withdraw(building)
             }
         }
     }
