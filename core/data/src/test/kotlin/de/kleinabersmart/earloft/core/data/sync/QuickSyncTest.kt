@@ -55,7 +55,8 @@ class QuickSyncTest {
     fun `quick sync never deletes and keeps the generation`() = runTest {
         syncer.syncAdding(db, nd)
         val before = db.sourceDao().get("nd")!!
-        nd.tracks = emptyList()
+        // "First" was replaced on the server (an empty library would only be removed after a second opinion, review P2).
+        nd.tracks = listOf(track("b", "Second"))
 
         assertTrue(syncer.quickSync(nd))
 
@@ -63,7 +64,7 @@ class QuickSyncTest {
         assertEquals(before.syncGeneration, db.sourceDao().get("nd")!!.syncGeneration)
         // The next full sync cleans up as usual.
         syncer.syncAdding(db, nd)
-        assertEquals(emptyList<String>(), titles())
+        assertEquals(listOf("Second"), titles())
     }
 
     @Test

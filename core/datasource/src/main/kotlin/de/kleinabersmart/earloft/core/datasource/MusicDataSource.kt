@@ -16,6 +16,13 @@ interface MusicDataSource {
     val displayName: String
 
     /**
+     * `true` if [fullScan] lists a whole library: a sudden drop to nothing or by more than half then more likely means an
+     * outage (ejected SD card, unmounted share on the server) than a deliberate removal, and the sync waits for a second
+     * opinion before deleting (review G6, P2). `false` for a selection the user shrinks on purpose (the watch's manifest).
+     */
+    val isWholeLibrary: Boolean get() = true
+
+    /**
      * Delivers the complete library in batches. Throws on errors (e.g. missing permission)
      * so the sync aborts instead of interpreting the library as empty.
      */

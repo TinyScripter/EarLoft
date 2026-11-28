@@ -10,8 +10,9 @@ import javax.inject.Singleton
 /**
  * Second opinion before the sweep of media on the device (review G6). While Android rebuilds its media index (after an
  * update) the MediaStore delivers a valid but empty or incomplete list; the sweep would delete songs with their history and
- * playlist entries, books and episodes with their progress. A drop to nothing or by more than half is therefore only applied
- * when a later scan, at least [CONFIRM_AFTER_MS] after the first, still sees it.
+ * playlist entries, books and episodes with their progress. A music server whose share is not mounted, or whose music library
+ * is hidden from the account, answers the same way without an error (review P2). A drop to nothing or by more than half is
+ * therefore only applied when a later scan, at least [CONFIRM_AFTER_MS] after the first, still sees it.
  */
 @Singleton
 class SweepGuard @Inject constructor(

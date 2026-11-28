@@ -29,6 +29,9 @@ class WearManifestSource(
 ) : MusicDataSource {
     override val displayName: String = sourceId
 
+    /** The phone's selection: removing most of it is deliberate. */
+    override val isWholeLibrary: Boolean get() = false
+
     override fun fullScan(): Flow<SourceBatch> = flowOf(SourceBatch(tracks))
 
     /** Playback goes through the sources of the `DataSourceRegistry` or downloads, never through this source. */

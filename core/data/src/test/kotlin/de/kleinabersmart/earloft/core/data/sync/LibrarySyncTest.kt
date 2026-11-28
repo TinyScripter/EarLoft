@@ -132,6 +132,40 @@ class LibrarySyncTest {
     }
 
     @Test
+    fun `a server that suddenly lists no music keeps its songs until a later sync confirms it`() = runTest {
+        syncer.syncAdding(db, FakeSource("nd", listOf(track("x", "Gong", track = 4), track("y", "Hoppípolla", track = 3))))
+        val songId = db.libraryDao().observeSongRows().first().single { it.title == "Gong" }.songId
+        db.playbackDao().insertPlayEventIfSongExists(PlayEventEntity(songId = songId, playedAt = 1_000, listenedMs = 60_000))
+
+        // The share on the server is not mounted: a valid, empty library.
+        assertEquals(false, syncer.sync(FakeSource("nd", emptyList())))
+        assertEquals(2, db.libraryDao().observeSongRows().first().size)
+        db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM play_events").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(1, cursor.getInt(0))
+        }
+
+        // Still empty half an hour later: the server really has no music anymore.
+        ApplicationProvider.getApplicationContext<android.content.Context>()
+            .getSharedPreferences("sweep_guard", android.content.Context.MODE_PRIVATE)
+            .edit().putLong("server:nd", System.currentTimeMillis() - SweepGuard.CONFIRM_AFTER_MS).commit()
+        assertEquals(true, syncer.sync(FakeSource("nd", emptyList())))
+        assertTrue(db.libraryDao().observeSongRows().first().isEmpty())
+    }
+
+    @Test
+    fun `a server that lists its music again cancels the postponed removal`() = runTest {
+        val library = listOf(track("x", "Gong", track = 4), track("y", "Hoppípolla", track = 3))
+        syncer.syncAdding(db, FakeSource("nd", library))
+        syncer.sync(FakeSource("nd", emptyList()))
+
+        assertEquals(true, syncer.sync(FakeSource("nd", library)))
+        // A new outage starts its own waiting time instead of confirming the old one.
+        assertEquals(false, syncer.sync(FakeSource("nd", emptyList())))
+        assertEquals(2, db.libraryDao().observeSongRows().first().size)
+    }
+
+    @Test
     fun `retagged file keeps its song id`() = runTest {
         syncer.syncAdding(db, FakeSource("local", listOf(track("1", "Glosoli", lastModified = 1))))
         val before = db.libraryDao().observeSongRows().first().single()

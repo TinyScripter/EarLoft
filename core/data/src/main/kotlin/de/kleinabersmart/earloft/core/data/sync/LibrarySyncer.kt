@@ -57,7 +57,7 @@ class LibrarySyncer @Inject constructor(
 
     /**
      * Like [sync], but catches errors and remembers them in [failures]. @return `true` on success; `false` also if the sweep
-     * of music on the device was postponed (then the scan has to run again, review G6).
+     * was postponed (then the scan has to run again, review G6 and P2).
      */
     suspend fun syncSafely(source: MusicDataSource): Boolean =
         try {
@@ -110,7 +110,7 @@ class LibrarySyncer @Inject constructor(
         }
     }
 
-    /** @return `false` if the sweep of music on the device was postponed ([SweepGuard], review G6). */
+    /** @return `false` if the sweep was postponed ([SweepGuard], review G6 and P2). */
     suspend fun sync(source: MusicDataSource): Boolean = mutex.withLock {
         runningSyncs.update { it + 1 }
         try {
@@ -126,7 +126,7 @@ class LibrarySyncer @Inject constructor(
             val isUnchanged: suspend (String, Long) -> Boolean = { remoteId, lastModified ->
                 mergeDao.getSongSource("${source.sourceId}:$remoteId")?.lastModified == lastModified
             }
-            val known = if (source.type == SourceType.LOCAL) mergeDao.countSongSources(source.sourceId) else 0
+            val known = if (source.isWholeLibrary) mergeDao.countSongSources(source.sourceId) else 0
             var complete = true
             var listed = 0
             source.fullScan(isUnchanged).collect { batch ->
@@ -136,9 +136,10 @@ class LibrarySyncer @Inject constructor(
                     batch.tracks.forEach { mergeResolver.merge(source.sourceId, it, generation, syncsFavorites) }
                 }
             }
-            // Music on the device: an ejected SD card or a media index being rebuilt delivers a successful but incomplete
-            // list. Then nothing is removed (review G6); the songs seen are already updated.
-            if (source.type == SourceType.LOCAL && !(complete && sweepGuard.allows(LOCAL_MUSIC_AREA, known, listed))) {
+            // An ejected SD card or a media index being rebuilt (review G6), a server whose share is not mounted or whose music
+            // library is hidden from the account (P2) delivers a successful but incomplete list. Then nothing is removed; the
+            // songs seen are already updated.
+            if (source.isWholeLibrary && !(complete && sweepGuard.allows(sweepArea(source), known, listed))) {
                 Log.w(TAG, "Sweep of ${source.sourceId} postponed ($listed of $known songs seen, complete: $complete)")
                 // The generation still moves on, so the next scan compares against what this one saw.
                 sourceDao.setSyncGeneration(source.sourceId, generation, System.currentTimeMillis())
@@ -204,9 +205,13 @@ class LibrarySyncer @Inject constructor(
         changeListeners.forEach { it.onSongSourcesRemoved() }
     }
 
+    private fun sweepArea(source: MusicDataSource): String =
+        if (source.type == SourceType.LOCAL) LOCAL_MUSIC_AREA else SERVER_AREA_PREFIX + source.sourceId
+
     private companion object {
         const val TAG = "LibrarySyncer"
         const val LOCAL_MUSIC_AREA = "music"
+        const val SERVER_AREA_PREFIX = "server:"
         const val CLOCK_SLACK_MS = 60 * 60 * 1000L
     }
 }
