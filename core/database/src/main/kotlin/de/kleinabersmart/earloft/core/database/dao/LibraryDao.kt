@@ -511,9 +511,9 @@ abstract class LibraryDao {
     @Query("SELECT COALESCE(MAX(songId), 0) FROM songs")
     abstract suspend fun maxSongId(): Long
 
-    /** Visible songs created after [songId]. */
-    @Query("SELECT COUNT(*) FROM songs s WHERE s.songId > :songId AND $SONG_VISIBLE")
-    abstract suspend fun countVisibleSongsAfter(songId: Long): Int
+    /** Visible songs created after [songId], with their album. */
+    @Query("SELECT s.songId, s.albumId FROM songs s WHERE s.songId > :songId AND $SONG_VISIBLE")
+    abstract suspend fun visibleSongsAfter(songId: Long): List<SongAlbumRow>
 
     /** Albums with visible songs created after [songId]; `songCount` counts only those, most first. */
     @Query("$SELECT_ALBUM_ROWS AND s.songId > :songId GROUP BY a.albumId ORDER BY songCount DESC, a.sortTitle")

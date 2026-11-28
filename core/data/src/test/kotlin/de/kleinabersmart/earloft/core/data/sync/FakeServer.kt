@@ -155,12 +155,13 @@ internal fun EarLoftDatabase.playlistSyncer(notices: SyncNotices = SyncNotices()
 internal fun EarLoftDatabase.librarySyncer(
     scheduler: SyncScheduler = NoScheduler,
     notices: SyncNotices = SyncNotices(),
+    adopted: AdoptedSongs = AdoptedSongs(),
 ) = LibrarySyncer(
     database = this,
     sourceDao = sourceDao(),
     mergeDao = mergeDao(),
     libraryDao = libraryDao(),
-    mergeResolver = MergeResolver(mergeDao(), syncDao(), CollectionSourceResolver(mergeDao(), syncDao())),
+    mergeResolver = MergeResolver(mergeDao(), syncDao(), CollectionSourceResolver(mergeDao(), syncDao()), adopted),
     changeListeners = emptySet(),
     syncQueue = SyncQueueStarter(syncDao(), scheduler),
     playlistSyncer = playlistSyncer(notices),

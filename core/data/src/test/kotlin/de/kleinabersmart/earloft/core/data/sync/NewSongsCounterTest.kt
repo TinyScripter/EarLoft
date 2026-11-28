@@ -26,8 +26,9 @@ class NewSongsCounterTest {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), EarLoftDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        syncer = db.librarySyncer()
-        counter = NewSongsCounter(db.libraryDao(), db.sourceDao())
+        val adopted = AdoptedSongs()
+        syncer = db.librarySyncer(adopted = adopted)
+        counter = NewSongsCounter(db.libraryDao(), db.sourceDao(), adopted)
     }
 
     @After
@@ -103,6 +104,19 @@ class NewSongsCounterTest {
         syncer.syncAdding(db, nd)
 
         assertEquals(0, counter.newSongs(baseline))
+    }
+
+    @Test
+    fun `a track the server delivers under a new id is no new music`() = runTest {
+        syncer.syncAdding(db, nd)
+        // The server moved the folder: the same track under a new ID, plus one really new track on another album.
+        nd.tracks = listOf(track("a2", "First"), track("b", "Second", album = "Hvarf"))
+
+        val baseline = counter.begin(listOf("nd"))
+        syncer.syncAdding(db, nd)
+
+        assertEquals(1, counter.newSongs(baseline))
+        assertEquals(listOf("Hvarf" to 1), counter.newAlbums(baseline).map { it.title to it.songs })
     }
 
     @Test

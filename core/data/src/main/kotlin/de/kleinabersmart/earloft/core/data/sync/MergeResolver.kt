@@ -28,6 +28,7 @@ class MergeResolver @Inject constructor(
     private val mergeDao: MergeDao,
     private val syncDao: SyncDao,
     private val collections: CollectionSourceResolver,
+    private val adopted: AdoptedSongs = AdoptedSongs(),
 ) {
 
     /**
@@ -149,6 +150,9 @@ class MergeResolver @Inject constructor(
             if (keepOld) {
                 mergeDao.moveSongSource(candidate.uid, old.songId)
                 mergeDao.moveDownloadsOfSong(new.songId, old.songId)
+            } else {
+                // Continues the old song under a new songId: not "new music" in the notification (review5 P23).
+                adopted.add(new.songId)
             }
             if (stale.sizeBytes == candidate.sizeBytes && stale.mimeType == candidate.mimeType) {
                 mergeDao.moveDownload(stale.uid, candidate.uid, into.songId)
