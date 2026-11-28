@@ -2,6 +2,9 @@ package de.kleinabersmart.earloft.ui.components
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.Configuration
+import androidx.work.testing.SynchronousExecutor
+import androidx.work.testing.WorkManagerTestInitHelper
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
@@ -78,6 +81,8 @@ class OfflineAndFavoritesUndoTest {
 
     @Before
     fun setUp() {
+        // A song's heart is sent to its server by a job.
+        WorkManagerTestInitHelper.initializeTestWorkManager(context, Configuration.Builder().setExecutor(SynchronousExecutor()).build())
         hilt.inject()
     }
 
@@ -150,6 +155,24 @@ class OfflineAndFavoritesUndoTest {
     }
 
     @Test
+    fun `downloading the album again while the removal waits keeps the song`() = runTest {
+        val (songId, file) = insertDownloadedSong("Andvari")
+        val messages = collectMessages()
+
+        offlineViewModel.removeDownload(songId, "Andvari", downloaded = true)
+        val shown = awaitReal { messages.receive() }
+        // The album, an artist or a playlist with this song is downloaded meanwhile (review5 8.12).
+        downloadRepository.downloadSongs(listOf(songId))
+        shown.onDismissed!!.invoke()
+
+        // The removal would run on the database's threads: give it real time.
+        Thread.sleep(500)
+        assertNotNull(downloadDao.get("home:$songId"))
+        assertTrue(file.exists())
+        assertFalse(songId in offlineViewModel.pendingRemovals.value)
+    }
+
+    @Test
     fun `cancelling a queued download removes it right away without waiting for a snackbar`() = runTest {
         val (songId, _) = insertDownloadedSong("Sæglópur", state = DownloadState.QUEUED)
         val messages = collectMessages()
@@ -170,17 +193,39 @@ class OfflineAndFavoritesUndoTest {
 
         favoritesViewModel.toggle(FavoriteKind.ALBUM, albumId, "Takk")
         val albumUndo = awaitReal { messages.receive() }
-        assertFalse(favoritesRepository.isAlbumFavorite(albumId).first())
+        // Shown as removed, but the favorite (and its automatic downloads) only goes once the snackbar expires (review5 8.12).
+        awaitReal { favoritesViewModel.albums.first { albumId !in it } }
+        assertTrue(favoritesRepository.isAlbumFavorite(albumId).first())
         assertTrue(albumUndo.text, "Takk" in albumUndo.text)
         assertNotNull(albumUndo.actionLabel)
 
         albumUndo.onAction!!.invoke()
-        awaitReal { favoritesRepository.isAlbumFavorite(albumId).first { it } }
+        awaitReal { favoritesViewModel.albums.first { albumId in it } }
+        assertTrue(favoritesRepository.isAlbumFavorite(albumId).first())
 
         favoritesViewModel.toggle(FavoriteKind.ARTIST, artistId, "Sigur Rós")
-        val artistUndo = awaitReal { messages.receive() }
-        assertFalse(favoritesRepository.isArtistFavorite(artistId).first())
-        artistUndo.onAction!!.invoke()
-        awaitReal { favoritesRepository.isArtistFavorite(artistId).first { it } }
+        val artistGone = awaitReal { messages.receive() }
+        assertTrue(favoritesRepository.isArtistFavorite(artistId).first())
+        artistGone.onDismissed!!.invoke()
+        awaitReal { favoritesRepository.isArtistFavorite(artistId).first { !it } }
+    }
+
+    @Test
+    fun `a song's heart goes when the snackbar expires, tapping again keeps it`() = runTest {
+        val (songId, _) = insertDownloadedSong("Svefn-g-englar")
+        favoritesRepository.setFavorite(songId, true)
+        val messages = collectMessages()
+
+        favoritesViewModel.removeSongFavorite(songId, "Svefn-g-englar")
+        awaitReal { messages.receive() }
+        assertTrue(songId in favoritesViewModel.pendingSongRemovals.value)
+        favoritesViewModel.keepSongFavorite(songId)
+        assertFalse(songId in favoritesViewModel.pendingSongRemovals.value)
+
+        favoritesViewModel.removeSongFavorite(songId, "Svefn-g-englar")
+        val gone = awaitReal { messages.receive() }
+        assertTrue(favoritesRepository.isFavorite(songId).first())
+        gone.onDismissed!!.invoke()
+        awaitReal { favoritesRepository.isFavorite(songId).first { !it } }
     }
 }

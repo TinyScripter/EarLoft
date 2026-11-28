@@ -80,7 +80,7 @@ class OfflineViewModel @Inject constructor(
     val albumMarks: StateFlow<Map<Long, OfflineMark>> = downloadRepository.albumMarks()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    private class PendingRemoval(val token: Long, val message: SnackbarMessage)
+    private class PendingRemoval(val token: Long, val message: SnackbarMessage, val requestStamp: Long)
 
     private var nextToken = 0L
     private val pending = MutableStateFlow<Map<Long, PendingRemoval>>(emptyMap())
@@ -123,7 +123,7 @@ class OfflineViewModel @Inject constructor(
             duration = SnackbarDuration.Long,
             onDismissed = { commitPendingRemoval(songId, token) },
         )
-        pending.update { it + (songId to PendingRemoval(token, message)) }
+        pending.update { it + (songId to PendingRemoval(token, message, downloadRepository.requestStamp())) }
         snackbars.show(message)
     }
 
@@ -132,21 +132,26 @@ class OfflineViewModel @Inject constructor(
     }
 
     private fun commitPendingRemoval(songId: Long, token: Long) {
-        var commit = false
+        var committed: PendingRemoval? = null
         pending.update { map ->
-            if (map[songId]?.token == token) {
-                commit = true
+            val entry = map[songId]
+            if (entry?.token == token) {
+                committed = entry
                 map - songId
             } else {
                 map
             }
         }
-        if (commit) applicationScope.launch { downloadRepository.removeSongs(listOf(songId)) }
+        // Downloaded again with its album or playlist in the meantime: it stays (review5 8.12).
+        committed?.let { applicationScope.launch { downloadRepository.removeSongsNotRequestedSince(listOf(songId), it.requestStamp) } }
     }
 
     override fun onCleared() {
-        val remaining = pending.getAndUpdate { emptyMap() }.keys.toList()
-        if (remaining.isNotEmpty()) applicationScope.launch { downloadRepository.removeSongs(remaining) }
+        val remaining = pending.getAndUpdate { emptyMap() }
+        if (remaining.isEmpty()) return
+        applicationScope.launch {
+            remaining.forEach { (songId, removal) -> downloadRepository.removeSongsNotRequestedSince(listOf(songId), removal.requestStamp) }
+        }
     }
 }
 

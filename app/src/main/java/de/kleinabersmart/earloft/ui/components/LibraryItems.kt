@@ -157,32 +157,33 @@ fun SongListItem(
                                 },
                             )
                             MixMenuItem(MixSeed.Song(song.id), onDismiss = { menuOpen = false })
+                            // A heart whose removal waits for its "Undo" snackbar already shows as removed (review5 8.12).
+                            val removing = collectionFavorites?.isSongRemovalPending(song.id) == true
+                            val favorite = song.isFavorite && !removing
                             DropdownMenuItem(
                                 text = {
-                                    Text(stringResource(if (song.isFavorite) R.string.action_remove_favorite else R.string.action_add_favorite))
+                                    Text(stringResource(if (favorite) R.string.action_remove_favorite else R.string.action_add_favorite))
                                 },
                                 leadingIcon = {
                                     Icon(
-                                        painterResource(if (song.isFavorite) DesignR.drawable.ic_favorite else DesignR.drawable.ic_favorite_border),
+                                        painterResource(if (favorite) DesignR.drawable.ic_favorite else DesignR.drawable.ic_favorite_border),
                                         contentDescription = null,
                                     )
                                 },
                                 onClick = {
                                     menuOpen = false
-                                    val wasFavorite = song.isFavorite
-                                    actions.toggleFavorite(song)
-                                    if (wasFavorite) {
-                                        snackbars.show(
-                                            resources.getString(R.string.favorite_removed, song.title),
-                                            SnackbarDuration.Long,
-                                            resources.getString(R.string.action_undo),
-                                        ) {
-                                            if (collectionFavorites != null) {
-                                                collectionFavorites.restoreSongFavorite(song.id)
-                                            } else {
-                                                actions.toggleFavorite(song.copy(isFavorite = false))
-                                            }
+                                    when {
+                                        removing -> collectionFavorites.keepSongFavorite(song.id)
+                                        favorite && collectionFavorites != null -> collectionFavorites.removeSongFavorite(song.id, song.title)
+                                        favorite -> {
+                                            actions.toggleFavorite(song)
+                                            snackbars.show(
+                                                resources.getString(R.string.favorite_removed, song.title),
+                                                SnackbarDuration.Long,
+                                                resources.getString(R.string.action_undo),
+                                            ) { actions.toggleFavorite(song.copy(isFavorite = false)) }
                                         }
+                                        else -> actions.toggleFavorite(song)
                                     }
                                 },
                             )

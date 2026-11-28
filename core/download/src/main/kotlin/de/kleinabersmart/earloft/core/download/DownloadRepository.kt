@@ -32,6 +32,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -46,6 +48,21 @@ class DownloadRepository @Inject constructor(
     private val scheduler: DownloadScheduler,
     private val coverFiles: CoverFiles,
 ) {
+    private val requests = AtomicLong()
+
+    /** Per song the [requests] count of the last manual download request that covered it (song, album, artist, playlist). */
+    private val requestedAt = ConcurrentHashMap<Long, Long>()
+
+    /** Taken when a removal starts waiting for its "Undo" snackbar; see [removeSongsNotRequestedSince]. */
+    fun requestStamp(): Long = requests.get()
+
+    /**
+     * The removal of [songIds] that waited since [stamp] for its "Undo" snackbar: songs downloaded again in the meantime as part of
+     * an album, artist or playlist stay (review5 8.12); otherwise the expired snackbar would delete them and lock them out.
+     */
+    suspend fun removeSongsNotRequestedSince(songIds: List<Long>, stamp: Long) =
+        removeSongs(songIds.filter { (requestedAt[it] ?: 0) <= stamp })
+
     suspend fun downloadAlbum(albumId: Long): Int =
         enqueue(libraryDao.getSongIdsOfAlbum(albumId), pinnedBy = "album:$albumId")
 
@@ -71,6 +88,8 @@ class DownloadRepository @Inject constructor(
                 val excluded = wanted.flatMapTo(HashSet()) { downloadDao.getExcluded(it) }
                 wanted.flatten().filter { it !in excluded }.chunked(SQLITE_MAX_VARIABLES)
             } else {
+                val request = requests.incrementAndGet()
+                wanted.forEach { chunk -> chunk.forEach { requestedAt[it] = request } }
                 wanted.forEach { downloadDao.unexclude(it) }
                 wanted
             }
