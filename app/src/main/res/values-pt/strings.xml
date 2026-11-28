@@ -530,6 +530,7 @@
     <string name="playlist_delete_text_server">“%1$s” também será excluída em %2$s.</string>
     <string name="playlist_empty">Nenhuma música ainda. Adicione músicas pelo menu da música.</string>
     <string name="voice_nothing_found">Nada encontrado para “%1$s”.</string>
+    <string name="voice_found_not_playable">“%1$s” encontrado, mas não pode ser reproduzido agora.</string>
     <string name="voice_nothing_to_play">Nada encontrado para tocar.</string>
     <string name="playlist_missing_on_server">Não está em %1$s</string>
     <plurals name="playlist_unknown_songs">

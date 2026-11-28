@@ -67,6 +67,15 @@ data class PlayerState(
     val hasMedia: Boolean get() = current != null || spoken != null
 }
 
+/** Outcome of a voice search ([PlaybackConnection.playFromSearch]). */
+enum class VoicePlay {
+    PLAYING,
+    NOTHING_FOUND,
+
+    /** Found, but it can't be started right now (not downloaded while offline, an expired login; review5 8.12). */
+    NOT_PLAYABLE,
+}
+
 /**
  * Connection of the app UI to playback. All methods must be called on the main thread (requirement of
  * `MediaController`). Implemented by [MediaPlaybackConnection]; an interface so that ViewModels are testable
@@ -104,10 +113,10 @@ interface PlaybackConnection {
 
     /**
      * Voice search ("Play … on EarLoft"): an item without a media ID with [query] as search term; the session picks the
-     * songs (`LibrarySessionCallback.voiceSongs`, empty term = shuffled favorites), as with Android Auto. `false` if the request
-     * finds nothing: then nothing is played and the queue stays as it is.
+     * songs (`LibrarySessionCallback.voiceSongs`, empty term = shuffled favorites), as with Android Auto. Unless it plays, nothing
+     * is played and the queue stays as it is.
      */
-    suspend fun playFromSearch(query: String): Boolean
+    suspend fun playFromSearch(query: String): VoicePlay
 
     /**
      * Starts an audiobook at the saved position (or at [startPositionMs], e.g. a chapter) after the

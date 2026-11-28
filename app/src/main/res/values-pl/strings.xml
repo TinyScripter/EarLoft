@@ -554,6 +554,7 @@
     <string name="playlist_delete_text_server">Playlista „%1$s” zostanie usunięta także na serwerze %2$s.</string>
     <string name="playlist_empty">Brak utworów. Dodaj je z menu utworu.</string>
     <string name="voice_nothing_found">Nic nie znaleziono dla „%1$s”.</string>
+    <string name="voice_found_not_playable">Znaleziono „%1$s”, ale teraz nie można tego odtworzyć.</string>
     <string name="voice_nothing_to_play">Nie znaleziono niczego do odtworzenia.</string>
     <string name="playlist_missing_on_server">Brak na serwerze %1$s</string>
     <plurals name="playlist_unknown_songs">

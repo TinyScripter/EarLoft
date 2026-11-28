@@ -44,6 +44,7 @@ import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.playback.EXTRA_OPEN_NOW_PLAYING
 import de.kleinabersmart.earloft.core.playback.EXTRA_REQUEST_HOME_NETWORK
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
+import de.kleinabersmart.earloft.core.playback.VoicePlay
 import de.kleinabersmart.earloft.notification.AppNewContentNotifier
 import de.kleinabersmart.earloft.notification.NewContentTarget
 import de.kleinabersmart.earloft.notification.NewEpisodeActionReceiver
@@ -180,12 +181,18 @@ class MainActivity : ComponentActivity() {
         if (intent.action != MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH) return
         val query = intent.safeStringExtra(SearchManager.QUERY).orEmpty()
         lifecycleScope.launch {
-            if (playbackConnection.playFromSearch(query)) {
+            val result = playbackConnection.playFromSearch(query)
+            if (result == VoicePlay.PLAYING) {
                 openNowPlaying = true
-            } else {
-                val text = if (query.isBlank()) getString(R.string.voice_nothing_to_play) else getString(R.string.voice_nothing_found, query)
-                Toast.makeText(this@MainActivity, text, Toast.LENGTH_LONG).show()
+                return@launch
             }
+            val text = when {
+                query.isBlank() -> getString(R.string.voice_nothing_to_play)
+                // Found, but not startable right now (offline, login expired): not "nothing found" (review5 8.12).
+                result == VoicePlay.NOT_PLAYABLE -> getString(R.string.voice_found_not_playable, query)
+                else -> getString(R.string.voice_nothing_found, query)
+            }
+            Toast.makeText(this@MainActivity, text, Toast.LENGTH_LONG).show()
         }
     }
 

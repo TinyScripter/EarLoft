@@ -530,6 +530,7 @@
     <string name="playlist_delete_text_server">« %1$s » sera également supprimée sur %2$s.</string>
     <string name="playlist_empty">Aucun morceau pour l’instant. Ajoutez-en depuis le menu d’un morceau.</string>
     <string name="voice_nothing_found">Aucun résultat pour « %1$s ».</string>
+    <string name="voice_found_not_playable">« %1$s » trouvé, mais impossible à lire pour le moment.</string>
     <string name="voice_nothing_to_play">Aucun contenu à lire trouvé.</string>
     <string name="playlist_missing_on_server">Absente de %1$s</string>
     <plurals name="playlist_unknown_songs">

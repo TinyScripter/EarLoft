@@ -506,6 +506,7 @@
     <string name="playlist_delete_text_server">‘%1$s’ wordt ook verwijderd op %2$s.</string>
     <string name="playlist_empty">Nog geen nummers. Voeg ze toe via het nummermenu.</string>
     <string name="voice_nothing_found">Niets gevonden voor ‘%1$s’.</string>
+    <string name="voice_found_not_playable">‘%1$s’ gevonden, maar dit kan nu niet worden afgespeeld.</string>
     <string name="voice_nothing_to_play">Niets gevonden om af te spelen.</string>
     <string name="playlist_missing_on_server">Niet op %1$s</string>
     <plurals name="playlist_unknown_songs">

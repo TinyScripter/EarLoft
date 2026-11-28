@@ -506,6 +506,7 @@
     <string name="playlist_delete_text_server">”%1$s” poistetaan myös palvelimelta %2$s.</string>
     <string name="playlist_empty">Ei vielä kappaleita. Lisää niitä kappaleen valikosta.</string>
     <string name="voice_nothing_found">Ei tuloksia haulle ”%1$s”.</string>
+    <string name="voice_found_not_playable">”%1$s” löytyi, mutta sitä ei voi toistaa juuri nyt.</string>
     <string name="voice_nothing_to_play">Toistettavaa ei löytynyt.</string>
     <string name="playlist_missing_on_server">Ei palvelimella %1$s</string>
     <plurals name="playlist_unknown_songs">

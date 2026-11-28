@@ -506,6 +506,7 @@
     <string name="playlist_delete_text_server">»%1$s« slettes også på %2$s.</string>
     <string name="playlist_empty">Ingen sange endnu. Tilføj nogle via sangmenuen.</string>
     <string name="voice_nothing_found">Intet fundet for »%1$s«.</string>
+    <string name="voice_found_not_playable">»%1$s« fundet, men kan ikke afspilles lige nu.</string>
     <string name="voice_nothing_to_play">Der blev ikke fundet noget at afspille.</string>
     <string name="playlist_missing_on_server">Ikke på %1$s</string>
     <plurals name="playlist_unknown_songs">

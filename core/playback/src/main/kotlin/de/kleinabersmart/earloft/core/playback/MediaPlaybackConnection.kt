@@ -1,6 +1,5 @@
 package de.kleinabersmart.earloft.core.playback
 
-import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionCommand
 import android.os.Bundle
 import android.content.ComponentName
@@ -242,14 +241,14 @@ class MediaPlaybackConnection @Inject constructor(
         playSetItems()
     }
 
-    override suspend fun playFromSearch(query: String): Boolean = withContext(Dispatchers.Main.immediate) {
+    override suspend fun playFromSearch(query: String): VoicePlay = withContext(Dispatchers.Main.immediate) {
         useController {
             // One command: the session sets, prepares and plays only if the target can be started. Sent one by one, a rejected
             // `setMediaItem` left the old queue, and the `play` after it continued that (review5 P5).
             val result = sendCustomCommand(SessionCommand(ACTION_PLAY_FROM_SEARCH, Bundle.EMPTY), Bundle().apply { putString(EXTRA_VOICE_QUERY, query) })
                 .await()
-            result.resultCode == SessionResult.RESULT_SUCCESS
-        } ?: false
+            voicePlayOf(result.resultCode)
+        } ?: VoicePlay.NOTHING_FOUND
     }
 
     override suspend fun playBook(bookId: Long, startPositionMs: Long?): PreparedBook? {

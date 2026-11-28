@@ -10,6 +10,7 @@ import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.core.playback.PlaybackConnectionBindings
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.SavedMusicQueue
+import de.kleinabersmart.earloft.core.playback.VoicePlay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,9 +47,9 @@ class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
     override fun play(songs: List<Song>, startIndex: Int, shuffle: Boolean) =
         record(Command.Play(songs.map { it.id }, startIndex, shuffle))
 
-    override suspend fun playFromSearch(query: String): Boolean {
+    override suspend fun playFromSearch(query: String): VoicePlay {
         record(Command.PlayFromSearch(query))
-        return true
+        return VoicePlay.PLAYING
     }
 
     override suspend fun playBook(bookId: Long, startPositionMs: Long?): PreparedBook? {

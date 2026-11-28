@@ -506,6 +506,7 @@
     <string name="playlist_delete_text_server">”%1$s” raderas även på %2$s.</string>
     <string name="playlist_empty">Inga låtar än. Lägg till några via låtmenyn.</string>
     <string name="voice_nothing_found">Inga resultat för ”%1$s”.</string>
+    <string name="voice_found_not_playable">”%1$s” hittades, men kan inte spelas upp just nu.</string>
     <string name="voice_nothing_to_play">Hittade inget att spela.</string>
     <string name="playlist_missing_on_server">Inte på %1$s</string>
     <plurals name="playlist_unknown_songs">

@@ -554,6 +554,7 @@
     <string name="playlist_delete_text_server">Playlist „%1$s“ bude smazán i na serveru %2$s.</string>
     <string name="playlist_empty">Zatím žádné skladby. Přidejte je z nabídky skladby.</string>
     <string name="voice_nothing_found">Pro „%1$s“ nebylo nic nalezeno.</string>
+    <string name="voice_found_not_playable">„%1$s“ nalezeno, ale teď nejde přehrát.</string>
     <string name="voice_nothing_to_play">Nebylo nalezeno nic k přehrání.</string>
     <string name="playlist_missing_on_server">Není na serveru %1$s</string>
     <plurals name="playlist_unknown_songs">

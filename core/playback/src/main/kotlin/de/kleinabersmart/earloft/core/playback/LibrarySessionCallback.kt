@@ -54,6 +54,16 @@ internal const val ACTION_START_MIX = "de.kleinabersmart.earloft.START_MIX"
  * `setMediaItem` left the old queue, and the `play` after it continued that (review G10, review5 P5).
  */
 internal const val ACTION_PLAY_FROM_SEARCH = "de.kleinabersmart.earloft.PLAY_FROM_SEARCH"
+
+/** Found, but it can't be started right now (not downloaded while offline, an expired login); answered with `ERROR_INVALID_STATE`. */
+internal class NotPlayableException(message: String) : UnsupportedOperationException(message)
+
+/** The app's reading of the session's answer to [ACTION_PLAY_FROM_SEARCH]. */
+internal fun voicePlayOf(resultCode: Int): VoicePlay = when (resultCode) {
+    SessionResult.RESULT_SUCCESS -> VoicePlay.PLAYING
+    SessionError.ERROR_INVALID_STATE -> VoicePlay.NOT_PLAYABLE
+    else -> VoicePlay.NOTHING_FOUND
+}
 internal const val EXTRA_VOICE_QUERY = "query"
 
 /**
@@ -290,7 +300,9 @@ internal class LibrarySessionCallback(
                     voiceItems(player, args.getString(EXTRA_VOICE_QUERY).orEmpty(), C.TIME_UNSET)
                 } catch (e: UnsupportedOperationException) {
                     Log.i(TAG, "Voice request from the app not started: ${e.message}")
-                    return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+                    // Found but not startable (offline, login expired) says so instead of "nothing found" (review5 8.12).
+                    val error = if (e is NotPlayableException) SessionError.ERROR_INVALID_STATE else SessionError.ERROR_BAD_VALUE
+                    return@future SessionResult(error)
                 }
                 // Like Media3 does after `onSetMediaItems`.
                 if (start.startIndex == C.INDEX_UNSET) {
@@ -390,7 +402,7 @@ internal class LibrarySessionCallback(
         }
         val resolved = resolve(player, requested)
         // Nothing playable: keep the queue instead of clearing it.
-        if (resolved.isEmpty()) throw UnsupportedOperationException("None of the tracks is playable")
+        if (resolved.isEmpty()) throw NotPlayableException("None of the tracks is playable")
         val start = queueStart(resolved.map { it.first }, requestedStart, startPositionMs)
         return windowed(player, resolved.map { it.second }, start.index, start.positionMs, player.shuffleModeEnabled)
     }
@@ -481,7 +493,7 @@ internal class LibrarySessionCallback(
         val prepared = withContext(Dispatchers.IO) { bookPlaybackSource.prepare(bookId) }
         if (prepared == null) {
             onSpokenNotPlayable(bookId)
-            throw UnsupportedOperationException("Book $bookId not playable")
+            throw NotPlayableException("Book $bookId not playable")
         }
         val start = prepared.timeline.locate(prepared.startPositionMs)
         // Shuffle and repeat go off only once the book is in the player (PlaybackService): here the music is still loaded, and
