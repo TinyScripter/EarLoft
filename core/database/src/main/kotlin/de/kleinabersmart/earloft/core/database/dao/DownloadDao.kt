@@ -219,6 +219,10 @@ interface DownloadDao {
     @Query("UPDATE downloads SET pinnedBy = :to WHERE pinnedBy = :from")
     suspend fun repinAll(from: String, to: String)
 
+    /** Hands the downloads [sourceUids] to the rule [to], whoever had them before. */
+    @Query("UPDATE downloads SET pinnedBy = :to WHERE sourceUid IN (:sourceUids)")
+    suspend fun repin(sourceUids: List<String>, to: String)
+
     // --- Download an entire server ---
 
     @Query("SELECT DISTINCT songId FROM song_sources WHERE sourceId = :sourceId")

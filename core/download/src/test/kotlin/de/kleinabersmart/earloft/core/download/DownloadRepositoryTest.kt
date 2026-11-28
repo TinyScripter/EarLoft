@@ -156,6 +156,14 @@ class DownloadRepositoryTest {
         repository.downloadPlaylist(playlistId)
         assertEquals("playlist:$playlistId", library.db.downloadDao().get("home:a")!!.pinnedBy)
 
+        // review5 8.12: the favorite isn't deleted but goes back to its automation, only the other song goes.
+        repository.removePlaylist(playlistId)
+        assertEquals(listOf("home:a"), library.db.downloadDao().getAll().map { it.sourceUid })
+        assertEquals("favorites", library.db.downloadDao().get("home:a")!!.pinnedBy)
+
+        // With the automation off, the playlist takes it along.
+        repository.downloadPlaylist(playlistId)
+        repository.reconcileFavoriteDownloads(enabled = false)
         repository.removePlaylist(playlistId)
         assertTrue(library.db.downloadDao().getAll().isEmpty())
 
@@ -163,6 +171,29 @@ class DownloadRepositoryTest {
         repository.reconcileFavoriteDownloads(enabled = true)
         assertEquals(listOf("home:a"), library.db.downloadDao().getAll().map { it.sourceUid })
         assertEquals("favorites", library.db.downloadDao().get("home:a")!!.pinnedBy)
+    }
+
+    @Test
+    fun `removing a playlist download hands songs of automatic albums and servers back to them`() = runTest {
+        val newest = library.album("Takk")
+        val other = library.album("Valtari")
+        val a = library.song(newest, "A", "home" to "a")
+        val b = library.song(other, "B", "office" to "b")
+        val c = library.song(other, "C", "home" to "c")
+        val playlistId = library.db.playlistDao().insertPlaylist(PlaylistEntity(name = "Mix", updatedAt = 0))
+        library.db.playlistDao().insertEntries(
+            listOf(a, b, c).mapIndexed { i, id -> PlaylistEntryEntity(playlistId = playlistId, songId = id, position = i) },
+        )
+        repository.reconcileAlbumDownloads(listOf(newest), keepFavorites = false)
+        repository.reconcileServerDownloads(setOf("office"))
+        repository.downloadPlaylist(playlistId)
+
+        repository.removePlaylist(playlistId)
+
+        assertEquals(
+            mapOf("home:a" to "auto-albums", "office:b" to "server:office"),
+            library.db.downloadDao().getAll().associate { it.sourceUid to it.pinnedBy },
+        )
     }
 
     @Test

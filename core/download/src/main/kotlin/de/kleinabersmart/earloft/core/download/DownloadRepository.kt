@@ -134,10 +134,55 @@ class DownloadRepository @Inject constructor(
 
     /**
      * Removes the playlist's downloads without excluding its songs from automations: playlists often contain
-     * favorites or automatic albums, so removing a playlist download must not lock them out (review5 P34).
+     * favorites or automatic albums, so removing a playlist download must not lock them out (review5 P34). A song an automation
+     * wants right now isn't deleted either but goes back to it, so it needn't be downloaded again (review5 8.12).
      */
-    suspend fun removePlaylist(playlistId: Long) =
-        remove(playlistDao.getSongIds(playlistId).distinct().chunked(SQLITE_MAX_VARIABLES).flatMap { downloadDao.getForSongs(it) })
+    suspend fun removePlaylist(playlistId: Long) {
+        val songIds = playlistDao.getSongIds(playlistId).distinct()
+        val downloads = songIds.chunked(SQLITE_MAX_VARIABLES).flatMap { downloadDao.getForSongs(it) }
+        val wanted = automationsWanting(songIds)
+        val (kept, removed) = downloads.partition { it.songId in wanted }
+        database.withTransaction {
+            kept.filter { it.pinnedBy != wanted.getValue(it.songId) }
+                .groupBy { wanted.getValue(it.songId) }
+                .forEach { (pin, list) -> list.map { it.sourceUid }.chunked(SQLITE_MAX_VARIABLES).forEach { downloadDao.repin(it, pin) } }
+        }
+        remove(removed)
+    }
+
+    /** The rules the automations last reconciled with ([AutoDownloads]); `null` before the first reconcile. */
+    @Volatile private var favoritesRule: Boolean? = null
+
+    @Volatile private var favoriteArtistsRule = false
+
+    @Volatile private var serverRule: Set<String> = emptySet()
+
+    @Volatile private var autoAlbumsRule: List<Long>? = null
+
+    /**
+     * Of [songIds], those an automation wants right now, with its pin; the strongest wins as in [enqueue] (whole server > newest and
+     * most played albums > favorites). Songs the user removed are left out, as the automations skip them.
+     */
+    private suspend fun automationsWanting(songIds: List<Long>): Map<Long, String> {
+        val wanted = HashMap<Long, String>()
+        if (favoritesRule == true) {
+            val favorites = downloadDao.getFavoriteSongIds(favoriteArtistsRule).toHashSet()
+            songIds.filter { it in favorites }.forEach { wanted[it] = PINNED_FAVORITES }
+        }
+        autoAlbumsRule?.let { albumIds ->
+            val songs = albumIds.flatMapTo(HashSet()) { libraryDao.getSongIdsOfAlbum(it) }
+            songIds.filter { it in songs }.forEach { wanted[it] = PINNED_AUTO_ALBUMS }
+        }
+        val servers = serverRule
+        if (servers.isNotEmpty()) {
+            songIds.chunked(SQLITE_MAX_VARIABLES).flatMap { libraryDao.getPlayableSourcesOfSongs(it) }
+                .filter { it.sourceId in servers }
+                .forEach { wanted[it.songId] = PINNED_SERVER_PREFIX + it.sourceId }
+        }
+        if (wanted.isEmpty()) return wanted
+        val excluded = wanted.keys.toList().chunked(SQLITE_MAX_VARIABLES).flatMapTo(HashSet()) { downloadDao.getExcluded(it) }
+        return wanted - excluded
+    }
 
     /**
      * Removed by the user: the songs are remembered so that no automation brings them back on its next reconcile (previously a
@@ -164,6 +209,8 @@ class DownloadRepository @Inject constructor(
      * stays removed until they download it themselves ([removeByUser]).
      */
     suspend fun reconcileFavoriteDownloads(enabled: Boolean, withArtists: Boolean = false) {
+        favoritesRule = enabled
+        favoriteArtistsRule = withArtists
         if (!enabled) {
             downloadDao.repinAll(PINNED_FAVORITES, PINNED_MANUAL)
             return
@@ -183,6 +230,7 @@ class DownloadRepository @Inject constructor(
      * on the server disappears with its song source anyway.
      */
     suspend fun reconcileServerDownloads(sourceIds: Set<String>) {
+        serverRule = sourceIds
         downloadDao.getPinnedByWithPrefix(PINNED_SERVER_PREFIX)
             .filter { it.removePrefix(PINNED_SERVER_PREFIX) !in sourceIds }
             .forEach { downloadDao.repinAll(it, PINNED_MANUAL) }
@@ -215,6 +263,7 @@ class DownloadRepository @Inject constructor(
      * (now as manual), only the favorites' ones still go to its automation.
      */
     suspend fun reconcileAlbumDownloads(albumIds: List<Long>?, keepFavorites: Boolean, favoriteArtists: Boolean = false) {
+        autoAlbumsRule = albumIds
         if (albumIds == null) {
             if (keepFavorites) downloadDao.repinFavoritesOutsideAlbums(PINNED_AUTO_ALBUMS, PINNED_FAVORITES, emptyList(), favoriteArtists)
             downloadDao.repinAll(PINNED_AUTO_ALBUMS, PINNED_MANUAL)
