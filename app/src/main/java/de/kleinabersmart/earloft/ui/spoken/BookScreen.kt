@@ -78,6 +78,7 @@ import de.kleinabersmart.earloft.ui.components.ShareButton
 import de.kleinabersmart.earloft.ui.components.WatchTarget
 import de.kleinabersmart.earloft.ui.components.WatchToggleButton
 import de.kleinabersmart.earloft.ui.components.groupedItems
+import de.kleinabersmart.earloft.core.data.spoken.BookDownload
 import de.kleinabersmart.earloft.core.download.BookTransfer
 import de.kleinabersmart.earloft.core.download.EpisodeDownloadProgress
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
@@ -141,7 +142,7 @@ fun BookScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text(stringResource(R.string.book_download_delete_title)) },
-            text = { Text(stringResource(R.string.book_download_delete_message, formatBytes(download.bytes))) },
+            text = { Text(stringResource(R.string.book_download_delete_message, formatBytes(bookDownloadBytes(download, transfer)))) },
             confirmButton = {
                 DestructiveTextButton(onClick = {
                     viewModel.removeDownload()
@@ -188,9 +189,10 @@ fun BookScreen(
                 episodeFraction = episodeFraction,
                 onPlay = viewModel::play,
                 onDownload = viewModel::startDownload,
-                onCancelDownload = viewModel::removeDownload,
-                // An episode is small and, as in the episode list, is deleted without confirmation.
-                onDeleteDownload = { if (book.kind == BookKind.EPISODE) viewModel.removeDownload() else confirmDelete = true },
+                // Cancelling a book download deletes all already downloaded files too: ask with the red confirmation, like deleting
+                // (review5 P8). An episode is small and, as in the episode list, is cancelled or deleted without confirmation.
+                onCancelDownload = { if (bookRemovalNeedsConfirmation(book.kind)) confirmDelete = true else viewModel.removeDownload() },
+                onDeleteDownload = { if (bookRemovalNeedsConfirmation(book.kind)) confirmDelete = true else viewModel.removeDownload() },
                 onOpenGroup = onOpenGroup,
                 onUpload = upload::start.takeIf { book.isArdSounds && canUpload },
                 trialNotice = trialFeedId?.let { feedId ->
@@ -432,7 +434,14 @@ internal val DownloadFailure.label: Int
         DownloadFailure.OTHER -> R.string.download_failure_other
     }
 
-/** Download; while downloading cancel, afterwards delete (with confirmation), after an error retry. */
+/** Books (often gigabytes) ask before cancelling or deleting a download; episodes don't (review5 P8). */
+internal fun bookRemovalNeedsConfirmation(kind: BookKind): Boolean = kind != BookKind.EPISODE
+
+/** Bytes freed by cancelling or deleting a book download, including an active partial transfer. */
+internal fun bookDownloadBytes(download: BookDownload, transfer: BookTransfer?): Long =
+    maxOf(download.bytes, transfer?.doneBytes ?: 0L)
+
+/** Download; while downloading cancel (with confirmation for books), afterwards delete (with confirmation), after an error retry. */
 @Composable
 private fun DownloadButton(
     state: TrackDownload,
