@@ -285,6 +285,8 @@ class UserDataBackup @Inject constructor(
             // Likewise bookmarks (review5 P31): one in an episode of a trial subscription kept the restore waiting for good, and it
             // applied again at every change of books, songs or playlists.
             bookmarks = all.bookmarks.filterNot { isOrphanHere(saved, it.serverId) },
+            // And episodes selected for the watch: they would also keep the watch held (review5 8.12).
+            wearBooks = all.wearBooks.filterNot { isOrphanHere(saved, it.serverId) },
             playEvents = saved.playEvents.filterKeys { it !in played }.values.toList(),
             restoredFeeds = saved.podcasts.keys.filter { feedId ->
                 feedId in restored && podcastDao.feed(feedId)?.lastRefreshAt == 0L && podcastDao.episodeCount(feedId) == 0
@@ -987,7 +989,8 @@ class UserDataBackup @Inject constructor(
             }
             val wearBookDeletes = changes.wearBooks.deletes.filter {
                 removedWithArdBook(it.serverId, it.remoteId) ||
-                    BookKey(it.serverId, it.remoteId) !in waitingWearBooks && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
+                    BookKey(it.serverId, it.remoteId) !in waitingWearBooks &&
+                    (bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty() || current.isOrphan(it.serverId))
             }
             val songs = music.resolve((changes.favorites.deletes.map { it.song } + changes.playEvents.deletes.map { it.song }).toSet())
             // Rows without a year that the rows with a year here have replaced (review3 Q13): they match no edition, so the check

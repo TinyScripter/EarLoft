@@ -786,6 +786,19 @@ class UserDataBackupTest {
     }
 
     @Test
+    fun `a watch selection of a deleted trial neither waits nor stays`() = runTest {
+        fillMain()
+        main.wearDao().insertBook(WearBookEntity(book(main, "feed-1", "guid-1"), 100))
+        user.openHelper.writableDatabase.execSQL("INSERT INTO wear_books (serverId, remoteId, addedAt) VALUES ('gone', 'guid-g', 5)")
+        val backup = backupFor(main)
+
+        assertTrue("nothing waits for the gone trial", backup.pendingOf(user.userDataDao().snapshot()).wearBooks.none { it.serverId == "gone" })
+        backup.mirror()
+
+        assertEquals(listOf("feed-1"), user.userDataDao().wearBooks().map { it.serverId })
+    }
+
+    @Test
     fun `a trial that becomes a subscription brings its progress into the backup at once`() = runTest {
         fillMain()
         main.podcastDao().upsertFeed(PodcastFeedEntity("trial", "https://example.org/trial", "Trial", subscribed = false))
