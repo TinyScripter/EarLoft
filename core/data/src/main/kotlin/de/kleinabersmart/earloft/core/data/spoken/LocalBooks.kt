@@ -114,6 +114,7 @@ class LocalBooks @Inject constructor(
     }
 
     private suspend fun store(book: LocalBook, details: LocalBookDetails, generation: Long) {
+        val isNew = dao.bookByRemote(LOCAL_BOOK_SERVER_ID, book.key) == null
         val bookId = dao.upsertBook(
             BookEntity(
                 serverId = LOCAL_BOOK_SERVER_ID,
@@ -148,6 +149,10 @@ class LocalBooks @Inject constructor(
         dao.replaceDetails(bookId, tracks, chapters)
         // The cover is in the file or the folder; if something changed, the cached one is no longer valid.
         covers.invalidate(bookId)
+        if (isNew) {
+            val adopted = dao.adoptDiscBooks(bookId, book.key, tracks, details.durationMs)
+            if (adopted > 0) Log.i(TAG, "Book ${book.key} took over $adopted disc books")
+        }
     }
 
     internal companion object {
