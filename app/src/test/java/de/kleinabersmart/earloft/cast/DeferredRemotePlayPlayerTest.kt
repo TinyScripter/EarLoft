@@ -121,6 +121,8 @@ class DeferredRemotePlayPlayerTest {
         var ids = listOf("a", "b", "c", "d", "e")
         var current = 3
         val seeks = mutableListOf<Int>()
+        val seekPositions = mutableListOf<Long>()
+        val loads = mutableListOf<List<String>>()
 
         override fun getState(): State = State.Builder()
             .setAvailableCommands(Player.Commands.Builder().addAllCommands().build())
@@ -131,7 +133,13 @@ class DeferredRemotePlayPlayerTest {
 
         override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: Int): ListenableFuture<*> {
             seeks += mediaItemIndex
+            seekPositions += positionMs
             current = mediaItemIndex
+            return Futures.immediateVoidFuture()
+        }
+
+        override fun handleSetMediaItems(mediaItems: List<MediaItem>, startIndex: Int, startPositionMs: Long): ListenableFuture<*> {
+            loads += mediaItems.map { it.mediaId }
             return Futures.immediateVoidFuture()
         }
 
@@ -198,6 +206,61 @@ class DeferredRemotePlayPlayerTest {
         shadowOf(Looper.getMainLooper()).idle()
         player.removeMediaItems(0, 3)
         assertEquals(1, clearedBefore)
+    }
+
+    private fun items(vararg ids: String) = ids.map { MediaItem.Builder().setMediaId(it).build() }
+
+    @Test
+    fun `resuming with the receiver's own queue does not reload it`() {
+        val fake = PlaylistPlayer()
+        val player = DeferredRemotePlayPlayer(fake)
+        player.currentMediaItemIndex
+
+        player.setMediaItems(items("a", "b", "c", "d", "e"), 3, 0)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(emptyList<List<String>>(), fake.loads)
+        assertEquals("Already there", emptyList<Int>(), fake.seeks)
+    }
+
+    @Test
+    fun `the receiver's own queue from another item only seeks there`() {
+        val fake = PlaylistPlayer()
+        val player = DeferredRemotePlayPlayer(fake)
+        player.currentMediaItemIndex
+
+        player.setMediaItems(items("a", "b", "c", "d", "e"), 1, 5_000)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(emptyList<List<String>>(), fake.loads)
+        assertEquals(listOf(1), fake.seeks)
+        assertEquals(listOf(5_000L), fake.seekPositions)
+    }
+
+    @Test
+    fun `the receiver's own queue at a clearly different position seeks there`() {
+        val fake = PlaylistPlayer()
+        val player = DeferredRemotePlayPlayer(fake)
+        player.currentMediaItemIndex
+
+        player.setMediaItems(items("a", "b", "c", "d", "e"), 3, 30_000)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(emptyList<List<String>>(), fake.loads)
+        assertEquals(listOf(30_000L), fake.seekPositions)
+    }
+
+    @Test
+    fun `a different queue is loaded`() {
+        val fake = PlaylistPlayer()
+        val player = DeferredRemotePlayPlayer(fake)
+        player.currentMediaItemIndex
+
+        player.setMediaItems(items("a", "b", "x", "d", "e"), 3, 0)
+        player.setMediaItems(items("a", "b", "c", "d"), 3, 0)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(listOf(listOf("a", "b", "x", "d", "e"), listOf("a", "b", "c", "d")), fake.loads)
     }
 
     @Test

@@ -11,6 +11,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.PlayerTransferState
 import androidx.media3.common.util.UnstableApi
+import kotlin.math.abs
 
 /**
  * The cast receiver loads a new queue with `autoplay = playWhenReady`. The app, however, first calls
@@ -85,6 +86,10 @@ internal class DeferredRemotePlayPlayer(
     }
 
     override fun setMediaItems(mediaItems: List<MediaItem>, startIndex: Int, startPositionMs: Long) {
+        if (isRemoteQueue(mediaItems)) {
+            seekWithin(startIndex, startPositionMs)
+            return
+        }
         startLoad()
         reportRemoteQueue(mediaItems, startIndex, startPositionMs)
         super.setMediaItems(mediaItems, startIndex, startPositionMs)
@@ -98,6 +103,25 @@ internal class DeferredRemotePlayPlayer(
             .setCurrentPosition(if (startPositionMs == C.TIME_UNSET) 0 else startPositionMs)
             .build()
         onRemoteQueue(state)
+    }
+
+    /**
+     * Whether [mediaItems] is exactly the receiver's queue. Resuming playback (media button, review5 P15) hands the current titles
+     * back to `setMediaItems`; loading them again would only reload the receiver, and a second "play" moments later loaded them
+     * once more: in between the receiver reported its queue and then briefly none, the factory's load watch took that for a
+     * discarded queue and ended the session (seen on the device, 2026-11-28).
+     */
+    private fun isRemoteQueue(mediaItems: List<MediaItem>): Boolean =
+        deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE && mediaItems.isNotEmpty() && mediaItems.size == mediaItemCount &&
+            mediaItems.indices.all { mediaItems[it].mediaId == getMediaItemAt(it).mediaId }
+
+    /** Instead of reloading the same queue: only where it should start, unless it is already there. */
+    private fun seekWithin(startIndex: Int, startPositionMs: Long) {
+        val index = startIndex.coerceIn(0, mediaItemCount - 1)
+        when {
+            startPositionMs == C.TIME_UNSET -> if (index != currentMediaItemIndex) seekToDefaultPosition(index)
+            index != currentMediaItemIndex || abs(startPositionMs - currentPosition) > SAME_POSITION_MS -> seekTo(index, startPositionMs)
+        }
     }
 
     /** Inside [withoutClearing]: removals tidy up and are no clearing by the user. */
@@ -222,5 +246,8 @@ internal class DeferredRemotePlayPlayer(
 
     private companion object {
         const val LOAD_TIMEOUT_MS = 20_000L
+
+        /** A start position this close to the current one counts as the same (the receiver kept playing in between). */
+        const val SAME_POSITION_MS = 2_000L
     }
 }

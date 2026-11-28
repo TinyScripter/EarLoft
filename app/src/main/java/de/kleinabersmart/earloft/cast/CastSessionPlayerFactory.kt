@@ -460,6 +460,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         fun itemIds() = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
         /** [behindVpn]: the receiver failed on the phone's files because a VPN takes its address into the tunnel. */
         fun rescue(handedOver: PlayerTransferState, behindVpn: Boolean = false) {
+            Log.i(TAG, "Receiver discarded the queue, ending the session")
             queueWatch.stop()
             handOver.rescue = handedOver
             if (behindVpn) {

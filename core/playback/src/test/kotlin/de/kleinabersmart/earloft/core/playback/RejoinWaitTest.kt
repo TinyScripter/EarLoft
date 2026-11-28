@@ -73,6 +73,27 @@ class RejoinWaitTest {
         assertFalse(settled)
     }
 
+    @Test
+    fun `resuming after a finished restore still waits for a rejoined receiver's titles`() = runBlocking {
+        val started = System.nanoTime()
+
+        awaitResumable(FakePlayer(remote = true, items = 0), queueWaitMs = 300) {}
+
+        val waitedMs = (System.nanoTime() - started) / 1_000_000
+        assertTrue("waited $waitedMs ms", waitedMs >= 300)
+    }
+
+    @Test
+    fun `resuming does not wait once the receiver reported its titles`() = runBlocking {
+        var restored = false
+        val started = System.nanoTime()
+
+        awaitResumable(FakePlayer(remote = true, items = 2), queueWaitMs = 10_000) { restored = true }
+
+        assertTrue(restored)
+        assertTrue((System.nanoTime() - started) / 1_000_000 < 5_000)
+    }
+
     private class FakePlayer(private val remote: Boolean, private val items: Int) : SimpleBasePlayer(Looper.getMainLooper()) {
         override fun getState(): State = State.Builder()
             .setDeviceInfo(

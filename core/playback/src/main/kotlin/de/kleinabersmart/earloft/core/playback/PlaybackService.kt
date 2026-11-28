@@ -315,7 +315,7 @@ class PlaybackService : MediaLibraryService() {
             onCarDisconnected = { phoneActions?.onCarDisconnected() },
             onSeekBookTrack = { trackIndex, positionMs -> bookListener.seekToTrack(trackIndex, positionMs) },
         ) {
-            restoreSettled.await()
+            awaitResumable(player, RECEIVER_QUEUE_WAIT_MS) { restoreSettled.await() }
         }
         // Before the first playback: the media card and lock screen load the cover via the CoverProvider.
         callback.grantSystemUiCoverAccess()
@@ -980,6 +980,16 @@ internal suspend fun awaitRejoin(player: Player, queueWaitMs: Long, totalMs: Lon
     if (local || player.mediaItemCount > 0) return local
     val waitedMs = (System.nanoTime() - started) / 1_000_000
     return awaitLocalOrQueued(player, (totalMs - waitedMs).coerceAtLeast(0))
+}
+
+/**
+ * Main thread. Before resuming playback: waits for the restore ([restored]), then up to [queueWaitMs] for the receiver's titles. The
+ * restore may have finished on the phone before the app rejoined the cast session; right after connecting the receiver hasn't
+ * reported its titles yet, and resuming replaced them with the saved queue (seen on the device, 2026-11-28; review5 P15).
+ */
+internal suspend fun awaitResumable(player: Player, queueWaitMs: Long, restored: suspend () -> Unit) {
+    restored()
+    awaitLocalOrQueued(player, queueWaitMs)
 }
 
 /**
