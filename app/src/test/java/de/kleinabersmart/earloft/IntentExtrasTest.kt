@@ -12,12 +12,18 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
+import androidx.activity.ComponentActivity
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import org.robolectric.Robolectric
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** API 32: the last version on which reading one extra unpacks all of them. */
+/** API 32: the last version on which reading one extra unpacks all of them; single tests on API 34, where values stay packed. */
 @Config(application = Application::class, sdk = [32])
 @RunWith(RobolectricTestRunner::class)
 class IntentExtrasTest {
@@ -84,6 +90,39 @@ class IntentExtrasTest {
 
         assertEquals("BOOKS", intent.safeBundleExtra("target")?.getString("mode"))
     }
+
+    @Test
+    @Config(sdk = [34])
+    fun `from API 33 an extra of an unknown class is dropped before the activity's view models read it`() {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            replaceExtras(packed(Bundle().apply { putString(Intent.EXTRA_TEXT, "link"); putParcelable("foreign", Unreadable()) }))
+        }
+        // Reading one extra no longer unpacks the others here.
+        assertEquals("link", Intent(intent).getStringExtra(Intent.EXTRA_TEXT))
+
+        intent.dropUnreadableExtras()
+
+        // `ComponentActivity` hands the extras to every `SavedStateHandle` as default arguments, which reads each value.
+        val activity = Robolectric.buildActivity(ComponentActivity::class.java, intent).setup().get()
+        val handle = ViewModelProvider(activity)[WithState::class.java].handle
+        assertTrue(handle.keys().isEmpty())
+        assertNull(activity.intent.extras)
+        assertEquals(Intent.ACTION_SEND, activity.intent.action)
+    }
+
+    @Test
+    @Config(sdk = [34])
+    fun `from API 33 readable extras stay and reach the view models`() {
+        val intent = Intent(Intent.ACTION_SEND).apply { replaceExtras(packed(Bundle().apply { putString(Intent.EXTRA_TEXT, "link") })) }
+
+        intent.dropUnreadableExtras()
+
+        val activity = Robolectric.buildActivity(ComponentActivity::class.java, intent).setup().get()
+        assertEquals("link", ViewModelProvider(activity)[WithState::class.java].handle.get<String>(Intent.EXTRA_TEXT))
+    }
+
+    /** Like the app's Hilt view models in the activity scope: gets the intent's extras as default arguments. */
+    class WithState(val handle: SavedStateHandle) : ViewModel()
 
     /** [bundle] as it arrives from another app: still packed, unpacked on first access. */
     private fun packed(bundle: Bundle): Bundle {
